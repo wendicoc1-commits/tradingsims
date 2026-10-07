@@ -69,10 +69,10 @@ class ReflectRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Verifikasi API Key saat aplikasi dinyalakan
-    if not os.getenv("OPENAI_API_KEY"):
-        print("[WARNING] OPENAI_API_KEY belum disetel! Harap isi di file .env")
+    if not (os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")):
+        print("[WARNING] API Key belum disetel! Harap isi GROQ_API_KEY atau OPENAI_API_KEY di .env")
     else:
-        print("[INFO] Autonomous Trading Agent Backend siap beroperasi.")
+        print("[INFO] Autonomous Trading Agent Backend siap beroperasi dengan Smart Multi-Provider Rotator.")
     yield
 
 

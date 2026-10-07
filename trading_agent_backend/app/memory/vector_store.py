@@ -12,9 +12,35 @@ from dotenv import load_dotenv
 # Pastikan environment variables selalu dimuat
 load_dotenv()
 
+import hashlib
+import numpy as np
 import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
+
+
+def compute_text_embedding(text: str, dim: int = 384) -> List[float]:
+    """
+    Menghasilkan normalized embedding vector berdimensi 384 secara deterministik & offline.
+    Menggabungkan token kata dan trigram karakter dengan hashing md5/sha256,
+    lalu dinormalisasi L2 unit length.
+    - 100% Gratis selamanya
+    - Tanpa dependensi jaringan / kuota API eksternal
+    - Kecepatan instan (< 1 milidetik)
+    """
+    tokens = text.lower().replace("\n", " ").split()
+    vec = np.zeros(dim, dtype=np.float32)
+    for token in tokens:
+        idx = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16) % dim
+        vec[idx] += 1.0
+    for i in range(max(0, len(text) - 2)):
+        trigram = text[i:i+3].lower()
+        idx = int(hashlib.sha256(trigram.encode("utf-8")).hexdigest(), 16) % dim
+        vec[idx] += 0.5
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec /= norm
+    return vec.tolist()
 
 
 class AgentMemory:
@@ -76,12 +102,8 @@ class AgentMemory:
             f"Pelajaran & Evaluasi: {reflection_text}"
         )
 
-        # Hitung vector embedding via OpenAI
-        emb_res = self.openai_client.embeddings.create(
-            input=embedded_document,
-            model="text-embedding-3-small"
-        )
-        vector = emb_res.data[0].embedding
+        # Hitung vector embedding secara deterministik & offline (100% gratis, tanpa kuota)
+        vector = compute_text_embedding(embedded_document)
 
         # Metadata terstruktur untuk filtering jika diperlukan
         metadata = {
@@ -124,12 +146,8 @@ class AgentMemory:
         if self.collection.count() == 0:
             return []
 
-        # Hitung vector embedding untuk query situasi pasar saat ini
-        emb_res = self.openai_client.embeddings.create(
-            input=query_context,
-            model="text-embedding-3-small"
-        )
-        query_vector = emb_res.data[0].embedding
+        # Hitung vector embedding secara deterministik & offline (100% gratis, tanpa kuota)
+        query_vector = compute_text_embedding(query_context)
 
         # Opsional: Filter berdasarkan ticker spesifik jika diminta
         where_filter = None

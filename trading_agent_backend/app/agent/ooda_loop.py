@@ -13,6 +13,7 @@ from openai import OpenAI
 from app.market_data.idx_fetcher import fetch_idx_ohlcv, format_ohlcv_for_llm
 from app.memory.vector_store import AgentMemory
 from app.agent.prompts import SYSTEM_PROMPT_TRADEMIND, build_ooda_user_prompt
+from app.agent.llm_rotator import smart_rotator
 
 
 class TradeDecision(BaseModel):
@@ -86,27 +87,22 @@ def execute_ooda_loop(
         additional_market_intel=additional_market_intel
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0.2, # Rendah untuk konsistensi kuantitatif & minim halusinasi
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT_TRADEMIND},
-            {"role": "user", "content": user_prompt}
-        ]
+    # Panggil smart_rotator dengan auto-fallback (Groq -> OpenRouter -> OpenAI -> Local Engine)
+    raw_dict, provider_name, model_name = smart_rotator.generate_json_decision(
+        system_prompt=SYSTEM_PROMPT_TRADEMIND,
+        user_prompt=user_prompt,
+        ticker=clean_ticker,
+        market_summary=summary,
     )
 
-    raw_json_str = response.choices[0].message.content or "{}"
-    
     try:
-        parsed_data = json.loads(raw_json_str)
-        # Validasi struktur melalui Pydantic
-        decision = TradeDecision(**parsed_data)
+        decision = TradeDecision(**raw_dict)
     except Exception as parse_err:
-        raise ValueError(
-            f"[DECIDE ERROR] Model tidak mengembalikan JSON yang valid: {parse_err}. "
-            f"Raw Content: {raw_json_str}"
-        )
+        # Fallback lokal jika schema JSON tidak lolos Pydantic
+        fallback_data = smart_rotator._generate_algorithmic_fallback(clean_ticker, summary)
+        decision = TradeDecision(**fallback_data)
+        provider_name = "LocalEngine"
+        model_name = "Algorithmic-Safe-Rule"
 
     # ─────────────────────────────────────────────────────────────────────────
     # TAHAP 4: ACT / RETURN ENRICHED PAYLOAD
@@ -117,5 +113,6 @@ def execute_ooda_loop(
         "market_snapshot": summary,
         "memories_recalled_count": len(recalled_memories),
         "decision": decision.model_dump(),
-        "model_used": "gpt-4o",
+        "provider_used": provider_name,
+        "model_used": model_name,
     }
