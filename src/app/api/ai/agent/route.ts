@@ -58,3 +58,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const action = req.nextUrl.searchParams.get('action') || 'status';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const response = await fetch(`${PYTHON_AGENT_URL}/`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const isOnline = response.ok;
+      return NextResponse.json({
+        status: isOnline ? 'online' : 'unreachable',
+        backendUrl: PYTHON_AGENT_URL,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      clearTimeout(timeout);
+      return NextResponse.json({
+        status: 'offline',
+        backendUrl: PYTHON_AGENT_URL,
+        message: 'Python Backend Standby at port 8000',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

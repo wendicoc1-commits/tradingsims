@@ -501,7 +501,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       const newPurchaseCost = tradeValue + brokerFee
 
       const newAvgPrice = isCrypto
-        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(4))
+        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(execPrice < 0.01 ? 8 : 4))
         : Math.round((existingTotalCost + newPurchaseCost) / newTotalShares)
 
       const unrealizedPL = isCrypto
@@ -550,7 +550,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         peakPrice: execPrice,
         trailingStopPct: isCrypto ? 6 : 4, // 6% untuk volatilitas kripto, 4% untuk saham
         trailingStopPrice: isCrypto
-          ? Number((execPrice * 0.94).toFixed(4))
+          ? Number((execPrice * 0.94).toFixed(execPrice < 0.01 ? 8 : 4))
           : Math.round(execPrice * 0.96),
         validityType: params.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
@@ -856,7 +856,8 @@ export const usePortfolioStore = create<PortfolioState>()(
 
     const existing = holdings[existingHoldingIndex]
     const availableLots = isCrypto ? (existing.cryptoUnits ?? existing.lots) : existing.lots
-    if (availableLots < lots) {
+    const isInsufficient = isCrypto ? (availableLots + 0.0000001 < lots) : (availableLots < lots)
+    if (isInsufficient) {
       return {
         order: null,
         error: `Jumlah saldo tidak mencukupi. Anda hanya memiliki ${availableLots} ${isCrypto ? 'koin' : 'lot'} ${cleanSym}.`,
@@ -923,7 +924,9 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
 
     let updatedHoldings: PortfolioHolding[]
-    const remainingLots = availableLots - lots
+    const remainingLots = isCrypto
+      ? (Math.abs(availableLots - lots) < 0.000001 ? 0 : Math.max(0, availableLots - lots))
+      : availableLots - lots
 
     if (remainingLots <= 0.000001) {
       // Jika seluruh aset terjual habis
@@ -1005,7 +1008,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         const peakPrice = Math.max(holding.peakPrice || holding.avgPrice || newPrice, newPrice)
         const trailPct = holding.trailingStopPct || (isCrypto ? 6 : 4)
         const calculatedTrailingPrice = isCrypto
-          ? Number((peakPrice * (1 - trailPct / 100)).toFixed(4))
+          ? Number((peakPrice * (1 - trailPct / 100)).toFixed(peakPrice < 0.01 ? 8 : 4))
           : Math.round(peakPrice * (1 - trailPct / 100))
         const trailingStopPrice = Math.max(holding.trailingStopPrice || 0, calculatedTrailingPrice)
 
@@ -1134,7 +1137,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     const totalShares = holding.shares || (holding.lots * SHARES_PER_LOT)
     const totalDividend = totalShares * dps
     const currentPrice = holding.currentPrice || holding.avgPrice || 1000
-    const costPerLot = currentPrice * SHARES_PER_LOT
+    const costPerLot = Math.max(1, currentPrice * SHARES_PER_LOT)
 
     const newLots = Math.floor(totalDividend / costPerLot)
     const costUsed = newLots * costPerLot
@@ -1216,7 +1219,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         const totalShares = h.shares || (h.lots * SHARES_PER_LOT)
         const totalDividend = totalShares * divInfo.dps
         const currentPrice = h.currentPrice || h.avgPrice || 1000
-        const costPerLot = currentPrice * SHARES_PER_LOT
+        const costPerLot = Math.max(1, currentPrice * SHARES_PER_LOT)
 
         const newLots = Math.floor(totalDividend / costPerLot)
         const costUsed = newLots * costPerLot

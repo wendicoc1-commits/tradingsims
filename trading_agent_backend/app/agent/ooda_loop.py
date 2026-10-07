@@ -45,8 +45,6 @@ def execute_ooda_loop(
     4. ACT: Mengembalikan payload keputusan JSON siap eksekusi.
     """
     memory = memory_store or agent_memory
-    client = openai_client or OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
     clean_ticker = ticker.replace(".JK", "").strip().upper()
 
     # ─────────────────────────────────────────────────────────────────────────
