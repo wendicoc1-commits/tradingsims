@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { HedgeFundCommitteeReport, HedgeFundAgentVote } from '@/lib/hedgefund/types';
 import { usePortfolioStore } from '@/store';
+import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
 
 interface SearchableStock {
   symbol: string;
@@ -260,6 +261,13 @@ export default function HedgeFundCommitteeView() {
     if (!report) return;
     const plan = report.executionPlan;
     if (plan.action.includes('BUY')) {
+      const isIndo = isIndonesianStock(report.symbol);
+      const mCheck = isIndo ? checkIDXMarketStatus() : null;
+      if (isIndo && mCheck && !mCheck.isOpen) {
+        alert(`⛔ Order Beli Saham BEI Ditolak di Luar Jam Bursa!\n\n${mCheck.message}\n${mCheck.nextOpenNotice}\n\nBot dilarang membeli saham BEI di luar jam perdagangan resmi (Senin–Jumat 09:00–16:00 WIB). Kripto dan saham luar negeri bebas trading 24 jam.`);
+        return;
+      }
+
       const res = placeBuyOrder({
         symbol: report.symbol.endsWith('.JK') ? report.symbol : `${report.symbol}.JK`,
         displaySymbol: report.symbol.replace('.JK', ''),

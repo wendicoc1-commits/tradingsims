@@ -24,6 +24,7 @@ import {
 import { generateBullBearDebate, DebateResult } from '@/lib/hedgefund/debateEngine';
 import { usePortfolioStore } from '@/store';
 import CompanyLogo from '@/components/common/CompanyLogo';
+import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
 
 const TICKER_CATEGORIES = {
   ALL: 'SEMUA',
@@ -89,6 +90,13 @@ export default function BullBearDebateArena({ initialSymbol = 'BBCA' }: { initia
     if (executedOrder) return;
     const isBuy = debate.winner === 'BULL';
     if (!isBuy) return;
+
+    const isIndo = isIndonesianStock(debate.symbol);
+    const mCheck = isIndo ? checkIDXMarketStatus() : null;
+    if (isIndo && mCheck && !mCheck.isOpen) {
+      alert(`⛔ Order Beli Saham BEI Ditolak di Luar Jam Bursa!\n\n${mCheck.message}\n${mCheck.nextOpenNotice}\n\nBot dilarang membeli saham BEI di luar jam perdagangan resmi (Senin–Jumat 09:00–16:00 WIB). Kripto dan saham global bebas aktif 24 jam.`);
+      return;
+    }
 
     // Buy 10 lots in paper trading
     const res = placeBuyOrder({

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import CompanyLogo from '@/components/common/CompanyLogo';
+import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
 
 interface AlphaBenchmarkModel {
   id: string;
@@ -121,6 +122,18 @@ export default function AutonomousPaperTradingDesk() {
   }, [autoTradingEnabled]);
 
   const handleSimulateQuickTrade = (symbol: string, price: number) => {
+    const isIndo = isIndonesianStock(symbol);
+    const mCheck = isIndo ? checkIDXMarketStatus() : null;
+    const now = new Date().toLocaleTimeString('id-ID');
+
+    if (isIndo && mCheck && !mCheck.isOpen) {
+      setAuditLog((prev) => [
+        `${now} • [ORDER DITOLAK] ${symbol}: ${mCheck.message} Bot dilarang membeli saham BEI di luar jam bursa (09:00–16:00 WIB). Kripto dan saham global bebas aktif 24 jam.`,
+        ...prev.slice(0, 8),
+      ]);
+      return;
+    }
+
     const res = placeBuyOrder({
       symbol: symbol.endsWith('.JK') ? symbol : `${symbol}.JK`,
       displaySymbol: symbol.replace('.JK', ''),
@@ -129,7 +142,6 @@ export default function AutonomousPaperTradingDesk() {
       lots: 5,
       orderType: 'MARKET',
     });
-    const now = new Date().toLocaleTimeString('id-ID');
     if (res.order) {
       setAuditLog((prev) => [
         `${now} • [ORDER EXECUTED] Bought 5 Lots ${symbol} @ Rp ${price.toLocaleString('id-ID')}`,

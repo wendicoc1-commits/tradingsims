@@ -1939,7 +1939,20 @@ export default function VirtualAgentOfficeView() {
     const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(cleanSym);
     const isIDR = !isCrypto;
 
-    // Jam Bursa Efek Indonesia (IDX) bersifat informatif dalam mode simulator paper trading (eksekusi 24/7)
+    // ── ATURAN STRICT JAM BURSA BEI ──
+    // Saham BEI (Indonesia): Bot DILARANG membeli di luar jam bursa resmi (Senin–Jumat 09:00–16:00 WIB)
+    // Kripto dan Saham Luar Negeri: Bebas trading kapan saja (24/7/365 nonstop)
+    const isBEI = isIDR && isIndonesianStock(cleanSym);
+    if (isBEI) {
+      const marketCheck = checkIDXMarketStatus();
+      if (!marketCheck.isOpen) {
+        setOrderResult({
+          ok: false,
+          msg: `⛔ Order Beli Saham BEI Ditolak di Luar Jam Bursa: ${marketCheck.message} ${marketCheck.nextOpenNotice} Bot dilarang membeli saham BEI di luar jam bursa (09:00–16:00 WIB). Kripto dan saham global bebas aktif 24 jam.`,
+        });
+        return;
+      }
+    }
 
     const entryPrice = isIDR
       ? roundTick(sz.entry || intel.currentPrice || 500)
@@ -2021,6 +2034,7 @@ export default function VirtualAgentOfficeView() {
       takeProfitPrice: tpPrice,
       stopLossPrice: stopPrice,
       validityType: 'DAY',
+      source: 'AI_AGENT',
     });
 
     if (res.error) {

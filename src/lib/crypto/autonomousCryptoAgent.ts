@@ -352,6 +352,7 @@ export async function runAutonomousCryptoAgentCycle(
           exchangeRate,
           takeProfitPrice: topPick.signal.takeProfit,
           stopLossPrice: topPick.signal.stopLoss,
+          source: 'AI_AGENT',
         });
 
         if (res.order) {

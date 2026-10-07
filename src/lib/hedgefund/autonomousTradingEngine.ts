@@ -14,7 +14,7 @@ import { scanUniverseForTopAlpha, type StockAlphaEvaluation } from './autonomous
 import { computePositionSizing, roundTick, portfolioNav, type LiveQuote, type NewsItem, type PortfolioSnapshot } from './deskReports';
 import { getGroundedStockIntelligence } from '../agents/groundedStockIntelligence';
 import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
-import { checkIDXMarketStatus } from '../market/marketHours';
+import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
 
 /**
  * Menjalankan satu siklus penuh otonom:
@@ -381,9 +381,26 @@ export async function runAutonomousAgentCycle(
     const currentAssetExposure = exposureOf(cleanSym);
     const isAlreadySufficientlyAllocated = isAllocated(cleanSym);
 
-    // Status jam bursa BEI (hanya informatif; tidak memblokir order di mode simulator agar pengujian AI berjalan 24/7)
-    const isTargetIDX = target.currency === 'IDR';
+    // ── ATURAN STRICT JAM BURSA BEI ──
+    // Saham BEI (Indonesia): Bot DILARANG membeli saham BEI di luar jam perdagangan resmi (Senin–Jumat 09:00–16:00 WIB)
+    // Kripto dan Saham Luar Negeri: Bebas trading kapan saja (24/7/365 nonstop)
+    const isTargetIDX = (target.currency === 'IDR' || isIndonesianStock(target.symbol)) && !target.symbol.endsWith('USDT');
     const idxMarketCheck = isTargetIDX ? checkIDXMarketStatus() : null;
+
+    if (isTargetIDX && idxMarketCheck && !idxMarketCheck.isOpen) {
+      if (Math.random() < 0.25) {
+        aiStore.logAction({
+          type: 'RISK_GATE',
+          symbol: target.symbol,
+          agentId: 'head_trader',
+          agentName: 'Gilang Ramadhan (Head of Execution & Flow)',
+          agentEmoji: '⚡',
+          title: `Eksekusi Ditahan: Bursa BEI Tutup (${target.symbol})`,
+          details: `Order beli ${target.symbol} ditunda karena ${idxMarketCheck.message} ${idxMarketCheck.nextOpenNotice} Bot dilarang membeli saham BEI di luar jam perdagangan aktif (Senin–Jumat 09:00–16:00 WIB). Kripto dan saham luar negeri tetap bebas aktif 24 jam.`,
+        });
+      }
+      return;
+    }
 
     if (!isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
@@ -456,6 +473,7 @@ export async function runAutonomousAgentCycle(
           takeProfitPrice: sizing.takeProfit,
           stopLossPrice: sizing.stop,
           validityType: 'GTC',
+          source: 'AI_AGENT',
         });
 
         if (res.order) {

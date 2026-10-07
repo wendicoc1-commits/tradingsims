@@ -174,6 +174,7 @@ export interface OrderParams {
   currency?: 'IDR' | 'USDT' | 'USD'
   cryptoUnits?: number
   exchangeRate?: number
+  source?: 'AI_AGENT' | 'USER' | string
 }
 
 export interface PortfolioState {
@@ -381,6 +382,18 @@ export const usePortfolioStore = create<PortfolioState>()(
       ? `${cleanSym}USDT`
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
     const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
+
+    // Validasi Jam Bursa BEI: Bot dilarang membeli saham BEI di luar jam bursa (Senin–Jumat 09:00–16:00 WIB)
+    // Kripto dan Saham Global bebas aktif 24 jam nonstop
+    if (params.source === 'AI_AGENT' && isIDX) {
+      const marketCheck = checkIDXMarketStatus()
+      if (!marketCheck.isOpen) {
+        return {
+          order: null,
+          error: `Bot dilarang membeli saham BEI di luar jam perdagangan bursa (09:00–16:00 WIB). ${marketCheck.message}`,
+        }
+      }
+    }
 
     let execPrice = price
     // Validasi & sinkronisasi fraksi harga resmi BEI jika saham Indonesia (tidak memblokir jam di mode simulator agar latihan & AI agent bisa berjalan 24/7)

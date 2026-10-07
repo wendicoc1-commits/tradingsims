@@ -204,24 +204,38 @@ export function isIDXMarketOpen(customDate = new Date()): boolean {
 }
 
 /**
- * Cek apakah aset tertentu merupakan saham Indonesia (IDX)
+ * Cek apakah aset tertentu merupakan saham Indonesia (IDX / BEI)
  */
 export function isIndonesianStock(symbol: string): boolean {
   if (!symbol) return false;
   const s = symbol.trim().toUpperCase();
-  // Kecualikan pair kripto umum
+
+  // Kecualikan pair kripto (kripto berjalan 24/7/365)
   const cryptoList = [
     'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX',
-    'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX'
+    'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER',
+    'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON', 'UNI', 'LTC', 'BCH'
   ];
   if (cryptoList.includes(s.replace(/USDT$/i, '')) || s.endsWith('USDT')) {
     return false;
   }
-  // Kecualikan saham US
-  const usList = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META'];
-  if (usList.includes(s)) {
+
+  // Kecualikan saham US & Global (saham luar negeri bebas trading)
+  const usList = [
+    'AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'GOOG', 'META',
+    'NFLX', 'AMD', 'INTC', 'BABA', 'PLTR', 'COIN', 'SPY', 'QQQ',
+    'DIS', 'NKE', 'JNJ', 'JPM', 'V', 'MA', 'WMT', 'XOM', 'BA', 'UBER',
+    'ABNB', 'ARM', 'SMCI', 'TSM', 'CRM', 'ORCL', 'QCOM', 'PYPL', 'SPOT'
+  ];
+  if (usList.includes(s) || s.endsWith('.US') || s.endsWith('.O')) {
     return false;
   }
-  // Saham Indonesia berakhiran .JK atau 4 huruf kapital (misal BBCA, BMRI)
-  return s.endsWith('.JK') || /^[A-Z]{4}$/.test(s);
+
+  // Saham Indonesia berakhiran .JK
+  if (s.endsWith('.JK')) {
+    return true;
+  }
+
+  // Kode ticker 4 huruf kapital saham BEI (misal BBCA, BMRI, ASII, AMMN)
+  return /^[A-Z]{4}$/.test(s) && !usList.includes(s) && !cryptoList.includes(s);
 }
