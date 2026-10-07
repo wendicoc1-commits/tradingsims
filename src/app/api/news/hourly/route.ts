@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { generateHourlyNewsFeed } from '@/lib/hourlyNewsEngine';
 import { getGlobalCrawledNews, CrawledArticle } from '@/lib/crawler/financialCrawlerService';
 import { DisplayArticle } from '@/lib/stockNewsService';
 
@@ -9,68 +8,67 @@ export const revalidate = 0;
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const hourParam = searchParams.get('hour');
-    const targetHour = hourParam !== null ? parseInt(hourParam, 10) : undefined;
+    const limit = parseInt(searchParams.get('limit') || '35', 10);
+    const search = searchParams.get('search') || '';
 
-    const baseData = generateHourlyNewsFeed(targetHour);
+    // Fetch real live crawled articles from global financial portals & RSS
+    let liveArticles: DisplayArticle[] = [];
+    const crawlResult = await getGlobalCrawledNews({ limit, search, force: false });
 
-    // Fetch live crawled articles from global financial portals
-    let liveCrawled: DisplayArticle[] = [];
-    try {
-      const crawlResult = await getGlobalCrawledNews({ limit: 25 });
-      if (crawlResult?.articles && crawlResult.articles.length > 0) {
-        liveCrawled = crawlResult.articles.map((c: CrawledArticle, idx: number) => {
-          const firstTicker = c.cashtags[0] || (c.region === 'IDX' ? 'IHSG' : 'SPX');
-          const flag = c.region === 'IDX' ? '🇮🇩' : c.region === 'US' ? '🇺🇸' : c.region === 'ASIA' ? '🌏' : '🌍';
+    if (crawlResult?.articles && crawlResult.articles.length > 0) {
+      liveArticles = crawlResult.articles.map((c: CrawledArticle, idx: number) => {
+        const firstTicker = c.cashtags[0] || (c.region === 'IDX' ? 'IHSG' : 'SPX');
+        const flag = c.region === 'IDX' ? '🇮🇩' : c.region === 'US' ? '🇺🇸' : c.region === 'ASIA' ? '🌏' : '🌍';
 
-          return {
-            id: `crawled-${c.id || idx}`,
-            wireCode: `LIVE ${c.source.slice(0, 10).toUpperCase()}`,
-            ticker: firstTicker,
-            tickers: c.cashtags.length > 0 ? c.cashtags : [firstTicker],
-            flag,
-            title: c.title,
-            summary: c.summary,
-            sentiment: c.sentiment,
-            sentimentScore: c.sentiment === 'BULLISH' ? 8 : c.sentiment === 'BEARISH' ? -7 : 0,
-            source: c.source,
-            date: c.publishedAt,
-            relativeTime: c.timeAgo,
-            period: 'TODAY',
-            category: c.region === 'IDX' ? 'Korporasi & M&A' : 'Macro & Moneter',
-            urgency: 'FLASH',
-            byline: `${c.source} Global Web Crawler Desk`,
-            takeaways: [
-              `Sumber resmi: ${c.source}`,
-              `Wilayah pasar: ${c.region}`,
-              `Sentimen terdeteksi: ${c.sentiment}`,
-            ],
-            body: [
-              c.summary,
-              `Artikel asli dipublikasikan oleh ${c.source}. Anda dapat membaca berita selengkapnya langsung di tautan sumber resmi.`,
-            ],
-            marketImpact: c.sentiment === 'BULLISH' ? 'Positif bagi sentimen pasar' : c.sentiment === 'BEARISH' ? 'Waspadai tekanan jual' : 'Dampak netral',
-            isBloomberg: false,
-            link: c.link,
-            url: c.link,
-          } as DisplayArticle;
-        });
-      }
-    } catch (e) {
-      console.warn('Hourly news: crawler merge error', e);
+        return {
+          id: `live-${c.id || idx}`,
+          wireCode: `LIVE ${c.source.slice(0, 10).toUpperCase()}`,
+          ticker: firstTicker,
+          tickers: c.cashtags.length > 0 ? c.cashtags : [firstTicker],
+          flag,
+          title: c.title,
+          summary: c.summary,
+          sentiment: c.sentiment,
+          sentimentScore: c.sentiment === 'BULLISH' ? 8 : c.sentiment === 'BEARISH' ? -7 : 0,
+          source: c.source,
+          date: c.publishedAt,
+          relativeTime: c.timeAgo,
+          period: 'TODAY',
+          category: c.region === 'IDX' ? 'Korporasi & M&A' : 'Macro & Moneter',
+          urgency: 'FLASH',
+          byline: `${c.source} Live Wire Desk`,
+          takeaways: [
+            `Sumber resmi: ${c.source}`,
+            `Wilayah pasar: ${c.region}`,
+            `Sentimen terdeteksi: ${c.sentiment}`,
+          ],
+          body: [
+            c.summary,
+            `Artikel dipublikasikan secara riil oleh ${c.source}. Buka tautan untuk membaca analisis mendalam di situs penerbit resmi.`,
+          ],
+          marketImpact:
+            c.sentiment === 'BULLISH'
+              ? 'Katalis positif bagi sentimen pasar'
+              : c.sentiment === 'BEARISH'
+              ? 'Waspadai tekanan jual atau aksi ambil untung'
+              : 'Dampak pasar berimbang / netral',
+          isBloomberg: false,
+          link: c.link,
+          url: c.link,
+        } as DisplayArticle;
+      });
     }
-
-    const mergedArticles = [...liveCrawled, ...baseData.articles];
 
     return NextResponse.json(
       {
         success: true,
         meta: {
-          ...baseData.meta,
-          crawledCount: liveCrawled.length,
+          timestamp: new Date().toISOString(),
+          sources: crawlResult?.status?.activeSources || ['Google News Finance', 'Portal IDX', 'Yahoo Finance RSS'],
+          crawledCount: liveArticles.length,
         },
-        totalArticles: mergedArticles.length,
-        articles: mergedArticles,
+        totalArticles: liveArticles.length,
+        articles: liveArticles,
       },
       {
         headers: {
@@ -82,10 +80,9 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to fetch hourly news feed',
+        error: error.message || 'Failed to fetch real-time news feed',
       },
       { status: 500 }
     );
   }
 }
-

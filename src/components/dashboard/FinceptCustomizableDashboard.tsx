@@ -219,6 +219,9 @@ export default function FinceptCustomizableDashboard() {
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const [dragOverWidgetId, setDragOverWidgetId] = useState<string | null>(null);
 
+  // ── Mobile First Tab State ──
+  const [mobileTab, setMobileTab] = useState<'chart' | 'order' | 'portfolio' | 'secondary'>('chart');
+
   // ── Workspace Pro Features State ──
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHotkeysModalOpen, setIsHotkeysModalOpen] = useState(false);
@@ -1222,8 +1225,89 @@ export default function FinceptCustomizableDashboard() {
         ))}
       </div>
 
-      {/* ── Main Dynamic Grid Canvas (Multi-widget workspace) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* ── Mobile First Clean Workspace (< md) ── */}
+      <div className="block md:hidden mb-3">
+        <div className="flex border border-zinc-800 rounded-lg p-1 bg-zinc-900/90 text-[11px] font-bold">
+          <button
+            type="button"
+            onClick={() => setMobileTab('chart')}
+            className={`flex-1 py-1.5 rounded-md transition-all ${
+              mobileTab === 'chart'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            📈 Grafik
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('order')}
+            className={`flex-1 py-1.5 rounded-md transition-all ${
+              mobileTab === 'order'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            ⚡ Order Slip
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('portfolio')}
+            className={`flex-1 py-1.5 rounded-md transition-all ${
+              mobileTab === 'portfolio'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            💼 Portofolio
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('secondary')}
+            className={`flex-1 py-1.5 rounded-md transition-all ${
+              mobileTab === 'secondary'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            📰 Pasar
+          </button>
+        </div>
+
+        {/* Focused Mobile Widget View */}
+        <div className="mt-2 bg-[#09090b] border border-[#27272a] rounded-lg overflow-hidden">
+          {mobileTab === 'chart' && (
+            <div className="h-[460px]">
+              {renderWidgetContent(widgets.find((w) => w.type === 'CHART') || widgets[0])}
+            </div>
+          )}
+          {mobileTab === 'order' && (
+            <div className="min-h-[460px] p-2">
+              {renderWidgetContent(widgets.find((w) => w.type === 'QUICK_ORDER') || widgets[0])}
+            </div>
+          )}
+          {mobileTab === 'portfolio' && (
+            <div className="min-h-[380px] p-2">
+              {renderWidgetContent(widgets.find((w) => w.type === 'PORTFOLIO_HOLDINGS') || widgets[0])}
+            </div>
+          )}
+          {mobileTab === 'secondary' && (
+            <div className="space-y-3 p-2">
+              {widgets
+                .filter((w) => !['CHART', 'QUICK_ORDER', 'PORTFOLIO_HOLDINGS'].includes(w.type))
+                .slice(0, 4)
+                .map((w) => (
+                  <div key={w.id} className="h-[340px] border border-zinc-800 rounded-lg overflow-hidden">
+                    {renderWidgetContent(w)}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Main Dynamic Grid Canvas (Multi-widget workspace for Desktop / Tablet) ── */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {widgets.map((w) => {
           const isDragging = draggedWidgetId === w.id;
           const isDragOver = dragOverWidgetId === w.id && draggedWidgetId !== w.id;

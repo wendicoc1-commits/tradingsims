@@ -85,6 +85,25 @@ create table if not exists public.topup_requests (
   approved_at timestamp with time zone
 );
 
+-- 6. TABEL WATCHLISTS & WATCHLIST ITEMS
+create table if not exists public.watchlists (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null default 'Daftar Pantau Utama',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table if not exists public.watchlist_items (
+  id uuid default gen_random_uuid() primary key,
+  watchlist_id uuid references public.watchlists(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  symbol text not null,
+  display_symbol text not null,
+  name text,
+  added_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique (watchlist_id, symbol)
+);
+
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) - Keamanan Data Member
 -- ==============================================================================
@@ -93,6 +112,8 @@ alter table public.portfolios enable row level security;
 alter table public.holdings enable row level security;
 alter table public.orders enable row level security;
 alter table public.topup_requests enable row level security;
+alter table public.watchlists enable row level security;
+alter table public.watchlist_items enable row level security;
 
 -- Policy Profiles
 create policy "Users can view their own profile" on public.profiles
@@ -119,6 +140,18 @@ create policy "Users can view their own orders" on public.orders
   for select using (auth.uid() = user_id);
 create policy "Users can insert their own orders" on public.orders
   for insert with check (auth.uid() = user_id);
+
+-- Policy Watchlists
+create policy "Users can view their own watchlists" on public.watchlists
+  for select using (auth.uid() = user_id);
+create policy "Users can manage their own watchlists" on public.watchlists
+  for all using (auth.uid() = user_id);
+
+-- Policy Watchlist Items
+create policy "Users can view their own watchlist items" on public.watchlist_items
+  for select using (auth.uid() = user_id);
+create policy "Users can manage their own watchlist items" on public.watchlist_items
+  for all using (auth.uid() = user_id);
 
 -- Policy Topup Requests
 create policy "Users can view their own topups" on public.topup_requests

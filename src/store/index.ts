@@ -524,7 +524,11 @@ export const usePortfolioStore = create<PortfolioState>()(
     })
 
     if (typeof window !== 'undefined') {
-      import('@/lib/bloombergAudio').then(({ bloombergAudio }) => bloombergAudio.playOrderFilledChime()).catch(() => {});
+      import('@/lib/tradeSimAudio').then(({ tradeSimAudio }) => tradeSimAudio.playOrderFilledChime()).catch(() => {});
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().recordOrderToDatabase(newOrder);
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
     }
 
     return { order: newOrder }
@@ -883,7 +887,11 @@ export const usePortfolioStore = create<PortfolioState>()(
     })
 
     if (typeof window !== 'undefined') {
-      import('@/lib/bloombergAudio').then(({ bloombergAudio }) => bloombergAudio.playOrderFilledChime()).catch(() => {});
+      import('@/lib/tradeSimAudio').then(({ tradeSimAudio }) => tradeSimAudio.playOrderFilledChime()).catch(() => {});
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().recordOrderToDatabase(newOrder);
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
     }
 
     return { order: newOrder }

@@ -237,7 +237,7 @@ export default function BloombergFairValueCompass() {
         </div>
 
         <div className="text-xs text-zinc-400">
-          Terminal Mode: <span className="text-amber-400 font-bold">Bloomberg Multi-Model Fair Value &lt;FA COMP&gt;</span>
+          Terminal Mode: <span className="text-emerald-400 font-bold">TradeSim Multi-Model Fair Value Compass</span>
         </div>
       </div>
 

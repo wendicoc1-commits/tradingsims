@@ -330,6 +330,22 @@ export async function executeGlobalFinancialCrawl(targetSearch?: string): Promis
     console.warn('Crawler: Asia Markets RSS fetch error:', e);
   }
 
+  // 6. Yahoo Finance Official RSS Feed
+  try {
+    const res = await fetch('https://finance.yahoo.com/news/rssindex', {
+      headers,
+      next: { revalidate: 30 },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const xml = await res.text();
+      const parsed = parseRssFeed(xml, 'Yahoo Finance Wire', 'GLOBAL');
+      results.push(...parsed.slice(0, 15));
+    }
+  } catch (e) {
+    console.warn('Crawler: Yahoo Finance RSS fetch error:', e);
+  }
+
   // Deduplicate by clean title
   const seenTitles = new Set<string>();
   const deduplicated: CrawledArticle[] = [];

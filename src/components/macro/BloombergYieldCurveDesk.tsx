@@ -96,7 +96,7 @@ export default function BloombergYieldCurveDesk() {
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
             <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest flex items-center gap-1.5">
               <Activity className="w-3.5 h-3.5" />
-              BLOOMBERG YCRV &lt;GO&gt; &bull; SOVEREIGN YIELD CURVE &amp; INVERSION MONITOR
+              TRADESIM YCRV &bull; SOVEREIGN YIELD CURVE &amp; INVERSION MONITOR
             </span>
             <span className="text-[10px] text-[#71717a]">| FIXED INCOME BENCHMARK DESK</span>
           </div>

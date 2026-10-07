@@ -3,10 +3,10 @@
 import React, { useEffect } from 'react';
 import { useMarketStore } from '@/store';
 import Sidebar from '@/components/layout/Sidebar';
-import FinceptBloombergHeader from '@/components/layout/FinceptBloombergHeader';
+import TradeSimHeader from '@/components/layout/TradeSimHeader';
 import StatusBar from '@/components/layout/StatusBar';
 import FinceptRightDock from '@/components/layout/FinceptRightDock';
-import BloombergAuthGate from '@/components/auth/BloombergAuthGate';
+import TradeSimAuthGate from '@/components/auth/TradeSimAuthGate';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
@@ -19,15 +19,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   return (
-    <BloombergAuthGate>
+    <TradeSimAuthGate>
       <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
         {/* Left Sidebar */}
         <Sidebar />
 
         {/* Main Column */}
         <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
-          {/* Authentic Fincept / Bloomberg Multi-Level Header */}
-          <FinceptBloombergHeader />
+          {/* TradeSim Pro Header */}
+          <TradeSimHeader />
 
           {/* Full-Width Content */}
           <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -36,13 +36,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </main>
           </div>
 
-          {/* Institutional Bottom Status Bar */}
+          {/* Bottom Status Bar */}
           <StatusBar />
         </div>
 
         {/* Retractable Right Dock (Watchlist & Fast Order Desk) */}
         <FinceptRightDock />
       </div>
-    </BloombergAuthGate>
+    </TradeSimAuthGate>
   );
 }

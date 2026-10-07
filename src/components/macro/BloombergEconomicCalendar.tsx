@@ -47,12 +47,12 @@ export default function BloombergEconomicCalendar() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border bg-[#09090b] border-[#27272a]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
             <h2 className="text-sm font-black text-white tracking-widest uppercase flex items-center gap-2">
-              <span>BLOOMBERG ECONOMIC CALENDAR &lt;ECO / ECFC&gt;</span>
+              <span>TRADESIM ECONOMIC CALENDAR</span>
             </h2>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40">
-              MAKROEKONOMI & SUKU BUNGA
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+              MAKROEKONOMI &amp; SUKU BUNGA
             </span>
           </div>
           <p className="text-xs text-[#a1a1aa] mt-1">
@@ -250,8 +250,8 @@ export default function BloombergEconomicCalendar() {
                 <span className="text-2xl">{activeModalEvent.flag}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#f59e0b] uppercase">
-                      BLOOMBERG MACRO INTELLIGENCE
+                    <span className="text-xs font-bold text-emerald-400 uppercase">
+                      INSTITUTIONAL MACRO INTELLIGENCE
                     </span>
                     <span className="text-[10px] text-[#71717a]">&bull; {activeModalEvent.date}</span>
                   </div>

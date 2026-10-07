@@ -120,7 +120,16 @@ export default function ChartbitTradingPanel({
     }
   }, [quote.price, orderType]);
 
-  const priceNum = orderType === 'MARKET' ? currentPrice : parseFloat(priceInput) || 0;
+  // Realisme Mekanisme Pasar: Bid/Ask Spread
+  const currentTick = getIDXTickSize(currentPrice);
+  const bestBidPrice = quote.low && quote.low < currentPrice ? Math.max(currentTick, currentPrice - currentTick) : Math.max(currentTick, currentPrice - currentTick);
+  const bestAskPrice = currentPrice + currentTick;
+  const spreadPoints = bestAskPrice - bestBidPrice;
+  const spreadPercent = ((spreadPoints / bestBidPrice) * 100).toFixed(2);
+
+  // Jika MARKET order: Pembeli beli di harga ASK, Penjual jual di harga BID
+  const executedMarketPrice = orderSide === 'BUY' ? bestAskPrice : bestBidPrice;
+  const priceNum = orderType === 'MARKET' ? executedMarketPrice : parseFloat(priceInput) || currentPrice;
   const lotsNum = parseInt(lotsInput, 10) || 0;
 
   const tick = getIDXTickSize(priceNum);
@@ -129,7 +138,7 @@ export default function ChartbitTradingPanel({
   const shareInfo = calculateShares(cleanSymbol, lotsNum);
   const grossTradeValue = priceNum * shareInfo.shares;
 
-  // Fee calculation (0.15% fee beli, 0.25% fee jual + 0.1% PPh final)
+  // Realistis Broker Fee: 0.15% fee beli, 0.25% fee jual (0.15% fee broker + 0.1% PPh final)
   const brokerFee = Math.round(grossTradeValue * 0.0015);
   const taxFee = orderSide === 'SELL' ? Math.round(grossTradeValue * 0.001) : 0;
   const totalFee = brokerFee + taxFee;
@@ -525,6 +534,61 @@ export default function ChartbitTradingPanel({
           >
             Market Order (Instan)
           </button>
+        </div>
+
+        {/* Realisme Pasar: Bid / Ask Spread Selector */}
+        <div className="mb-3 p-2 rounded-lg bg-zinc-900/60 border border-zinc-800 font-mono text-xs">
+          <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1.5">
+            <span>BID / ASK SPREAD REALISTIS:</span>
+            <span className="text-zinc-500">
+              Spread: {spreadPoints} pts ({spreadPercent}%)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOrderSide('SELL');
+                setPriceInput(String(bestBidPrice));
+              }}
+              className={`p-1.5 rounded flex flex-col items-start transition-all cursor-pointer border text-left ${
+                orderSide === 'SELL' && priceNum === bestBidPrice
+                  ? 'bg-rose-500/20 border-rose-500/60 text-white shadow-xs'
+                  : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-rose-500/30'
+              }`}
+            >
+              <span className="text-[10px] text-zinc-400">BID (JUAL)</span>
+              <span className="text-xs font-bold text-rose-400 mt-0.5">
+                Rp {bestBidPrice.toLocaleString('id-ID')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOrderSide('BUY');
+                setPriceInput(String(bestAskPrice));
+              }}
+              className={`p-1.5 rounded flex flex-col items-start transition-all cursor-pointer border text-left ${
+                orderSide === 'BUY' && priceNum === bestAskPrice
+                  ? 'bg-emerald-500/20 border-emerald-500/60 text-white shadow-xs'
+                  : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-emerald-500/30'
+              }`}
+            >
+              <span className="text-[10px] text-zinc-400">ASK (BELI)</span>
+              <span className="text-xs font-bold text-emerald-400 mt-0.5">
+                Rp {bestAskPrice.toLocaleString('id-ID')}
+              </span>
+            </button>
+          </div>
+          {orderType === 'MARKET' && (
+            <div className="text-[10px] text-zinc-400 mt-1.5 flex items-center justify-between bg-zinc-950/80 px-2 py-1 rounded">
+              <span>Mode Market Instan:</span>
+              <span className={orderSide === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                {orderSide === 'BUY' ? `Beli di Ask (Rp ${bestAskPrice.toLocaleString('id-ID')})` : `Jual di Bid (Rp ${bestBidPrice.toLocaleString('id-ID')})`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Price Input Controls */}

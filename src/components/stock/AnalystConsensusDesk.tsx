@@ -57,7 +57,7 @@ export default function AnalystConsensusDesk({
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
             <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5" />
-              BLOOMBERG ANR &lt;GO&gt; &bull; ANALYST CONSENSUS &amp; ESTIMATES
+              TRADESIM RESEARCH &bull; ANALYST CONSENSUS &amp; ESTIMATES
             </span>
             <span className="text-[10px] text-[#71717a]">| WALL STREET &amp; IDX RESEARCH COVERAGE</span>
           </div>

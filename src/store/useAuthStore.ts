@@ -30,6 +30,7 @@ interface AuthState {
   checkSession: () => Promise<void>;
   syncPortfolioToDatabase: () => Promise<void>;
   loadPortfolioFromDatabase: () => Promise<void>;
+  recordOrderToDatabase: (order: any) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -285,6 +286,37 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO SYNC ERROR]', err);
+        }
+      },
+
+      // Simpan riwayat transaksi order individual ke tabel orders Supabase
+      recordOrderToDatabase: async (order: any) => {
+        const user = get().user;
+        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+
+        try {
+          const supabase = getSupabaseBrowserClient();
+          await supabase.from('orders').insert({
+            id: order.id,
+            user_id: user.id,
+            symbol: order.symbol,
+            display_symbol: order.displaySymbol,
+            type: order.type,
+            order_type: order.orderType,
+            price: order.price,
+            lots: Math.max(1, Math.round(order.lots || 1)),
+            shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
+            total: order.total,
+            fee: order.fee || 0,
+            broker_fee: order.brokerFee || 0,
+            tax_fee: order.taxFee || 0,
+            status: order.status || 'FILLED',
+            realized_pl: order.realizedPL ?? null,
+            created_at: order.createdAt || new Date().toISOString(),
+            filled_at: order.filledAt || new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error('[SUPABASE ORDER LOG ERROR]', err);
         }
       },
 

@@ -1,0 +1,392 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  Maximize2,
+  Minimize2,
+  Search,
+  Bell,
+  Sun,
+  Moon,
+  ChevronDown,
+  Clock,
+  X,
+  Sparkles,
+  HelpCircle,
+  Bot,
+  Volume2,
+  VolumeX,
+  LineChart,
+  User,
+  LogOut,
+  Wallet,
+} from 'lucide-react';
+import { useMarketStore } from '@/store';
+import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
+import CompanyLogo from '@/components/common/CompanyLogo';
+import { tradeSimAudio } from '@/lib/tradeSimAudio';
+import TopUpModal from '@/components/portfolio/TopUpModal';
+import AdminTopUpApprovalModal from '@/components/portfolio/AdminTopUpApprovalModal';
+import AuthModal from '@/components/auth/AuthModal';
+import { useAuthStore } from '@/store/useAuthStore';
+
+interface CliSuggestion {
+  cmd: string;
+  desc: string;
+  cat: 'saham' | 'pasar' | 'riset' | 'alat';
+}
+
+const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
+  { cmd: 'BBCA', desc: 'Detail Saham BBCA & Analisis Teknikal', cat: 'saham' },
+  { cmd: 'BMRI', desc: 'Detail Saham BMRI Bank Mandiri', cat: 'saham' },
+  { cmd: 'BBRI', desc: 'Detail Saham BBRI Bank Rakyat Indonesia', cat: 'saham' },
+  { cmd: 'ASII', desc: 'Detail Saham ASII Astra International', cat: 'saham' },
+  { cmd: 'TLKM', desc: 'Detail Saham TLKM Telkom Indonesia', cat: 'saham' },
+  { cmd: 'BTC', desc: 'Bitcoin Spot Trading & Analisis Realtime', cat: 'pasar' },
+  { cmd: 'ETH', desc: 'Ethereum Spot Trading Desk', cat: 'pasar' },
+  { cmd: 'HEATMAP', desc: 'Peta Sektoral IHSG & Market Cap', cat: 'pasar' },
+  { cmd: 'SCREENER', desc: 'Stock Screener & Filter Fundamental', cat: 'pasar' },
+  { cmd: 'DIVIDEND', desc: 'Analisis Dividen & Kalender Cum-Date', cat: 'pasar' },
+  { cmd: 'BANDAR', desc: 'Radar Bandarmologi & Smart Money Flow', cat: 'pasar' },
+  { cmd: 'MACRO', desc: 'Kalender Makro & Suku Bunga BI / Fed', cat: 'pasar' },
+  { cmd: 'NEWS', desc: 'Breaking News Wire & Sentimen Pasar Riil', cat: 'riset' },
+  { cmd: 'PORTFOLIO', desc: 'Portofolio Investasi & Trade Blotter', cat: 'alat' },
+  { cmd: 'CRYPTO', desc: 'AI Quant Cryptocurrency Trading Desk', cat: 'pasar' },
+  { cmd: 'TOPUP', desc: 'Top Up Saldo Kas Virtual via QRIS', cat: 'alat' },
+  { cmd: 'HELP', desc: 'Buka Panduan & Shortcuts TradeSim Pro', cat: 'alat' },
+];
+
+export default function TradeSimHeader() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { theme, toggleTheme, setSelectedSymbol } = useMarketStore();
+  const { user, logout, checkSession } = useAuthStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<'markets' | 'research' | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [timeWib, setTimeWib] = useState('');
+  const [timeNy, setTimeNy] = useState('');
+  const [cliInput, setCliInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const cliInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
+  useEffect(() => {
+    setIsSoundEnabled(tradeSimAudio.getSoundEnabled());
+
+    const updateClocks = () => {
+      const now = new Date();
+      setTimeWib(
+        now.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        })
+      );
+      setTimeNy(
+        now.toLocaleTimeString('en-US', {
+          timeZone: 'America/New_York',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })
+      );
+    };
+
+    updateClocks();
+    const timer = setInterval(updateClocks, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleToggleSound = () => {
+    const nextState = tradeSimAudio.toggleSound();
+    setIsSoundEnabled(nextState);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+
+  const executeCommand = (rawCommand: string) => {
+    let cmd = rawCommand.trim().toUpperCase();
+    cmd = cmd.replace(/<GO>$/i, '').replace(/\s+GO$/i, '').trim();
+    if (!cmd) return;
+
+    setShowSuggestions(false);
+
+    if (cmd === 'HELP' || cmd === '?') {
+      setShowHelpModal(true);
+      return;
+    }
+
+    if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
+    else if (cmd === 'TOPUP' || cmd === 'DEPOSIT') setIsTopUpOpen(true);
+    else if (cmd === 'ADMIN' || cmd === 'APPROVAL') setIsAdminOpen(true);
+    else if (cmd === 'LOGIN' || cmd === 'AUTH') setIsAuthModalOpen(true);
+    else if (cmd === 'SOUND' || cmd === 'AUDIO') handleToggleSound();
+    else if (cmd === 'NEWS' || cmd === 'STREAM') router.push('/stream');
+    else if (cmd === 'CRYPTO' || cmd === 'BTC' || cmd === 'ETH') router.push('/crypto');
+    else if (cmd === 'HEATMAP') router.push('/heatmap');
+    else if (cmd === 'SCREENER') router.push('/screener');
+    else if (cmd === 'DIVIDEND' || cmd === 'DIV') router.push('/dividend');
+    else if (cmd === 'IPO') router.push('/ipo');
+    else if (cmd === 'MACRO' || cmd === 'ECO') router.push('/macro');
+    else {
+      const cleanTicker = cmd.replace(/[^A-Z0-9.]/g, '');
+      if (cleanTicker.length >= 1 && cleanTicker.length <= 12) {
+        setSelectedSymbol(cleanTicker);
+        router.push(`/stock/${cleanTicker}`);
+      }
+    }
+    setCliInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeCommand(cliInput);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setCliInput('');
+    }
+  };
+
+  return (
+    <header className="sticky top-0 z-40 flex flex-col bg-[#09090b] text-[#f4f4f5] border-b border-[#27272a] shadow-md select-none font-sans">
+      {/* ── Top Bar: Brand, Search, Status & Controls ── */}
+      <div className="flex items-center justify-between px-3 h-11 border-b border-[#1f1f23] gap-2">
+        {/* Left: Brand Logo & Title */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-black font-black text-sm shadow-sm group-hover:bg-emerald-400 transition-colors">
+              <LineChart className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
+                TRADESIM <span className="text-emerald-400 text-xs px-1 rounded bg-emerald-500/15 border border-emerald-500/30 font-mono">PRO</span>
+              </span>
+              <span className="text-[9px] text-zinc-500 font-mono -mt-0.5 hidden sm:inline">
+                INSTITUTIONAL SIMULATOR
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Center: Command Palette / Search */}
+        <div className="relative flex-1 max-w-md mx-2">
+          <div className="relative flex items-center">
+            <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+            <input
+              ref={cliInputRef}
+              type="text"
+              value={cliInput}
+              onChange={(e) => {
+                setCliInput(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ketik simbol (BBCA, BTC, NVDA) atau perintah..."
+              className="w-full bg-[#121215] border border-[#27272a] rounded pl-8 pr-16 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono transition-colors"
+            />
+            <span className="absolute right-2 text-[9px] text-zinc-500 font-mono pointer-events-none">
+              ENTER ↵
+            </span>
+          </div>
+
+          {/* Search Suggestions Dropdown */}
+          {showSuggestions && cliInput && (
+            <div className="absolute left-0 top-full mt-1 w-full bg-[#121216] border border-[#27272a] rounded-lg shadow-2xl py-1 z-50 text-[11px] max-h-72 overflow-y-auto">
+              <div className="px-3 py-1 text-zinc-500 font-bold border-b border-[#27272a] flex justify-between items-center text-[9px]">
+                <span>HASIL &amp; PERINTAH</span>
+                <button onClick={() => setShowSuggestions(false)} className="hover:text-white">✕</button>
+              </div>
+              {CLI_COMMAND_SUGGESTIONS.filter(
+                (s) => s.cmd.toLowerCase().includes(cliInput.toLowerCase()) || s.desc.toLowerCase().includes(cliInput.toLowerCase())
+              ).map((item) => (
+                <div
+                  key={item.cmd}
+                  onClick={() => executeCommand(item.cmd)}
+                  className="px-3 py-1.5 hover:bg-zinc-800 cursor-pointer flex justify-between items-center transition-colors"
+                >
+                  <span className="text-emerald-400 font-bold font-mono">{item.cmd}</span>
+                  <span className="text-zinc-400 text-[10px] truncate">{item.desc}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Live Status, Clocks, & User Controls */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden md:flex items-center gap-2 text-xs font-mono text-zinc-400">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>WIB: <strong className="text-zinc-200">{timeWib}</strong></span>
+            <span className="text-zinc-600">•</span>
+            <span>NY: <strong className="text-zinc-400">{timeNy}</strong></span>
+          </div>
+
+          {/* User Status / Top-up Action */}
+          <div className="flex items-center gap-1.5 border-l border-[#27272a] pl-2.5">
+            <button
+              type="button"
+              onClick={() => setIsTopUpOpen(true)}
+              className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              title="Top Up Modal Virtual"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Top Up Kas</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+                isSoundEnabled ? 'text-emerald-400' : 'text-zinc-500'
+              }`}
+              title={isSoundEnabled ? 'Audio Efek: Aktif' : 'Audio Efek: Senyap'}
+            >
+              {isSoundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+
+            {user ? (
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
+                title={`Keluar (${user.email})`}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-bold transition-colors"
+              >
+                Masuk
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Navigation Tabs ── */}
+      <nav className="flex items-center px-3 bg-[#0c0c0e] text-xs h-9 border-b border-[#1f1f23] overflow-x-auto no-scrollbar gap-1">
+        <Link
+          href="/"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname === '/'
+              ? 'bg-zinc-800 text-white'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>🖥️ Terminal</span>
+        </Link>
+        <Link
+          href="/portfolio"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/portfolio')
+              ? 'bg-zinc-800 text-emerald-400 font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>💼 Portofolio &amp; Order</span>
+        </Link>
+        <Link
+          href="/crypto"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/crypto')
+              ? 'bg-zinc-800 text-cyan-400 font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>⚡ Crypto Spot</span>
+        </Link>
+        <Link
+          href="/heatmap"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/heatmap')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>🗺️ Heatmap IHSG</span>
+        </Link>
+        <Link
+          href="/screener"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/screener')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>🔍 Screener</span>
+        </Link>
+        <Link
+          href="/dividend"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/dividend')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>💰 Dividen</span>
+        </Link>
+        <Link
+          href="/stream"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/stream')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>📰 Live News Wire</span>
+        </Link>
+        <Link
+          href="/macro"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/macro')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>🌐 Makro &amp; Suku Bunga</span>
+        </Link>
+      </nav>
+
+      {/* Modals */}
+      <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
+      <AdminTopUpApprovalModal isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+    </header>
+  );
+}

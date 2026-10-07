@@ -55,7 +55,7 @@ export default function SupplyChainNetworkDesk({ symbol }: SupplyChainNetworkDes
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
             <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest flex items-center gap-1.5">
               <GitMerge className="w-3.5 h-3.5" />
-              BLOOMBERG SPLC &lt;GO&gt; &bull; SUPPLY CHAIN &amp; CUSTOMER NETWORK
+              TRADESIM NETWORK &bull; SUPPLY CHAIN &amp; CUSTOMER EXPOSURE
             </span>
             <span className="text-[10px] text-[#71717a]">| RELATIONSHIP EXPOSURE &amp; DEPENDENCY RISK</span>
           </div>

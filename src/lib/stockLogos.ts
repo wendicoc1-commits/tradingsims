@@ -174,57 +174,20 @@ export const GLOBAL_STOCK_BRANDS: Record<string, StockBrandMeta> = {
 };
 
 /**
- * Returns an ordered array of candidate URLs for transparent logos.
- * Tries vector SVG / transparent dark-mode PNG first, then FMP / Stockbit / Clearbit fallbacks.
+ * TradeSim Pro Clean Legal Stock Logo Registry
+ * Prioritizes self-hosted assets under /logos/[ticker].svg and dynamic typography badges.
+ * 100% Free from proprietary third-party CDNs and hotlinks.
  */
 export function getCompanyLogoCandidates(rawSymbol: string): string[] {
   if (!rawSymbol) return [];
 
   const sym = rawSymbol.trim().toUpperCase();
-  const isIndonesian = sym.endsWith('.JK') || (sym.length === 4 && /^[A-Z]{4}$/.test(sym) && !GLOBAL_STOCK_BRANDS[sym]);
-  const cleanSym = sym.replace('.JK', '');
-  const baseTicker = cleanSym.split('.')[0]; // e.g. "SHEL.L" -> "SHEL", "7203.T" -> "7203"
+  const cleanSym = sym.replace('.JK', '').replace(/USDT$/i, '').toLowerCase();
 
-  const brandMeta = GLOBAL_STOCK_BRANDS[sym] || GLOBAL_STOCK_BRANDS[cleanSym] || GLOBAL_STOCK_BRANDS[baseTicker];
-  const candidates: string[] = [];
+  const candidates: string[] = [
+    `/logos/${cleanSym}.svg`,
+    `/logos/${cleanSym}.png`,
+  ];
 
-  if (isIndonesian) {
-    // 1. Stockbit Official CDN (transparent PNG for IDX)
-    candidates.push(`https://assets.stockbit.com/logos/companies/${cleanSym}.png`);
-  }
-
-  // If we have a brand mapping with a SimpleIcons SVG slug (100% vector SVG, completely transparent)
-  if (brandMeta?.simpleIconSlug) {
-    const slug = brandMeta.simpleIconSlug;
-    if (brandMeta.color) {
-      candidates.push(`https://cdn.simpleicons.org/${slug}/${brandMeta.color}`);
-    } else {
-      candidates.push(`https://cdn.simpleicons.org/${slug}`);
-    }
-  }
-
-  // NVSTly dark-mode transparent ticker icons (250x250 transparent PNG)
-  candidates.push(`https://raw.githubusercontent.com/nvstly/icons/main/ticker_icons/${cleanSym}.png`);
-  if (baseTicker !== cleanSym) {
-    candidates.push(`https://raw.githubusercontent.com/nvstly/icons/main/ticker_icons/${baseTicker}.png`);
-  }
-
-  // Financial Modeling Prep transparent stock image API
-  candidates.push(`https://financialmodelingprep.com/image-stock/${cleanSym}.png`);
-  if (baseTicker !== cleanSym) {
-    candidates.push(`https://financialmodelingprep.com/image-stock/${baseTicker}.png`);
-  }
-
-  // Domain-based transparent logo via unavatar
-  if (brandMeta?.domain) {
-    candidates.push(`https://unavatar.io/${brandMeta.domain}?fallback=false`);
-    candidates.push(`https://www.google.com/s2/favicons?domain=${brandMeta.domain}&sz=128`);
-  }
-
-  // Stockbit fallback (for any ticker)
-  if (!isIndonesian) {
-    candidates.push(`https://assets.stockbit.com/logos/companies/${cleanSym}.png`);
-  }
-
-  return Array.from(new Set(candidates));
+  return candidates;
 }

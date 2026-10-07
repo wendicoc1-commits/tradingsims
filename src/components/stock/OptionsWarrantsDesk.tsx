@@ -37,7 +37,7 @@ export default function OptionsWarrantsDesk({ symbol }: OptionsWarrantsDeskProps
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
             <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
-              BLOOMBERG OMON &lt;GO&gt; &bull; STRUCTURED WARRANTS &amp; VOLATILITY MATRIX
+              TRADESIM DERIVATIVES &bull; STRUCTURED WARRANTS &amp; VOLATILITY MATRIX
             </span>
             <span className="text-[10px] text-[#71717a]">| IDX CALL &amp; PUT DERIVATIVES DESK</span>
           </div>

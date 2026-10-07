@@ -37,7 +37,7 @@ const researchDesks = [
   { href: '/dividend', label: 'Dividen Intelligence', icon: Layers },
   { href: '/ipo', label: 'e-IPO Pipeline', icon: Rocket },
   { href: '/macro', label: 'Makro & Suku Bunga', icon: Globe },
-  { href: '/ai', label: 'Bloomberg AI Hub', icon: Bot },
+  { href: '/ai', label: 'TradeSim AI Hub', icon: Bot },
 ];
 
 export default function Sidebar() {
@@ -47,7 +47,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col h-full border-r transition-all duration-200 shrink-0 z-20 font-mono select-none',
+        'hidden md:flex flex-col h-full border-r transition-all duration-200 shrink-0 z-20 font-sans select-none',
         collapsed ? 'w-14' : 'w-52'
       )}
       style={{
@@ -57,13 +57,13 @@ export default function Sidebar() {
     >
       {/* Terminal Brand Header */}
       <div className="flex items-center gap-2.5 px-3 h-10 border-b" style={{ borderColor: 'var(--border)' }}>
-        <Activity className="w-4 h-4 shrink-0 text-amber-500" />
+        <Activity className="w-4 h-4 shrink-0 text-emerald-400" />
         {!collapsed && (
           <div className="flex flex-col">
             <span className="font-bold text-xs tracking-wider text-white">
-              BLOOMBERG<span className="text-amber-500">TERMINAL</span>
+              TRADESIM<span className="text-emerald-400"> PRO</span>
             </span>
-            <span className="text-[9px] text-neutral-500 tracking-tight">PROFESSIONAL DESK</span>
+            <span className="text-[9px] text-zinc-500 tracking-tight">WORKSTATION DESK</span>
           </div>
         )}
       </div>

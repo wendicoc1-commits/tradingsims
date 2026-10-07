@@ -107,8 +107,8 @@ export default function NewsAndBusinessPanel({
 
         <div className="flex items-center gap-2 flex-wrap">
           {bloombergCount > 0 && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
-              ⚡ {bloombergCount} Bloomberg Wire
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+              ⚡ {bloombergCount} Breaking Wire
             </span>
           )}
           <span
@@ -132,7 +132,7 @@ export default function NewsAndBusinessPanel({
           <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[11px] scrollbar-none">
             {[
               { id: 'ALL', label: `Semua Berita (${fullTimeline.length})` },
-              { id: 'BLOOMBERG', label: `⚡ Bloomberg Wire (${bloombergCount})` },
+              { id: 'BLOOMBERG', label: `⚡ Breaking Wire (${bloombergCount})` },
               { id: 'EARNINGS', label: `💰 Laba & Dividen` },
               { id: 'REGULATORY', label: `📜 Keterbukaan & RUPS` },
               { id: 'ARCHIVE', label: `📅 Arsip Sebelumnya (${archiveCount})` },
@@ -362,8 +362,8 @@ export default function NewsAndBusinessPanel({
 
               {/* Key Takeaways Box */}
               <div className="bg-[#15151a] border border-[#27272a] p-3 rounded-lg space-y-2">
-                <span className="text-[10px] font-bold text-[#f59e0b] tracking-wider uppercase block">
-                  KEY TAKEAWAYS / POIN-POIN UTAMA (BLOOMBERG BRIEF):
+                <span className="text-[10px] font-bold text-emerald-400 tracking-wider uppercase block">
+                  KEY TAKEAWAYS / POIN-POIN UTAMA (EXECUTIVE BRIEF):
                 </span>
                 <ul className="space-y-1.5 text-xs text-neutral-300 font-sans">
                   {selectedStory.takeaways.map((point, idx) => (

@@ -3,8 +3,9 @@ import './globals.css';
 import AppShell from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
-  title: 'Bloomberg Terminal - Professional Market Data & Analytics',
-  description: 'Enterprise Financial Terminal & Quantitative Market Intelligence for IDX & Global Markets',
+  title: 'TradeSim Pro - Institutional Trading Simulator & FinTech Workstation',
+  description:
+    'Real-time multi-asset trading simulation, portfolio analytics, and quantitative execution engine for IDX & Crypto markets.',
 };
 
 export default function RootLayout({
@@ -14,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className="dark h-full antialiased">
-      <body className="h-full overflow-hidden font-mono">
+      <body className="h-full overflow-hidden font-sans">
         <AppShell>{children}</AppShell>
       </body>
     </html>

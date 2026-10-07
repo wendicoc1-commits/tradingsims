@@ -41,16 +41,16 @@ export default function StatusBar() {
     >
       {/* Left: Software Version & Active Desk */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 font-bold" style={{ color: 'var(--accent)' }}>
-          <Terminal className="w-3 h-3 text-amber-500" />
-          <span>BLOOMBERG TERMINAL <span className="text-[9px] text-neutral-400 font-normal">v4.5.2</span></span>
+        <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+          <Terminal className="w-3 h-3 text-emerald-400" />
+          <span>TRADESIM PRO <span className="text-[9px] text-zinc-400 font-normal">v5.0</span></span>
         </div>
 
-        <span className="text-neutral-700 hidden sm:inline">|</span>
+        <span className="text-zinc-700 hidden sm:inline">|</span>
 
-        <div className="hidden sm:flex items-center gap-1 text-neutral-300">
-          <span className="text-[9px] text-neutral-500 font-sans uppercase">DESK:</span>
-          <span className="font-semibold text-amber-400">IDX EQUITY WORKSTATION</span>
+        <div className="hidden sm:flex items-center gap-1 text-zinc-300">
+          <span className="text-[9px] text-zinc-500 font-sans uppercase">DESK:</span>
+          <span className="font-semibold text-zinc-200">MULTI-ASSET WORKSTATION</span>
         </div>
 
         <span className="text-neutral-700 hidden md:inline">|</span>

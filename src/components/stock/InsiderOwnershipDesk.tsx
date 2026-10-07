@@ -39,7 +39,7 @@ export default function InsiderOwnershipDesk({ symbol }: InsiderOwnershipDeskPro
             <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping" />
             <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" />
-              BLOOMBERG OWN &lt;GO&gt; &bull; INSIDER &amp; INSTITUTIONAL OWNERSHIP
+              TRADESIM OWNERSHIP &bull; INSIDER &amp; INSTITUTIONAL HOLDINGS
             </span>
             <span className="text-[10px] text-[#71717a]">| OJK FORM 4 FILINGS &amp; SMART MONEY FLOW</span>
           </div>
