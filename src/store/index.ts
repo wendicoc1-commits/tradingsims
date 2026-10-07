@@ -366,7 +366,28 @@ export const usePortfolioStore = create<PortfolioState>()(
       return { addedVirtualCash: 0, newTotalCash: get().cash }
     }
     const newTotalCash = get().cash + addedVirtualCash
-    set({ cash: newTotalCash })
+    const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const depositOrder: Order = {
+      id: `topup-qris-${Date.now()}`,
+      symbol: 'DEPOSIT-QRIS',
+      displaySymbol: 'QRIS TOPUP',
+      type: 'BUY',
+      orderType: 'MARKET',
+      price: 1,
+      lots: multiplier,
+      shares: addedVirtualCash,
+      total: addedVirtualCash,
+      fee: 0,
+      brokerFee: 0,
+      taxFee: 0,
+      status: 'FILLED',
+      createdAt: nowStr,
+      filledAt: nowStr,
+    }
+    set({
+      cash: newTotalCash,
+      orders: [depositOrder, ...get().orders],
+    })
     return { addedVirtualCash, newTotalCash }
   },
 
