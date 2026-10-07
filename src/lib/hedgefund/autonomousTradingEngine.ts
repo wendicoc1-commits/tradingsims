@@ -444,10 +444,8 @@ export async function runAutonomousAgentCycle(
           details: `Order beli ${target.symbol} ditunda karena ${idxMarketCheck.message} ${idxMarketCheck.nextOpenNotice} Bot dilarang membeli saham BEI di luar jam perdagangan aktif (Senin–Jumat 09:00–16:00 WIB). Kripto dan saham luar negeri tetap bebas aktif 24 jam.`,
         });
       }
-      return;
-    }
-
-    if (!isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
+      // Bursa BEI tutup, eksekusi saham dilewati namun Crypto Desk 24/7 tetap berjalan
+    } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
       const sizing = computePositionSizing(intel, snapshot);
 
@@ -558,65 +556,64 @@ export async function runAutonomousAgentCycle(
               sl: oodaDecision.stop_loss,
             },
           });
-          return;
-        }
+        } else {
+          const finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
+            ? roundTick(oodaDecision.target_price)
+            : sizing.takeProfit;
+          const finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
+            ? roundTick(oodaDecision.stop_loss)
+            : sizing.stop;
 
-        const finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
-          ? roundTick(oodaDecision.target_price)
-          : sizing.takeProfit;
-        const finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
-          ? roundTick(oodaDecision.stop_loss)
-          : sizing.stop;
-
-        const res = portfolioStore.placeBuyOrder({
-          symbol: `${target.symbol}.JK`,
-          displaySymbol: target.symbol,
-          name: target.name,
-          price: sizing.entry,
-          lots: sizing.lots,
-          orderType: 'LIMIT',
-          takeProfitPrice: finalTakeProfit,
-          stopLossPrice: finalStopLoss,
-          validityType: 'GTC',
-          source: 'AI_AGENT',
-        });
-
-        if (res.order) {
-          tradeExecuted = true;
-          actionTaken = `⚡ ORDER BUY OTOMATIS: ${sizing.lots} lot ${target.symbol} @ Rp ${sizing.entry.toLocaleString('id-ID')} (SL: Rp ${finalStopLoss.toLocaleString('id-ID')} / TP: Rp ${finalTakeProfit.toLocaleString('id-ID')})`;
-
-          aiStore.logAction({
-            type: 'TRADE_BUY',
-            symbol: target.symbol,
-            agentId: 'pm_equity',
-            agentName: oodaDecision ? 'Raditya Pratama & TradeMind-Alpha (GPT-4o)' : 'Raditya Pratama (L/S Equity PM)',
-            agentEmoji: oodaDecision ? '🧠' : '💼',
-            title: `Beli Saham Otonom: ${target.symbol}`,
-            details: oodaDecision?.alasan_eksekusi
-              ? `[OODA Loop Approved] ${oodaDecision.alasan_eksekusi} | Memori RAG: ${oodaDecision.korelasi_memori || 'Pola terverifikasi aman'}`
-              : `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100). Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
-            metadata: {
-              price: sizing.entry,
-              lots: sizing.lots,
-              amount: sizing.notional,
-              score: target.score,
-              stopLoss: finalStopLoss,
-              takeProfit: finalTakeProfit,
-              aiAnalysis: oodaDecision?.analisis_teknikal,
-            },
+          const res = portfolioStore.placeBuyOrder({
+            symbol: `${target.symbol}.JK`,
+            displaySymbol: target.symbol,
+            name: target.name,
+            price: sizing.entry,
+            lots: sizing.lots,
+            orderType: 'LIMIT',
+            takeProfitPrice: finalTakeProfit,
+            stopLossPrice: finalStopLoss,
+            validityType: 'GTC',
+            source: 'AI_AGENT',
           });
 
-          aiStore.recordTradeStat(true);
-        } else if (res.error) {
-          aiStore.logAction({
-            type: 'RISK_GATE',
-            symbol: target.symbol,
-            agentId: 'cro',
-            agentName: 'Bambang Suroso (Chief Risk Officer)',
-            agentEmoji: '🛡️',
-            title: `Order Beli Tertahan: ${target.symbol}`,
-            details: `Validasi eksekusi gagal: ${res.error}`,
-          });
+          if (res.order) {
+            tradeExecuted = true;
+            actionTaken = `⚡ ORDER BUY OTOMATIS: ${sizing.lots} lot ${target.symbol} @ Rp ${sizing.entry.toLocaleString('id-ID')} (SL: Rp ${finalStopLoss.toLocaleString('id-ID')} / TP: Rp ${finalTakeProfit.toLocaleString('id-ID')})`;
+
+            aiStore.logAction({
+              type: 'TRADE_BUY',
+              symbol: target.symbol,
+              agentId: 'pm_equity',
+              agentName: oodaDecision ? 'Raditya Pratama & TradeMind-Alpha (GPT-4o)' : 'Raditya Pratama (L/S Equity PM)',
+              agentEmoji: oodaDecision ? '🧠' : '💼',
+              title: `Beli Saham Otonom: ${target.symbol}`,
+              details: oodaDecision?.alasan_eksekusi
+                ? `[OODA Loop Approved] ${oodaDecision.alasan_eksekusi} | Memori RAG: ${oodaDecision.korelasi_memori || 'Pola terverifikasi aman'}`
+                : `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100). Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
+              metadata: {
+                price: sizing.entry,
+                lots: sizing.lots,
+                amount: sizing.notional,
+                score: target.score,
+                stopLoss: finalStopLoss,
+                takeProfit: finalTakeProfit,
+                aiAnalysis: oodaDecision?.analisis_teknikal,
+              },
+            });
+
+            aiStore.recordTradeStat(true);
+          } else if (res.error) {
+            aiStore.logAction({
+              type: 'RISK_GATE',
+              symbol: target.symbol,
+              agentId: 'cro',
+              agentName: 'Bambang Suroso (Chief Risk Officer)',
+              agentEmoji: '🛡️',
+              title: `Order Beli Tertahan: ${target.symbol}`,
+              details: `Validasi eksekusi gagal: ${res.error}`,
+            });
+          }
         }
       } else if (sizing.notional > 0 && portfolioStore.cash < totalBuyCost) {
         aiStore.logAction({

@@ -256,12 +256,16 @@ export const useAuthStore = create<AuthState>()(
           const portStore = usePortfolioStore.getState();
 
           // 1. Simpan Saldo Kas RDN ke tabel portfolios
-          await supabase.from('portfolios').upsert({
-            user_id: user.id,
-            cash: portStore.cash,
-            realized_pl: portStore.realizedPL,
-            updated_at: new Date().toISOString(),
-          });
+          try {
+            await supabase.from('portfolios').upsert({
+              user_id: user.id,
+              cash: portStore.cash,
+              realized_pl: portStore.realizedPL,
+              updated_at: new Date().toISOString(),
+            });
+          } catch {
+            // Ignore error jika kolom cash belum ada di tabel portfolios
+          }
 
           // 2. Simpan Kepemilikan Posisi ke tabel holdings & bersihkan posisi yang sudah terjual
           if (portStore.holdings.length > 0) {
@@ -271,7 +275,7 @@ export const useAuthStore = create<AuthState>()(
               display_symbol: h.displaySymbol,
               name: h.name,
               avg_price: h.avgPrice,
-              lots: Math.max(1, Math.round(h.lots || 1)),
+              lots: h.assetClass === 'CRYPTO' ? (h.cryptoUnits ?? h.lots) : Math.max(1, Math.round(h.lots || 1)),
               shares: h.shares || (h.assetClass === 'CRYPTO' ? h.lots : h.lots * 100),
               crypto_units: h.cryptoUnits ?? (h.assetClass === 'CRYPTO' ? h.lots : null),
               asset_class: h.assetClass || 'EQUITY',
@@ -284,31 +288,39 @@ export const useAuthStore = create<AuthState>()(
               updated_at: new Date().toISOString(),
             }));
 
-            // Hapus dari Supabase setiap posisi lama yang sudah tidak ada lagi di portStore.holdings
-            const activeSymbols = portStore.holdings.map((h) => h.symbol);
-            const { data: currentDbHoldings } = await supabase
-              .from('holdings')
-              .select('symbol')
-              .eq('user_id', user.id);
+            try {
+              // Hapus dari Supabase setiap posisi lama yang sudah tidak ada lagi di portStore.holdings
+              const activeSymbols = portStore.holdings.map((h) => h.symbol);
+              const { data: currentDbHoldings } = await supabase
+                .from('holdings')
+                .select('symbol')
+                .eq('user_id', user.id);
 
-            if (currentDbHoldings && currentDbHoldings.length > 0) {
-              const obsoleteSymbols = currentDbHoldings
-                .map((row: any) => row.symbol)
-                .filter((sym: string) => !activeSymbols.includes(sym));
+              if (currentDbHoldings && currentDbHoldings.length > 0) {
+                const obsoleteSymbols = currentDbHoldings
+                  .map((row: any) => row.symbol)
+                  .filter((sym: string) => !activeSymbols.includes(sym));
 
-              if (obsoleteSymbols.length > 0) {
-                await supabase
-                  .from('holdings')
-                  .delete()
-                  .eq('user_id', user.id)
-                  .in('symbol', obsoleteSymbols);
+                if (obsoleteSymbols.length > 0) {
+                  await supabase
+                    .from('holdings')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .in('symbol', obsoleteSymbols);
+                }
               }
-            }
 
-            await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
+              await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
+            } catch {
+              // Ignore table error
+            }
           } else {
             // Jika user tidak memiliki holding sama sekali, bersihkan seluruh baris holdings di database
-            await supabase.from('holdings').delete().eq('user_id', user.id);
+            try {
+              await supabase.from('holdings').delete().eq('user_id', user.id);
+            } catch {
+              // Ignore
+            }
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO SYNC ERROR]', err);
@@ -341,12 +353,16 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const supabase = getSupabaseBrowserClient();
-          await supabase.from('portfolios').upsert({
-            user_id: user.id,
-            cash: 100000000,
-            realized_pl: 0,
-            updated_at: new Date().toISOString(),
-          });
+          try {
+            await supabase.from('portfolios').upsert({
+              user_id: user.id,
+              cash: 100000000,
+              realized_pl: 0,
+              updated_at: new Date().toISOString(),
+            });
+          } catch {
+            // Ignore
+          }
           await supabase.from('holdings').delete().eq('user_id', user.id);
           await supabase.from('orders').delete().eq('user_id', user.id);
         } catch (err) {
@@ -369,7 +385,7 @@ export const useAuthStore = create<AuthState>()(
             type: order.type,
             order_type: order.orderType,
             price: order.price,
-            lots: Math.max(1, Math.round(order.lots || 1)),
+            lots: order.assetClass === 'CRYPTO' ? (order.cryptoUnits ?? order.lots) : Math.max(1, Math.round(order.lots || 1)),
             shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
             total: order.total,
             fee: order.fee || 0,
@@ -393,27 +409,15 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = getSupabaseBrowserClient();
 
-          // 1. Ambil kas portfolio
-          const { data: portData } = await supabase
-            .from('portfolios')
-            .select('cash, realized_pl')
-            .eq('user_id', user.id)
-            .single();
-
-          if (portData && portData.cash) {
-            usePortfolioStore.setState({
-              cash: Number(portData.cash),
-              realizedPL: Number(portData.realized_pl || 0),
-            });
-          }
-
-          // 2. Ambil holdings
-          const { data: holdingsData } = await supabase
+          // 1. Ambil holdings terlebih dahulu
+          const { data: holdingsData, error: holdingsErr } = await supabase
             .from('holdings')
             .select('*')
             .eq('user_id', user.id);
 
-          if (holdingsData && holdingsData.length > 0) {
+          // HANYA update holdings jika Supabase berhasil mengembalikan data dan datanya tidak kosong
+          // JANGAN PERNAH mengosongkan holdings lokal jika query Supabase kosong atau gagal!
+          if (!holdingsErr && holdingsData && holdingsData.length > 0) {
             const mappedHoldings = holdingsData.map((row: any) => ({
               symbol: row.symbol,
               displaySymbol: row.display_symbol,
@@ -436,9 +440,24 @@ export const useAuthStore = create<AuthState>()(
             }));
 
             usePortfolioStore.setState({ holdings: mappedHoldings });
-          } else {
-            // Pastikan jika database tidak punya holding, state lokal juga dikosongkan (cegah ghost holding)
-            usePortfolioStore.setState({ holdings: [] });
+          }
+
+          // 2. Ambil kas portfolio
+          const { data: portData, error: portErr } = await supabase
+            .from('portfolios')
+            .select('cash, realized_pl')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!portErr && portData && typeof portData.cash === 'number' && portData.cash > 0) {
+            const localStore = usePortfolioStore.getState();
+            // Hanya update kas dari DB jika DB memiliki holdings atau portofolio lokal memang belum pernah bertransaksi
+            if ((holdingsData && holdingsData.length > 0) || localStore.holdings.length === 0) {
+              usePortfolioStore.setState({
+                cash: Number(portData.cash),
+                realizedPL: Number(portData.realized_pl || 0),
+              });
+            }
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO LOAD ERROR]', err);

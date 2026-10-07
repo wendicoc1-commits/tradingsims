@@ -66,10 +66,10 @@ export default function FinceptAIPortfolioAgentBar() {
       }
 
       const res = await runAutonomousAgentCycle(news, liveQuotesMap);
-      if (res.actionTaken) {
+      if (res?.actionTaken) {
         setCycleMsg(res.actionTaken);
       } else {
-        setCycleMsg(`Siklus selesai: Tim AI mengamati pasar. Top Alpha saat ini ${res.topPick?.symbol || 'BMRI'}. Portofolio dalam kondisi prima.`);
+        setCycleMsg(`Siklus selesai: Tim AI mengamati pasar. Top Alpha saat ini ${res?.topPick?.symbol || 'BMRI'}. Portofolio dalam kondisi prima.`);
       }
       setTimeout(() => setCycleMsg(null), 8000);
     } finally {
