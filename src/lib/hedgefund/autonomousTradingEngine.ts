@@ -61,7 +61,12 @@ export async function runAutonomousAgentCycle(
     const sym = holding.displaySymbol.replace('.JK', '').toUpperCase();
     const liveQ = liveQuotesMap[sym];
     const rawPrice = liveQ?.price ?? holding.currentPrice;
-    const sellPrice = roundTick(rawPrice);
+    const isCrypto =
+      holding.assetClass === 'CRYPTO' ||
+      holding.symbol.endsWith('USDT') ||
+      ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(sym);
+    const rate = holding.exchangeRate || 16000;
+    const sellPrice = isCrypto ? rawPrice : roundTick(rawPrice);
 
     if (sellPrice <= 0) continue;
 
@@ -79,8 +84,12 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const estProfit = (sellPrice - holding.avgPrice) * sellLots * 100;
-        actionTaken = `🎯 TAKE PROFIT OTOMATIS: Terjual ${sellLots} lot ${sym} @ Rp ${sellPrice.toLocaleString('id-ID')} (Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
+        const estProfit = isCrypto
+          ? Math.round((sellPrice - holding.avgPrice) * sellLots * rate)
+          : (sellPrice - holding.avgPrice) * sellLots * 100;
+        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        actionTaken = `🎯 TAKE PROFIT OTOMATIS: Terjual ${qtyLabel} ${sym} @ ${priceLabel} (Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
 
         aiStore.logAction({
           type: 'TRADE_SELL',
@@ -89,7 +98,7 @@ export async function runAutonomousAgentCycle(
           agentName: 'Raditya Pratama (L/S Equity PM)',
           agentEmoji: '💼',
           title: `Take Profit Otomatis: ${sym}`,
-          details: `Target harga Rp ${holding.takeProfitPrice.toLocaleString('id-ID')} tercapai. Posisi dilikuidasi untuk mengamankan keuntungan modal.`,
+          details: `Target harga ${priceLabel} tercapai. Posisi dilikuidasi untuk mengamankan keuntungan modal.`,
           metadata: {
             price: sellPrice,
             lots: sellLots,
@@ -108,8 +117,8 @@ export async function runAutonomousAgentCycle(
               ticker: sym,
               trade_result: 'WIN',
               pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : 5.0,
-              reflection_text: `Take Profit tercapai pada Rp ${sellPrice.toLocaleString('id-ID')}. Keuntungan Rp ${estProfit.toLocaleString('id-ID')} terkunci. Momentum breakout terkonfirmasi.`,
-              market_condition: 'IHSG Sesi Aktif',
+              reflection_text: `Take Profit tercapai pada ${priceLabel}. Keuntungan Rp ${estProfit.toLocaleString('id-ID')} terkunci. Momentum breakout terkonfirmasi.`,
+              market_condition: isCrypto ? 'Crypto 24/7 Momentum' : 'IHSG Sesi Aktif',
             }),
           }).catch(() => {});
         }
@@ -148,8 +157,12 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const estProfit = (sellPrice - holding.avgPrice) * sellLots * 100;
-        actionTaken = `📈 TRAILING STOP ATR TERKUNCI: Terjual ${sellLots} lot ${sym} @ Rp ${sellPrice.toLocaleString('id-ID')} setelah berbalik dari puncak Rp ${holding.peakPrice.toLocaleString('id-ID')} (Amankan Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
+        const estProfit = isCrypto
+          ? Math.round((sellPrice - holding.avgPrice) * sellLots * rate)
+          : (sellPrice - holding.avgPrice) * sellLots * 100;
+        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        actionTaken = `📈 TRAILING STOP ATR TERKUNCI: Terjual ${qtyLabel} ${sym} @ ${priceLabel} setelah berbalik dari puncak ${holding.peakPrice} (Amankan Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
 
         aiStore.logAction({
           type: 'TRADE_SELL',
@@ -158,7 +171,7 @@ export async function runAutonomousAgentCycle(
           agentName: 'Gilang Ramadhan (Head Trader)',
           agentEmoji: '⚡',
           title: `Trailing Stop ATR Locked: ${sym}`,
-          details: `Harga berbalik dari level puncak Rp ${holding.peakPrice.toLocaleString('id-ID')} dan menyentuh batas trailing stop Rp ${holding.trailingStopPrice.toLocaleString('id-ID')}. Keuntungan modal berhasil dikunci otomatis.`,
+          details: `Harga berbalik dari level puncak dan menyentuh batas trailing stop ${holding.trailingStopPrice}. Keuntungan modal berhasil dikunci otomatis.`,
           metadata: {
             price: sellPrice,
             lots: sellLots,
@@ -177,8 +190,8 @@ export async function runAutonomousAgentCycle(
               ticker: sym,
               trade_result: 'WIN',
               pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : 3.0,
-              reflection_text: `Trailing Stop Chandelier terpicu pada Rp ${sellPrice.toLocaleString('id-ID')}. Profit Rp ${estProfit.toLocaleString('id-ID')} berhasil diamankan setelah harga berbalik dari puncak.`,
-              market_condition: 'IHSG Retracement',
+              reflection_text: `Trailing Stop Chandelier terpicu pada ${priceLabel}. Profit Rp ${estProfit.toLocaleString('id-ID')} berhasil diamankan setelah harga berbalik dari puncak.`,
+              market_condition: isCrypto ? 'Crypto Retracement' : 'IHSG Retracement',
             }),
           }).catch(() => {});
         }
@@ -201,8 +214,12 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const lossVal = (holding.avgPrice - sellPrice) * sellLots * 100;
-        actionTaken = `🛡️ STOP LOSS OTOMATIS (CRO VETO): Cut loss ${sellLots} lot ${sym} @ Rp ${sellPrice.toLocaleString('id-ID')} (Batas risiko Rp ${holding.stopLossPrice.toLocaleString('id-ID')})`;
+        const lossVal = isCrypto
+          ? Math.round((holding.avgPrice - sellPrice) * sellLots * rate)
+          : (holding.avgPrice - sellPrice) * sellLots * 100;
+        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        actionTaken = `🛡️ STOP LOSS OTOMATIS (CRO VETO): Cut loss ${qtyLabel} ${sym} @ ${priceLabel} (Batas risiko: ${holding.stopLossPrice})`;
 
         aiStore.logAction({
           type: 'RISK_GATE',
@@ -211,7 +228,7 @@ export async function runAutonomousAgentCycle(
           agentName: 'Bambang Suroso (Chief Risk Officer)',
           agentEmoji: '🛡️',
           title: `Stop Loss Cut: ${sym}`,
-          details: `Harga menyentuh batas proteksi modal Rp ${holding.stopLossPrice.toLocaleString('id-ID')}. Posisi ditutup untuk mencegah drawdown lebih dalam.`,
+          details: `Harga menyentuh batas proteksi modal ${holding.stopLossPrice}. Posisi ditutup untuk mencegah drawdown lebih dalam.`,
           metadata: {
             price: sellPrice,
             lots: sellLots,

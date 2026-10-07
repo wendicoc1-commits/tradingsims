@@ -106,6 +106,9 @@ function short(s: string, n = 84): string {
 }
 
 export function roundTick(p: number): number {
+  if (p <= 0) return 0;
+  // Jika harga desimal kecil (kripto / pecahan dolar), jangan dibulatkan dengan fraksi rupiah BEI
+  if (p < 50) return Number(p.toFixed(p < 1 ? 6 : 2));
   const tick = p > 5000 ? 25 : p > 2000 ? 10 : p > 500 ? 5 : p > 200 ? 2 : 1;
   return Math.max(tick, Math.round(p / tick) * tick);
 }
