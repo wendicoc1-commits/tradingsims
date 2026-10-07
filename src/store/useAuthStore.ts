@@ -461,28 +461,45 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
+          const localCash = typeof localStore.cash === 'number' ? localStore.cash : 0;
           const hasLocalHoldings = localStore.holdings && localStore.holdings.length > 0;
           const hasDbHoldings = !holdingsErr && holdingsData && holdingsData.length > 0;
+
+          // Rekonsiliasi Saldo Kas (Mencegah saldo hilang saat refresh):
+          // 1. Jika browser lokal sudah memiliki saldo (> 0), pertahankan saldo lokal dan sinkronkan ke DB.
+          // 2. Jika lokal 0 dan di DB tersimpan saldo (> 0), ambil saldo dari DB.
+          // 3. Jika keduanya 0 (setelah reset bersih), saldo tetap 0.
+          let finalCash = localCash;
+          if (localCash === 0 && dbCash !== null && dbCash > 0) {
+            finalCash = dbCash;
+          } else if (localCash > 0) {
+            finalCash = localCash;
+          }
 
           // ATURAN INTEGRITAS:
           // Jika di browser lokal sudah ada kepemilikan saham aktif (hasil transaksi terbaru di sesi ini),
           // JANGAN TIMPA lokal dengan database yang belum tersinkronisasi! Justru sinkronkan lokal naik ke DB.
           if (hasLocalHoldings) {
+            usePortfolioStore.setState({ cash: finalCash });
             await get().syncPortfolioToDatabase();
             return;
           }
 
-          // Jika tidak ada holding baik di lokal maupun di DB (bersih/reset), sinkronkan saldo kas dari DB
+          // Jika tidak ada holding baik di lokal maupun di DB (bersih/baru top up tanpa beli saham):
           if (!hasLocalHoldings && !hasDbHoldings) {
             usePortfolioStore.setState({
               holdings: [],
-              cash: dbCash !== null ? dbCash : 0,
-              realizedPL: dbRealizedPL || 0,
+              cash: finalCash,
+              realizedPL: dbRealizedPL || localStore.realizedPL || 0,
             });
+            // Jika lokal punya saldo tapi DB belum tersimpan (misal baru top up lalu refresh browser):
+            if (localCash > 0 && (dbCash === null || dbCash === 0)) {
+              await get().syncPortfolioToDatabase();
+            }
             return;
           }
 
-          // Jika lokal kosong tapi DB memiliki data (misal user baru login di device/browser baru):
+          // Jika lokal kosong tapi DB memiliki data (misal user login di device/browser baru):
           if (hasDbHoldings) {
             const mappedHoldings = holdingsData.map((row: any) => ({
               symbol: row.symbol,
@@ -507,8 +524,8 @@ export const useAuthStore = create<AuthState>()(
 
             usePortfolioStore.setState({
               holdings: mappedHoldings,
-              cash: dbCash !== null ? dbCash : 0,
-              realizedPL: dbRealizedPL || 0,
+              cash: finalCash,
+              realizedPL: dbRealizedPL || localStore.realizedPL || 0,
             });
           }
         } catch (err) {

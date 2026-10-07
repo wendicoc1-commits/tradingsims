@@ -314,6 +314,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       cash: newTotalCash,
       orders: [depositOrder, ...get().orders],
     })
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
     return { addedVirtualCash, newTotalCash }
   },
 
@@ -1094,6 +1099,12 @@ export const usePortfolioStore = create<PortfolioState>()(
       dividends: [record, ...dividends],
     })
 
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
+
     return { success: true, amount: net, message: `Dividen ${cleanSym} sebesar Rp ${net.toLocaleString('id-ID')} berhasil masuk ke Saldo Kas Anda!` }
   },
 
@@ -1142,6 +1153,12 @@ export const usePortfolioStore = create<PortfolioState>()(
         holdings: updatedHoldings,
         dividends: [...newRecords, ...dividends],
       })
+
+      if (typeof window !== 'undefined') {
+        import('@/store/useAuthStore').then(({ useAuthStore }) => {
+          useAuthStore.getState().syncPortfolioToDatabase();
+        }).catch(() => {});
+      }
     }
 
     return { total: totalClaimed, count: claimedSymbols.length, symbols: claimedSymbols }
@@ -1213,6 +1230,12 @@ export const usePortfolioStore = create<PortfolioState>()(
       holdings: updatedHoldings,
       dividends: [record, ...dividends],
     })
+
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
 
     const msg = newLots > 0
       ? `DRIP Berhasil! Dividen Rp ${totalDividend.toLocaleString('id-ID')} otomatis di-reinvestasi menjadi +${newLots} lot ${cleanSym} (Sisa kembalian kas: Rp ${leftoverCash.toLocaleString('id-ID')}).`
@@ -1298,6 +1321,12 @@ export const usePortfolioStore = create<PortfolioState>()(
         holdings: updatedHoldings,
         dividends: [...newRecords, ...dividends],
       })
+
+      if (typeof window !== 'undefined') {
+        import('@/store/useAuthStore').then(({ useAuthStore }) => {
+          useAuthStore.getState().syncPortfolioToDatabase();
+        }).catch(() => {});
+      }
     }
 
     return {
@@ -1312,14 +1341,45 @@ export const usePortfolioStore = create<PortfolioState>()(
     {
       name: 'stockbit_portfolio_storage_v2',
       version: 2,
-      migrate: () => ({
-        cash: 0,
-        realizedPL: 0,
-        holdings: [],
-        orders: [],
-        conditionalOrders: [],
-        dividends: [],
-      }),
+      migrate: (persistedState: any) => {
+        if (!persistedState) {
+          if (typeof window !== 'undefined') {
+            try {
+              const legacyRaw = localStorage.getItem('stockbit_portfolio_storage')
+              if (legacyRaw) {
+                const parsed = JSON.parse(legacyRaw)
+                const legacyState = parsed?.state || parsed
+                if (legacyState && typeof legacyState.cash === 'number') {
+                  return {
+                    cash: legacyState.cash,
+                    realizedPL: legacyState.realizedPL || 0,
+                    holdings: Array.isArray(legacyState.holdings) ? legacyState.holdings : [],
+                    orders: Array.isArray(legacyState.orders) ? legacyState.orders : [],
+                    conditionalOrders: Array.isArray(legacyState.conditionalOrders) ? legacyState.conditionalOrders : [],
+                    dividends: Array.isArray(legacyState.dividends) ? legacyState.dividends : [],
+                  }
+                }
+              }
+            } catch {}
+          }
+          return {
+            cash: 0,
+            realizedPL: 0,
+            holdings: [],
+            orders: [],
+            conditionalOrders: [],
+            dividends: [],
+          }
+        }
+        return {
+          cash: typeof persistedState.cash === 'number' ? persistedState.cash : 0,
+          realizedPL: typeof persistedState.realizedPL === 'number' ? persistedState.realizedPL : 0,
+          holdings: Array.isArray(persistedState.holdings) ? persistedState.holdings : [],
+          orders: Array.isArray(persistedState.orders) ? persistedState.orders : [],
+          conditionalOrders: Array.isArray(persistedState.conditionalOrders) ? persistedState.conditionalOrders : [],
+          dividends: Array.isArray(persistedState.dividends) ? persistedState.dividends : [],
+        }
+      },
       partialize: (state) => ({
         cash: state.cash,
         realizedPL: state.realizedPL,
@@ -1332,9 +1392,4 @@ export const usePortfolioStore = create<PortfolioState>()(
   )
 )
 
-if (typeof window !== 'undefined') {
-  try {
-    localStorage.removeItem('stockbit_portfolio_storage')
-  } catch {}
-}
 
