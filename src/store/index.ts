@@ -469,6 +469,26 @@ export const usePortfolioStore = create<PortfolioState>()(
       totalCost = tradeValue + brokerFee
     }
 
+    // Proteksi Batas Cadangan Kas Minimum Bot AI (Rp 1.000.000):
+    // Sesuai aturan manajemen risiko modal, jika saldo kas saat ini di bawah Rp 1.000.000,
+    // atau jika order beli bot akan membuat sisa kas turun di bawah batas aman cadangan Rp 1.000.000,
+    // maka bot dilarang membeli saham atau crypto baru.
+    const MIN_BOT_CASH_RESERVE = 1_000_000
+    if (params.source === 'AI_AGENT') {
+      if (cash < MIN_BOT_CASH_RESERVE) {
+        return {
+          order: null,
+          error: `⛔ Proteksi Likuiditas Bot: Saldo kas (Rp ${Math.round(cash).toLocaleString('id-ID')}) di bawah batas minimum Rp 1.000.000. Bot dilarang membeli saham & crypto demi melindungi modal.`,
+        }
+      }
+      if (cash - totalCost < MIN_BOT_CASH_RESERVE) {
+        return {
+          order: null,
+          error: `⛔ Proteksi Cadangan Kas Bot: Pembelian ini (biaya Rp ${Math.round(totalCost).toLocaleString('id-ID')}) akan menyisakan kas Rp ${Math.round(cash - totalCost).toLocaleString('id-ID')}, di bawah batas aman Rp 1.000.000. Order beli bot ditolak.`,
+        }
+      }
+    }
+
     if (cash < totalCost) {
       return {
         order: null,

@@ -1999,36 +1999,38 @@ export default function VirtualAgentOfficeView() {
     const rate = 16000;
     const availableCash = store.cash;
 
-    // Proteksi modal: trading bot TIDAK menambahkan modal sendiri dan strictly bermain dengan modal yang ada
-    if (availableCash <= 50_000) {
+    const MIN_BOT_CASH_RESERVE = 1_000_000;
+    // Proteksi modal: trading bot TIDAK membeli jika sisa kas di bawah Rp 1.000.000
+    if (availableCash < MIN_BOT_CASH_RESERVE) {
       setOrderResult({
         ok: false,
-        msg: `⛔ Sisa Kas RDN Tidak Cukup: Saldo kas saat ini Rp ${Math.round(availableCash).toLocaleString('id-ID')}. Bot tidak menambahkan uang sendiri dan menjaga batas modal awal Rp 100 Juta. Tunggu posisi lama take profit atau cut loss untuk melepaskan kas.`,
+        msg: `⛔ Batas Minimum Kas Tercapai (< Rp 1.000.000): Saldo kas saat ini Rp ${Math.round(availableCash).toLocaleString('id-ID')}. Sesuai aturan manajemen risiko modal, bot dilarang membeli saham atau crypto saat sisa kas di bawah Rp 1 Juta demi menjaga cadangan modal.`,
       });
       return;
     }
 
+    const usableCash = Math.max(0, availableCash - MIN_BOT_CASH_RESERVE);
     let orderLots: number;
 
     if (isCrypto) {
-      const maxCryptoBudgetIDR = Math.min(Math.max(1_000_000, Math.floor(availableCash * 0.15)), availableCash * 0.98);
+      const maxCryptoBudgetIDR = Math.min(Math.max(500_000, Math.floor(usableCash * 0.20)), usableCash);
       const targetCryptoBudgetUSD = maxCryptoBudgetIDR / rate;
       const cryptoUnits = Number((targetCryptoBudgetUSD / Math.max(0.000001, entryPrice)).toFixed(6));
-      if (cryptoUnits <= 0) {
+      if (cryptoUnits <= 0 || usableCash < 500_000) {
         setOrderResult({
           ok: false,
-          msg: `⛔ Kas Tidak Mencukupi: Sisa kas Rp ${Math.round(availableCash).toLocaleString('id-ID')} tidak cukup untuk membeli unit kripto ${cleanSym}. Bot tidak menambah uang sendiri.`,
+          msg: `⛔ Sisa Kas Cadangan Tidak Mencukupi: Membeli kripto ${cleanSym} membutuhkan minimal Rp 500.000 dari sisa kas aktif, sementara kas aktif setelah cadangan Rp 1 Juta hanya Rp ${Math.round(usableCash).toLocaleString('id-ID')}.`,
         });
         return;
       }
       orderLots = cryptoUnits;
     } else {
       const costPerLot = entryPrice * 100 * 1.0015;
-      const maxAffordableLots = Math.floor(availableCash / costPerLot);
+      const maxAffordableLots = Math.floor(usableCash / costPerLot);
       if (maxAffordableLots < 1) {
         setOrderResult({
           ok: false,
-          msg: `⛔ Sisa Kas Tidak Mencukupi: Membeli 1 lot ${cleanSym} memerlukan Rp ${Math.round(costPerLot).toLocaleString('id-ID')}, namun sisa kas hanya Rp ${Math.round(availableCash).toLocaleString('id-ID')}. Bot tidak menambah modal sendiri demi menjaga modal Rp 100 Juta.`,
+          msg: `⛔ Sisa Kas Tidak Mencukupi: Membeli 1 lot ${cleanSym} memerlukan Rp ${Math.round(costPerLot).toLocaleString('id-ID')}, namun sisa kas setelah cadangan minimum Rp 1 Juta hanya Rp ${Math.round(usableCash).toLocaleString('id-ID')}. Bot tidak diizinkan melanggar batas cadangan Rp 1 Juta.`,
         });
         return;
       }
@@ -2053,11 +2055,11 @@ export default function VirtualAgentOfficeView() {
     const fee = Math.round(tradeValue * (isCrypto ? 0.001 : 0.0015));
     const totalCost = tradeValue + fee;
 
-    // Validasi final: pastikan kas benar-benar mencukupi tanpa top-up
-    if (store.cash < totalCost) {
+    // Validasi final: pastikan kas benar-benar mencukupi dan menyisakan cadangan Rp 1 Juta
+    if (store.cash < totalCost || (store.cash - totalCost < MIN_BOT_CASH_RESERVE)) {
       setOrderResult({
         ok: false,
-        msg: `⛔ Kas Tidak Cukup: Membutuhkan total Rp ${Math.round(totalCost).toLocaleString('id-ID')}, namun sisa kas Rp ${Math.round(store.cash).toLocaleString('id-ID')}. Bot tidak menambah uang sendiri.`,
+        msg: `⛔ Pelanggaran Batas Cadangan Kas: Total pembelian Rp ${Math.round(totalCost).toLocaleString('id-ID')} akan menyisakan kas Rp ${Math.round(store.cash - totalCost).toLocaleString('id-ID')} (di bawah batas minimum Rp 1.000.000). Order dibatalkan demi proteksi modal.`,
       });
       return;
     }

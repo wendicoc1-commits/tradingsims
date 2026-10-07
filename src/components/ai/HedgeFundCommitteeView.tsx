@@ -283,9 +283,12 @@ export default function HedgeFundCommitteeView() {
         assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
         currency: shareInfo.currency,
         exchangeRate: shareInfo.exchangeRate,
+        source: 'AI_AGENT',
       });
       if (res.order) {
         setOrderExecuted(true);
+      } else if (res.error) {
+        alert(res.error);
       }
     }
   };

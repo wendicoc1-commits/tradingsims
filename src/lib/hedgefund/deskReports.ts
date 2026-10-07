@@ -186,16 +186,46 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const riskPerUnit = Math.max(0.0001, entry - stop);
   const riskPerUnitIDR = isIDR ? riskPerUnit * 100 : riskPerUnit * rate;
 
+  // Proteksi Kas Minimum Bot AI (Rp 1.000.000):
+  // Jika sisa kas di bawah Rp 1.000.000, bot dilarang membeli saham atau crypto lagi.
+  const MIN_BOT_CASH_RESERVE = 1_000_000;
+  if (portfolio.cash < MIN_BOT_CASH_RESERVE) {
+    return {
+      ok: false,
+      reason: `Sisa kas (Rp ${Math.round(portfolio.cash).toLocaleString('id-ID')}) di bawah batas aman Rp 1.000.000. Bot dilarang membeli saham/crypto lagi demi melindungi modal.`,
+      entry,
+      stop,
+      takeProfit,
+      lots: 0,
+      riskIdr: 0,
+      notional: 0,
+      navUsed: nav,
+    };
+  }
+
+  // Kas yang aman digunakan setelah menyisakan cadangan Rp 1.000.000
+  const availableTradingCash = Math.max(0, portfolio.cash - MIN_BOT_CASH_RESERVE);
+
   // Batas alokasi risiko: 1% NAV
   const riskBudget = Math.max(nav * 0.01, unitCostIDR);
   let lots = Math.max(isIDR ? 1 : 0.01, Math.floor(riskBudget / riskPerUnitIDR));
   if (isIDR) lots = Math.max(1, lots);
 
-  const maxByCash = unitCostIDR > 0 ? Math.floor(portfolio.cash / (unitCostIDR * 1.0015)) : 1;
-  if (maxByCash >= 1) {
+  const maxByCash = unitCostIDR > 0 ? Math.floor(availableTradingCash / (unitCostIDR * 1.0015)) : 0;
+  if (maxByCash >= (isIDR ? 1 : 0.01)) {
     lots = Math.max(isIDR ? 1 : 0.01, Math.min(lots, maxByCash));
   } else {
-    lots = isIDR ? 1 : 0.01; // Minimal 1 lot / 0.01 unit untuk simulator
+    return {
+      ok: false,
+      reason: `Sisa kas yang dapat digunakan setelah cadangan Rp 1.000.000 tidak mencukupi untuk membeli 1 ${isIDR ? 'lot' : 'unit'} (Butuh Rp ${Math.round(unitCostIDR * 1.0015).toLocaleString('id-ID')}, tersedia Rp ${Math.round(availableTradingCash).toLocaleString('id-ID')}).`,
+      entry,
+      stop,
+      takeProfit,
+      lots: 0,
+      riskIdr: 0,
+      notional: 0,
+      navUsed: nav,
+    };
   }
 
   const notionalIDR = isIDR ? Math.round(lots * 100 * entry) : Math.round(lots * entry * rate);

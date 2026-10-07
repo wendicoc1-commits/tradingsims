@@ -300,6 +300,28 @@ export async function runAutonomousCryptoAgentCycle(
   const topPick = scanResult.topPick;
 
   if (aiStore.autoTradingEnabled && !tradeExecuted && topPick) {
+    const MIN_BOT_CASH_RESERVE = 1_000_000;
+
+    // Proteksi Kas Minimum: Bot crypto DILARANG membeli koin jika kas di bawah Rp 1.000.000
+    if (portfolioStore.cash < MIN_BOT_CASH_RESERVE) {
+      if (Math.random() < 0.2) {
+        aiStore.logAction({
+          type: 'RISK_GATE',
+          symbol: topPick.asset.baseAsset,
+          agentId: 'trader_crypto',
+          agentName: 'Jesse Livermore (Crypto Desk Lead)',
+          agentEmoji: '⚡',
+          title: `Jesse AI Risk Gate: Pembelian Crypto Ditolak (Kas < Rp 1 Juta)`,
+          details: `Sisa saldo kas saat ini (Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 1.000.000. Sesuai aturan manajemen risiko modal, bot crypto menonaktifkan seluruh pembelian koin baru.`,
+          metadata: {
+            cash: portfolioStore.cash,
+            minCashRequired: MIN_BOT_CASH_RESERVE,
+          },
+        });
+      }
+      return { tradeExecuted, actionTaken, scanResult };
+    }
+
     const cleanSym = topPick.asset.baseAsset;
     const existingHolding = portfolioStore.holdings.find(
       (h) =>
@@ -326,18 +348,24 @@ export async function runAutonomousCryptoAgentCycle(
       ? (existingHolding.cryptoUnits ?? existingHolding.lots) * topPick.signal.currentPrice * exchangeRate
       : 0;
 
-    // Sizing alokasi beli per trade (sekitar Rp 2 Juta - Rp 5 Juta disesuaikan kas)
+    const availableCashAfterReserve = Math.max(0, portfolioStore.cash - MIN_BOT_CASH_RESERVE);
+
+    // Sizing alokasi beli per trade (disesuaikan kas yang aman setelah cadangan Rp 1 Juta)
     const targetTradeAmountIDR = Math.min(
-      Math.max(1000000, Math.floor(portfolioStore.cash * 0.05)), // 5% kas atau min 1jt
+      Math.max(500000, Math.floor(availableCashAfterReserve * 0.10)),
       maxPerCoinBudget - currentCoinExposureIDR,
-      maxCryptoBudgetTotal - totalCryptoValueIDR
+      maxCryptoBudgetTotal - totalCryptoValueIDR,
+      availableCashAfterReserve
     );
 
     const isSignalEligible =
       (topPick.signal.signal === 'STRONG_BUY' || topPick.signal.signal === 'BUY') &&
       topPick.compositeScore >= 82;
 
-    const hasBudget = targetTradeAmountIDR >= 500000 && portfolioStore.cash >= targetTradeAmountIDR * 1.001;
+    const hasBudget =
+      portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
+      targetTradeAmountIDR >= 500000 &&
+      (portfolioStore.cash - targetTradeAmountIDR * 1.001 >= MIN_BOT_CASH_RESERVE);
     const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget;
 
     if (isSignalEligible && hasBudget && isUnderAllocated) {

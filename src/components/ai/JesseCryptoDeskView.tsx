@@ -183,6 +183,21 @@ export default function JesseCryptoDeskView() {
     }
 
     if (orderSide === 'BUY') {
+      const MIN_BOT_CASH_RESERVE = 1_000_000;
+      if (cash < MIN_BOT_CASH_RESERVE) {
+        setNotification({
+          type: 'error',
+          message: `⛔ Proteksi Likuiditas: Saldo kas (Rp ${Math.round(cash).toLocaleString('id-ID')}) di bawah batas minimum Rp 1.000.000. Bot crypto dinonaktifkan dari pembelian baru.`,
+        });
+        return;
+      }
+      if (cash - orderCalculation.grandTotalIDR < MIN_BOT_CASH_RESERVE) {
+        setNotification({
+          type: 'error',
+          message: `⛔ Proteksi Cadangan Kas: Pembelian ini akan menyisakan kas Rp ${Math.round(cash - orderCalculation.grandTotalIDR).toLocaleString('id-ID')} (di bawah cadangan minimum Rp 1 Juta). Order dibatalkan.`,
+        });
+        return;
+      }
       if (cash < orderCalculation.grandTotalIDR) {
         setNotification({
           type: 'error',
@@ -203,6 +218,7 @@ export default function JesseCryptoDeskView() {
         exchangeRate,
         takeProfitPrice: parseFloat(customTP) || undefined,
         stopLossPrice: parseFloat(customSL) || undefined,
+        source: 'AI_AGENT',
       });
 
       if (res.order) {

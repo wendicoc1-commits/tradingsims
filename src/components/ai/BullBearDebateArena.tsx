@@ -113,9 +113,12 @@ export default function BullBearDebateArena({ initialSymbol = 'BBCA' }: { initia
       assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
       currency: shareInfo.currency,
       exchangeRate: shareInfo.exchangeRate,
+      source: 'AI_AGENT',
     });
     if (res.order) {
       setExecutedOrder(true);
+    } else if (res.error) {
+      alert(res.error);
     }
   };
 

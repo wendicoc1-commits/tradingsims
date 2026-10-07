@@ -115,9 +115,17 @@ export default function FinceptAIPortfolioAgentBar() {
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                 BACKEND PYTHON: TERKONEKSI (PORT 8000 & 24/7 CLOUD)
               </span>
+              {cash < 1_000_000 && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  KAS &lt; RP 1 JT (PEMBELIAN DIHENTIKAN)
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              {activeAgentTask || 'Raditya (PM Saham), Kevin Zhang (Crypto PM) & Bambang (CRO) mengawasi portofolio Anda secara real-time.'}
+              {cash < 1_000_000
+                ? `🛡️ Proteksi Saldo Aktif: Sisa kas (Rp ${Math.round(cash).toLocaleString('id-ID')}) di bawah Rp 1 Juta. Bot dilarang membeli saham & crypto baru dan hanya mengawasi TP/SL posisi aktif.`
+                : (activeAgentTask || 'Raditya (PM Saham), Kevin Zhang (Crypto PM) & Bambang (CRO) mengawasi portofolio Anda secara real-time.')}
             </p>
           </div>
         </div>

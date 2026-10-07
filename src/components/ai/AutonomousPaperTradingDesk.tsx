@@ -158,6 +158,7 @@ export default function AutonomousPaperTradingDesk() {
       assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
       currency: shareInfo.currency,
       exchangeRate: shareInfo.exchangeRate,
+      source: 'AI_AGENT',
     });
     if (res.order) {
       const priceTxt = isForeign ? `$${price.toLocaleString()}` : `Rp ${price.toLocaleString('id-ID')}`;

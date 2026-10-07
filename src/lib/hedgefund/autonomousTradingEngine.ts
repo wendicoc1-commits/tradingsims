@@ -510,6 +510,28 @@ export async function runAutonomousAgentCycle(
       }
       // Bursa BEI tutup, eksekusi saham dilewati namun Crypto Desk 24/7 tetap berjalan
     } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 82 && target.suggestedAction.action === 'BUY') {
+      const MIN_BOT_CASH_RESERVE = 1_000_000;
+
+      // Proteksi Kas Minimum: Kas di bawah Rp 1.000.000 dilarang membeli saham baru
+      if (portfolioStore.cash < MIN_BOT_CASH_RESERVE) {
+        if (Math.random() < 0.2) {
+          aiStore.logAction({
+            type: 'RISK_GATE',
+            symbol: target.symbol,
+            agentId: 'cro',
+            agentName: 'Budi Santoso (Chief Risk Officer)',
+            agentEmoji: '🛡️',
+            title: `Proteksi Likuiditas: Pembelian Saham Dibatalkan (Kas < Rp 1 Juta)`,
+            details: `Saldo kas saat ini (Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 1.000.000. Sesuai mandat perlindungan modal, bot dilarang membeli saham atau crypto lagi.`,
+            metadata: {
+              cash: portfolioStore.cash,
+              minCashRequired: MIN_BOT_CASH_RESERVE,
+            },
+          });
+        }
+        return;
+      }
+
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
       const sizing = computePositionSizing(intel, snapshot);
 
@@ -540,8 +562,8 @@ export async function runAutonomousAgentCycle(
           const rotPrice = roundTick(liveQuotesMap[rotSym]?.price ?? rotCandidate.currentPrice);
           const estimatedProceeds = rotPrice * rotCandidate.lots * 100 * 0.9975;
 
-          // Hanya likuidasi jika hasil penjualan ditambah kas saat ini benar-benar cukup untuk membeli target
-          if (rotPrice > 0 && rotSym !== cleanSym && (portfolioStore.cash + estimatedProceeds >= totalBuyCost)) {
+          // Hanya likuidasi jika hasil penjualan ditambah kas saat ini benar-benar cukup untuk membeli target dan menjaga cadangan kas Rp 1 Juta
+          if (rotPrice > 0 && rotSym !== cleanSym && (portfolioStore.cash + estimatedProceeds - totalBuyCost >= MIN_BOT_CASH_RESERVE)) {
             const sellRes = portfolioStore.placeSellOrder({
               symbol: rotCandidate.symbol,
               displaySymbol: rotCandidate.displaySymbol,
@@ -572,10 +594,12 @@ export async function runAutonomousAgentCycle(
         }
       }
 
-      // Cek kecukupan kas, sizing valid, dan tidak melebihi plafon alokasi 25% NAV
+      // Cek kecukupan kas, sizing valid, batas cadangan Rp 1 Juta, dan tidak melebihi plafon alokasi 25% NAV
       if (
         sizing.ok &&
         sizing.lots > 0 &&
+        portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
+        (portfolioStore.cash - totalBuyCost >= MIN_BOT_CASH_RESERVE) &&
         portfolioStore.cash >= totalBuyCost &&
         (currentAssetExposure + totalBuyCost <= maxAllocationPerAsset)
       ) {
