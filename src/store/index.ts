@@ -184,6 +184,7 @@ export interface PortfolioState {
   orders: Order[]
   conditionalOrders: ConditionalOrder[]
   dividends: DividendRecord[]
+  lastUpdated: number
   placeBuyOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
   placeSellOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
   placeConditionalOrder: (params: Omit<ConditionalOrder, 'id' | 'createdAt' | 'status'>) => { order: ConditionalOrder | null; error?: string }
@@ -275,9 +276,11 @@ export const usePortfolioStore = create<PortfolioState>()(
   orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
   conditionalOrders: [],
   dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
+  lastUpdated: Date.now(),
 
   resetCashOnly: (amount = INITIAL_CASH) => {
-    set({ cash: amount })
+    const now = Date.now()
+    set({ cash: amount, lastUpdated: now })
     if (typeof window !== 'undefined') {
       import('@/store/useAuthStore').then(({ useAuthStore }) => {
         useAuthStore.getState().syncPortfolioToDatabase();
@@ -310,9 +313,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       createdAt: nowStr,
       filledAt: nowStr,
     }
+    const now = Date.now()
     set({
       cash: newTotalCash,
       orders: [depositOrder, ...get().orders],
+      lastUpdated: now,
     })
     if (typeof window !== 'undefined') {
       import('@/store/useAuthStore').then(({ useAuthStore }) => {
@@ -323,6 +328,7 @@ export const usePortfolioStore = create<PortfolioState>()(
   },
 
   resetPortfolio: () => {
+    const now = Date.now()
     set({
       cash: INITIAL_CASH,
       realizedPL: 0,
@@ -330,15 +336,17 @@ export const usePortfolioStore = create<PortfolioState>()(
       orders: [],
       conditionalOrders: [],
       dividends: [],
+      lastUpdated: now,
     })
     if (typeof window !== 'undefined') {
       import('@/store/useAuthStore').then(({ useAuthStore }) => {
-        useAuthStore.getState().resetPortfolioInDatabase();
+        useAuthStore.getState().resetPortfolioInDatabase(INITIAL_CASH);
       }).catch(() => {});
     }
   },
 
   resetToDefaultDemo: () => {
+    const now = Date.now()
     set({
       cash: INITIAL_CASH,
       realizedPL: 0,
@@ -346,10 +354,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
       conditionalOrders: [],
       dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
+      lastUpdated: now,
     })
     if (typeof window !== 'undefined') {
       import('@/store/useAuthStore').then(({ useAuthStore }) => {
-        useAuthStore.getState().resetPortfolioInDatabase();
+        useAuthStore.getState().resetPortfolioInDatabase(INITIAL_CASH);
       }).catch(() => {});
     }
   },
@@ -586,6 +595,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       cash: cash - totalCost,
       holdings: updatedHoldings,
       orders: [newOrder, ...orders],
+      lastUpdated: Date.now(),
     })
 
     if (typeof window !== 'undefined') {
@@ -613,7 +623,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
       return h
     })
-    set({ holdings: updated })
+    set({ holdings: updated, lastUpdated: Date.now() })
   },
 
   placeConditionalOrder: (params: Omit<ConditionalOrder, 'id' | 'createdAt' | 'status'>) => {
@@ -626,7 +636,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
     }
-    set({ conditionalOrders: [newOrder, ...conditionalOrders] })
+    set({ conditionalOrders: [newOrder, ...conditionalOrders], lastUpdated: Date.now() })
     return { order: newOrder }
   },
 
@@ -636,6 +646,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       conditionalOrders: conditionalOrders.map((co) =>
         co.id === id ? { ...co, status: 'CANCELLED' } : co
       ),
+      lastUpdated: Date.now(),
     })
   },
 
@@ -992,6 +1003,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       realizedPL: currentTotalRealizedPL + orderRealizedPL,
       holdings: updatedHoldings,
       orders: [newOrder, ...orders],
+      lastUpdated: Date.now(),
     })
 
     if (typeof window !== 'undefined') {
@@ -1112,6 +1124,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       cash: cash + net,
       holdings: updatedHoldings,
       dividends: [record, ...dividends],
+      lastUpdated: Date.now(),
     })
 
     if (typeof window !== 'undefined') {
@@ -1167,6 +1180,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         cash: cash + totalClaimed,
         holdings: updatedHoldings,
         dividends: [...newRecords, ...dividends],
+        lastUpdated: Date.now(),
       })
 
       if (typeof window !== 'undefined') {
@@ -1244,6 +1258,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       cash: cash + leftoverCash,
       holdings: updatedHoldings,
       dividends: [record, ...dividends],
+      lastUpdated: Date.now(),
     })
 
     if (typeof window !== 'undefined') {
@@ -1335,6 +1350,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         cash: cash + leftoverCashAdded,
         holdings: updatedHoldings,
         dividends: [...newRecords, ...dividends],
+        lastUpdated: Date.now(),
       })
 
       if (typeof window !== 'undefined') {
@@ -1372,6 +1388,7 @@ export const usePortfolioStore = create<PortfolioState>()(
                     orders: Array.isArray(legacyState.orders) ? legacyState.orders : [],
                     conditionalOrders: Array.isArray(legacyState.conditionalOrders) ? legacyState.conditionalOrders : [],
                     dividends: Array.isArray(legacyState.dividends) ? legacyState.dividends : [],
+                    lastUpdated: typeof legacyState.lastUpdated === 'number' ? legacyState.lastUpdated : Date.now(),
                   }
                 }
               }
@@ -1384,6 +1401,7 @@ export const usePortfolioStore = create<PortfolioState>()(
             orders: [],
             conditionalOrders: [],
             dividends: [],
+            lastUpdated: Date.now(),
           }
         }
         return {
@@ -1393,6 +1411,7 @@ export const usePortfolioStore = create<PortfolioState>()(
           orders: Array.isArray(persistedState.orders) ? persistedState.orders : [],
           conditionalOrders: Array.isArray(persistedState.conditionalOrders) ? persistedState.conditionalOrders : [],
           dividends: Array.isArray(persistedState.dividends) ? persistedState.dividends : [],
+          lastUpdated: typeof persistedState.lastUpdated === 'number' ? persistedState.lastUpdated : Date.now(),
         }
       },
       partialize: (state) => ({
@@ -1402,9 +1421,34 @@ export const usePortfolioStore = create<PortfolioState>()(
         orders: state.orders,
         conditionalOrders: state.conditionalOrders,
         dividends: state.dividends,
+        lastUpdated: state.lastUpdated,
       }),
     }
   )
 )
+
+/**
+ * Menunggu hingga Zustand Persist selesai menghidrasi data dari localStorage ke memori.
+ * Sangat penting untuk mencegah race condition di mana halaman me-refresh dan memicu
+ * loadPortfolioFromDatabase sebelum localStorage selesai dibaca.
+ */
+export async function waitForPortfolioHydration(): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (usePortfolioStore.persist.hasHydrated()) return
+
+  return new Promise<void>((resolve) => {
+    if (usePortfolioStore.persist.hasHydrated()) {
+      resolve()
+      return
+    }
+    const unsub = usePortfolioStore.persist.onFinishHydration(() => {
+      unsub()
+      resolve()
+    })
+    setTimeout(() => {
+      resolve()
+    }, 400)
+  })
+}
 
 
