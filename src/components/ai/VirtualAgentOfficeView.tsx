@@ -1939,17 +1939,7 @@ export default function VirtualAgentOfficeView() {
     const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(cleanSym);
     const isIDR = !isCrypto;
 
-    // Validasi Jam Bursa Efek Indonesia (IDX)
-    if (isIDR) {
-      const marketCheck = checkIDXMarketStatus();
-      if (!marketCheck.isOpen) {
-        setOrderResult({
-          ok: false,
-          msg: `⛔ Transaksi Beli Ditolak di Luar Jam Bursa: ${marketCheck.message} ${marketCheck.nextOpenNotice} Pembelian saham Indonesia hanya diizinkan pada jam bursa aktif (Senin–Jumat 09:00–16:00 WIB).`,
-        });
-        return;
-      }
-    }
+    // Jam Bursa Efek Indonesia (IDX) bersifat informatif dalam mode simulator paper trading (eksekusi 24/7)
 
     const entryPrice = isIDR
       ? roundTick(sz.entry || intel.currentPrice || 500)

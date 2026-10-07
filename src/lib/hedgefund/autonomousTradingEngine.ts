@@ -381,24 +381,11 @@ export async function runAutonomousAgentCycle(
     const currentAssetExposure = exposureOf(cleanSym);
     const isAlreadySufficientlyAllocated = isAllocated(cleanSym);
 
-    // Cek jam perdagangan bursa jika instrumen adalah saham Indonesia
+    // Status jam bursa BEI (hanya informatif; tidak memblokir order di mode simulator agar pengujian AI berjalan 24/7)
     const isTargetIDX = target.currency === 'IDR';
     const idxMarketCheck = isTargetIDX ? checkIDXMarketStatus() : null;
 
-    if (isTargetIDX && idxMarketCheck && !idxMarketCheck.isOpen) {
-      // Di luar jam bursa: jangan buka posisi saham Indonesia
-      if (Math.random() < 0.25) {
-        aiStore.logAction({
-          type: 'RISK_GATE',
-          symbol: target.symbol,
-          agentId: 'head_trader',
-          agentName: 'Gilang Ramadhan (Head of Execution & Flow)',
-          agentEmoji: '⚡',
-          title: `Eksekusi Ditahan: Bursa BEI Tutup (${target.symbol})`,
-          details: `Order beli ${target.symbol} ditunda karena ${idxMarketCheck.message} ${idxMarketCheck.nextOpenNotice} Pembelian saham Indonesia hanya diizinkan saat jam bursa aktif.`,
-        });
-      }
-    } else if (!isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
+    if (!isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
       const sizing = computePositionSizing(intel, snapshot);
 

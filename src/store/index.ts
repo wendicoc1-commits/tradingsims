@@ -183,8 +183,8 @@ export interface PortfolioState {
   orders: Order[]
   conditionalOrders: ConditionalOrder[]
   dividends: DividendRecord[]
-  placeBuyOrder: (params: OrderParams) => { order: Order | null; error?: string }
-  placeSellOrder: (params: OrderParams) => { order: Order | null; error?: string }
+  placeBuyOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
+  placeSellOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
   placeConditionalOrder: (params: Omit<ConditionalOrder, 'id' | 'createdAt' | 'status'>) => { order: ConditionalOrder | null; error?: string }
   cancelConditionalOrder: (id: string) => void
   setHoldingRiskTargets: (symbol: string, params: { takeProfitPrice?: number; stopLossPrice?: number; validityType?: 'DAY' | 'GTC' }) => void
@@ -333,7 +333,31 @@ export const usePortfolioStore = create<PortfolioState>()(
     })
   },
 
-  placeBuyOrder: (params: OrderParams): { order: Order | null; error?: string } => {
+  placeBuyOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]): { order: Order | null; error?: string } => {
+    let params: OrderParams
+    if (typeof paramsOrSymbol === 'string') {
+      const sym = paramsOrSymbol
+      let name = sym
+      let price = 1000
+      let lots = 1
+      let orderType: 'LIMIT' | 'MARKET' = 'MARKET'
+
+      if (typeof args[0] === 'number') {
+        // Bentuk: placeBuyOrder(symbol, lots, price)
+        lots = args[0]
+        price = typeof args[1] === 'number' ? args[1] : 1000
+      } else if (typeof args[0] === 'string') {
+        // Bentuk: placeBuyOrder(symbol, name, price, lots, orderType)
+        name = args[0]
+        price = typeof args[1] === 'number' ? args[1] : 1000
+        lots = typeof args[2] === 'number' ? args[2] : 1
+        orderType = typeof args[3] === 'string' ? args[3] as any : 'MARKET'
+      }
+      params = { symbol: sym, name, price, lots, orderType }
+    } else {
+      params = paramsOrSymbol
+    }
+
     const { cash, holdings, orders } = get()
     const { symbol, displaySymbol, price, lots, name = displaySymbol, orderType = 'LIMIT' } = params
 
@@ -358,19 +382,13 @@ export const usePortfolioStore = create<PortfolioState>()(
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
     const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
-    // Validasi fraksi harga & jam perdagangan resmi BEI HANYA jika saham Indonesia
+    let execPrice = price
+    // Validasi & sinkronisasi fraksi harga resmi BEI jika saham Indonesia (tidak memblokir jam di mode simulator agar latihan & AI agent bisa berjalan 24/7)
     if (isIDX) {
-      const marketCheck = checkIDXMarketStatus()
-      if (!marketCheck.isOpen) {
-        return {
-          order: null,
-          error: `Transaksi Ditolak di Luar Jam Bursa: ${marketCheck.message} ${marketCheck.nextOpenNotice} Pembelian saham Indonesia hanya diizinkan pada jam bursa aktif.`,
-        }
-      }
-
-      const remainder = price % (price > 5000 ? 25 : price > 2000 ? 10 : price > 500 ? 5 : price > 200 ? 2 : 1)
+      const tick = execPrice > 5000 ? 25 : execPrice > 2000 ? 10 : execPrice > 500 ? 5 : execPrice > 200 ? 2 : 1
+      const remainder = execPrice % tick
       if (remainder !== 0) {
-        return { order: null, error: `Harga Rp ${price} tidak sesuai dengan fraksi harga resmi BEI.` }
+        execPrice = Math.round(execPrice / tick) * tick
       }
     }
 
@@ -386,14 +404,14 @@ export const usePortfolioStore = create<PortfolioState>()(
     if (isCrypto) {
       sharesMultiplier = 1
       totalShares = lots // Dalam satuan unit koin (bisa desimal)
-      const tradeValueUSD = price * lots
+      const tradeValueUSD = execPrice * lots
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.001) // Spot fee crypto 0.1%
       totalCost = tradeValue + brokerFee
     } else {
       sharesMultiplier = isIDX ? SHARES_PER_LOT : 1
       totalShares = lots * sharesMultiplier
-      tradeValue = price * totalShares
+      tradeValue = execPrice * totalShares
       brokerFee = Math.round(tradeValue * BUY_FEE_RATE)
       totalCost = tradeValue + brokerFee
     }
@@ -414,7 +432,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       displaySymbol: cleanSym,
       type: 'BUY',
       orderType,
-      price,
+      price: execPrice,
       lots,
       shares: totalShares,
       total: tradeValue,
@@ -455,14 +473,14 @@ export const usePortfolioStore = create<PortfolioState>()(
       const newPurchaseCost = tradeValue + brokerFee
 
       const newAvgPrice = isCrypto
-        ? Number(((existing.avgPrice * existingShares + price * totalShares) / newTotalShares).toFixed(4))
+        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(4))
         : Math.round((existingTotalCost + newPurchaseCost) / newTotalShares)
 
       const unrealizedPL = isCrypto
-        ? Math.round((price - newAvgPrice) * newTotalShares * rate)
-        : (price - newAvgPrice) * newTotalShares
+        ? Math.round((execPrice - newAvgPrice) * newTotalShares * rate)
+        : (execPrice - newAvgPrice) * newTotalShares
       const unrealizedPLPercent = newAvgPrice > 0
-        ? Number((((price - newAvgPrice) / newAvgPrice) * 100).toFixed(2))
+        ? Number((((execPrice - newAvgPrice) / newAvgPrice) * 100).toFixed(2))
         : 0
 
       updatedHoldings = [...holdings]
@@ -471,7 +489,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         avgPrice: newAvgPrice,
         lots: newTotalLots,
         shares: newTotalShares,
-        currentPrice: price,
+        currentPrice: execPrice,
         unrealizedPL,
         unrealizedPLPercent,
         takeProfitPrice: params.takeProfitPrice || existing.takeProfitPrice,
@@ -483,11 +501,11 @@ export const usePortfolioStore = create<PortfolioState>()(
         exchangeRate: isCrypto ? rate : undefined,
       }
     } else {
-      const initialAvgPrice = isCrypto ? price : Math.round((tradeValue + brokerFee) / totalShares)
+      const initialAvgPrice = isCrypto ? execPrice : Math.round((tradeValue + brokerFee) / totalShares)
       const unrealizedPL = isCrypto
-        ? Math.round((price - initialAvgPrice) * totalShares * rate)
-        : (price - initialAvgPrice) * totalShares
-      const unrealizedPLPercent = Number((((price - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
+        ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
+        : (execPrice - initialAvgPrice) * totalShares
+      const unrealizedPLPercent = Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
 
       const newHolding: PortfolioHolding = {
         symbol: resolvedSym,
@@ -496,16 +514,16 @@ export const usePortfolioStore = create<PortfolioState>()(
         avgPrice: initialAvgPrice,
         lots,
         shares: totalShares,
-        currentPrice: price,
+        currentPrice: execPrice,
         unrealizedPL,
         unrealizedPLPercent,
         takeProfitPrice: params.takeProfitPrice,
         stopLossPrice: params.stopLossPrice,
-        peakPrice: price,
+        peakPrice: execPrice,
         trailingStopPct: isCrypto ? 6 : 4, // 6% untuk volatilitas kripto, 4% untuk saham
         trailingStopPrice: isCrypto
-          ? Number((price * 0.94).toFixed(4))
-          : Math.round(price * 0.96),
+          ? Number((execPrice * 0.94).toFixed(4))
+          : Math.round(execPrice * 0.96),
         validityType: params.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
         currency: isCrypto ? 'USDT' : 'IDR',
@@ -739,7 +757,31 @@ export const usePortfolioStore = create<PortfolioState>()(
     return { triggered: false }
   },
 
-  placeSellOrder: (params: OrderParams): { order: Order | null; error?: string } => {
+  placeSellOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]): { order: Order | null; error?: string } => {
+    let params: OrderParams
+    if (typeof paramsOrSymbol === 'string') {
+      const sym = paramsOrSymbol
+      let name = sym
+      let price = 1000
+      let lots = 1
+      let orderType: 'LIMIT' | 'MARKET' = 'MARKET'
+
+      if (typeof args[0] === 'number') {
+        // Bentuk: placeSellOrder(symbol, lots, price)
+        lots = args[0]
+        price = typeof args[1] === 'number' ? args[1] : 1000
+      } else if (typeof args[0] === 'string') {
+        // Bentuk: placeSellOrder(symbol, name, price, lots, orderType)
+        name = args[0]
+        price = typeof args[1] === 'number' ? args[1] : 1000
+        lots = typeof args[2] === 'number' ? args[2] : 1
+        orderType = typeof args[3] === 'string' ? args[3] as any : 'MARKET'
+      }
+      params = { symbol: sym, name, price, lots, orderType }
+    } else {
+      params = paramsOrSymbol
+    }
+
     const { cash, holdings, orders, realizedPL: currentTotalRealizedPL } = get()
     const { symbol, displaySymbol, price, lots, orderType = 'LIMIT' } = params
 
@@ -763,11 +805,13 @@ export const usePortfolioStore = create<PortfolioState>()(
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
     const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
-    // Validasi fraksi harga BEI HANYA jika saham Indonesia
+    let execPrice = price
+    // Validasi & sinkronisasi fraksi harga BEI HANYA jika saham Indonesia
     if (isIDX) {
-      const remainder = price % (price > 5000 ? 25 : price > 2000 ? 10 : price > 500 ? 5 : price > 200 ? 2 : 1)
+      const tick = execPrice > 5000 ? 25 : execPrice > 2000 ? 10 : execPrice > 500 ? 5 : execPrice > 200 ? 2 : 1
+      const remainder = execPrice % tick
       if (remainder !== 0) {
-        return { order: null, error: `Harga jual Rp ${price} tidak mematuhi fraksi harga resmi BEI.` }
+        execPrice = Math.round(execPrice / tick) * tick
       }
     }
 
@@ -803,7 +847,7 @@ export const usePortfolioStore = create<PortfolioState>()(
 
     if (isCrypto) {
       sharesSold = lots
-      const tradeValueUSD = price * lots
+      const tradeValueUSD = execPrice * lots
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.001) // 0.1% spot fee
       taxFee = Math.round(tradeValue * 0.001) // 0.1% PPh Final Bappebti
@@ -812,7 +856,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       costBasisSold = existing.avgPrice * lots * rate
     } else {
       sharesSold = lots * sharesMultiplier
-      tradeValue = price * sharesSold
+      tradeValue = execPrice * sharesSold
       brokerFee = Math.round(tradeValue * 0.0015)
       taxFee = Math.round(tradeValue * 0.0010) // 0.1% PPh Final bursa
       totalFee = brokerFee + taxFee
@@ -832,7 +876,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       displaySymbol: cleanSym,
       type: 'SELL',
       orderType,
-      price,
+      price: execPrice,
       lots,
       shares: sharesSold,
       total: tradeValue,
@@ -860,10 +904,10 @@ export const usePortfolioStore = create<PortfolioState>()(
       // Jika penjualan sebagian
       const remainingShares = isCrypto ? remainingLots : remainingLots * sharesMultiplier
       const remainingUnrealizedPL = isCrypto
-        ? Math.round((price - existing.avgPrice) * remainingLots * rate)
-        : (price - existing.avgPrice) * remainingShares
+        ? Math.round((execPrice - existing.avgPrice) * remainingLots * rate)
+        : (execPrice - existing.avgPrice) * remainingShares
       const remainingUnrealizedPercent = existing.avgPrice > 0
-        ? Number((((price - existing.avgPrice) / existing.avgPrice) * 100).toFixed(2))
+        ? Number((((execPrice - existing.avgPrice) / existing.avgPrice) * 100).toFixed(2))
         : 0
 
       updatedHoldings = [...holdings]
@@ -872,7 +916,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         lots: remainingLots,
         shares: remainingShares,
         cryptoUnits: isCrypto ? remainingLots : undefined,
-        currentPrice: price,
+        currentPrice: execPrice,
         unrealizedPL: remainingUnrealizedPL,
         unrealizedPLPercent: remainingUnrealizedPercent,
         realizedPL: (existing.realizedPL || 0) + orderRealizedPL,

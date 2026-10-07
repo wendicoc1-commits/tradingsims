@@ -260,15 +260,17 @@ export default function HedgeFundCommitteeView() {
     if (!report) return;
     const plan = report.executionPlan;
     if (plan.action.includes('BUY')) {
-      placeBuyOrder({
-        symbol: report.symbol,
-        displaySymbol: report.symbol,
+      const res = placeBuyOrder({
+        symbol: report.symbol.endsWith('.JK') ? report.symbol : `${report.symbol}.JK`,
+        displaySymbol: report.symbol.replace('.JK', ''),
         price: plan.suggestedEntryPrice,
         lots: plan.targetAllocationLots,
         name: report.name,
         orderType: 'LIMIT',
       });
-      setOrderExecuted(true);
+      if (res.order) {
+        setOrderExecuted(true);
+      }
     }
   };
 

@@ -91,8 +91,17 @@ export default function BullBearDebateArena({ initialSymbol = 'BBCA' }: { initia
     if (!isBuy) return;
 
     // Buy 10 lots in paper trading
-    placeBuyOrder(debate.symbol, debate.name, debate.currentPrice, 10);
-    setExecutedOrder(true);
+    const res = placeBuyOrder({
+      symbol: `${debate.symbol}.JK`,
+      displaySymbol: debate.symbol,
+      name: debate.name,
+      price: debate.currentPrice,
+      lots: 10,
+      orderType: 'MARKET',
+    });
+    if (res.order) {
+      setExecutedOrder(true);
+    }
   };
 
   return (

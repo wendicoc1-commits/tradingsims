@@ -121,12 +121,26 @@ export default function AutonomousPaperTradingDesk() {
   }, [autoTradingEnabled]);
 
   const handleSimulateQuickTrade = (symbol: string, price: number) => {
-    placeBuyOrder(symbol, `${symbol} Tbk`, price, 5);
+    const res = placeBuyOrder({
+      symbol: symbol.endsWith('.JK') ? symbol : `${symbol}.JK`,
+      displaySymbol: symbol.replace('.JK', ''),
+      name: `${symbol} Tbk`,
+      price,
+      lots: 5,
+      orderType: 'MARKET',
+    });
     const now = new Date().toLocaleTimeString('id-ID');
-    setAuditLog((prev) => [
-      `${now} • [ORDER EXECUTED] Bought 5 Lots ${symbol} @ Rp ${price.toLocaleString('id-ID')}`,
-      ...prev.slice(0, 8),
-    ]);
+    if (res.order) {
+      setAuditLog((prev) => [
+        `${now} • [ORDER EXECUTED] Bought 5 Lots ${symbol} @ Rp ${price.toLocaleString('id-ID')}`,
+        ...prev.slice(0, 8),
+      ]);
+    } else {
+      setAuditLog((prev) => [
+        `${now} • [ORDER REJECTED] ${symbol}: ${res.error || 'Gagal mengeksekusi order'}`,
+        ...prev.slice(0, 8),
+      ]);
+    }
   };
 
   return (
@@ -301,7 +315,14 @@ export default function AutonomousPaperTradingDesk() {
                       </td>
                       <td className="py-2 px-2 text-center">
                         <button
-                          onClick={() => placeSellOrder(h.symbol, h.lots, h.currentPrice)}
+                          onClick={() => placeSellOrder({
+                            symbol: h.symbol,
+                            displaySymbol: h.displaySymbol || h.symbol,
+                            name: h.name,
+                            price: h.currentPrice,
+                            lots: h.lots,
+                            orderType: 'MARKET',
+                          })}
                           className="px-2 py-0.5 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#ef4444] rounded text-[10px] font-bold cursor-pointer"
                         >
                           Tutup Posisi
