@@ -168,6 +168,7 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const nav = Math.max(10_000_000, portfolioNav(portfolio));
   const isIDR = intel.currency === 'IDR';
   const rawEntry = rr.entry || intel.currentPrice || 100;
+  const entry = isIDR ? roundTick(rawEntry) : (rawEntry < 50 ? Number(rawEntry.toFixed(rawEntry < 1 ? 6 : 2)) : Number(rawEntry.toFixed(2)));
   // Berikan ruang nafas volatilitas sehat (Stop Loss ~5.5% - 6.0%, TP ~10.0% - 12.0%)
   const defaultStopDistance = isIDR ? 0.94 : 0.935; // 6.0% - 6.5% stop loss di bawah entry
   const minStopBoundary = entry * 0.95; // Stop loss tidak boleh terlalu dekat (< 5%) agar tidak terkena kocokan fraksi harga
