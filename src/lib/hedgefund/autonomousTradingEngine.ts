@@ -410,14 +410,17 @@ export async function runAutonomousAgentCycle(
       return !!h && (h.lots >= 10 || exposureOf(sym) >= maxAllocationPerAsset);
     };
 
-    // AI memilih sendiri: saham IDX berskor tertinggi yang BELUM cukup dialokasikan.
-    // Tidak lagi terpaku pada peringkat #1 — saat #1 sudah terisi, AI pindah ke kandidat berikutnya.
+    const idxCheck = checkIDXMarketStatus();
+    const isBEIOpen = idxCheck.isOpen;
+
+    // AI memilih sendiri: jika bursa BEI buka, saham IDX berskor tertinggi yang belum dialokasikan.
+    // Jika bursa BEI TUTUP (malam/weekend): HANYA pilih aset non-Indonesia (Kripto 24/7 & Global Luar Negeri)!
     const target =
       scanResult.rankedLeaderboard.find(
         (c) =>
-          c.currency === 'IDR' &&
+          (isBEIOpen || !isIndonesianStock(c.symbol)) &&
           c.suggestedAction.action === 'BUY' &&
-          c.score >= 78 &&
+          c.score >= 70 &&
           !isAllocated(c.symbol.toUpperCase())
       ) ?? topPick;
 

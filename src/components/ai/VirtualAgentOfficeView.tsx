@@ -1157,7 +1157,13 @@ interface DebateSnapshot {
 
 export default function VirtualAgentOfficeView() {
   const [mounted, setMounted] = useState(false);
-  const [selectedStock, setSelectedStock] = useState('BBCA');
+  const [selectedStock, setSelectedStock] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const open = checkIDXMarketStatus().isOpen;
+      return open ? 'BBCA' : 'BTC';
+    }
+    return 'BTC';
+  });
   const [assetFilter, setAssetFilter] = useState<'ALL' | 'IDX' | 'CRYPTO' | 'GLOBAL'>('ALL');
   const [customTicker, setCustomTicker] = useState('');
   const [panelTab, setPanelTab] = useState<PanelTab>('ROSTER');
@@ -1275,9 +1281,14 @@ export default function VirtualAgentOfficeView() {
       };
 
       // Pilih kandidat Alpha terbaik (Saham IDX maupun Kripto)
+      // JIKA BURSA BEI TUTUP (malam/weekend): Wajib HANYA pilih aset aktif (Kripto 24/7 atau Saham Luar Negeri)!
+      const idxMarketCheck = checkIDXMarketStatus();
+      const isBEIOpen = idxMarketCheck.isOpen;
+
       const candidate = result.rankedLeaderboard.find(
-        (c) => c.suggestedAction.action === 'BUY' && c.score >= 78 && !isAllocated(c.symbol)
-      ) ?? (result.topPick && !isAllocated(result.topPick.symbol) ? result.topPick : null);
+        (c) => (isBEIOpen || !isIndonesianStock(c.symbol)) && c.suggestedAction.action === 'BUY' && c.score >= 70 && !isAllocated(c.symbol)
+      ) ?? (result.topPick && (isBEIOpen || !isIndonesianStock(result.topPick.symbol)) && !isAllocated(result.topPick.symbol) ? result.topPick : null)
+        ?? result.rankedLeaderboard.find((c) => (isBEIOpen || !isIndonesianStock(c.symbol)) && !isAllocated(c.symbol));
 
       if (autoPilot && candidate && phase === 'IDLE') {
         setSelectedStock(candidate.symbol);
@@ -1307,7 +1318,11 @@ export default function VirtualAgentOfficeView() {
     if (!autoPilot) {
       setAutoPilot(true);
       if (scanResult?.topPick) {
-        setSelectedStock(scanResult.topPick.symbol);
+        const isBEIOpen = checkIDXMarketStatus().isOpen;
+        const validPick = (isBEIOpen || !isIndonesianStock(scanResult.topPick.symbol))
+          ? scanResult.topPick.symbol
+          : (scanResult.rankedLeaderboard.find((c) => !isIndonesianStock(c.symbol))?.symbol || 'BTC');
+        setSelectedStock(validPick);
       }
       executeUniverseScan();
     } else {
@@ -1799,6 +1814,15 @@ export default function VirtualAgentOfficeView() {
 
   // ── sidang IC ──
   const startDebate = useCallback(() => {
+    const isIndo = isIndonesianStock(selectedStock);
+    const idxCheck = isIndo ? checkIDXMarketStatus() : null;
+    if (isIndo && idxCheck && !idxCheck.isOpen) {
+      // Bursa BEI sedang tutup: dilarang rapat untuk saham Indonesia! Alihkan ke Kripto / Saham Global aktif
+      const nonIndoCandidate = scanResult?.rankedLeaderboard.find((c) => !isIndonesianStock(c.symbol))?.symbol || 'BTC';
+      setSelectedStock(nonIndoCandidate);
+      return;
+    }
+
     const rawDecision = computeCommitteeDecision(ctxData);
     const sizing = computePositionSizing(intel, portfolio);
     const activeEval = scanResult?.rankedLeaderboard.find((x) => x.symbol === selectedStock) ?? scanResult?.topPick;
@@ -1870,6 +1894,19 @@ export default function VirtualAgentOfficeView() {
       resetDebate();
     }
   }, [selectedStock, resetDebate]);
+
+  // Proteksi di luar jam bursa: Jika BEI TUTUP dan selectedStock adalah saham Indonesia,
+  // otomatis bubarkan sidang BEI dan alihkan ke aset aktif Kripto (24/7) atau Saham Global.
+  useEffect(() => {
+    const isIndo = isIndonesianStock(selectedStock);
+    if (!idxMarketStatus.isOpen && isIndo) {
+      const activeAsset = scanResult?.rankedLeaderboard.find((c) => !isIndonesianStock(c.symbol))?.symbol || 'BTC';
+      setSelectedStock(activeAsset);
+      if (phase === 'RUNNING') {
+        resetDebate();
+      }
+    }
+  }, [idxMarketStatus.isOpen, selectedStock, scanResult, phase, resetDebate]);
 
   // Otomatis kumpulkan seluruh departemen di War Room ketika ada target pembelian saham baru
   useEffect(() => {

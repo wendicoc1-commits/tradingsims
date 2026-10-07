@@ -15,6 +15,7 @@
 import { getGroundedStockIntelligence, type GroundedStockIntelligence } from '@/lib/agents/groundedStockIntelligence';
 import { getAssetBySymbol } from '@/lib/universe/masterAssetUniverse';
 import type { LiveQuote, NewsItem } from '@/lib/hedgefund/deskReports';
+import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
 
 export const UNIVERSE_TICKERS = [
   // Big Banks & Finance
@@ -374,8 +375,14 @@ export function scanUniverseForTopAlpha(
 
     const totalScore = Math.min(100, fEval.score + tEval.score + iEval.score + nEval.score);
 
+    const isIndo = isIndonesianStock(sym);
+    const idxMarketCheck = checkIDXMarketStatus();
+    const isBEIOpen = idxMarketCheck.isOpen;
+
     let conviction: StockAlphaEvaluation['conviction'] = 'HOLD';
-    if (totalScore >= 85) conviction = 'STRONG_BUY';
+    if (!isBEIOpen && isIndo) {
+      conviction = 'HOLD'; // Bursa BEI sedang tutup, saham tidak dapat dibeli saat ini
+    } else if (totalScore >= 85) conviction = 'STRONG_BUY';
     else if (totalScore >= 75) conviction = 'BUY';
     else if (totalScore >= 60) conviction = 'HOLD';
     else conviction = 'AVOID';
@@ -386,12 +393,17 @@ export function scanUniverseForTopAlpha(
       ...iEval.drivers.slice(0, 1),
     ];
 
+    if (!isBEIOpen && isIndo) {
+      allDrivers.unshift('Bursa BEI Tutup (Buka 09:00 WIB) — Di luar jam perdagangan reguler');
+    }
+
     if (nEval.pct >= 70) {
       allDrivers.push(`Sentimen Berita Live: ${nEval.pct}% sentimen positif dari crawler`);
     }
 
     const rr = intel.technicals.suggestedRiskReward;
-    const action = rr.action === 'BUY' ? 'BUY' : 'WAIT';
+    // Jika bursa BEI tutup, aksi saham Indonesia wajib WAIT, bukan BUY
+    const action = (!isBEIOpen && isIndo) ? 'WAIT' : (rr.action === 'BUY' ? 'BUY' : 'WAIT');
 
     evaluations.push({
       symbol: sym,
@@ -429,8 +441,21 @@ export function scanUniverseForTopAlpha(
     });
   }
 
-  // Sort descending by total score, then by implied upside
+  const idxMarketCheck = checkIDXMarketStatus();
+  const isBEIOpen = idxMarketCheck.isOpen;
+
+  // Urutkan aset:
+  // JIKA BURSA BEI TUTUP (malam/weekend):
+  // Aset aktif yang buka 24/7 (Kripto Spot & Saham Global Luar Negeri) WAJIB didahulukan di puncak leaderboard!
+  // Saham Indonesia yang sedang libur/tutup ditempatkan di bawah aset aktif agar AI tidak rapat di saham tutup.
   evaluations.sort((a, b) => {
+    if (!isBEIOpen) {
+      const aIndo = isIndonesianStock(a.symbol);
+      const bIndo = isIndonesianStock(b.symbol);
+      if (aIndo !== bIndo) {
+        return aIndo ? 1 : -1; // Aset Kripto / Global aktif diutamakan di peringkat atas
+      }
+    }
     if (b.score !== a.score) return b.score - a.score;
     return b.metrics.impliedUpsidePct - a.metrics.impliedUpsidePct;
   });
@@ -444,7 +469,9 @@ export function scanUniverseForTopAlpha(
   });
 
   const topPick = evaluations[0];
-  const summaryThesis = `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} emiten. Saham ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 dengan skor komposit ${topPick.score}/100. Pemicu keunggulan: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`;
+  const summaryThesis = !isBEIOpen
+    ? `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} aset. Berhubung Bursa BEI sedang tutup (${idxMarketCheck.statusLabel}), komite memprioritaskan aset aktif Kripto 24/7 & Global Luar Negeri. Aset ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 Alpha aktif dengan skor ${topPick.score}/100. Pemicu: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`
+    : `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} emiten. Saham ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 dengan skor komposit ${topPick.score}/100. Pemicu keunggulan: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`;
 
   return {
     topPick,
