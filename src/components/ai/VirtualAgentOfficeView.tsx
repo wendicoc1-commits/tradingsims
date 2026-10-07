@@ -1955,11 +1955,45 @@ export default function VirtualAgentOfficeView() {
 
     const store = usePortfolioStore.getState();
     const rate = 16000;
-    const targetCryptoBudgetIDR = Math.min(Math.max(2_500_000, Math.floor(store.cash * 0.08)), 25_000_000);
-    const targetCryptoBudgetUSD = targetCryptoBudgetIDR / rate;
-    const cryptoUnits = Number((targetCryptoBudgetUSD / Math.max(0.000001, entryPrice)).toFixed(6)) || 0.05;
+    const availableCash = store.cash;
 
-    const orderLots = isCrypto ? cryptoUnits : Math.max(1, sz.lots || 1);
+    // Proteksi modal: trading bot TIDAK menambahkan modal sendiri dan strictly bermain dengan modal yang ada
+    if (availableCash <= 50_000) {
+      setOrderResult({
+        ok: false,
+        msg: `⛔ Sisa Kas RDN Tidak Cukup: Saldo kas saat ini Rp ${Math.round(availableCash).toLocaleString('id-ID')}. Bot tidak menambahkan uang sendiri dan menjaga batas modal awal Rp 100 Juta. Tunggu posisi lama take profit atau cut loss untuk melepaskan kas.`,
+      });
+      return;
+    }
+
+    let orderLots: number;
+
+    if (isCrypto) {
+      const maxCryptoBudgetIDR = Math.min(Math.max(1_000_000, Math.floor(availableCash * 0.15)), availableCash * 0.98);
+      const targetCryptoBudgetUSD = maxCryptoBudgetIDR / rate;
+      const cryptoUnits = Number((targetCryptoBudgetUSD / Math.max(0.000001, entryPrice)).toFixed(6));
+      if (cryptoUnits <= 0) {
+        setOrderResult({
+          ok: false,
+          msg: `⛔ Kas Tidak Mencukupi: Sisa kas Rp ${Math.round(availableCash).toLocaleString('id-ID')} tidak cukup untuk membeli unit kripto ${cleanSym}. Bot tidak menambah uang sendiri.`,
+        });
+        return;
+      }
+      orderLots = cryptoUnits;
+    } else {
+      const costPerLot = entryPrice * 100 * 1.0015;
+      const maxAffordableLots = Math.floor(availableCash / costPerLot);
+      if (maxAffordableLots < 1) {
+        setOrderResult({
+          ok: false,
+          msg: `⛔ Sisa Kas Tidak Mencukupi: Membeli 1 lot ${cleanSym} memerlukan Rp ${Math.round(costPerLot).toLocaleString('id-ID')}, namun sisa kas hanya Rp ${Math.round(availableCash).toLocaleString('id-ID')}. Bot tidak menambah modal sendiri demi menjaga modal Rp 100 Juta.`,
+        });
+        return;
+      }
+      // Sesuaikan lots yang disetujui agar tidak melebihi sisa kas yang tersedia
+      orderLots = Math.min(Math.max(1, sz.lots || 1), maxAffordableLots);
+    }
+
     const stopPrice = isIDR
       ? roundTick(sz.stop || Math.round(entryPrice * 0.96))
       : (sz.stop || Math.round(entryPrice * 0.95));
@@ -1973,9 +2007,13 @@ export default function VirtualAgentOfficeView() {
     const fee = Math.round(tradeValue * (isCrypto ? 0.001 : 0.0015));
     const totalCost = tradeValue + fee;
 
-    // Pastikan kas selalu cukup (Auto-topup jika kurang agar demo paper trade selalu berhasil)
+    // Validasi final: pastikan kas benar-benar mencukupi tanpa top-up
     if (store.cash < totalCost) {
-      store.resetCashOnly(store.cash + Math.max(100_000_000, totalCost * 3));
+      setOrderResult({
+        ok: false,
+        msg: `⛔ Kas Tidak Cukup: Membutuhkan total Rp ${Math.round(totalCost).toLocaleString('id-ID')}, namun sisa kas Rp ${Math.round(store.cash).toLocaleString('id-ID')}. Bot tidak menambah uang sendiri.`,
+      });
+      return;
     }
 
     const res = store.placeBuyOrder({
