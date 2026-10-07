@@ -100,7 +100,15 @@ export default function AutonomousPaperTradingDesk() {
   ]);
 
   // Calculate Net Equity
-  const holdingsValue = holdings.reduce((acc, h) => acc + h.currentPrice * h.lots * 100, 0);
+  const holdingsValue = holdings.reduce((acc, h) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    if (isCrypto) {
+      const rate = h.exchangeRate || 16000;
+      const units = h.cryptoUnits ?? h.lots;
+      return acc + Math.round(h.currentPrice * units * rate);
+    }
+    return acc + (h.currentPrice * (h.shares || h.lots * 100));
+  }, 0);
   const totalEquity = cash + holdingsValue;
   const initialCapital = 100000000; // 100jt IDR default
   const totalReturnPct = Number((((totalEquity - initialCapital) / initialCapital) * 100).toFixed(2));

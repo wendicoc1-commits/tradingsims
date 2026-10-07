@@ -130,13 +130,14 @@ export default function ChartbitTradingPanel({
   // Jika MARKET order: Pembeli beli di harga ASK, Penjual jual di harga BID
   const executedMarketPrice = orderSide === 'BUY' ? bestAskPrice : bestBidPrice;
   const priceNum = orderType === 'MARKET' ? executedMarketPrice : parseFloat(priceInput) || currentPrice;
-  const lotsNum = parseInt(lotsInput, 10) || 0;
+  const lotsNum = parseFloat(lotsInput) || 0;
 
   const tick = getIDXTickSize(priceNum);
   const tickValidation = isValidIDXTick(priceNum);
 
   const shareInfo = calculateShares(cleanSymbol, lotsNum);
-  const grossTradeValue = priceNum * shareInfo.shares;
+  // Untuk IDX: priceNum (IDR) * (lots * 100). Untuk Crypto: priceNum (USDT) * units * 16.000. Untuk US: priceNum (USD) * shares * 16.000
+  const grossTradeValue = Math.round(priceNum * shareInfo.shares * shareInfo.exchangeRate);
 
   // Realistis Broker Fee: 0.15% fee beli, 0.25% fee jual (0.15% fee broker + 0.1% PPh final)
   const brokerFee = Math.round(grossTradeValue * 0.0015);
@@ -222,16 +223,28 @@ export default function ChartbitTradingPanel({
     if (orderSide === 'BUY') {
       if (priceNum <= 0) return;
       const availableCashForPct = (cash * pct) / 100;
-      const pricePerLotWithFee = priceNum * 100 * 1.0015;
-      const maxLots = Math.floor(availableCashForPct / pricePerLotWithFee);
-      setLotsInput(String(Math.max(1, maxLots)));
+      const unitMultiplier = shareInfo.isIDX ? 100 : 1;
+      const unitCostIDR = (priceNum * unitMultiplier * shareInfo.exchangeRate) * 1.0015;
+      if (shareInfo.isCrypto) {
+        const units = Number((availableCashForPct / unitCostIDR).toFixed(6));
+        setLotsInput(String(units > 0 ? units : 0.001));
+      } else {
+        const maxLots = Math.floor(availableCashForPct / unitCostIDR);
+        setLotsInput(String(Math.max(1, maxLots)));
+      }
     } else {
       if (!currentHolding || currentHolding.lots <= 0) {
         setLotsInput('0');
         return;
       }
-      const calculatedLots = Math.floor((currentHolding.lots * pct) / 100);
-      setLotsInput(String(Math.max(1, calculatedLots)));
+      const availableHoldingUnits = currentHolding.cryptoUnits ?? currentHolding.lots;
+      if (shareInfo.isCrypto) {
+        const calculatedUnits = Number(((availableHoldingUnits * pct) / 100).toFixed(6));
+        setLotsInput(String(calculatedUnits));
+      } else {
+        const calculatedLots = Math.floor((availableHoldingUnits * pct) / 100);
+        setLotsInput(String(Math.max(1, calculatedLots)));
+      }
     }
   };
 
@@ -311,6 +324,10 @@ export default function ChartbitTradingPanel({
         takeProfitPrice: parsedTp,
         stopLossPrice: parsedSl,
         validityType,
+        assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: shareInfo.currency,
+        exchangeRate: shareInfo.exchangeRate,
+        cryptoUnits: shareInfo.isCrypto ? lotsNum : undefined,
       });
 
       if (res.order) {
@@ -327,15 +344,17 @@ export default function ChartbitTradingPanel({
           });
         }
 
+        const unitTxt = shareInfo.isCrypto ? `${lotsNum} koin` : `${lotsNum} lot`;
+        const costTxt = `Rp ${estimatedTotal.toLocaleString('id-ID')}`;
         setNotification({
           type: 'success',
-          message: `Sukses Beli ${lotsNum} lot ${cleanSymbol} @ Rp ${priceNum.toLocaleString('id-ID')}! ${parsedTp ? `TP: Rp ${parsedTp.toLocaleString('id-ID')} ` : ''}${parsedSl ? `SL: Rp ${parsedSl.toLocaleString('id-ID')} ` : ''}${enableTrailing ? `[Trailing Stop -${trailingPercentInput}%]` : ''}`,
+          message: `Sukses Beli ${unitTxt} ${cleanSymbol} (Total: ${costTxt})! ${parsedTp ? `TP: ${parsedTp} ` : ''}${parsedSl ? `SL: ${parsedSl} ` : ''}${enableTrailing ? `[Trailing Stop -${trailingPercentInput}%]` : ''}`,
         });
         if (onOrderSuccess) onOrderSuccess();
       } else {
         setNotification({
           type: 'error',
-          message: res.error || 'Gagal mengeksekusi pembelian saham.',
+          message: res.error || 'Gagal mengeksekusi pembelian.',
         });
       }
     } else {
@@ -346,20 +365,25 @@ export default function ChartbitTradingPanel({
         price: priceNum,
         lots: lotsNum,
         orderType,
+        assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: shareInfo.currency,
+        exchangeRate: shareInfo.exchangeRate,
+        cryptoUnits: shareInfo.isCrypto ? lotsNum : undefined,
       });
 
       if (res.order) {
         const pl = res.order.realizedPL || 0;
         const plText = pl >= 0 ? `+Rp ${pl.toLocaleString('id-ID')}` : `-Rp ${Math.abs(pl).toLocaleString('id-ID')}`;
+        const unitTxt = shareInfo.isCrypto ? `${lotsNum} koin` : `${lotsNum} lot`;
         setNotification({
           type: 'success',
-          message: `Sukses Jual ${lotsNum} lot ${cleanSymbol} @ Rp ${priceNum.toLocaleString('id-ID')}! Realized P/L: ${plText}.`,
+          message: `Sukses Jual ${unitTxt} ${cleanSymbol}! Realized P/L: ${plText}.`,
         });
         if (onOrderSuccess) onOrderSuccess();
       } else {
         setNotification({
           type: 'error',
-          message: res.error || 'Gagal mengeksekusi penjualan saham.',
+          message: res.error || 'Gagal mengeksekusi penjualan.',
         });
       }
     }
@@ -668,16 +692,22 @@ export default function ChartbitTradingPanel({
         {/* Lot Input Controls */}
         <div className="space-y-1.5 mb-3">
           <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span className="font-medium">Jumlah Lot (1 lot = 100 lbr)</span>
+            <span className="font-medium">
+              {shareInfo.isCrypto ? 'Jumlah Koin Unit' : shareInfo.isUS ? 'Jumlah Lembar (Shares)' : 'Jumlah Lot (1 lot = 100 lbr)'}
+            </span>
             <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              = {(lotsNum * 100).toLocaleString('id-ID')} lbr
+              {shareInfo.isCrypto
+                ? `${lotsNum} ${cleanSymbol} (Spot Crypto)`
+                : shareInfo.isUS
+                ? `${lotsNum} shares @ USD`
+                : `= ${(lotsNum * 100).toLocaleString('id-ID')} lbr`}
             </span>
           </div>
 
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => handleAddLots(-1)}
+              onClick={() => handleAddLots(shareInfo.isCrypto ? -0.1 : -1)}
               className="w-9 h-9 rounded-lg border flex items-center justify-center font-bold text-base hover:bg-white/5 active:scale-95 cursor-pointer"
               style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
             >
@@ -685,7 +715,8 @@ export default function ChartbitTradingPanel({
             </button>
             <input
               type="number"
-              min="1"
+              step={shareInfo.isCrypto ? 'any' : '1'}
+              min={shareInfo.isCrypto ? '0.000001' : '1'}
               value={lotsInput}
               onChange={(e) => setLotsInput(e.target.value)}
               className="flex-1 h-9 px-3 rounded-lg border font-mono text-sm text-center font-bold outline-none focus:border-amber-400"

@@ -2630,14 +2630,26 @@ export function PortfolioHoldingsWidget({
 }) {
   const { cash, holdings } = usePortfolioStore();
 
-  const totalHoldingsValue = holdings.reduce(
-    (sum, h) => sum + h.lots * 100 * (h.currentPrice || h.avgPrice),
-    0
-  );
-  const totalCost = holdings.reduce(
-    (sum, h) => sum + h.lots * 100 * h.avgPrice,
-    0
-  );
+  const totalHoldingsValue = holdings.reduce((sum, h) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    if (isCrypto) {
+      const rate = h.exchangeRate || 16000;
+      const units = h.cryptoUnits ?? h.lots;
+      return sum + Math.round((h.currentPrice || h.avgPrice) * units * rate);
+    }
+    return sum + (h.lots * 100 * (h.currentPrice || h.avgPrice));
+  }, 0);
+
+  const totalCost = holdings.reduce((sum, h) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    if (isCrypto) {
+      const rate = h.exchangeRate || 16000;
+      const units = h.cryptoUnits ?? h.lots;
+      return sum + Math.round(h.avgPrice * units * rate);
+    }
+    return sum + (h.lots * 100 * h.avgPrice);
+  }, 0);
+
   const totalEquity = cash + totalHoldingsValue;
   const totalUnrealizedPL = totalHoldingsValue - totalCost;
   const totalUnrealizedPLPercent =
@@ -2713,7 +2725,12 @@ export function PortfolioHoldingsWidget({
           </div>
         ) : (
           holdings.map((h) => {
-            const holdingValue = h.lots * 100 * (h.currentPrice || h.avgPrice);
+            const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+            const rate = h.exchangeRate || 16000;
+            const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
+            const holdingValue = isCrypto
+              ? Math.round((h.currentPrice || h.avgPrice) * units * rate)
+              : Math.round(units * (h.currentPrice || h.avgPrice));
             const isProfit = (h.unrealizedPL || 0) >= 0;
             const cleanTicker = h.displaySymbol || h.symbol.replace('.JK', '');
 
@@ -2731,11 +2748,13 @@ export function PortfolioHoldingsWidget({
                       {cleanTicker}
                     </span>
                     <span className="text-[9px] bg-[#27272a] text-[#a1a1aa] px-1.5 py-0.2 rounded font-bold">
-                      {h.lots} Lot
+                      {isCrypto ? `${units} Koin` : `${h.lots} Lot`}
                     </span>
-                    <span className="text-[9px] text-[#71717a]">
-                      ({(h.lots * 100).toLocaleString('id-ID')} lbr)
-                    </span>
+                    {!isCrypto && (
+                      <span className="text-[9px] text-[#71717a]">
+                        ({(h.lots * 100).toLocaleString('id-ID')} lbr)
+                      </span>
+                    )}
                   </div>
                   <div className="text-[10px] text-[#71717a] truncate mt-0.5">
                     {h.name || `${cleanTicker} Tbk`}

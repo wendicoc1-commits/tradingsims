@@ -577,12 +577,27 @@ export default function PortfolioPage() {
     setTimeout(() => setDividendMsg(null), 6000);
   };
 
-  const handleResetCashOnly = async () => {
-    resetCashOnly(100000000);
+  const handleResetCashOnly = async (nominal?: number) => {
+    let targetNominal = typeof nominal === 'number' ? nominal : 100000000;
+    if (typeof nominal !== 'number') {
+      const promptVal = window.prompt(
+        'Atur Nominal Kas Portofolio Anda (IDR):\nContoh:\n- 10000000 (10 Juta)\n- 25000000 (25 Juta)\n- 50000000 (50 Juta)\n- 100000000 (100 Juta)',
+        String(cash || 100000000)
+      );
+      if (!promptVal) return;
+      const parsed = parseFloat(promptVal.replace(/[^0-9]/g, ''));
+      if (isNaN(parsed) || parsed < 0) {
+        alert('Nominal tidak valid.');
+        return;
+      }
+      targetNominal = parsed;
+    }
+
+    resetCashOnly(targetNominal);
     if (user && isConfigured) {
       await syncPortfolioToDatabase();
     }
-    setDividendMsg('⚡ Saldo Kas RDN berhasil diisi ulang menjadi Rp 100.000.000 tanpa mengubah saham Anda!');
+    setDividendMsg(`⚡ Saldo Kas RDN berhasil disetel menjadi Rp ${targetNominal.toLocaleString('id-ID')} tanpa mengubah kepemilikan saham Anda!`);
     setTimeout(() => setDividendMsg(null), 5000);
   };
 
@@ -785,12 +800,12 @@ export default function PortfolioPage() {
           </button>
           <button
             type="button"
-            onClick={handleResetCashOnly}
+            onClick={() => handleResetCashOnly()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
-            title="Isi ulang Saldo Kas RDN ke Rp 100.000.000 tanpa menghapus posisi saham Anda"
+            title="Atur atau sesuaikan nominal Saldo Kas RDN Anda tanpa menghapus kepemilikan saham"
           >
             <Coins className="w-3.5 h-3.5" />
-            Isi Saldo (Rp 100Jt)
+            Atur Saldo Kas
           </button>
           <button
             type="button"
@@ -838,12 +853,12 @@ export default function PortfolioPage() {
               </button>
               <button
                 type="button"
-                onClick={handleResetCashOnly}
+                onClick={() => handleResetCashOnly()}
                 className="text-[10px] text-zinc-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
-                title="Isi ulang Saldo Kas RDN ke Rp 100.000.000 (Saham Anda tetap aman)"
+                title="Atur Saldo Kas RDN (Saham Anda tetap aman)"
               >
                 <Coins className="w-3 h-3 text-amber-500" />
-                <span>100Jt</span>
+                <span>Atur Kas</span>
               </button>
             </div>
           </div>

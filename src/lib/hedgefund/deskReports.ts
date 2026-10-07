@@ -111,7 +111,15 @@ export function roundTick(p: number): number {
 }
 
 export function portfolioNav(p: PortfolioSnapshot): number {
-  const hv = p.holdings.reduce((sum, h) => sum + (h.shares ?? h.lots * 100) * h.currentPrice, 0);
+  const hv = p.holdings.reduce((sum, h: any) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.displaySymbol?.toUpperCase().endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB'].includes(h.displaySymbol?.toUpperCase());
+    if (isCrypto) {
+      const units = h.cryptoUnits ?? h.lots;
+      const rate = h.exchangeRate || 16000;
+      return sum + Math.round(units * h.currentPrice * rate);
+    }
+    return sum + (h.shares ?? h.lots * 100) * h.currentPrice;
+  }, 0);
   return p.cash + hv;
 }
 

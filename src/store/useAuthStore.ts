@@ -255,16 +255,25 @@ export const useAuthStore = create<AuthState>()(
           const supabase = getSupabaseBrowserClient();
           const portStore = usePortfolioStore.getState();
 
-          // 1. Simpan Saldo Kas RDN ke tabel portfolios
+          // 1. Simpan Saldo Kas RDN ke tabel portfolios & users
           try {
             await supabase.from('portfolios').upsert({
               user_id: user.id,
               cash: portStore.cash,
               realized_pl: portStore.realizedPL,
               updated_at: new Date().toISOString(),
-            });
+            }, { onConflict: 'user_id' });
           } catch {
-            // Ignore error jika kolom cash belum ada di tabel portfolios
+            // Ignore error jika tabel portfolios berbeda struktur
+          }
+
+          try {
+            await supabase.from('users').update({
+              cash_balance: portStore.cash,
+              updated_at: new Date().toISOString(),
+            }).eq('id', user.id);
+          } catch {
+            // Ignore jika tabel users belum memiliki kolom cash_balance
           }
 
           // 2. Simpan Kepemilikan Posisi ke tabel holdings & bersihkan posisi yang sudah terjual
@@ -402,62 +411,84 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // Ambil data portofolio dari Supabase Database saat member login
+      // Ambil data portofolio dari Supabase Database saat member login
       loadPortfolioFromDatabase: async () => {
         const user = get().user;
         if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
 
         try {
           const supabase = getSupabaseBrowserClient();
+          const localStore = usePortfolioStore.getState();
 
-          // 1. Ambil holdings terlebih dahulu
+          // 1. Ambil holdings dari Supabase
           const { data: holdingsData, error: holdingsErr } = await supabase
             .from('holdings')
             .select('*')
             .eq('user_id', user.id);
 
-          // HANYA update holdings jika Supabase berhasil mengembalikan data dan datanya tidak kosong
-          // JANGAN PERNAH mengosongkan holdings lokal jika query Supabase kosong atau gagal!
-          if (!holdingsErr && holdingsData && holdingsData.length > 0) {
-            const mappedHoldings = holdingsData.map((row: any) => ({
-              symbol: row.symbol,
-              displaySymbol: row.display_symbol,
-              name: row.name,
-              avgPrice: Number(row.avg_price),
-              lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots),
-              shares: Number(row.shares),
-              currentPrice: Number(row.avg_price),
-              unrealizedPL: 0,
-              unrealizedPLPercent: 0,
-              cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
-              assetClass: row.asset_class,
-              currency: row.currency,
-              exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : undefined,
-              takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
-              stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
-              validityType: row.validity_type,
-              totalDividendEarned: Number(row.total_dividend_earned || 0),
-              realizedPL: 0,
-            }));
+          // 2. Ambil kas portfolio dari Supabase
+          let dbCash: number | null = null;
+          let dbRealizedPL = 0;
 
-            usePortfolioStore.setState({ holdings: mappedHoldings });
-          }
-
-          // 2. Ambil kas portfolio
           const { data: portData, error: portErr } = await supabase
             .from('portfolios')
             .select('cash, realized_pl')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-          if (!portErr && portData && typeof portData.cash === 'number' && portData.cash > 0) {
-            const localStore = usePortfolioStore.getState();
-            // Hanya update kas dari DB jika DB memiliki holdings atau portofolio lokal memang belum pernah bertransaksi
-            if ((holdingsData && holdingsData.length > 0) || localStore.holdings.length === 0) {
-              usePortfolioStore.setState({
-                cash: Number(portData.cash),
-                realizedPL: Number(portData.realized_pl || 0),
-              });
+          if (!portErr && portData && typeof portData.cash === 'number') {
+            dbCash = Number(portData.cash);
+            dbRealizedPL = Number(portData.realized_pl || 0);
+          } else {
+            // Fallback cek tabel users jika tabel portfolios memakai struktur alternatif
+            const { data: userData } = await supabase
+              .from('users')
+              .select('cash_balance')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (userData && typeof userData.cash_balance === 'number') {
+              dbCash = Number(userData.cash_balance);
             }
+          }
+
+          const hasLocalHoldings = localStore.holdings && localStore.holdings.length > 0;
+          const hasDbHoldings = !holdingsErr && holdingsData && holdingsData.length > 0;
+
+          // ATURAN INTEGRITAS:
+          // Jika di browser lokal sudah ada kepemilikan saham aktif (hasil transaksi terbaru di sesi ini),
+          // JANGAN TIMPA lokal dengan database yang belum tersinkronisasi! Justru sinkronkan lokal naik ke DB.
+          if (hasLocalHoldings) {
+            await get().syncPortfolioToDatabase();
+            return;
+          }
+
+          // Jika lokal kosong tapi DB memiliki data (misal user baru login di device/browser baru):
+          if (hasDbHoldings) {
+            const mappedHoldings = holdingsData.map((row: any) => ({
+              symbol: row.symbol,
+              displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
+              name: row.name || row.symbol,
+              avgPrice: Number(row.avg_price || row.average_price || 0),
+              lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots || row.total_lots || 1),
+              shares: Number(row.shares || (row.asset_class === 'CRYPTO' ? row.lots : (row.lots || 1) * 100)),
+              currentPrice: Number(row.avg_price || row.average_price || 0),
+              unrealizedPL: 0,
+              unrealizedPLPercent: 0,
+              cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
+              assetClass: row.asset_class || 'EQUITY',
+              currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
+              exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
+              takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
+              stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
+              validityType: row.validity_type || 'GTC',
+              totalDividendEarned: Number(row.total_dividend_earned || 0),
+              realizedPL: 0,
+            }));
+
+            usePortfolioStore.setState({
+              holdings: mappedHoldings,
+              ...(dbCash !== null && dbCash > 0 ? { cash: dbCash, realizedPL: dbRealizedPL } : {}),
+            });
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO LOAD ERROR]', err);

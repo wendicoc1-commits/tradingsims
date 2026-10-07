@@ -393,10 +393,14 @@ export const usePortfolioStore = create<PortfolioState>()(
 
     // Normalisasi simbol konsisten
     const cleanSym = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+    const isUS = !isCrypto && (params.currency === 'USD' || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
+      : isUS
+      ? cleanSym
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
-    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
+    const isIDX = !isCrypto && !isUS && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
     // Validasi Jam Bursa BEI: Bot dilarang membeli saham BEI di luar jam bursa (Senin–Jumat 09:00–16:00 WIB)
     // Kripto dan Saham Global bebas aktif 24 jam nonstop
@@ -420,8 +424,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
     }
 
-    const rate = params.exchangeRate || 16000 // Kurs acuan USDT ke IDR
-    const currency = isCrypto ? (params.currency || 'USDT') : 'IDR'
+    const rate = params.exchangeRate || 16000 // Kurs acuan USDT/USD ke IDR
+    const currency = isCrypto ? (params.currency || 'USDT') : isUS ? 'USD' : 'IDR'
 
     let totalCost: number
     let tradeValue: number
@@ -436,8 +440,15 @@ export const usePortfolioStore = create<PortfolioState>()(
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.001) // Spot fee crypto 0.1%
       totalCost = tradeValue + brokerFee
+    } else if (isUS) {
+      sharesMultiplier = 1
+      totalShares = lots // 1 lembar shares US
+      const tradeValueUSD = execPrice * lots
+      tradeValue = Math.round(tradeValueUSD * rate)
+      brokerFee = Math.round(tradeValue * 0.0015)
+      totalCost = tradeValue + brokerFee
     } else {
-      sharesMultiplier = isIDX ? SHARES_PER_LOT : 1
+      sharesMultiplier = SHARES_PER_LOT
       totalShares = lots * sharesMultiplier
       tradeValue = execPrice * totalShares
       brokerFee = Math.round(tradeValue * BUY_FEE_RATE)
@@ -828,10 +839,14 @@ export const usePortfolioStore = create<PortfolioState>()(
       )
 
     const cleanSym = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+    const isUS = !isCrypto && (params.currency === 'USD' || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
+      : isUS
+      ? cleanSym
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
-    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
+    const isIDX = !isCrypto && !isUS && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
     let execPrice = price
     // Validasi & sinkronisasi fraksi harga BEI HANYA jika saham Indonesia
@@ -880,6 +895,15 @@ export const usePortfolioStore = create<PortfolioState>()(
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.001) // 0.1% spot fee
       taxFee = Math.round(tradeValue * 0.001) // 0.1% PPh Final Bappebti
+      totalFee = brokerFee + taxFee
+      netProceeds = tradeValue - totalFee
+      costBasisSold = existing.avgPrice * lots * rate
+    } else if (isUS) {
+      sharesSold = lots
+      const tradeValueUSD = execPrice * lots
+      tradeValue = Math.round(tradeValueUSD * rate)
+      brokerFee = Math.round(tradeValue * 0.0015)
+      taxFee = 0
       totalFee = brokerFee + taxFee
       netProceeds = tradeValue - totalFee
       costBasisSold = existing.avgPrice * lots * rate

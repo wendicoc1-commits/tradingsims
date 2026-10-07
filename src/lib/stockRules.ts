@@ -39,26 +39,78 @@ export function isValidIDXTick(price: number): { valid: boolean; tick: number; n
   return { valid: false, tick, nearest };
 }
 
+const CRYPTO_TICKERS = new Set([
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK',
+  'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'
+]);
+
+const US_TICKERS = new Set([
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'
+]);
+
 /**
- * Menghitung jumlah lembar saham:
- * - Saham IDX (misal BBCA, BBCA.JK): 1 lot = 100 lembar
- * - Saham US (misal NVDA, AAPL): 1 lot di form dianggap 1 share
+ * Menghitung jumlah lembar saham / unit koin dan informasi mata uang:
+ * - Saham IDX (misal BBCA, BBCA.JK, PTBA): 1 lot = 100 lembar (IDR)
+ * - Crypto Spot (misal BTC, BTCUSDT, ETH): satuan koin unit/desimal (USDT @ Rp 16.000)
+ * - Saham US (misal NVDA, AAPL): 1 lembar shares (USD @ Rp 16.000)
  */
-export function calculateShares(symbol: string, lots: number): { isUS: boolean; shares: number; unitLabel: string } {
-  const clean = symbol.replace('.JK', '').toUpperCase();
-  const isUS = !symbol.endsWith('.JK') && clean.length <= 5 && !['BBCA','BBRI','BMRI','BBNI','TLKM','ASII','AMMN','BREN','ICBP','INDF','GOTO','UNVR','ADRO','ANTM','BRIS','KLBF','PGAS'].includes(clean);
-  
-  if (isUS) {
-    return { isUS: true, shares: lots, unitLabel: 'lembar (shares)' };
+export function calculateShares(symbol: string, lots: number): {
+  isCrypto: boolean;
+  isUS: boolean;
+  isIDX: boolean;
+  shares: number;
+  unitLabel: string;
+  currency: 'IDR' | 'USDT' | 'USD';
+  exchangeRate: number;
+} {
+  const clean = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+  const isCrypto = symbol.toUpperCase().endsWith('USDT') || CRYPTO_TICKERS.has(clean);
+  const isUS = !isCrypto && US_TICKERS.has(clean);
+  const isIDX = !isCrypto && !isUS && (symbol.endsWith('.JK') || /^[A-Z]{4}$/.test(clean));
+
+  if (isCrypto) {
+    return {
+      isCrypto: true,
+      isUS: false,
+      isIDX: false,
+      shares: lots, // koin unit
+      unitLabel: 'koin unit',
+      currency: 'USDT',
+      exchangeRate: 16000,
+    };
   }
-  return { isUS: false, shares: lots * 100, unitLabel: 'lot (100 lembar)' };
+
+  if (isUS) {
+    return {
+      isCrypto: false,
+      isUS: true,
+      isIDX: false,
+      shares: lots,
+      unitLabel: 'lembar (shares)',
+      currency: 'USD',
+      exchangeRate: 16000,
+    };
+  }
+
+  return {
+    isCrypto: false,
+    isUS: false,
+    isIDX: true,
+    shares: lots * 100,
+    unitLabel: 'lot (100 lembar)',
+    currency: 'IDR',
+    exchangeRate: 1,
+  };
 }
 
 /**
  * Normalisasi ticker agar konsisten
  */
 export function normalizeSymbol(sym: string): { fullSymbol: string; displaySymbol: string } {
-  const clean = sym.trim().toUpperCase().replace('.JK', '');
+  const clean = sym.trim().toUpperCase().replace('.JK', '').replace(/USDT$/i, '');
+  if (CRYPTO_TICKERS.has(clean) || sym.toUpperCase().endsWith('USDT')) {
+    return { fullSymbol: `${clean}USDT`, displaySymbol: clean };
+  }
   // Default saham Indonesia jika 4 huruf
   if (clean.length === 4 && /^[A-Z]+$/.test(clean)) {
     return { fullSymbol: `${clean}.JK`, displaySymbol: clean };

@@ -69,7 +69,7 @@ export default function FinceptRightDock() {
   const lotsNum = parseInt(orderLots, 10) || 0;
   const rawSym = orderSymbol.trim().toUpperCase();
   const shareInfo = calculateShares(rawSym, lotsNum);
-  const tradeValue = priceNum * shareInfo.shares;
+  const tradeValue = Math.round(priceNum * shareInfo.shares * shareInfo.exchangeRate);
   const brokerFee = Math.round(tradeValue * 0.0015);
   const taxFee = orderType === 'SELL' ? Math.round(tradeValue * 0.001) : 0;
   const totalCost = orderType === 'BUY' ? tradeValue + brokerFee : tradeValue - (brokerFee + taxFee);
@@ -77,11 +77,11 @@ export default function FinceptRightDock() {
   const handleExecuteOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawSym) {
-      setOrderNotification({ type: 'error', message: 'Masukkan simbol ticker saham.' });
+      setOrderNotification({ type: 'error', message: 'Masukkan simbol ticker.' });
       return;
     }
     if (priceNum <= 0 || lotsNum <= 0) {
-      setOrderNotification({ type: 'error', message: 'Harga dan jumlah lot harus lebih dari 0.' });
+      setOrderNotification({ type: 'error', message: 'Harga dan jumlah harus lebih dari 0.' });
       return;
     }
 
@@ -97,28 +97,38 @@ export default function FinceptRightDock() {
         symbol: rawSym,
         price: priceNum,
         lots: lotsNum,
+        assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: shareInfo.currency,
+        exchangeRate: shareInfo.exchangeRate,
+        cryptoUnits: shareInfo.isCrypto ? lotsNum : undefined,
       });
       if (res.error) {
         setOrderNotification({ type: 'error', message: res.error });
         return;
       }
+      const unitLabel = shareInfo.isCrypto ? 'koin' : 'lot';
       setOrderNotification({
         type: 'success',
-        message: `Order BELI ${lotsNum} lot ${rawSym} @ Rp ${priceNum.toLocaleString('id-ID')} berhasil dieksekusi!`,
+        message: `Order BELI ${lotsNum} ${unitLabel} ${rawSym} berhasil dieksekusi (Total: Rp ${totalCost.toLocaleString('id-ID')})!`,
       });
     } else {
       const res = placeSellOrder({
         symbol: rawSym,
         price: priceNum,
         lots: lotsNum,
+        assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: shareInfo.currency,
+        exchangeRate: shareInfo.exchangeRate,
+        cryptoUnits: shareInfo.isCrypto ? lotsNum : undefined,
       });
       if (res.error) {
         setOrderNotification({ type: 'error', message: res.error });
         return;
       }
+      const unitLabel = shareInfo.isCrypto ? 'koin' : 'lot';
       setOrderNotification({
         type: 'success',
-        message: `Order JUAL ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
+        message: `Order JUAL ${lotsNum} ${unitLabel} ${rawSym} berhasil dieksekusi!`,
       });
     }
 
