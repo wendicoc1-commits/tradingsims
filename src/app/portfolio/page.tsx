@@ -604,14 +604,23 @@ export default function PortfolioPage() {
   const handleResetTotal = async () => {
     if (
       window.confirm(
-        'Apakah Anda yakin ingin me-reset seluruh portofolio kembali ke modal awal bersih Rp 100.000.000?'
+        'Apakah Anda yakin ingin me-reset seluruh akun & portofolio kembali ke kondisi awal bersih Rp 100.000.000 (0 Saham, 0 Kripto)?'
       )
     ) {
-      resetToDefaultDemo();
+      resetPortfolio();
+      try {
+        await fetch('/api/portfolio/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nominal: 100000000 }),
+        });
+      } catch {
+        // ignore
+      }
       if (user && isConfigured) {
         await resetPortfolioInDatabase();
       }
-      setDividendMsg('Semua saldo dan portofolio berhasil di-reset kembali ke modal awal bersih Rp 100.000.000!');
+      setDividendMsg('✨ Seluruh akun dan portofolio berhasil di-reset kembali ke awal murni (Saldo Rp 100.000.000, 0 saham, 0 koin)!');
       setTimeout(() => setDividendMsg(null), 5000);
     }
   };
