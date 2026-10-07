@@ -428,7 +428,7 @@ export default function PortfolioPage() {
     resetToDefaultDemo,
     updateHoldingPrices,
   } = usePortfolioStore();
-  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase } = useAuthStore();
+  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'analytics' | 'orders' | 'news'>('holdings');
   const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
@@ -577,19 +577,25 @@ export default function PortfolioPage() {
     setTimeout(() => setDividendMsg(null), 6000);
   };
 
-  const handleResetCashOnly = () => {
+  const handleResetCashOnly = async () => {
     resetCashOnly(100000000);
+    if (user && isConfigured) {
+      await syncPortfolioToDatabase();
+    }
     setDividendMsg('⚡ Saldo Kas RDN berhasil diisi ulang menjadi Rp 100.000.000 tanpa mengubah saham Anda!');
     setTimeout(() => setDividendMsg(null), 5000);
   };
 
-  const handleResetTotal = () => {
+  const handleResetTotal = async () => {
     if (
       window.confirm(
         'Apakah Anda yakin ingin me-reset seluruh portofolio kembali ke modal awal bersih Rp 100.000.000?'
       )
     ) {
       resetToDefaultDemo();
+      if (user && isConfigured) {
+        await resetPortfolioInDatabase();
+      }
       setDividendMsg('Semua saldo dan portofolio berhasil di-reset kembali ke modal awal bersih Rp 100.000.000!');
       setTimeout(() => setDividendMsg(null), 5000);
     }

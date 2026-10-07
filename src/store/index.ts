@@ -278,6 +278,11 @@ export const usePortfolioStore = create<PortfolioState>()(
 
   resetCashOnly: (amount = INITIAL_CASH) => {
     set({ cash: amount })
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
   },
 
   topUpCashWithBonus: (transferNominalIDR: number) => {
@@ -321,6 +326,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       conditionalOrders: [],
       dividends: [],
     })
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().resetPortfolioInDatabase();
+      }).catch(() => {});
+    }
   },
 
   resetToDefaultDemo: () => {
@@ -332,6 +342,11 @@ export const usePortfolioStore = create<PortfolioState>()(
       conditionalOrders: [],
       dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
     })
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().resetPortfolioInDatabase();
+      }).catch(() => {});
+    }
   },
 
   placeBuyOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]): { order: Order | null; error?: string } => {
@@ -947,6 +962,9 @@ export const usePortfolioStore = create<PortfolioState>()(
       import('@/lib/tradeSimAudio').then(({ tradeSimAudio }) => tradeSimAudio.playOrderFilledChime()).catch(() => {});
       import('@/store/useAuthStore').then(({ useAuthStore }) => {
         useAuthStore.getState().recordOrderToDatabase(newOrder);
+        if (remainingLots <= 0.000001) {
+          useAuthStore.getState().deleteHoldingFromDatabase(resolvedSym);
+        }
         useAuthStore.getState().syncPortfolioToDatabase();
       }).catch(() => {});
     }

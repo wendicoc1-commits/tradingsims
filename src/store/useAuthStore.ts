@@ -29,6 +29,8 @@ interface AuthState {
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   syncPortfolioToDatabase: () => Promise<void>;
+  deleteHoldingFromDatabase: (symbol: string) => Promise<void>;
+  resetPortfolioInDatabase: () => Promise<void>;
   loadPortfolioFromDatabase: () => Promise<void>;
   recordOrderToDatabase: (order: any) => Promise<void>;
 }
@@ -261,7 +263,7 @@ export const useAuthStore = create<AuthState>()(
             updated_at: new Date().toISOString(),
           });
 
-          // 2. Simpan Kepemilikan Posisi ke tabel holdings
+          // 2. Simpan Kepemilikan Posisi ke tabel holdings & bersihkan posisi yang sudah terjual
           if (portStore.holdings.length > 0) {
             const holdingRows = portStore.holdings.map((h) => ({
               user_id: user.id,
@@ -282,10 +284,73 @@ export const useAuthStore = create<AuthState>()(
               updated_at: new Date().toISOString(),
             }));
 
+            // Hapus dari Supabase setiap posisi lama yang sudah tidak ada lagi di portStore.holdings
+            const activeSymbols = portStore.holdings.map((h) => h.symbol);
+            const { data: currentDbHoldings } = await supabase
+              .from('holdings')
+              .select('symbol')
+              .eq('user_id', user.id);
+
+            if (currentDbHoldings && currentDbHoldings.length > 0) {
+              const obsoleteSymbols = currentDbHoldings
+                .map((row: any) => row.symbol)
+                .filter((sym: string) => !activeSymbols.includes(sym));
+
+              if (obsoleteSymbols.length > 0) {
+                await supabase
+                  .from('holdings')
+                  .delete()
+                  .eq('user_id', user.id)
+                  .in('symbol', obsoleteSymbols);
+              }
+            }
+
             await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
+          } else {
+            // Jika user tidak memiliki holding sama sekali, bersihkan seluruh baris holdings di database
+            await supabase.from('holdings').delete().eq('user_id', user.id);
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO SYNC ERROR]', err);
+        }
+      },
+
+      // Hapus satu posisi holding secara instan dari Supabase saat posisi ditutup habis
+      deleteHoldingFromDatabase: async (symbol: string) => {
+        const user = get().user;
+        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+
+        try {
+          const supabase = getSupabaseBrowserClient();
+          const clean = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+          // Hapus semua kemungkinan format simbol di database
+          await supabase
+            .from('holdings')
+            .delete()
+            .eq('user_id', user.id)
+            .or(`symbol.eq.${symbol},symbol.eq.${clean},symbol.eq.${clean}.JK,symbol.eq.${clean}USDT,display_symbol.eq.${clean}`);
+        } catch (err) {
+          console.error('[SUPABASE DELETE HOLDING ERROR]', err);
+        }
+      },
+
+      // Reset total portofolio di database Supabase ke modal awal murni Rp 100.000.000
+      resetPortfolioInDatabase: async () => {
+        const user = get().user;
+        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+
+        try {
+          const supabase = getSupabaseBrowserClient();
+          await supabase.from('portfolios').upsert({
+            user_id: user.id,
+            cash: 100000000,
+            realized_pl: 0,
+            updated_at: new Date().toISOString(),
+          });
+          await supabase.from('holdings').delete().eq('user_id', user.id);
+          await supabase.from('orders').delete().eq('user_id', user.id);
+        } catch (err) {
+          console.error('[SUPABASE RESET PORTFOLIO ERROR]', err);
         }
       },
 
@@ -371,6 +436,9 @@ export const useAuthStore = create<AuthState>()(
             }));
 
             usePortfolioStore.setState({ holdings: mappedHoldings });
+          } else {
+            // Pastikan jika database tidak punya holding, state lokal juga dikosongkan (cegah ghost holding)
+            usePortfolioStore.setState({ holdings: [] });
           }
         } catch (err) {
           console.error('[SUPABASE PORTFOLIO LOAD ERROR]', err);

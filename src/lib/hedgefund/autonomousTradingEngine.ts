@@ -410,9 +410,13 @@ export async function runAutonomousAgentCycle(
       const totalBuyCost = Math.round(sizing.notional * 1.0015);
 
       // Cek apakah kas tidak cukup dan perlu rotasi modal dari holding terlemah
+      // Syarat ketat: sizing harus valid, plafon aman, dan hasil likuidasi harus mencukupi untuk membeli target
       if (
         aiStore.discretionarySellingEnabled &&
         target.score >= 84 &&
+        sizing.ok &&
+        sizing.lots > 0 &&
+        (currentAssetExposure + totalBuyCost <= maxAllocationPerAsset) &&
         portfolioStore.cash < totalBuyCost &&
         portfolioStore.holdings.length > 0
       ) {
@@ -424,8 +428,10 @@ export async function runAutonomousAgentCycle(
           const weakest = equityHoldings[0];
           const weakSym = weakest.displaySymbol.replace('.JK', '').toUpperCase();
           const weakPrice = roundTick(liveQuotesMap[weakSym]?.price ?? weakest.currentPrice);
+          const estimatedProceeds = weakPrice * weakest.lots * 100 * 0.9975;
 
-          if (weakPrice > 0 && weakSym !== cleanSym) {
+          // Hanya likuidasi jika hasil penjualan ditambah kas saat ini benar-benar cukup untuk membeli target
+          if (weakPrice > 0 && weakSym !== cleanSym && (portfolioStore.cash + estimatedProceeds >= totalBuyCost)) {
             const sellRes = portfolioStore.placeSellOrder({
               symbol: weakest.symbol,
               displaySymbol: weakest.displaySymbol,
