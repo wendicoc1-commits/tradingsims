@@ -7,6 +7,7 @@ import TradeSimHeader from '@/components/layout/TradeSimHeader';
 import StatusBar from '@/components/layout/StatusBar';
 import FinceptRightDock from '@/components/layout/FinceptRightDock';
 import TradeSimAuthGate from '@/components/auth/TradeSimAuthGate';
+import GlobalAutonomousAgentRunner from '@/components/ai/GlobalAutonomousAgentRunner';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
@@ -20,6 +21,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <TradeSimAuthGate>
+      <GlobalAutonomousAgentRunner />
       <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
         {/* Left Sidebar */}
         <Sidebar />

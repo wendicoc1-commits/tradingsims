@@ -24,6 +24,8 @@ import { normalizeSymbol, calculateShares } from '../stockRules';
  * - Skrining Alpha universe & eksekusi BUY pada Top Pick jika sinyal valid & plafon risiko aman
  * - Publikasi analisis harga ke Watchlist dan dispatches berita ke platform
  */
+let isCycleCurrentlyExecuting = false;
+
 export async function runAutonomousAgentCycle(
   news: NewsItem[] = [],
   liveQuotesMap: Record<string, LiveQuote> = {},
@@ -33,12 +35,18 @@ export async function runAutonomousAgentCycle(
   tradeExecuted: boolean;
   topPick: StockAlphaEvaluation | null;
 }> {
-  const aiStore = useAIAgentStore.getState();
-  const portfolioStore = usePortfolioStore.getState();
-  const watchlistStore = useWatchlistStore.getState();
+  if (isCycleCurrentlyExecuting) {
+    return { actionTaken: null, tradeExecuted: false, topPick: null };
+  }
+  isCycleCurrentlyExecuting = true;
 
-  let actionTaken: string | null = null;
-  let tradeExecuted = false;
+  try {
+    const aiStore = useAIAgentStore.getState();
+    const portfolioStore = usePortfolioStore.getState();
+    const watchlistStore = useWatchlistStore.getState();
+
+    let actionTaken: string | null = null;
+    let tradeExecuted = false;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 0. SINKRONISASI HARGA PASAR SELURUH PORTOFOLIO DENGAN QUOTES REALTIME
@@ -703,5 +711,8 @@ export async function runAutonomousAgentCycle(
       : `AI mengamati pasar: Top Pick ${topPick.symbol} (Skor ${topPick.score}/100) & Crypto Desk aktif diawasi Kevin Zhang & CRO.`
   );
 
-  return { actionTaken, tradeExecuted, topPick };
+    return { actionTaken, tradeExecuted, topPick };
+  } finally {
+    isCycleCurrentlyExecuting = false;
+  }
 }

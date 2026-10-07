@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, Wifi, Clock, ShieldCheck, Terminal, Cpu } from 'lucide-react';
+import { Activity, Wifi, Clock, ShieldCheck, Terminal, Cpu, Bot } from 'lucide-react';
+import { useAIAgentStore } from '@/store/aiAgentStore';
 
 export default function StatusBar() {
   const [timeUtc, setTimeUtc] = useState<string>('');
   const [timeWib, setTimeWib] = useState<string>('');
   const [latency, setLatency] = useState<number>(14);
+  const { autoTradingEnabled, setAutoTradingEnabled } = useAIAgentStore();
 
   useEffect(() => {
     const updateClocks = () => {
@@ -39,7 +41,7 @@ export default function StatusBar() {
         color: 'var(--text-muted)',
       }}
     >
-      {/* Left: Software Version & Active Desk */}
+      {/* Left: Software Version & Active Desk & AI Auto-Pilot */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 font-bold text-emerald-400">
           <Terminal className="w-3 h-3 text-emerald-400" />
@@ -48,16 +50,29 @@ export default function StatusBar() {
 
         <span className="text-zinc-700 hidden sm:inline">|</span>
 
-        <div className="hidden sm:flex items-center gap-1 text-zinc-300">
-          <span className="text-[9px] text-zinc-500 font-sans uppercase">DESK:</span>
-          <span className="font-semibold text-zinc-200">MULTI-ASSET WORKSTATION</span>
-        </div>
+        {/* AI Background Runner Status & Toggle */}
+        <button
+          type="button"
+          onClick={() => setAutoTradingEnabled(!autoTradingEnabled)}
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded cursor-pointer transition-all ${
+            autoTradingEnabled
+              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25'
+              : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-750'
+          }`}
+          title={autoTradingEnabled ? 'AI aktif memantau pasar di latar belakang. Klik untuk Pause.' : 'AI sedang dijeda. Klik untuk aktifkan Auto-Pilot 24/7.'}
+        >
+          <Bot className="w-3 h-3 text-amber-400" />
+          <span className={`w-1.5 h-1.5 rounded-full ${autoTradingEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+          <span className="font-bold">
+            {autoTradingEnabled ? 'AI AUTO-PILOT ON (BACKGROUND)' : 'AI AUTO-PILOT PAUSED'}
+          </span>
+        </button>
 
         <span className="text-neutral-700 hidden md:inline">|</span>
 
         <div className="hidden md:flex items-center gap-1.5 text-emerald-400 font-semibold">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-live" />
-          <span>WS FEED: 252 IDX ASSETS CONNECTED</span>
+          <span>WS FEED: 252 ASSETS CONNECTED</span>
         </div>
       </div>
 

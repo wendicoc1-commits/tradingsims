@@ -31,6 +31,7 @@ import TopUpModal from '@/components/portfolio/TopUpModal';
 import AdminTopUpApprovalModal from '@/components/portfolio/AdminTopUpApprovalModal';
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useAIAgentStore } from '@/store/aiAgentStore';
 
 interface CliSuggestion {
   cmd: string;
@@ -63,6 +64,7 @@ export default function TradeSimHeader() {
   const router = useRouter();
   const { theme, toggleTheme, setSelectedSymbol } = useMarketStore();
   const { user, logout, checkSession } = useAuthStore();
+  const { autoTradingEnabled, setAutoTradingEnabled } = useAIAgentStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<'markets' | 'research' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -256,6 +258,22 @@ export default function TradeSimHeader() {
 
           {/* User Status / Top-up Action */}
           <div className="flex items-center gap-1.5 border-l border-[#27272a] pl-2.5">
+            {/* AI Auto-Pilot Global Toggle */}
+            <button
+              type="button"
+              onClick={() => setAutoTradingEnabled(!autoTradingEnabled)}
+              className={`px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                autoTradingEnabled
+                  ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border-zinc-700'
+              }`}
+              title={autoTradingEnabled ? 'AI Trading Otonom Aktif di Semua Halaman (Background). Klik untuk Jeda.' : 'AI Trading Otonom Dijeda. Klik untuk Mengaktifkan.'}
+            >
+              <Bot className="w-3.5 h-3.5 text-amber-400" />
+              <span className={`w-1.5 h-1.5 rounded-full ${autoTradingEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+              <span className="hidden lg:inline">{autoTradingEnabled ? 'AI Pilot: ON' : 'AI Pilot: OFF'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsTopUpOpen(true)}
@@ -310,6 +328,17 @@ export default function TradeSimHeader() {
           }`}
         >
           <span>🖥️ Terminal</span>
+        </Link>
+        <Link
+          href="/ai"
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/ai')
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+              : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span>🤖 AI Trading Floor</span>
         </Link>
         <Link
           href="/portfolio"
