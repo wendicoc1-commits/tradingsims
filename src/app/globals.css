@@ -1,26 +1,244 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Pitch Black Base / Obsidian Terminal Palette */
+  --bg-primary: #050508;
+  --bg-surface: #0a0a0e;
+  --bg-card: #0f0f15;
+  --bg-raised: #14141d;
+  --bg-hover: #191924;
+  
+  /* Hairline Terminal Borders */
+  --border: #1a1a26;
+  --border-dim: #14141e;
+  --border-bright: #28283a;
+  --border-focus: #f59e0b;
+
+  /* Tabular Text Contrast Hierarchy */
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #52525b;
+
+  /* Bloomberg Amber / Fincept Gold (Primary Brand & Focus) */
+  --accent: #f59e0b;
+  --accent-gold: #d97706;
+  --accent-bright: #fbbf24;
+  --accent-dim: #78350f;
+  --accent-bg: rgba(245, 158, 11, 0.12);
+
+  /* Bull Green Glow (Phosphor CRT Gainer) */
+  --positive: #22c55e;
+  --positive-dim: #15803d;
+  --positive-bg: rgba(34, 197, 94, 0.12);
+
+  /* Bear Red Glow (Terminal Loser) */
+  --negative: #ef4444;
+  --negative-dim: #b91c1c;
+  --negative-bg: rgba(239, 68, 68, 0.12);
+
+  /* Telemetry Cyan */
+  --cyan: #06b6d4;
+  --cyan-dim: #0e7490;
+  --cyan-bg: rgba(6, 182, 212, 0.12);
+
+  /* Secondary Semantic */
+  --blue: #3b82f6;
+  --blue-bg: rgba(59, 130, 246, 0.12);
+  --warning: #f59e0b;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Light Mode Terminal Override (Paper Terminal) */
+.light {
+  --bg-primary: #f4f4f7;
+  --bg-surface: #ffffff;
+  --bg-card: #f9f9fc;
+  --bg-raised: #ebebef;
+  --bg-hover: #e2e2ea;
+  --border: #d4d4df;
+  --border-dim: #e4e4ed;
+  --border-bright: #b8b8cc;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --accent-bg: rgba(217, 119, 6, 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Base Terminal Resets */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-bright) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Strict Monospace Numbers & Tabular Alignment */
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+}
+
+/* Terminal CRT Glow Utilities */
+.glow-gold {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+.glow-green {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
+  text-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+}
+
+.glow-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+  text-shadow: 0 0 6px rgba(239, 68, 68, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.25);
+  text-shadow: 0 0 6px rgba(6, 182, 212, 0.35);
+}
+
+/* Tactile Terminal Header Ribbon */
+.terminal-panel-header {
+  height: 28px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.terminal-panel-header .title-badge {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Ticker tape animations */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-animate {
+  animation: ticker-scroll 55s linear infinite;
+}
+
+.ticker-animate:hover {
+  animation-play-state: paused;
+}
+
+/* Pulsing Live indicator */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.9); }
+}
+
+.pulse-live {
+  animation: pulse-live 1.8s ease-in-out infinite;
+}
+
+/* High-Density Terminal Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-surface);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 4px 8px;
+  font-size: 11.5px;
+  border-bottom: 1px solid var(--border-dim);
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  transition: background-color 0.1s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--bg-hover);
+  cursor: pointer;
+}
+
+/* Terminal Card Styling */
+.terminal-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.terminal-card:hover {
+  border-color: var(--border-bright);
+}
+
+/* Command Prompt Input */
+.terminal-cmd-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: transparent;
+  outline: none;
+  border: none;
+  color: var(--accent);
+}
+
+.terminal-cmd-input::placeholder {
+  color: var(--text-muted);
+}
+
+
