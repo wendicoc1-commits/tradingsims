@@ -150,11 +150,21 @@ export async function runAutonomousAgentCycle(
     }
 
     // B. Cek Trailing Stop Loss Dinamis (ATR Chandelier Exit)
+    // Proteksi:
+    // 1. Data kuotasi tidak boleh dummy benchmark non-live jika holding sudah berjalan
+    // 2. Proteksi glitch data: Penurunan harga tidak boleh anomali > 35% dalam 1 tick dari peakPrice
+    // 3. Trailing stop hanya boleh mengunci keuntungan (sellPrice > holding.avgPrice)
+    const isGlitchDrop = holding.peakPrice ? sellPrice < holding.peakPrice * 0.65 : false;
+    const isLiveValid = liveQ ? (liveQ.live !== false) : true;
+
     if (
+      isLiveValid &&
+      !isGlitchDrop &&
       holding.trailingStopPrice &&
       sellPrice <= holding.trailingStopPrice &&
       holding.peakPrice &&
       holding.peakPrice > holding.avgPrice * 1.02 &&
+      sellPrice > holding.avgPrice &&
       holding.lots > 0
     ) {
       const sellLots = holding.lots;
@@ -213,7 +223,13 @@ export async function runAutonomousAgentCycle(
     }
 
     // C. Cek Hard Stop Loss (CRO Risk Gate Veto)
-    if (holding.stopLossPrice && sellPrice <= holding.stopLossPrice && holding.lots > 0) {
+    if (
+      isLiveValid &&
+      !isGlitchDrop &&
+      holding.stopLossPrice &&
+      sellPrice <= holding.stopLossPrice &&
+      holding.lots > 0
+    ) {
       const sellLots = holding.lots;
       const res = portfolioStore.placeSellOrder({
         symbol: holding.symbol,

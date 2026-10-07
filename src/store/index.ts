@@ -1027,11 +1027,13 @@ export const usePortfolioStore = create<PortfolioState>()(
         const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT')
         const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
         const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(clean))
-        const newPrice =
+        const candidatePrice =
           priceMap[holding.symbol] ??
           priceMap[clean] ??
           priceMap[`${clean}USDT`] ??
           holding.currentPrice
+
+        const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
 
         let unrealizedPL = 0
         let unrealizedPLPercent = 0

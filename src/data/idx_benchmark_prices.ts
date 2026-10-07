@@ -83,7 +83,7 @@ export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: stri
   SOL: { price: 154, name: 'Solana (SOL)' },
   BNB: { price: 585, name: 'BNB (Binance)' },
   DOGE: { price: 0.125, name: 'Dogecoin (DOGE)' },
-  XRP: { price: 0.54, name: 'XRP (Ripple)' },
+  XRP: { price: 1.42, name: 'XRP (Ripple)' },
   ADA: { price: 0.35, name: 'Cardano (ADA)' },
   AVAX: { price: 26.5, name: 'Avalanche (AVAX)' },
   SUI: { price: 1.85, name: 'Sui Network (SUI)' },

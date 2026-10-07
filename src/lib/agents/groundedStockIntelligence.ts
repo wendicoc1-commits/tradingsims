@@ -178,7 +178,7 @@ export function getGroundedStockIntelligence(
     ETH: { name: 'Ethereum Network', price: 2450, upside: 34.0, target: 3280, thesis: 'Pusat likuiditas smart contract L1 & dominasi ekosistem Layer-2 rollups.' },
     SOL: { name: 'Solana High-Speed L1', price: 152, upside: 42.0, target: 215, thesis: 'Throughput ultra-cepat 65k TPS & pertumbuhan masif volume DEX.' },
     BNB: { name: 'BNB Smart Chain', price: 580, upside: 25.0, target: 725, thesis: 'Utilitas ekosistem Binance exchange & burn kuartalan deflasioner.' },
-    XRP: { name: 'XRP Ledger (Ripple)', price: 0.54, upside: 48.0, target: 0.80, thesis: 'Penyelesaian likuiditas pembayaran lintas batas perbankan global.' },
+    XRP: { name: 'XRP Ledger (Ripple)', price: 1.42, upside: 48.0, target: 2.10, thesis: 'Penyelesaian likuiditas pembayaran lintas batas perbankan global.' },
     DOGE: { name: 'Dogecoin', price: 0.12, upside: 55.0, target: 0.18, thesis: 'Likuiditas ritel raksasa & adopsi kultural pembayaran peer-to-peer.' },
     ADA: { name: 'Cardano', price: 0.35, upside: 32.0, target: 0.46, thesis: 'Arsitektur UTXO diperluas & protokol riset peer-reviewed akademik.' },
     AVAX: { name: 'Avalanche', price: 26.5, upside: 38.0, target: 36.5, thesis: 'Subnet konsensus multi-chain untuk institusi keuangan global.' },

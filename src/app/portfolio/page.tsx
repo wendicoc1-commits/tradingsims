@@ -489,23 +489,26 @@ export default function PortfolioPage() {
           }
         });
 
-        // Fallback to local stock & crypto universe if backend is offline
+        // Fallback: Hanya isi benchmark untuk holding yang belum memiliki harga pasar (> 0)
+        // JANGAN PERNAH menimpa harga posisi aktif yang sudah berjalan dengan angka benchmark statis!
         if (Object.keys(map).length === 0) {
           const { ALL_ID_HEATMAP_UNIVERSE } = await import('@/data/heatmap_stocks_universe');
           const { getVerifiedBenchmarkPrice } = await import('@/data/idx_benchmark_prices');
           holdings.forEach((h) => {
-            const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').toUpperCase();
-            const found = ALL_ID_HEATMAP_UNIVERSE.find(
-              (s) => s.displaySymbol === cleanSym || s.symbol.toUpperCase() === `${cleanSym}.JK`
-            );
-            if (found && found.price > 0) {
-              map[h.symbol] = found.price;
-              map[h.displaySymbol] = found.price;
-            } else {
-              const bench = getVerifiedBenchmarkPrice(cleanSym);
-              if (bench && bench.price > 0) {
-                map[h.symbol] = bench.price;
-                map[h.displaySymbol] = bench.price;
+            if (!h.currentPrice || h.currentPrice <= 0) {
+              const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').toUpperCase();
+              const found = ALL_ID_HEATMAP_UNIVERSE.find(
+                (s) => s.displaySymbol === cleanSym || s.symbol.toUpperCase() === `${cleanSym}.JK`
+              );
+              if (found && found.price > 0) {
+                map[h.symbol] = found.price;
+                map[h.displaySymbol] = found.price;
+              } else {
+                const bench = getVerifiedBenchmarkPrice(cleanSym);
+                if (bench && bench.price > 0) {
+                  map[h.symbol] = bench.price;
+                  map[h.displaySymbol] = bench.price;
+                }
               }
             }
           });

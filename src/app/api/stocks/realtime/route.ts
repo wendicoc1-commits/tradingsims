@@ -186,17 +186,20 @@ export async function GET(request: Request) {
     }
   }
 
-  // Fetch missing tickers in parallel (max 15 concurrent)
+  // Fetch missing tickers in parallel batches (max 20 concurrent per chunk)
   if (tickersToFetch.length > 0) {
-    const fetchPromises = tickersToFetch.slice(0, 20).map(async (t) => {
-      const q = await fetchYahooQuote(t);
-      if (q) {
-        results[t] = q;
-        cache.data[t] = q;
-      }
-    });
-
-    await Promise.allSettled(fetchPromises);
+    const CHUNK_SIZE = 20;
+    for (let i = 0; i < tickersToFetch.length; i += CHUNK_SIZE) {
+      const chunk = tickersToFetch.slice(i, i + CHUNK_SIZE);
+      const fetchPromises = chunk.map(async (t) => {
+        const q = await fetchYahooQuote(t);
+        if (q) {
+          results[t] = q;
+          cache.data[t] = q;
+        }
+      });
+      await Promise.allSettled(fetchPromises);
+    }
     cache.timestamp = now;
 
     // Preserve real live market quotes; only fallback to benchmark if Yahoo is offline/throttled

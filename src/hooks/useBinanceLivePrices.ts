@@ -20,7 +20,7 @@ const INITIAL_CRYPTO_SEEDS: Record<string, { price: number; change24h: number; h
   SOL: { price: 154, change24h: 3.40, high: 158, low: 149, vol: '$4.8B', qVol: 4800000000 },
   BNB: { price: 585, change24h: 0.95, high: 592, low: 578, vol: '$1.2B', qVol: 1200000000 },
   DOGE: { price: 0.125, change24h: 4.10, high: 0.131, low: 0.119, vol: '$1.5B', qVol: 1500000000 },
-  XRP: { price: 0.54, change24h: -0.65, high: 0.552, low: 0.531, vol: '$980M', qVol: 980000000 },
+  XRP: { price: 1.42, change24h: 3.20, high: 1.48, low: 1.38, vol: '$3.8B', qVol: 3800000000 },
   ADA: { price: 0.35, change24h: 1.20, high: 0.362, low: 0.341, vol: '$320M', qVol: 320000000 },
   AVAX: { price: 26.5, change24h: 2.80, high: 27.4, low: 25.6, vol: '$450M', qVol: 450000000 },
   SUI: { price: 1.85, change24h: 5.60, high: 1.94, low: 1.72, vol: '$820M', qVol: 820000000 },

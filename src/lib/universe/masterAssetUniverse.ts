@@ -32,7 +32,7 @@ const CRYPTO_MASTER: UnifiedAsset[] = [
   { symbol: 'SOL', name: 'Solana (High Throughput L1)', category: 'CRYPTO', sector: 'Layer-1 High Speed', currency: 'USD', market: 'CRYPTO', defaultPrice: 154, flag: '⚡', isPopular: true },
   { symbol: 'BNB', name: 'BNB (Binance Ecosystem)', category: 'CRYPTO', sector: 'Exchange Token / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 585, flag: '⚡', isPopular: true },
   { symbol: 'DOGE', name: 'Dogecoin (Meme Liquidity)', category: 'CRYPTO', sector: 'Meme / Payment', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.125, flag: '⚡', isPopular: true },
-  { symbol: 'XRP', name: 'XRP (Ripple Settlement)', category: 'CRYPTO', sector: 'Cross-Border Payments', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.54, flag: '⚡', isPopular: true },
+  { symbol: 'XRP', name: 'XRP (Ripple Settlement)', category: 'CRYPTO', sector: 'Cross-Border Payments', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.42, flag: '⚡', isPopular: true },
   { symbol: 'ADA', name: 'Cardano (PoS Blockchain)', category: 'CRYPTO', sector: 'Layer-1 UTXO', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.35, flag: '⚡' },
   { symbol: 'AVAX', name: 'Avalanche (Subnet Consensus)', category: 'CRYPTO', sector: 'Layer-1 Multi-Chain', currency: 'USD', market: 'CRYPTO', defaultPrice: 26.5, flag: '⚡' },
   { symbol: 'SUI', name: 'Sui Network (Move VM)', category: 'CRYPTO', sector: 'Layer-1 Move Language', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.85, flag: '⚡' },
