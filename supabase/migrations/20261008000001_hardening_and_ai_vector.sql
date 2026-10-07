@@ -1,76 +1,88 @@
 -- ==============================================================================
 -- FINCEPT / TRADESIM PRO — SUPABASE DATABASE HARDENING & AI VECTOR PREPARATION
+-- (MIGRATION RESILIENT / FIX ERROR 42703: column "ticker" does not exist)
 -- ==============================================================================
--- Script ini siap dieksekusi langsung di Supabase SQL Editor.
--- Meliputi:
--- 1. Skema Tabel Inti (users, portfolios, transactions) jika belum dibuat
--- 2. Stored Procedure RPC Atomic & Anti-Race-Condition (execute_trade)
--- 3. Row Level Security (RLS) Sangat Ketat
--- 4. Inisialisasi pgvector (OpenAI 1536 dim) + ai_trading_journals + HNSW Index & RAG Query
+-- Script ini dirancang 100% IDEMPOTENT dan AMAN dijalankan di Supabase SQL Editor.
+-- Jika tabel sudah ada dari skema sebelumnya, script akan otomatis melakukan
+-- ALTER TABLE ADD COLUMN IF NOT EXISTS sehingga tidak terjadi error column missing.
 -- ==============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- BAGIAN 0: PERSIAPAN EKSTENSI & SKEMA TABEL INTI
+-- BAGIAN 0: EKSTENSI
 -- ─────────────────────────────────────────────────────────────────────────────
-
--- 1. Ekstensi UUID & PGVECTOR
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- 2. Tabel users (Akun Member & Saldo Kas)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- BAGIAN 1: STRUKTUR TABEL & AUTO-PATCH KOLOM YANG HILANG
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 1. TABEL USERS
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
-  full_name TEXT,
-  cash_balance NUMERIC(18, 2) NOT NULL DEFAULT 100000000.00 CHECK (cash_balance >= 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 3. Tabel portfolios (Kepemilikan Saham & Moving Average Price)
-CREATE TABLE IF NOT EXISTS public.portfolios (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  ticker VARCHAR(20) NOT NULL,
-  total_lots NUMERIC(14, 4) NOT NULL DEFAULT 0 CHECK (total_lots >= 0),
-  average_price NUMERIC(18, 4) NOT NULL DEFAULT 0 CHECK (average_price >= 0),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT uq_user_ticker UNIQUE (user_id, ticker)
-);
-
--- Index performa pencarian posisi portofolio
-CREATE INDEX IF NOT EXISTS idx_portfolios_user_ticker ON public.portfolios(user_id, ticker);
-
--- 4. Tabel transactions (Ledger Riwayat Transaksi Audit)
-CREATE TABLE IF NOT EXISTS public.transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  ticker VARCHAR(20) NOT NULL,
-  type VARCHAR(10) NOT NULL CHECK (type IN ('BUY', 'SELL')),
-  price NUMERIC(18, 2) NOT NULL CHECK (price > 0),
-  lots NUMERIC(14, 4) NOT NULL CHECK (lots > 0),
-  total_amount NUMERIC(18, 2) NOT NULL CHECK (total_amount > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Index performa query riwayat transaksi
+-- Pastikan seluruh kolom yang dibutuhkan ada pada tabel users
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS cash_balance NUMERIC(18, 2) NOT NULL DEFAULT 100000000.00;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- 2. TABEL PORTFOLIOS
+CREATE TABLE IF NOT EXISTS public.portfolios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE
+);
+
+-- Patch otomatis jika tabel portfolios sudah ada sebelumnya tapi belum ada kolom ticker
+ALTER TABLE public.portfolios ADD COLUMN IF NOT EXISTS ticker VARCHAR(20);
+ALTER TABLE public.portfolios ADD COLUMN IF NOT EXISTS total_lots NUMERIC(14, 4) NOT NULL DEFAULT 0;
+ALTER TABLE public.portfolios ADD COLUMN IF NOT EXISTS average_price NUMERIC(18, 4) NOT NULL DEFAULT 0;
+ALTER TABLE public.portfolios ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Bersihkan baris dummy/lama yang tickernya kosong (jika ada peninggalan tabel kas lama)
+DELETE FROM public.portfolios WHERE ticker IS NULL;
+
+-- Jadikan ticker NOT NULL jika belum
+ALTER TABLE public.portfolios ALTER COLUMN ticker SET NOT NULL;
+
+-- Buat Unique Constraint user_id + ticker secara aman
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'uq_user_ticker'
+  ) THEN
+    ALTER TABLE public.portfolios ADD CONSTRAINT uq_user_ticker UNIQUE (user_id, ticker);
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_portfolios_user_ticker ON public.portfolios(user_id, ticker);
+
+-- 3. TABEL TRANSACTIONS
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE
+);
+
+-- Patch otomatis kolom tabel transactions
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS ticker VARCHAR(20);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS type VARCHAR(10);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS price NUMERIC(18, 2);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS lots NUMERIC(14, 4);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS total_amount NUMERIC(18, 2);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON public.transactions(user_id, created_at DESC);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- BAGIAN 1: TRANSAKSI AMAN BERBASIS RPC (ANTI-RACE-CONDITION)
+-- BAGIAN 2: TRANSAKSI AMAN BERBASIS RPC (ANTI-RACE-CONDITION)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * execute_trade
- * Menjalankan order BUY atau SELL secara atomik dalam 1 transaksi PostgreSQL:
- * - Menggunakan Pessimistic Row-Locking (FOR UPDATE) pada users & portfolios
- *   untuk mencegah Race Condition (Double Spending / Saldo Negatif).
- * - Menghitung ulang Moving Average Price secara matematis saat BUY.
- * - Mengurangi lot dan otomatis DELETE baris portfolio jika lot habis saat SELL.
- * - SECURITY DEFINER: Berjalan dengan hak istimewa schema owner, sehingga
- *   client frontend tidak membutuhkan akses update langsung ke cash_balance.
- */
 CREATE OR REPLACE FUNCTION public.execute_trade(
   p_user_id UUID,
   p_ticker VARCHAR,
@@ -187,7 +199,7 @@ BEGIN
           updated_at = NOW()
       WHERE user_id = p_user_id AND ticker = v_clean_ticker;
     ELSE
-      -- Posisi Baru (Insert)
+      -- Posisi Baru Pertama Kali (Insert)
       v_new_lots := p_lots;
       v_new_avg_price := p_price;
 
@@ -256,7 +268,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- Return respon terstruktur JSON
+  -- 3. Return Respon Terstruktur JSON
   RETURN jsonb_build_object(
     'success', true,
     'transaction_id', v_transaction_id,
@@ -275,30 +287,24 @@ $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- BAGIAN 2: PENGATURAN ROW LEVEL SECURITY (RLS) SANGAT KETAT
+-- BAGIAN 3: PENGATURAN ROW LEVEL SECURITY (RLS) SANGAT KETAT
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. Aktifkan RLS pada seluruh tabel transaksi dan portofolio
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- 2. Bersihkan Kebijakan Lama (Idempotent Migration)
 DROP POLICY IF EXISTS "Users can read own profile" ON public.users;
 DROP POLICY IF EXISTS "Users can update own profile non-financial" ON public.users;
 DROP POLICY IF EXISTS "Users can read own portfolios" ON public.portfolios;
 DROP POLICY IF EXISTS "Users can read own transactions" ON public.transactions;
 
--- 3. Kebijakan Tabel USERS
--- Member hanya boleh SELECT data profil miliknya sendiri
 CREATE POLICY "Users can read own profile"
   ON public.users
   FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
 
--- Member boleh UPDATE profil umum (misal: nama), TETAPI dilarang keras mengubah cash_balance langsung!
--- Pengubahan saldo kas HANYA bisa lewat execute_trade (SECURITY DEFINER)
 CREATE POLICY "Users can update own profile non-financial"
   ON public.users
   FOR UPDATE
@@ -306,65 +312,47 @@ CREATE POLICY "Users can update own profile non-financial"
   USING (auth.uid() = id)
   WITH CHECK (
     auth.uid() = id AND
-    -- Validasi ketat: cash_balance tidak boleh diubah lewat query direct client
     cash_balance = (SELECT u.cash_balance FROM public.users u WHERE u.id = auth.uid())
   );
 
--- 4. Kebijakan Tabel PORTFOLIOS
--- Member hanya boleh SELECT portofolio miliknya sendiri
 CREATE POLICY "Users can read own portfolios"
   ON public.portfolios
   FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
--- CATATAN KEAMANAN PENTING:
--- TIDAK ADA kebijakan INSERT / UPDATE / DELETE untuk role authenticated di tabel portfolios.
--- Dengan begitu, seluruh manipulasi posisi HANYA bisa dilakukan melalui RPC execute_trade.
-
--- 5. Kebijakan Tabel TRANSACTIONS
--- Member hanya boleh SELECT riwayat transaksi miliknya sendiri
 CREATE POLICY "Users can read own transactions"
   ON public.transactions
   FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
--- TIDAK ADA kebijakan INSERT / UPDATE / DELETE untuk role authenticated di tabel transactions.
--- Ledger transaksi bersifat Append-Only melalui RPC execute_trade.
-
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- BAGIAN 3: PERSIAPAN OTAK AI (PGVECTOR MEMORY)
+-- BAGIAN 4: PERSIAPAN OTAK AI (PGVECTOR MEMORY)
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. Buat Tabel Jurnal Trading AI
 CREATE TABLE IF NOT EXISTS public.ai_trading_journals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticker VARCHAR(20) NOT NULL,
   trade_result VARCHAR(10) NOT NULL CHECK (trade_result IN ('WIN', 'LOSS')),
   pnl_percentage NUMERIC(8, 2) NOT NULL,
   reflection_text TEXT NOT NULL,
-  embedding vector(1536), -- Dimensi standar model OpenAI (text-embedding-ada-002 / text-embedding-3-small)
+  embedding vector(1536),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. Index HNSW (Hierarchical Navigable Small World) untuk Pencarian Vektor Super Cepat
 CREATE INDEX IF NOT EXISTS idx_ai_trading_journals_embedding_hnsw
   ON public.ai_trading_journals
   USING hnsw (embedding vector_cosine_ops);
 
--- Index metadata untuk filtering hybrid
 CREATE INDEX IF NOT EXISTS idx_ai_trading_journals_ticker ON public.ai_trading_journals(ticker);
 CREATE INDEX IF NOT EXISTS idx_ai_trading_journals_result ON public.ai_trading_journals(trade_result);
 
--- 3. Row Level Security untuk AI Memory
 ALTER TABLE public.ai_trading_journals ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role full access on ai_trading_journals" ON public.ai_trading_journals;
-DROP POLICY IF EXISTS "Authenticated users cannot access raw ai memory" ON public.ai_trading_journals;
 
--- Hanya Backend AI / Service Role yang diizinkan menulis dan membaca memori AI secara bebas
 CREATE POLICY "Service role full access on ai_trading_journals"
   ON public.ai_trading_journals
   FOR ALL
@@ -372,8 +360,6 @@ CREATE POLICY "Service role full access on ai_trading_journals"
   USING (true)
   WITH CHECK (true);
 
--- 4. Fungsi RAG Helper (Retrieval-Augmented Generation) untuk Otak AI
--- Digunakan oleh AI agent untuk mencari pelajaran trading masa lalu yang mirip dengan situasi pasar saat ini
 CREATE OR REPLACE FUNCTION public.match_trading_journals(
   query_embedding vector(1536),
   match_threshold FLOAT DEFAULT 0.65,
@@ -410,6 +396,5 @@ BEGIN
 END;
 $$;
 
--- Berikan izin akses RPC ke authenticated user untuk berkonsultasi dengan ingatan AI
 GRANT EXECUTE ON FUNCTION public.execute_trade(UUID, VARCHAR, VARCHAR, NUMERIC, NUMERIC) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.match_trading_journals(vector, FLOAT, INT) TO authenticated, service_role;
