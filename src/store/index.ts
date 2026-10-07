@@ -203,94 +203,14 @@ const SHARES_PER_LOT = 100
 const BUY_FEE_RATE = 0.0015 // 0.15% fee
 const SELL_FEE_RATE = 0.0025 // 0.25% fee
 
-export const INITIAL_CASH = 100000000 // Rp 100 Juta
+export const INITIAL_CASH = 100000000 // Rp 100 Juta murni
 
-export const INITIAL_HOLDINGS: PortfolioHolding[] = [
-  {
-    symbol: 'BBCA.JK',
-    displaySymbol: 'BBCA',
-    name: 'Bank Central Asia Tbk',
-    avgPrice: 5850, // Inklusif fee beli
-    lots: 20, // 20 lot = 2.000 lembar
-    shares: 2000,
-    currentPrice: 6025,
-    unrealizedPL: (6025 - 5850) * 2000,
-    unrealizedPLPercent: Number((((6025 - 5850) / 5850) * 100).toFixed(2)),
-    takeProfitPrice: 6350, // Target Take Profit (+5.4%)
-    stopLossPrice: 5700, // Batas Stop Loss (-2.5%)
-    validityType: 'GTC',
-    totalDividendEarned: 540000, // 270 x 2000
-    realizedPL: 0,
-  },
-  {
-    symbol: 'BBRI.JK',
-    displaySymbol: 'BBRI',
-    name: 'Bank Rakyat Indonesia Tbk',
-    avgPrice: 2980, // Inklusif fee beli
-    lots: 50, // 50 lot = 5.000 lembar
-    shares: 5000,
-    currentPrice: 3060,
-    unrealizedPL: (3060 - 2980) * 5000,
-    unrealizedPLPercent: Number((((3060 - 2980) / 2980) * 100).toFixed(2)),
-    takeProfitPrice: 3250, // Target Take Profit
-    stopLossPrice: 2900, // Batas Stop Loss
-    validityType: 'GTC',
-    totalDividendEarned: 1595000, // 319 x 5000
-    realizedPL: 0,
-  },
-]
+export const INITIAL_HOLDINGS: PortfolioHolding[] = []
 
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'init-order-1',
-    symbol: 'BBCA.JK',
-    displaySymbol: 'BBCA',
-    type: 'BUY',
-    orderType: 'LIMIT',
-    price: 5850,
-    lots: 20,
-    shares: 2000,
-    total: 5850 * 2000,
-    fee: Math.round(5850 * 2000 * BUY_FEE_RATE),
-    brokerFee: Math.round(5850 * 2000 * BUY_FEE_RATE),
-    status: 'FILLED',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    filledAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 'init-order-2',
-    symbol: 'BBRI.JK',
-    displaySymbol: 'BBRI',
-    type: 'BUY',
-    orderType: 'LIMIT',
-    price: 2980,
-    lots: 50,
-    shares: 5000,
-    total: 2980 * 5000,
-    fee: Math.round(2980 * 5000 * BUY_FEE_RATE),
-    brokerFee: Math.round(2980 * 5000 * BUY_FEE_RATE),
-    status: 'FILLED',
-    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-    filledAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
-]
+export const INITIAL_ORDERS: Order[] = []
 
-export const INITIAL_DIVIDENDS: DividendRecord[] = [
-  {
-    id: 'div-bbca-1',
-    symbol: 'BBCA.JK',
-    displaySymbol: 'BBCA',
-    name: 'Bank Central Asia Tbk',
-    dividendPerShare: 270,
-    shares: 2000,
-    grossAmount: 540000,
-    taxAmount: 0,
-    netAmount: 540000,
-    cumDate: '2024-03-22',
-    paymentDate: '2024-04-04',
-    status: 'PAID',
-  },
-]
+export const INITIAL_DIVIDENDS: DividendRecord[] = []
+
 
 export interface DividendItemInfo {
   dps: number

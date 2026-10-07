@@ -479,11 +479,11 @@ export default function PortfolioPage() {
   const handleResetTotal = () => {
     if (
       window.confirm(
-        'Pilih Opsi Reset Portofolio:\n\nOK = Reset ke Kondisi Awal Demo (BBCA & BBRI, Saldo Rp 100 Juta)\nCancel = Batal'
+        'Apakah Anda yakin ingin me-reset seluruh portofolio kembali ke modal awal bersih Rp 100.000.000?'
       )
     ) {
       resetToDefaultDemo();
-      setDividendMsg('Semua saldo dan portofolio berhasil di-reset kembali ke kondisi awal demo (Rp 100 Juta)!');
+      setDividendMsg('Semua saldo dan portofolio berhasil di-reset kembali ke modal awal bersih Rp 100.000.000!');
       setTimeout(() => setDividendMsg(null), 5000);
     }
   };
