@@ -33,6 +33,7 @@ import {
 import { HedgeFundCommitteeReport, HedgeFundAgentVote } from '@/lib/hedgefund/types';
 import { usePortfolioStore } from '@/store';
 import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
+import { normalizeSymbol, calculateShares } from '@/lib/stockRules';
 
 interface SearchableStock {
   symbol: string;
@@ -268,13 +269,20 @@ export default function HedgeFundCommitteeView() {
         return;
       }
 
+      const { fullSymbol, displaySymbol } = normalizeSymbol(report.symbol);
+      const shareInfo = calculateShares(report.symbol, plan.targetAllocationLots);
+      const isForeign = shareInfo.isCrypto || shareInfo.isUS;
+
       const res = placeBuyOrder({
-        symbol: report.symbol.endsWith('.JK') ? report.symbol : `${report.symbol}.JK`,
-        displaySymbol: report.symbol.replace('.JK', ''),
+        symbol: fullSymbol,
+        displaySymbol,
         price: plan.suggestedEntryPrice,
         lots: plan.targetAllocationLots,
         name: report.name,
-        orderType: 'LIMIT',
+        orderType: isForeign ? 'MARKET' : 'LIMIT',
+        assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: shareInfo.currency,
+        exchangeRate: shareInfo.exchangeRate,
       });
       if (res.order) {
         setOrderExecuted(true);

@@ -15,6 +15,7 @@ import { computePositionSizing, roundTick, portfolioNav, type LiveQuote, type Ne
 import { getGroundedStockIntelligence } from '../agents/groundedStockIntelligence';
 import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
 import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
+import { normalizeSymbol, calculateShares } from '../stockRules';
 
 /**
  * Menjalankan satu siklus penuh otonom:
@@ -65,8 +66,11 @@ export async function runAutonomousAgentCycle(
       holding.assetClass === 'CRYPTO' ||
       holding.symbol.endsWith('USDT') ||
       ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(sym);
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
+    const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(sym));
+    const isForeign = isCrypto || isUS;
     const rate = holding.exchangeRate || 16000;
-    const sellPrice = isCrypto ? rawPrice : roundTick(rawPrice);
+    const sellPrice = isForeign ? rawPrice : roundTick(rawPrice);
 
     if (sellPrice <= 0) continue;
 
@@ -84,11 +88,11 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const estProfit = isCrypto
+        const estProfit = isForeign
           ? Math.round((sellPrice - holding.avgPrice) * sellLots * rate)
           : (sellPrice - holding.avgPrice) * sellLots * 100;
-        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
-        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        const priceLabel = isForeign ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : isUS ? `${sellLots} shares` : `${sellLots} lot`;
         actionTaken = `🎯 TAKE PROFIT OTOMATIS: Terjual ${qtyLabel} ${sym} @ ${priceLabel} (Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
 
         aiStore.logAction({
@@ -157,11 +161,11 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const estProfit = isCrypto
+        const estProfit = isForeign
           ? Math.round((sellPrice - holding.avgPrice) * sellLots * rate)
           : (sellPrice - holding.avgPrice) * sellLots * 100;
-        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
-        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        const priceLabel = isForeign ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : isUS ? `${sellLots} shares` : `${sellLots} lot`;
         actionTaken = `📈 TRAILING STOP ATR TERKUNCI: Terjual ${qtyLabel} ${sym} @ ${priceLabel} setelah berbalik dari puncak ${holding.peakPrice} (Amankan Untung: Rp ${estProfit.toLocaleString('id-ID')})`;
 
         aiStore.logAction({
@@ -191,7 +195,7 @@ export async function runAutonomousAgentCycle(
               trade_result: 'WIN',
               pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : 3.0,
               reflection_text: `Trailing Stop Chandelier terpicu pada ${priceLabel}. Profit Rp ${estProfit.toLocaleString('id-ID')} berhasil diamankan setelah harga berbalik dari puncak.`,
-              market_condition: isCrypto ? 'Crypto Retracement' : 'IHSG Retracement',
+              market_condition: isForeign ? 'Global Asset Retracement' : 'IHSG Retracement',
             }),
           }).catch(() => {});
         }
@@ -214,11 +218,11 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
-        const lossVal = isCrypto
+        const lossVal = isForeign
           ? Math.round((holding.avgPrice - sellPrice) * sellLots * rate)
           : (holding.avgPrice - sellPrice) * sellLots * 100;
-        const priceLabel = isCrypto ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
-        const qtyLabel = isCrypto ? `${sellLots} unit` : `${sellLots} lot`;
+        const priceLabel = isForeign ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+        const qtyLabel = isCrypto ? `${sellLots} unit` : isUS ? `${sellLots} shares` : `${sellLots} lot`;
         actionTaken = `🛡️ STOP LOSS OTOMATIS (CRO VETO): Cut loss ${qtyLabel} ${sym} @ ${priceLabel} (Batas risiko: ${holding.stopLossPrice})`;
 
         aiStore.logAction({
@@ -419,7 +423,16 @@ export async function runAutonomousAgentCycle(
       );
     const exposureOf = (sym: string) => {
       const h = findHolding(sym);
-      return h ? (h.shares || h.lots * 100) * (liveQuotesMap[sym]?.price || h.currentPrice) : 0;
+      if (!h) return 0;
+      const isC = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB'].includes(sym);
+      const isU = !isC && (h.currency === 'USD' || h.assetClass === 'US' || ['NVDA', 'AAPL', 'MSFT', 'TSLA'].includes(sym));
+      const p = liveQuotesMap[sym]?.price || h.currentPrice;
+      if (isC || isU) {
+        const u = h.cryptoUnits ?? h.shares ?? h.lots;
+        const r = h.exchangeRate || 16000;
+        return Math.round(u * p * r);
+      }
+      return (h.shares || h.lots * 100) * p;
     };
     // Posisi dianggap cukup jika sudah >= 10 lot atau menyentuh plafon alokasi
     const isAllocated = (sym: string) => {
@@ -584,22 +597,31 @@ export async function runAutonomousAgentCycle(
             ? roundTick(oodaDecision.stop_loss)
             : sizing.stop;
 
+          const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
+          const shareInfo = calculateShares(target.symbol, sizing.lots);
+          const isTargetForeign = shareInfo.isCrypto || shareInfo.isUS;
+
           const res = portfolioStore.placeBuyOrder({
-            symbol: `${target.symbol}.JK`,
-            displaySymbol: target.symbol,
+            symbol: fullSymbol,
+            displaySymbol,
             name: target.name,
             price: sizing.entry,
             lots: sizing.lots,
-            orderType: 'LIMIT',
+            orderType: isTargetForeign ? 'MARKET' : 'LIMIT',
             takeProfitPrice: finalTakeProfit,
             stopLossPrice: finalStopLoss,
             validityType: 'GTC',
             source: 'AI_AGENT',
+            assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+            currency: shareInfo.currency,
+            exchangeRate: shareInfo.exchangeRate,
           });
 
           if (res.order) {
             tradeExecuted = true;
-            actionTaken = `⚡ ORDER BUY OTOMATIS: ${sizing.lots} lot ${target.symbol} @ Rp ${sizing.entry.toLocaleString('id-ID')} (SL: Rp ${finalStopLoss.toLocaleString('id-ID')} / TP: Rp ${finalTakeProfit.toLocaleString('id-ID')})`;
+            const priceLabel = isTargetForeign ? `$${sizing.entry.toLocaleString('en-US')}` : `Rp ${sizing.entry.toLocaleString('id-ID')}`;
+            const unitLabel = shareInfo.isCrypto ? `${sizing.lots} unit` : shareInfo.isUS ? `${sizing.lots} shares` : `${sizing.lots} lot`;
+            actionTaken = `⚡ ORDER BUY OTOMATIS: ${unitLabel} ${target.symbol} @ ${priceLabel} (SL: ${finalStopLoss} / TP: ${finalTakeProfit})`;
 
             aiStore.logAction({
               type: 'TRADE_BUY',

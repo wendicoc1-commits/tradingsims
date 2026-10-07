@@ -164,52 +164,88 @@ export default function ChartbitTradingPanel({
     return Math.max(t, Math.ceil(raw / t) * t);
   }, [currentPrice]);
 
+  const getForeignTick = (val: number) => {
+    if (val < 0.01) return 0.0001;
+    if (val < 1) return 0.001;
+    if (val < 10) return 0.01;
+    if (val < 100) return 0.05;
+    return 0.1;
+  };
+
   // Adjust harga dengan tick
   const handlePriceStep = (direction: 'UP' | 'DOWN') => {
     if (orderType === 'MARKET') return;
     const currentVal = parseFloat(priceInput) || currentPrice;
-    const currentTick = getIDXTickSize(currentVal);
-    let nextVal = direction === 'UP' ? currentVal + currentTick : currentVal - currentTick;
-    if (nextVal <= 0) nextVal = currentTick;
-    setPriceInput(String(nextVal));
+    if (shareInfo.isCrypto || shareInfo.isUS) {
+      const step = getForeignTick(currentVal);
+      const nextVal = direction === 'UP' ? currentVal + step : Math.max(step, currentVal - step);
+      setPriceInput(String(Number(nextVal.toFixed(currentVal < 1 ? 6 : 2))));
+    } else {
+      const currentTick = getIDXTickSize(currentVal);
+      let nextVal = direction === 'UP' ? currentVal + currentTick : currentVal - currentTick;
+      if (nextVal <= 0) nextVal = currentTick;
+      setPriceInput(String(nextVal));
+    }
   };
 
   // Adjust TP dengan tick
   const handleTpStep = (direction: 'UP' | 'DOWN') => {
     const currentVal = parseFloat(tpInput) || priceNum;
-    const t = getIDXTickSize(currentVal);
-    let nextVal = direction === 'UP' ? currentVal + t : currentVal - t;
-    if (nextVal <= 0) nextVal = t;
-    setTpInput(String(nextVal));
+    if (shareInfo.isCrypto || shareInfo.isUS) {
+      const step = getForeignTick(currentVal);
+      const nextVal = direction === 'UP' ? currentVal + step : Math.max(step, currentVal - step);
+      setTpInput(String(Number(nextVal.toFixed(currentVal < 1 ? 6 : 2))));
+    } else {
+      const t = getIDXTickSize(currentVal);
+      let nextVal = direction === 'UP' ? currentVal + t : currentVal - t;
+      if (nextVal <= 0) nextVal = t;
+      setTpInput(String(nextVal));
+    }
   };
 
   // Adjust SL dengan tick
   const handleSlStep = (direction: 'UP' | 'DOWN') => {
     const currentVal = parseFloat(slInput) || priceNum;
-    const t = getIDXTickSize(currentVal);
-    let nextVal = direction === 'UP' ? currentVal + t : currentVal - t;
-    if (nextVal <= 0) nextVal = t;
-    setSlInput(String(nextVal));
+    if (shareInfo.isCrypto || shareInfo.isUS) {
+      const step = getForeignTick(currentVal);
+      const nextVal = direction === 'UP' ? currentVal + step : Math.max(step, currentVal - step);
+      setSlInput(String(Number(nextVal.toFixed(currentVal < 1 ? 6 : 2))));
+    } else {
+      const t = getIDXTickSize(currentVal);
+      let nextVal = direction === 'UP' ? currentVal + t : currentVal - t;
+      if (nextVal <= 0) nextVal = t;
+      setSlInput(String(nextVal));
+    }
   };
 
   // Shortcut Persentase Take Profit
   const setTpByPercent = (pct: number) => {
     setEnableTP(true);
     const base = priceNum > 0 ? priceNum : currentPrice;
-    const raw = Math.round(base * (1 + pct / 100));
-    const t = getIDXTickSize(raw);
-    const rounded = Math.round(raw / t) * t;
-    setTpInput(String(rounded));
+    if (shareInfo.isCrypto || shareInfo.isUS) {
+      const target = base * (1 + pct / 100);
+      setTpInput(String(Number(target.toFixed(base < 1 ? 6 : 2))));
+    } else {
+      const raw = Math.round(base * (1 + pct / 100));
+      const t = getIDXTickSize(raw);
+      const rounded = Math.round(raw / t) * t;
+      setTpInput(String(rounded));
+    }
   };
 
   // Shortcut Persentase Stop Loss
   const setSlByPercent = (pct: number) => {
     setEnableSL(true);
     const base = priceNum > 0 ? priceNum : currentPrice;
-    const raw = Math.round(base * (1 - pct / 100));
-    const t = getIDXTickSize(raw);
-    const rounded = Math.round(raw / t) * t;
-    setSlInput(String(rounded));
+    if (shareInfo.isCrypto || shareInfo.isUS) {
+      const target = Math.max(0.0001, base * (1 - pct / 100));
+      setSlInput(String(Number(target.toFixed(base < 1 ? 6 : 2))));
+    } else {
+      const raw = Math.round(base * (1 - pct / 100));
+      const t = getIDXTickSize(raw);
+      const rounded = Math.round(raw / t) * t;
+      setSlInput(String(rounded));
+    }
   };
 
   // Adjust lot cepat
@@ -657,16 +693,23 @@ export default function ChartbitTradingPanel({
             </button>
           </div>
 
-          {/* Shortcut Harga Cepat (ARB, Last, ARA) */}
+          {/* Shortcut Harga Cepat (ARB/-5%, Last, ARA/+5%) */}
           <div className="grid grid-cols-3 gap-1 pt-1">
             <button
               type="button"
               disabled={orderType === 'MARKET'}
-              onClick={() => setPriceInput(String(arbPrice))}
+              onClick={() => {
+                if (shareInfo.isCrypto || shareInfo.isUS) {
+                  const down5 = Number((currentPrice * 0.95).toFixed(currentPrice < 1 ? 6 : 2));
+                  setPriceInput(String(down5));
+                } else {
+                  setPriceInput(String(arbPrice));
+                }
+              }}
               className="py-1 px-1.5 text-[10px] font-mono rounded border text-center transition-colors hover:border-red-500 hover:text-red-400 cursor-pointer"
               style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-muted)' }}
             >
-              ARB {arbPrice.toLocaleString('id-ID')}
+              {shareInfo.isIDX ? `ARB ${arbPrice.toLocaleString('id-ID')}` : `-5%`}
             </button>
             <button
               type="button"
@@ -675,16 +718,23 @@ export default function ChartbitTradingPanel({
               className="py-1 px-1.5 text-[10px] font-mono rounded border text-center transition-colors hover:border-amber-400 hover:text-amber-400 cursor-pointer font-bold"
               style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', color: 'var(--accent)' }}
             >
-              Last {currentPrice.toLocaleString('id-ID')}
+              Last {shareInfo.isIDX ? currentPrice.toLocaleString('id-ID') : `$${currentPrice.toLocaleString()}`}
             </button>
             <button
               type="button"
               disabled={orderType === 'MARKET'}
-              onClick={() => setPriceInput(String(araPrice))}
+              onClick={() => {
+                if (shareInfo.isCrypto || shareInfo.isUS) {
+                  const up5 = Number((currentPrice * 1.05).toFixed(currentPrice < 1 ? 6 : 2));
+                  setPriceInput(String(up5));
+                } else {
+                  setPriceInput(String(araPrice));
+                }
+              }}
               className="py-1 px-1.5 text-[10px] font-mono rounded border text-center transition-colors hover:border-emerald-500 hover:text-emerald-400 cursor-pointer"
               style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-muted)' }}
             >
-              ARA {araPrice.toLocaleString('id-ID')}
+              {shareInfo.isIDX ? `ARA ${araPrice.toLocaleString('id-ID')}` : `+5%`}
             </button>
           </div>
         </div>

@@ -66,7 +66,7 @@ export default function FinceptRightDock() {
 
   // Calculate order execution values
   const priceNum = parseFloat(orderPrice) || 0;
-  const lotsNum = parseInt(orderLots, 10) || 0;
+  const lotsNum = parseFloat(orderLots) || 0;
   const rawSym = orderSymbol.trim().toUpperCase();
   const shareInfo = calculateShares(rawSym, lotsNum);
   const tradeValue = Math.round(priceNum * shareInfo.shares * shareInfo.exchangeRate);

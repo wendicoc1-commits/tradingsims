@@ -111,6 +111,9 @@ export function normalizeSymbol(sym: string): { fullSymbol: string; displaySymbo
   if (CRYPTO_TICKERS.has(clean) || sym.toUpperCase().endsWith('USDT')) {
     return { fullSymbol: `${clean}USDT`, displaySymbol: clean };
   }
+  if (US_TICKERS.has(clean) || sym.includes(':') || sym.startsWith('^')) {
+    return { fullSymbol: clean, displaySymbol: clean };
+  }
   // Default saham Indonesia jika 4 huruf
   if (clean.length === 4 && /^[A-Z]+$/.test(clean)) {
     return { fullSymbol: `${clean}.JK`, displaySymbol: clean };

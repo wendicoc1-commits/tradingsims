@@ -114,11 +114,18 @@ export function roundTick(p: number): number {
 }
 
 export function portfolioNav(p: PortfolioSnapshot): number {
+  const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const hv = p.holdings.reduce((sum, h: any) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.displaySymbol?.toUpperCase().endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB'].includes(h.displaySymbol?.toUpperCase());
+    const sym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.displaySymbol?.toUpperCase().endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX'].includes(sym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US.includes(sym));
+    const rate = h.exchangeRate || 16000;
     if (isCrypto) {
       const units = h.cryptoUnits ?? h.lots;
-      const rate = h.exchangeRate || 16000;
+      return sum + Math.round(units * h.currentPrice * rate);
+    }
+    if (isUS) {
+      const units = h.shares ?? h.lots;
       return sum + Math.round(units * h.currentPrice * rate);
     }
     return sum + (h.shares ?? h.lots * 100) * h.currentPrice;
@@ -161,29 +168,40 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const nav = Math.max(10_000_000, portfolioNav(portfolio));
   const isIDR = intel.currency === 'IDR';
   const rawEntry = rr.entry || intel.currentPrice || 100;
-  const entry = isIDR ? roundTick(rawEntry) : Number(rawEntry.toFixed(2));
-  const rawStop = rr.stopLoss > 0 && rr.stopLoss < entry ? rr.stopLoss : Math.round(entry * 0.97);
-  const rawTp = rr.tp1 > entry ? rr.tp1 : Math.round(entry * 1.06);
-  const stop = isIDR ? roundTick(rawStop) : Number(rawStop.toFixed(2));
-  const takeProfit = isIDR ? roundTick(rawTp) : Number(rawTp.toFixed(2));
-  const riskPerShare = Math.max(0.01, entry - stop);
-  const riskBudget = Math.max(nav * 0.01, entry * 100 * 2);
-  let lots = Math.max(1, Math.floor(riskBudget / (riskPerShare * 100)));
-  const maxByCash = Math.floor(portfolio.cash / (entry * 100 * 1.0015));
+  const entry = isIDR ? roundTick(rawEntry) : (rawEntry < 50 ? Number(rawEntry.toFixed(rawEntry < 1 ? 6 : 2)) : Number(rawEntry.toFixed(2)));
+  const rawStop = rr.stopLoss > 0 && rr.stopLoss < entry ? rr.stopLoss : (isIDR ? Math.round(entry * 0.97) : entry * 0.97);
+  const rawTp = rr.tp1 > entry ? rr.tp1 : (isIDR ? Math.round(entry * 1.06) : entry * 1.06);
+  const stop = isIDR ? roundTick(rawStop) : (rawStop < 50 ? Number(rawStop.toFixed(rawStop < 1 ? 6 : 2)) : Number(rawStop.toFixed(2)));
+  const takeProfit = isIDR ? roundTick(rawTp) : (rawTp < 50 ? Number(rawTp.toFixed(rawTp < 1 ? 6 : 2)) : Number(rawTp.toFixed(2)));
+
+  const rate = isIDR ? 1 : 16000;
+  const unitCostIDR = isIDR ? entry * 100 : entry * rate; // Biaya per 1 lot IDX (100 lembar) atau per 1 unit koin/shares US
+  const riskPerUnit = Math.max(0.0001, entry - stop);
+  const riskPerUnitIDR = isIDR ? riskPerUnit * 100 : riskPerUnit * rate;
+
+  // Batas alokasi risiko: 1% NAV
+  const riskBudget = Math.max(nav * 0.01, unitCostIDR);
+  let lots = Math.max(isIDR ? 1 : 0.01, Math.floor(riskBudget / riskPerUnitIDR));
+  if (isIDR) lots = Math.max(1, lots);
+
+  const maxByCash = unitCostIDR > 0 ? Math.floor(portfolio.cash / (unitCostIDR * 1.0015)) : 1;
   if (maxByCash >= 1) {
-    lots = Math.max(1, Math.min(lots, maxByCash));
+    lots = Math.max(isIDR ? 1 : 0.01, Math.min(lots, maxByCash));
   } else {
-    lots = 1; // Minimal 1 lot untuk paper trading
+    lots = isIDR ? 1 : 0.01; // Minimal 1 lot / 0.01 unit untuk simulator
   }
+
+  const notionalIDR = isIDR ? Math.round(lots * 100 * entry) : Math.round(lots * entry * rate);
+
   return {
     ok: true,
     reason: 'OK',
     entry,
     stop,
     takeProfit,
-    lots: Math.max(1, lots),
-    riskIdr: lots * 100 * riskPerShare,
-    notional: lots * 100 * entry,
+    lots: isIDR ? Math.max(1, Math.round(lots)) : Number(lots.toFixed(entry < 1 ? 6 : 2)),
+    riskIdr: Math.round(lots * riskPerUnitIDR),
+    notional: notionalIDR,
     navUsed: nav,
   };
 }

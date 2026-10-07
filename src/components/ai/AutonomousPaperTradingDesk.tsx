@@ -24,6 +24,7 @@ import {
 import { usePortfolioStore } from '@/store';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
+import { normalizeSymbol, calculateShares } from '@/lib/stockRules';
 
 interface AlphaBenchmarkModel {
   id: string;
@@ -142,17 +143,27 @@ export default function AutonomousPaperTradingDesk() {
       return;
     }
 
+    const { fullSymbol, displaySymbol } = normalizeSymbol(symbol);
+    const buyLots = (!isIndo && (symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB'].includes(displaySymbol))) ? 0.05 : 5;
+    const shareInfo = calculateShares(symbol, buyLots);
+    const isForeign = shareInfo.isCrypto || shareInfo.isUS;
+
     const res = placeBuyOrder({
-      symbol: symbol.endsWith('.JK') ? symbol : `${symbol}.JK`,
-      displaySymbol: symbol.replace('.JK', ''),
-      name: `${symbol} Tbk`,
+      symbol: fullSymbol,
+      displaySymbol,
+      name: isIndo ? `${symbol} Tbk` : isForeign ? `${displaySymbol}` : symbol,
       price,
-      lots: 5,
-      orderType: 'MARKET',
+      lots: buyLots,
+      orderType: isForeign ? 'MARKET' : 'LIMIT',
+      assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+      currency: shareInfo.currency,
+      exchangeRate: shareInfo.exchangeRate,
     });
     if (res.order) {
+      const priceTxt = isForeign ? `$${price.toLocaleString()}` : `Rp ${price.toLocaleString('id-ID')}`;
+      const unitTxt = shareInfo.isCrypto ? `${buyLots} unit` : shareInfo.isUS ? `${buyLots} shares` : `${buyLots} Lots`;
       setAuditLog((prev) => [
-        `${now} • [ORDER EXECUTED] Bought 5 Lots ${symbol} @ Rp ${price.toLocaleString('id-ID')}`,
+        `${now} • [ORDER EXECUTED] Bought ${unitTxt} ${displaySymbol} @ ${priceTxt}`,
         ...prev.slice(0, 8),
       ]);
     } else {

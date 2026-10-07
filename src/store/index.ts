@@ -489,7 +489,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
       currency,
       cryptoUnits: isCrypto ? lots : undefined,
-      exchangeRate: isCrypto ? rate : undefined,
+      exchangeRate: (isCrypto || isUS) ? rate : undefined,
       status: 'FILLED',
       createdAt: now,
       filledAt: now,
@@ -504,6 +504,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     )
 
     let updatedHoldings: PortfolioHolding[]
+    const isForeign = isCrypto || isUS
 
     if (existingHoldingIndex >= 0) {
       const existing = holdings[existingHoldingIndex]
@@ -511,16 +512,16 @@ export const usePortfolioStore = create<PortfolioState>()(
       const newTotalShares = existingShares + totalShares
       const newTotalLots = isIDX ? Math.round(newTotalShares / SHARES_PER_LOT) : newTotalShares
 
-      const existingTotalCost = isCrypto
+      const existingTotalCost = isForeign
         ? existing.avgPrice * existingShares * (existing.exchangeRate || rate)
         : existing.avgPrice * existingShares
       const newPurchaseCost = tradeValue + brokerFee
 
-      const newAvgPrice = isCrypto
-        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(execPrice < 0.01 ? 8 : 4))
+      const newAvgPrice = isForeign
+        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(execPrice < 0.01 ? 8 : (isCrypto ? 4 : 2)))
         : Math.round((existingTotalCost + newPurchaseCost) / newTotalShares)
 
-      const unrealizedPL = isCrypto
+      const unrealizedPL = isForeign
         ? Math.round((execPrice - newAvgPrice) * newTotalShares * rate)
         : (execPrice - newAvgPrice) * newTotalShares
       const unrealizedPLPercent = newAvgPrice > 0
@@ -540,13 +541,13 @@ export const usePortfolioStore = create<PortfolioState>()(
         stopLossPrice: params.stopLossPrice || existing.stopLossPrice,
         validityType: params.validityType || existing.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : existing.assetClass || 'EQUITY',
-        currency: isCrypto ? 'USDT' : existing.currency || 'IDR',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : existing.currency || 'IDR',
         cryptoUnits: isCrypto ? newTotalShares : undefined,
-        exchangeRate: isCrypto ? rate : undefined,
+        exchangeRate: isForeign ? rate : undefined,
       }
     } else {
-      const initialAvgPrice = isCrypto ? execPrice : Math.round((tradeValue + brokerFee) / totalShares)
-      const unrealizedPL = isCrypto
+      const initialAvgPrice = isForeign ? execPrice : Math.round((tradeValue + brokerFee) / totalShares)
+      const unrealizedPL = isForeign
         ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
         : (execPrice - initialAvgPrice) * totalShares
       const unrealizedPLPercent = Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
@@ -554,7 +555,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       const newHolding: PortfolioHolding = {
         symbol: resolvedSym,
         displaySymbol: cleanSym,
-        name: name || (isCrypto ? `${cleanSym}/USDT` : cleanSym),
+        name: name || (isCrypto ? `${cleanSym}/USDT` : isUS ? `${cleanSym} (US Stock)` : cleanSym),
         avgPrice: initialAvgPrice,
         lots,
         shares: totalShares,
@@ -567,12 +568,14 @@ export const usePortfolioStore = create<PortfolioState>()(
         trailingStopPct: isCrypto ? 6 : 4, // 6% untuk volatilitas kripto, 4% untuk saham
         trailingStopPrice: isCrypto
           ? Number((execPrice * 0.94).toFixed(execPrice < 0.01 ? 8 : 4))
+          : isUS
+          ? Number((execPrice * 0.96).toFixed(2))
           : Math.round(execPrice * 0.96),
         validityType: params.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : 'IDR',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
         cryptoUnits: isCrypto ? lots : undefined,
-        exchangeRate: isCrypto ? rate : undefined,
+        exchangeRate: isForeign ? rate : undefined,
         totalDividendEarned: 0,
         realizedPL: 0,
       }
@@ -944,9 +947,9 @@ export const usePortfolioStore = create<PortfolioState>()(
       realizedPL: orderRealizedPL,
       realizedPLPercent: orderRealizedPLPercent,
       assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-      currency: isCrypto ? 'USDT' : 'IDR',
+      currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
       cryptoUnits: isCrypto ? lots : undefined,
-      exchangeRate: isCrypto ? rate : undefined,
+      exchangeRate: (isCrypto || isUS) ? rate : undefined,
       status: 'FILLED',
       createdAt: now,
       filledAt: now,
@@ -962,8 +965,9 @@ export const usePortfolioStore = create<PortfolioState>()(
       updatedHoldings = holdings.filter((_, idx) => idx !== existingHoldingIndex)
     } else {
       // Jika penjualan sebagian
-      const remainingShares = isCrypto ? remainingLots : remainingLots * sharesMultiplier
-      const remainingUnrealizedPL = isCrypto
+      const isForeign = isCrypto || isUS
+      const remainingShares = isForeign ? remainingLots : remainingLots * sharesMultiplier
+      const remainingUnrealizedPL = isForeign
         ? Math.round((execPrice - existing.avgPrice) * remainingLots * rate)
         : (execPrice - existing.avgPrice) * remainingShares
       const remainingUnrealizedPercent = existing.avgPrice > 0
@@ -1009,6 +1013,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       holdings: state.holdings.map((holding) => {
         const clean = holding.displaySymbol.toUpperCase()
         const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT')
+        const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+        const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(clean))
         const newPrice =
           priceMap[holding.symbol] ??
           priceMap[clean] ??
@@ -1021,6 +1027,13 @@ export const usePortfolioStore = create<PortfolioState>()(
         if (isCrypto) {
           const rate = holding.exchangeRate || 16000
           const units = holding.cryptoUnits ?? holding.lots
+          unrealizedPL = Math.round((newPrice - holding.avgPrice) * units * rate)
+          unrealizedPLPercent = holding.avgPrice > 0
+            ? Number((((newPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2))
+            : 0
+        } else if (isUS) {
+          const rate = holding.exchangeRate || 16000
+          const units = holding.shares ?? holding.lots
           unrealizedPL = Math.round((newPrice - holding.avgPrice) * units * rate)
           unrealizedPLPercent = holding.avgPrice > 0
             ? Number((((newPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2))
@@ -1038,6 +1051,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         const trailPct = holding.trailingStopPct || (isCrypto ? 6 : 4)
         const calculatedTrailingPrice = isCrypto
           ? Number((peakPrice * (1 - trailPct / 100)).toFixed(peakPrice < 0.01 ? 8 : 4))
+          : isUS
+          ? Number((peakPrice * (1 - trailPct / 100)).toFixed(2))
           : Math.round(peakPrice * (1 - trailPct / 100))
         const trailingStopPrice = Math.max(holding.trailingStopPrice || 0, calculatedTrailingPrice)
 

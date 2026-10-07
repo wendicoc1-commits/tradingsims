@@ -55,20 +55,21 @@ function OrderForm() {
   const rawSym = symbol.trim().toUpperCase();
   const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'PEPE'].includes(rawSym);
 
-  const rate = 16000; // Kurs acuan USDT to IDR
-  const shareInfo = calculateShares(rawSym, Math.floor(lotsNum));
-  const tradeValue = isCrypto
+  const rate = 16000; // Kurs acuan USDT/USD to IDR
+  const shareInfo = calculateShares(rawSym, lotsNum);
+  const isForeign = isCrypto || shareInfo.isUS;
+  const tradeValue = isForeign
     ? Math.round(priceNum * lotsNum * rate)
-    : priceNum * (shareInfo.shares || Math.floor(lotsNum) * 100);
+    : priceNum * (shareInfo.shares || Math.round(lotsNum * 100));
   
   // Rincian fee broker & PPh bursa / crypto
   const brokerFee = isCrypto ? Math.round(tradeValue * 0.0010) : Math.round(tradeValue * 0.0015);
-  const taxFee = orderType === 'SELL' ? Math.round(tradeValue * 0.0010) : 0;
+  const taxFee = orderType === 'SELL' ? (isCrypto ? Math.round(tradeValue * 0.0010) : shareInfo.isUS ? 0 : Math.round(tradeValue * 0.0010)) : 0;
   const totalFee = brokerFee + taxFee;
   const grandTotal = orderType === 'BUY' ? tradeValue + totalFee : tradeValue - totalFee;
 
   // Validasi fraksi harga BEI secara realtime (hanya untuk saham IDX)
-  const tickValidation = !isCrypto && rawSym && priceNum > 0 && !shareInfo.isUS ? isValidIDXTick(priceNum) : { valid: true, tick: 1, nearest: priceNum };
+  const tickValidation = !isForeign && rawSym && priceNum > 0 ? isValidIDXTick(priceNum) : { valid: true, tick: 1, nearest: priceNum };
 
   const handleSelectQuickCrypto = (coin: string, seedPrice: number) => {
     setAssetClass('CRYPTO');
@@ -83,7 +84,7 @@ function OrderForm() {
       return;
     }
 
-    if (!isCrypto && !tickValidation.valid) {
+    if (!isForeign && !tickValidation.valid) {
       setNotification({
         type: 'error',
         message: `Harga Rp ${priceNum} tidak mematuhi fraksi harga BEI (Tick size: Rp ${tickValidation.tick}). Rekomendasi terdekat: Rp ${tickValidation.nearest}.`,
@@ -98,17 +99,19 @@ function OrderForm() {
         displaySymbol: cleanSym,
         price: priceNum,
         lots: lotsNum,
-        name: isCrypto ? `${cleanSym} (Crypto Spot)` : rawSym,
+        name: isCrypto ? `${cleanSym} (Crypto Spot)` : shareInfo.isUS ? `${cleanSym} (US Stock)` : rawSym,
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : 'IDR',
-        exchangeRate: isCrypto ? rate : undefined,
-        orderType: isCrypto ? 'MARKET' : 'LIMIT',
+        currency: isCrypto ? 'USDT' : shareInfo.isUS ? 'USD' : 'IDR',
+        exchangeRate: isForeign ? rate : undefined,
+        orderType: isForeign ? 'MARKET' : 'LIMIT',
       });
       if (res.order) {
         setNotification({
           type: 'success',
           message: isCrypto
             ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+            : shareInfo.isUS
+            ? `⚡ BERHASIL BELI: ${lotsNum} lembar ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
             : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
         });
         setSymbol('');
@@ -125,15 +128,16 @@ function OrderForm() {
         price: priceNum,
         lots: lotsNum,
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : 'IDR',
-        exchangeRate: isCrypto ? rate : undefined,
-        orderType: isCrypto ? 'MARKET' : 'LIMIT',
+        currency: isCrypto ? 'USDT' : shareInfo.isUS ? 'USD' : 'IDR',
+        exchangeRate: isForeign ? rate : undefined,
+        orderType: isForeign ? 'MARKET' : 'LIMIT',
       });
       if (res.order) {
         const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
+        const unitLabel = isCrypto ? 'koin' : shareInfo.isUS ? 'lembar' : 'lot';
         setNotification({
           type: 'success',
-          message: `Order SELL ${lotsNum} ${isCrypto ? 'koin' : 'lot'} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
+          message: `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
         });
         setSymbol('');
         setPrice('');

@@ -25,6 +25,7 @@ import { generateBullBearDebate, DebateResult } from '@/lib/hedgefund/debateEngi
 import { usePortfolioStore } from '@/store';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
+import { normalizeSymbol, calculateShares } from '@/lib/stockRules';
 
 const TICKER_CATEGORIES = {
   ALL: 'SEMUA',
@@ -98,14 +99,20 @@ export default function BullBearDebateArena({ initialSymbol = 'BBCA' }: { initia
       return;
     }
 
-    // Buy 10 lots in paper trading
+    const { fullSymbol, displaySymbol } = normalizeSymbol(debate.symbol);
+    const buyLots = debate.category === 'CRYPTO' ? 0.05 : 5;
+    const shareInfo = calculateShares(debate.symbol, buyLots);
+
     const res = placeBuyOrder({
-      symbol: `${debate.symbol}.JK`,
-      displaySymbol: debate.symbol,
+      symbol: fullSymbol,
+      displaySymbol,
       name: debate.name,
       price: debate.currentPrice,
-      lots: 10,
+      lots: buyLots,
       orderType: 'MARKET',
+      assetClass: shareInfo.isCrypto ? 'CRYPTO' : 'EQUITY',
+      currency: shareInfo.currency,
+      exchangeRate: shareInfo.exchangeRate,
     });
     if (res.order) {
       setExecutedOrder(true);
