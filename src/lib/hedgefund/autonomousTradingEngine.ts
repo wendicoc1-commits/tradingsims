@@ -323,15 +323,20 @@ export async function runAutonomousAgentCycle(
 
         if (res.order) {
           tradeExecuted = true;
-          const estRealized = (sellPrice - holding.avgPrice) * sellLots * 100;
+          const estRealized = isForeign
+            ? Math.round((sellPrice - holding.avgPrice) * sellLots * rate)
+            : (sellPrice - holding.avgPrice) * sellLots * 100;
+          const priceLabel = isForeign ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
+          const qtyLabel = isCrypto ? `${sellLots} unit` : isUS ? `${sellLots} shares` : `${sellLots} lot`;
+
           if (isSupplyResistance) {
-            actionTaken = `💰 KUNCI PROFIT DINAMIS AI: Terjual ${sellLots} lot ${sym} @ Rp ${sellPrice.toLocaleString('id-ID')} (+${profitPct.toFixed(1)}%). Menghindari pembalikan arah di zona pasokan.`;
+            actionTaken = `💰 KUNCI PROFIT DINAMIS AI: Terjual ${qtyLabel} ${sym} @ ${priceLabel} (+${profitPct.toFixed(1)}%). Menghindari pembalikan arah di zona pasokan.`;
             aiStore.logAction({
               type: 'TRADE_SELL',
               symbol: sym,
-              agentId: 'pm_idx',
-              agentName: 'Raditya Pratama (L/S Equity PM)',
-              agentEmoji: '💼',
+              agentId: isCrypto ? 'trader_crypto' : 'pm_idx',
+              agentName: isCrypto ? 'Kevin Zhang (Jesse Crypto Desk Lead)' : 'Raditya Pratama (L/S Equity PM)',
+              agentEmoji: isCrypto ? '⚡' : '💼',
               title: `Kunci Untung Dinamis: ${sym}`,
               details: `Harga menyentuh zona Order Block Supply dengan floating gain +${profitPct.toFixed(1)}%. AI melikuidasi posisi untuk mengamankan kas.`,
               metadata: {
@@ -341,12 +346,12 @@ export async function runAutonomousAgentCycle(
               },
             });
           } else {
-            actionTaken = `🔻 LIKUIDASI DISKRESIONER AI: Cut posisi ${sellLots} lot ${sym} @ Rp ${sellPrice.toLocaleString('id-ID')} karena sinyal berbalik ${mtfTrend}. Proteksi modal aktif.`;
+            actionTaken = `🔻 LIKUIDASI DISKRESIONER AI: Cut posisi ${qtyLabel} ${sym} @ ${priceLabel} karena sinyal berbalik ${mtfTrend}. Proteksi modal aktif.`;
             aiStore.logAction({
               type: 'TRADE_SELL',
               symbol: sym,
-              agentId: 'cro',
-              agentName: 'Bambang Suroso (Chief Risk Officer)',
+              agentId: isCrypto ? 'cro' : 'cro',
+              agentName: isCrypto ? 'Victor Halim (Chief Risk Officer)' : 'Bambang Suroso (Chief Risk Officer)',
               agentEmoji: '🛡️',
               title: `Likuidasi Diskresioner: ${sym}`,
               details: `Struktur pasar terkonfirmasi rusak (${mtfTrend}). Mandat otonom AI melikuidasi emiten untuk menghindari risiko penurunan lebih dalam.`,

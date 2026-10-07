@@ -17,6 +17,7 @@ import {
   Newspaper,
   Sparkles,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
@@ -24,7 +25,7 @@ import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine
 import { UNIVERSE_TICKERS } from '@/lib/hedgefund/autonomousStockPicker';
 
 export default function FinceptAIPortfolioAgentBar() {
-  const { cash, holdings } = usePortfolioStore();
+  const { cash, holdings, realizedPL } = usePortfolioStore();
   const {
     autoTradingEnabled,
     setAutoTradingEnabled,
@@ -34,11 +35,19 @@ export default function FinceptAIPortfolioAgentBar() {
     totalAiTradesCount,
     totalAiRealizedProfit,
     lastTradeAt,
+    resetAiStats,
   } = useAIAgentStore();
 
   const [expanded, setExpanded] = useState(false);
   const [isRunningCycle, setIsRunningCycle] = useState(false);
   const [cycleMsg, setCycleMsg] = useState<string | null>(null);
+
+  // Rekonsiliasi profit real jika stat AI sempat terdistorsi
+  const displayRealizedProfit =
+    (Math.abs(totalAiRealizedProfit) > 500_000_000 || isNaN(totalAiRealizedProfit))
+      ? realizedPL
+      : totalAiRealizedProfit;
+  const isProfitPositive = displayRealizedProfit >= 0;
 
   const handleTriggerCycle = async () => {
     setIsRunningCycle(true);
@@ -123,10 +132,22 @@ export default function FinceptAIPortfolioAgentBar() {
             <div className="w-px h-6 bg-zinc-800" />
             <div>
               <span className="text-zinc-500 text-[10px] block">PROFIT TEREALISASI</span>
-              <span className="text-emerald-400 font-bold">
-                +Rp {totalAiRealizedProfit.toLocaleString('id-ID')}
+              <span className={`font-bold ${isProfitPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isProfitPositive ? '+' : '-'}Rp {Math.abs(Math.round(displayRealizedProfit)).toLocaleString('id-ID')}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Reset riwayat log dan counter statistik AI kembali ke 0?')) {
+                  resetAiStats();
+                }
+              }}
+              className="text-zinc-500 hover:text-amber-400 p-1 rounded transition-colors cursor-pointer self-center"
+              title="Reset Statistik & Log Transaksi AI"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* Toggle Auto-Trade */}
@@ -202,40 +223,59 @@ export default function FinceptAIPortfolioAgentBar() {
                 </div>
               ) : (
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {tradeLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 space-y-1 hover:border-zinc-700 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] ${
-                              log.type === 'TRADE_BUY'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : log.type === 'TRADE_SELL'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                            }`}
-                          >
-                            {log.type === 'TRADE_BUY' ? 'BUY' : log.type === 'TRADE_SELL' ? 'TAKE PROFIT' : 'STOP LOSS'}
-                          </span>
-                          <span className="text-white">{log.symbol}</span>
-                          <span className="text-zinc-500 text-[10px]">· {log.agentName.split(' ')[0]}</span>
+                    {tradeLogs.map((log) => {
+                      const clean = log.symbol?.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      const isCryptoLog = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(clean) || log.symbol?.endsWith('USDT');
+                      return (
+                      <div
+                        key={log.id}
+                        className="p-2 rounded-lg bg-black/40 border border-zinc-800/80 space-y-1 hover:border-zinc-700 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                log.type === 'TRADE_BUY'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : log.type === 'TRADE_SELL'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              }`}
+                            >
+                              {log.type === 'TRADE_BUY' ? 'BUY' : log.type === 'TRADE_SELL' ? 'TAKE PROFIT' : 'STOP LOSS'}
+                            </span>
+                            <span className="text-white flex items-center gap-1">
+                              {isCryptoLog && <span className="text-cyan-400">⚡</span>}
+                              {log.symbol}
+                            </span>
+                            <span className="text-zinc-500 text-[10px]">· {log.agentName.split(' ')[0]}</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500">{log.timestamp}</span>
                         </div>
-                        <span className="text-[10px] text-zinc-500">{log.timestamp}</span>
+                        <p className="text-[11px] text-zinc-300">{log.details}</p>
+                        {log.metadata && (
+                          <div className="flex items-center gap-2 text-[10px] text-zinc-400 pt-0.5 flex-wrap">
+                            {log.metadata.price && (
+                              <span>
+                                Harga: {isCryptoLog ? `$${log.metadata.price.toLocaleString('en-US', { minimumFractionDigits: log.metadata.price < 1 ? 4 : 2 })}` : `Rp ${log.metadata.price.toLocaleString('id-ID')}`}
+                              </span>
+                            )}
+                            {log.metadata.lots && <span>· {isCryptoLog ? 'Unit' : 'Lot'}: {log.metadata.lots}</span>}
+                            {log.metadata.takeProfit && (
+                              <span className="text-emerald-400">
+                                · TP: {isCryptoLog ? `$${log.metadata.takeProfit.toLocaleString('en-US', { minimumFractionDigits: log.metadata.takeProfit < 1 ? 4 : 2 })}` : `Rp ${log.metadata.takeProfit.toLocaleString('id-ID')}`}
+                              </span>
+                            )}
+                            {log.metadata.stopLoss && (
+                              <span className="text-rose-400">
+                                · SL: {isCryptoLog ? `$${log.metadata.stopLoss.toLocaleString('en-US', { minimumFractionDigits: log.metadata.stopLoss < 1 ? 4 : 2 })}` : `Rp ${log.metadata.stopLoss.toLocaleString('id-ID')}`}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-[11px] text-zinc-300">{log.details}</p>
-                      {log.metadata && (
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 pt-0.5">
-                          {log.metadata.price && <span>Harga: Rp {log.metadata.price.toLocaleString('id-ID')}</span>}
-                          {log.metadata.lots && <span>· Lot: {log.metadata.lots}</span>}
-                          {log.metadata.takeProfit && <span className="text-emerald-400">· TP: Rp {log.metadata.takeProfit.toLocaleString('id-ID')}</span>}
-                          {log.metadata.stopLoss && <span className="text-rose-400">· SL: Rp {log.metadata.stopLoss.toLocaleString('id-ID')}</span>}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </div>

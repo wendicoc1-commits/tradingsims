@@ -140,13 +140,29 @@ export function calculateRiskRewardPlan(
   currentPrice: number,
   targetMultiple = 3.0
 ): { entry: number; takeProfit: number; stopLoss: number; riskPct: number; rewardPct: number; rrRatio: number } {
-  const tick = currentPrice > 5000 ? 25 : 10;
-  const round = (p: number) => Math.round(p / tick) * tick;
+  const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+  const isCrypto =
+    ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(cleanSym) ||
+    symbol.toUpperCase().endsWith('USDT') ||
+    currentPrice < 50;
 
-  const stopLoss = round(currentPrice * 0.982); // -1.8%
-  const riskAmount = currentPrice - stopLoss;
-  const rewardAmount = riskAmount * targetMultiple;
-  const takeProfit = round(currentPrice + rewardAmount);
+  let stopLoss: number;
+  let takeProfit: number;
+
+  if (isCrypto || currentPrice < 50) {
+    const slDist = isCrypto ? 0.065 : 0.05; // 6.5% stop loss buffer untuk kripto
+    stopLoss = Number((currentPrice * (1 - slDist)).toFixed(currentPrice < 1 ? 6 : (currentPrice < 50 ? 4 : 2)));
+    const riskAmount = currentPrice - stopLoss;
+    const rewardAmount = riskAmount * targetMultiple;
+    takeProfit = Number((currentPrice + rewardAmount).toFixed(currentPrice < 1 ? 6 : (currentPrice < 50 ? 4 : 2)));
+  } else {
+    const tick = currentPrice > 5000 ? 25 : currentPrice > 2000 ? 10 : currentPrice > 500 ? 5 : currentPrice > 200 ? 2 : 1;
+    const round = (p: number) => Math.max(tick, Math.round(p / tick) * tick);
+    stopLoss = round(currentPrice * 0.94); // -6%
+    const riskAmount = currentPrice - stopLoss;
+    const rewardAmount = riskAmount * targetMultiple;
+    takeProfit = round(currentPrice + rewardAmount);
+  }
 
   const riskPct = Number((((currentPrice - stopLoss) / currentPrice) * 100).toFixed(2));
   const rewardPct = Number((((takeProfit - currentPrice) / currentPrice) * 100).toFixed(2));

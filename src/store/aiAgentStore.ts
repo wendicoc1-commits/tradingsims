@@ -83,6 +83,7 @@ export interface AIAgentState {
   setPriceAnalysis: (symbol: string, analysis: AIPriceAnalysis) => void;
   recordTradeStat: (isBuy: boolean, profitChange?: number) => void;
   clearLogs: () => void;
+  resetAiStats: () => void;
 }
 
 export const useAIAgentStore = create<AIAgentState>()(
@@ -132,7 +133,7 @@ export const useAIAgentStore = create<AIAgentState>()(
       ],
       priceAnalyses: {},
       totalAiTradesCount: 2,
-      totalAiRealizedProfit: 1250000,
+      totalAiRealizedProfit: 0,
       lastTradeAt: null,
       lastScanAt: null,
 
@@ -174,13 +175,21 @@ export const useAIAgentStore = create<AIAgentState>()(
         })),
 
       recordTradeStat: (isBuy, profitChange = 0) =>
-        set((state) => ({
-          totalAiTradesCount: state.totalAiTradesCount + 1,
-          totalAiRealizedProfit: state.totalAiRealizedProfit + (isBuy ? 0 : profitChange),
-          lastTradeAt: new Date().toLocaleTimeString('id-ID'),
-        })),
+        set((state) => {
+          const newCount = state.totalAiTradesCount + 1;
+          const currentProfit = state.totalAiRealizedProfit;
+          // Sanitasi nilai jika sebelumnya sempat terjadi overflow perkalian fee
+          const sanitizedBase = (Math.abs(currentProfit) > 500_000_000 || isNaN(currentProfit)) ? 0 : currentProfit;
+          const safeDelta = isBuy ? 0 : (isNaN(profitChange) ? 0 : profitChange);
+          return {
+            totalAiTradesCount: newCount,
+            totalAiRealizedProfit: sanitizedBase + safeDelta,
+            lastTradeAt: new Date().toLocaleTimeString('id-ID'),
+          };
+        }),
 
       clearLogs: () => set({ logs: [] }),
+      resetAiStats: () => set({ totalAiTradesCount: 0, totalAiRealizedProfit: 0, logs: [] }),
     }),
     {
       name: 'fincept-ai-agent-storage',

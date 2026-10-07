@@ -2036,12 +2036,16 @@ export default function VirtualAgentOfficeView() {
       orderLots = Math.min(Math.max(1, sz.lots || 1), maxAffordableLots);
     }
 
-    const stopPrice = isIDR
-      ? roundTick(sz.stop || Math.round(entryPrice * 0.96))
-      : (sz.stop || Math.round(entryPrice * 0.95));
-    const tpPrice = isIDR
-      ? roundTick(sz.takeProfit || Math.round(entryPrice * 1.06))
-      : (sz.takeProfit || Math.round(entryPrice * 1.08));
+    const stopPrice = isCrypto
+      ? Number((entryPrice * 0.935).toFixed(entryPrice < 1 ? 6 : (entryPrice < 50 ? 4 : 2)))
+      : isIDR
+      ? roundTick(sz.stop || Math.round(entryPrice * 0.94))
+      : Number((sz.stop || entryPrice * 0.94).toFixed(2));
+    const tpPrice = isCrypto
+      ? Number((entryPrice * 1.15).toFixed(entryPrice < 1 ? 6 : (entryPrice < 50 ? 4 : 2)))
+      : isIDR
+      ? roundTick(sz.takeProfit || Math.round(entryPrice * 1.10))
+      : Number((sz.takeProfit || entryPrice * 1.10).toFixed(2));
 
     const tradeValue = isCrypto
       ? Math.round(entryPrice * orderLots * rate)
@@ -2750,7 +2754,10 @@ export default function VirtualAgentOfficeView() {
                         Belum ada order eksekusi langsung. AI sedang memantau sinyal.
                       </div>
                     ) : (
-                      useAIAgentStore.getState().logs.filter(l => l.type === 'TRADE_BUY' || l.type === 'TRADE_SELL' || l.type === 'RISK_GATE').slice(0, 10).map((l) => (
+                      useAIAgentStore.getState().logs.filter(l => l.type === 'TRADE_BUY' || l.type === 'TRADE_SELL' || l.type === 'RISK_GATE').slice(0, 10).map((l) => {
+                        const clean = l.symbol?.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                        const isCryptoLog = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(clean) || l.symbol?.endsWith('USDT');
+                        return (
                         <div key={l.id} className="p-2 rounded-lg border border-zinc-800 bg-zinc-900/60 space-y-1">
                           <div className="flex items-center justify-between">
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
@@ -2758,20 +2765,36 @@ export default function VirtualAgentOfficeView() {
                             }`}>
                               {l.type === 'TRADE_BUY' ? 'BUY' : 'SELL'}
                             </span>
-                            <span className="font-bold text-white text-[11px]">{l.symbol}</span>
+                            <span className="font-bold text-white text-[11px] flex items-center gap-1">
+                              {isCryptoLog && <span className="text-cyan-400">⚡</span>}
+                              {l.symbol}
+                            </span>
                             <span className="text-[10px] text-zinc-500">{l.timestamp}</span>
                           </div>
                           <p className="text-[11px] text-zinc-300">{l.details}</p>
                           {l.metadata && (
                             <div className="text-[10px] text-zinc-400 flex flex-wrap gap-2 pt-0.5">
-                              {l.metadata.price && <span>Rp {l.metadata.price.toLocaleString('id-ID')}</span>}
-                              {l.metadata.lots && <span>· {l.metadata.lots} lot</span>}
-                              {l.metadata.takeProfit && <span className="text-emerald-400">· TP Rp {l.metadata.takeProfit.toLocaleString('id-ID')}</span>}
-                              {l.metadata.stopLoss && <span className="text-rose-400">· SL Rp {l.metadata.stopLoss.toLocaleString('id-ID')}</span>}
+                              {l.metadata.price && (
+                                <span>
+                                  {isCryptoLog ? `$${l.metadata.price.toLocaleString('en-US', { minimumFractionDigits: l.metadata.price < 1 ? 4 : 2 })}` : `Rp ${l.metadata.price.toLocaleString('id-ID')}`}
+                                </span>
+                              )}
+                              {l.metadata.lots && <span>· {l.metadata.lots} {isCryptoLog ? 'unit' : 'lot'}</span>}
+                              {l.metadata.takeProfit && (
+                                <span className="text-emerald-400">
+                                  · TP {isCryptoLog ? `$${l.metadata.takeProfit.toLocaleString('en-US', { minimumFractionDigits: l.metadata.takeProfit < 1 ? 4 : 2 })}` : `Rp ${l.metadata.takeProfit.toLocaleString('id-ID')}`}
+                                </span>
+                              )}
+                              {l.metadata.stopLoss && (
+                                <span className="text-rose-400">
+                                  · SL {isCryptoLog ? `$${l.metadata.stopLoss.toLocaleString('en-US', { minimumFractionDigits: l.metadata.stopLoss < 1 ? 4 : 2 })}` : `Rp ${l.metadata.stopLoss.toLocaleString('id-ID')}`}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
 

@@ -1264,15 +1264,28 @@ export default function PortfolioPage() {
                       {orders.map((o) => {
                         const hasRealized = o.type === 'SELL' && o.realizedPL !== undefined;
                         const isGain = (o.realizedPL || 0) >= 0;
+                        const cleanSym = (o.displaySymbol || o.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                        const isCrypto =
+                          o.assetClass === 'CRYPTO' ||
+                          o.currency === 'USDT' ||
+                          o.symbol.endsWith('USDT') ||
+                          ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(cleanSym);
                         return (
                           <tr key={o.id}>
                             <td className="text-xs font-mono-num" style={{ color: 'var(--text-muted)' }}>
                               {new Date(o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </td>
-                            <td className="font-bold text-xs font-mono" style={{ color: 'var(--accent)' }}>
+                            <td className="font-bold text-xs font-mono" style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}>
                               <div className="flex items-center gap-1.5">
-                                <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
+                                {isCrypto ? (
+                                  <span className="w-4 h-4 rounded bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">⚡</span>
+                                ) : (
+                                  <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
+                                )}
                                 <span>{o.displaySymbol}</span>
+                                {isCrypto && (
+                                  <span className="text-[8px] bg-cyan-500/20 text-cyan-300 px-1 rounded border border-cyan-500/30 font-bold">CRYPTO</span>
+                                )}
                               </div>
                             </td>
                             <td className="text-center">
@@ -1286,15 +1299,30 @@ export default function PortfolioPage() {
                                 {o.type}
                               </span>
                             </td>
-                            <td className="text-right font-mono-num text-xs">{formatPrice(o.price)}</td>
                             <td className="text-right font-mono-num text-xs">
-                              {o.lots} lot <span className="text-[10px] text-gray-400">({o.shares || o.lots * 100} lbr)</span>
+                              {isCrypto
+                                ? `$${o.price.toLocaleString('en-US', { minimumFractionDigits: o.price < 1 ? 4 : 2, maximumFractionDigits: 6 })}`
+                                : `Rp ${formatPrice(o.price)}`}
+                            </td>
+                            <td className="text-right font-mono-num text-xs">
+                              {isCrypto ? (
+                                <span className="font-semibold text-cyan-300">{o.lots} unit</span>
+                              ) : (
+                                <>
+                                  {o.lots} lot <span className="text-[10px] text-gray-400">({o.shares || o.lots * 100} lbr)</span>
+                                </>
+                              )}
                             </td>
                             <td className="text-right font-mono-num text-xs" style={{ color: 'var(--text-muted)' }}>
                               Rp {formatPrice(o.fee)}
                             </td>
                             <td className="text-right font-mono-num text-xs font-semibold">
                               Rp {formatPrice(Math.round(o.total))}
+                              {isCrypto && (
+                                <span className="text-[10px] block text-zinc-500 font-normal">
+                                  (≈ ${(o.price * o.lots).toLocaleString('en-US', { maximumFractionDigits: 2 })})
+                                </span>
+                              )}
                             </td>
                             <td className="text-right font-mono-num text-xs">
                               {hasRealized ? (
