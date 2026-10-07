@@ -193,8 +193,8 @@ export interface PortfolioState {
   claimDividend: (symbol: string, dps: number) => { success: boolean; amount: number; message: string }
   claimDividendWithDRIP: (symbol: string, dps: number) => { success: boolean; newLots: number; leftoverCash: number; totalDividend: number; message: string }
   distributeAllEligibleDividends: () => { total: number; count: number; symbols: string[] }
-  distributeAllEligibleDividendsWithDRIP: () => { totalLotsAdded: number; leftoverCashAdded: number; totalDividendValue: number; count: number; symbols: string[] }
   resetCashOnly: (amount?: number) => void
+  topUpCashWithBonus: (transferNominalIDR: number) => { addedVirtualCash: number; newTotalCash: number }
   resetPortfolio: () => void
   resetToDefaultDemo: () => void
 }
@@ -357,6 +357,17 @@ export const usePortfolioStore = create<PortfolioState>()(
 
   resetCashOnly: (amount = INITIAL_CASH) => {
     set({ cash: amount })
+  },
+
+  topUpCashWithBonus: (transferNominalIDR: number) => {
+    const multiplier = Math.floor(transferNominalIDR / 10000)
+    const addedVirtualCash = multiplier * 1000000
+    if (addedVirtualCash <= 0) {
+      return { addedVirtualCash: 0, newTotalCash: get().cash }
+    }
+    const newTotalCash = get().cash + addedVirtualCash
+    set({ cash: newTotalCash })
+    return { addedVirtualCash, newTotalCash }
   },
 
   resetPortfolio: () => {

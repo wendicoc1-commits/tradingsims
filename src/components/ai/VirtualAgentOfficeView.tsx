@@ -43,6 +43,7 @@ import {
   type StockAlphaEvaluation,
   type UniverseScanResult,
 } from '@/lib/hedgefund/autonomousStockPicker';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 import {
   AGENT_BY_ID,
   DEPARTMENTS,
@@ -1178,6 +1179,7 @@ export default function VirtualAgentOfficeView() {
   const [scanResult, setScanResult] = useState<UniverseScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
   const [lastScanAt, setLastScanAt] = useState<string>('');
 
   // data live
@@ -2297,6 +2299,17 @@ export default function VirtualAgentOfficeView() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Tombol Top Up Kas RDN QRIS */}
+              <button
+                onClick={() => setTopUpModalOpen(true)}
+                className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 hover:border-amber-400 text-amber-300 text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
+                title="Top Up Saldo Kas RDN via QRIS Resmi (Rp 10.000 = Rp 1.000.000 Saldo Kas)"
+              >
+                <span>💳</span>
+                <span>Top Up Kas</span>
+                <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">10k=1Jt</span>
+              </button>
+
               {/* Tombol Buka Leaderboard Alpha */}
               <button
                 onClick={() => setLeaderboardOpen(true)}
@@ -3642,6 +3655,9 @@ export default function VirtualAgentOfficeView() {
           </div>
         </div>
       )}
+
+      {/* Top Up Saldo Kas RDN Modal (QRIS) */}
+      <TopUpModal isOpen={topUpModalOpen} onClose={() => setTopUpModalOpen(false)} />
     </div>
   );
 }

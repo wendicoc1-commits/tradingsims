@@ -26,6 +26,7 @@ import { useMarketStore } from '@/store';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { bloombergAudio } from '@/lib/bloombergAudio';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 
 interface CliSuggestion {
   cmd: string;
@@ -58,6 +59,7 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'CRYPTO <GO>', desc: 'Jesse AI Quant Cryptocurrency Trading Desk', cat: 'pasar' },
   { cmd: 'BTC <GO>', desc: 'Bitcoin Spot Trading & Analisis Realtime', cat: 'pasar' },
   { cmd: 'PORT <GO>', desc: 'Portofolio Investasi & Trade Blotter', cat: 'alat' },
+  { cmd: 'TOPUP <GO>', desc: 'Top Up Saldo Kas RDN via QRIS Resmi', cat: 'alat' },
   { cmd: 'SOUND <GO>', desc: 'Toggle Audio Suara Bloomberg Terminal', cat: 'alat' },
   { cmd: 'HELP <GO>', desc: 'Buka Panduan & Cheatsheet Terminal', cat: 'alat' },
 ];
@@ -80,6 +82,7 @@ export default function FinceptBloombergHeader() {
   const [helpCategory, setHelpCategory] = useState<'all' | 'saham' | 'pasar' | 'riset' | 'alat'>('all');
   const [helpSearch, setHelpSearch] = useState('');
   const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -204,6 +207,9 @@ export default function FinceptBloombergHeader() {
       handleToggleSound();
     }
     else if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
+    else if (cmd === 'TOPUP' || cmd === 'TOP-UP' || cmd === 'QRIS' || cmd === 'DEPOSIT') {
+      setIsTopUpOpen(true);
+    }
     else if (cmd === 'OBB' || cmd === 'OPENBB' || cmd === 'STATEMENTS') router.push('/stock/BBCA?tab=openbb');
     else if (cmd === 'OPTIONS' || cmd === 'OPTION' || cmd === 'GREEKS' || cmd === 'DERIV') router.push('/stock/BBCA?tab=openbb');
     else if (cmd === 'OFFICE' || cmd === 'WARROOM' || cmd === 'WAR' || cmd === 'ROOM') router.push('/ai?tab=office');
@@ -569,8 +575,18 @@ export default function FinceptBloombergHeader() {
           </Link>
         </div>
 
-        {/* Right Action Tools: Watchlist Dock & Quick Trade */}
+        {/* Right Action Tools: Top Up QRIS, Watchlist Dock & Quick Trade */}
         <div className="flex items-center gap-2 pl-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsTopUpOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-[#f59e0b] hover:text-amber-400 border border-amber-500/40 text-[10px] font-black cursor-pointer shadow-sm transition-all active:scale-95"
+            title="Top Up Saldo Kas RDN via QRIS (Rp 10.000 = Rp 1.000.000 Saldo Kas)"
+          >
+            <span>💳</span>
+            <span>TOP UP</span>
+            <span className="text-[9px] bg-[#f59e0b] text-black px-1 rounded font-black">QRIS</span>
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -677,6 +693,9 @@ export default function FinceptBloombergHeader() {
           </div>
         </div>
       )}
+
+      {/* ── Top Up Saldo Kas RDN Modal (QRIS) ── */}
+      <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
     </header>
   );
 }

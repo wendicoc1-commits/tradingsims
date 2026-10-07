@@ -29,10 +29,10 @@ import { exportToCsv } from '@/lib/exportCsv';
 import DividendCalendar from '@/components/dividend/DividendCalendar';
 import PortfolioAnalytics from '@/components/portfolio/PortfolioAnalytics';
 import PortfolioNewsFeed from '@/components/portfolio/PortfolioNewsFeed';
-import CompanyLogo from '@/components/common/CompanyLogo';
 import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTestModal';
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
@@ -324,6 +324,7 @@ export default function PortfolioPage() {
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
   const [useDRIP, setUseDRIP] = useState(false);
   const [isStressTestOpen, setIsStressTestOpen] = useState(false);
+  const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -609,12 +610,22 @@ export default function PortfolioPage() {
           </button>
           <button
             type="button"
+            onClick={() => setIsTopUpModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold border transition-all cursor-pointer text-amber-300 border-amber-500/50 bg-amber-500/15 hover:bg-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+            title="Top Up Saldo Kas RDN via QRIS (Rp 10.000 = Rp 1.000.000 Saldo Kas)"
+          >
+            <span>💳</span>
+            <span>Top Up Kas (QRIS)</span>
+            <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">10k = 1 Juta</span>
+          </button>
+          <button
+            type="button"
             onClick={handleResetCashOnly}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
             title="Isi ulang Saldo Kas RDN ke Rp 100.000.000 tanpa menghapus posisi saham Anda"
           >
             <Coins className="w-3.5 h-3.5" />
-            Top Up Saldo Kas (Rp 100Jt)
+            Isi Saldo (Rp 100Jt)
           </button>
           <button
             type="button"
@@ -650,15 +661,26 @@ export default function PortfolioPage() {
         <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
           <div className="flex items-center justify-between text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>
             <span>Kas Tersedia (RDN)</span>
-            <button
-              type="button"
-              onClick={handleResetCashOnly}
-              className="text-[10px] text-zinc-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
-              title="Isi ulang Saldo Kas RDN ke Rp 100.000.000 (Saham Anda tetap aman)"
-            >
-              <Coins className="w-3 h-3 text-amber-500" />
-              <span>Isi Ulang</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsTopUpModalOpen(true)}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold flex items-center gap-0.5 cursor-pointer transition-colors bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30"
+                title="Top Up via QRIS Resmi (Rp 10.000 = Rp 1.000.000 Kas)"
+              >
+                <span>💳</span>
+                <span>+ Top Up QRIS</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResetCashOnly}
+                className="text-[10px] text-zinc-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Isi ulang Saldo Kas RDN ke Rp 100.000.000 (Saham Anda tetap aman)"
+              >
+                <Coins className="w-3 h-3 text-amber-500" />
+                <span>100Jt</span>
+              </button>
+            </div>
           </div>
           <div className="text-lg font-bold font-mono-num" style={{ color: 'var(--accent)' }}>
             Rp {formatPrice(Math.round(cash))}
@@ -1138,6 +1160,12 @@ export default function PortfolioPage() {
       <PortfolioStressTestModal
         isOpen={isStressTestOpen}
         onClose={() => setIsStressTestOpen(false)}
+      />
+
+      {/* Top Up Saldo Kas RDN Modal (QRIS) */}
+      <TopUpModal
+        isOpen={isTopUpModalOpen}
+        onClose={() => setIsTopUpModalOpen(false)}
       />
     </div>
   );

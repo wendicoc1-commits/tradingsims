@@ -21,6 +21,7 @@ import { useMarketStore, useWatchlistStore, usePortfolioStore } from '@/store';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
 import { calculateShares, isValidIDXTick } from '@/lib/stockRules';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 
 export default function FinceptRightDock() {
   const {
@@ -41,6 +42,7 @@ export default function FinceptRightDock() {
   const [orderPrice, setOrderPrice] = useState('10525');
   const [orderLots, setOrderLots] = useState('1');
   const [orderNotification, setOrderNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
 
   // Sync orderSymbol when selectedSymbol changes
   useEffect(() => {
@@ -319,9 +321,19 @@ export default function FinceptRightDock() {
               {/* Cash Available Info */}
               <div className="flex items-center justify-between p-2 rounded bg-[#121216] border border-[#27272a] text-xs">
                 <span className="text-[#71717a]">Kas RDN Tersedia:</span>
-                <span className="font-bold text-[#f59e0b]">
-                  Rp {Math.round(cash).toLocaleString('id-ID')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#f59e0b]">
+                    Rp {Math.round(cash).toLocaleString('id-ID')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsTopUpOpen(true)}
+                    className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-extrabold text-[10px] border border-amber-500/40 cursor-pointer transition-all"
+                    title="Top Up Saldo via QRIS Resmi (Rp 10.000 = Rp 1.000.000 Kas)"
+                  >
+                    + Top Up
+                  </button>
+                </div>
               </div>
 
               {/* Order Type Toggle: BUY / SELL */}
@@ -480,6 +492,9 @@ export default function FinceptRightDock() {
           <span className="text-[9px]">Bloomberg Terminal v2.5</span>
         </div>
       </div>
+
+      {/* Top Up Saldo Kas RDN Modal (QRIS) */}
+      <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
     </>
   );
 }
