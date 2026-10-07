@@ -102,6 +102,10 @@ export default function FinceptAIPortfolioAgentBar() {
                 <span className={`w-1.5 h-1.5 rounded-full ${autoTradingEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
                 {autoTradingEnabled ? 'AUTO-TRADE AKTIF' : 'AUTO-TRADE PAUSED'}
               </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono flex items-center gap-1 bg-cyan-500/15 text-cyan-300 border border-cyan-500/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                BACKEND PYTHON: TERKONEKSI (PORT 8000 & 24/7 CLOUD)
+              </span>
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
               {activeAgentTask || 'Raditya (PM Saham), Kevin Zhang (Crypto PM) & Bambang (CRO) mengawasi portofolio Anda secara real-time.'}
