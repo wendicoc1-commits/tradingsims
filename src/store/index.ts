@@ -344,9 +344,10 @@ export const usePortfolioStore = create<PortfolioState>()(
     // Deteksi apakah instrumen merupakan cryptocurrency
     const isCrypto =
       params.assetClass === 'CRYPTO' ||
+      params.currency === 'USDT' ||
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX'].includes(
+      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(
         (displaySymbol || symbol).replace(/USDT$/i, '').toUpperCase()
       )
 
@@ -355,7 +356,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
-    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || cleanSym.length === 4)
+    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
     // Validasi fraksi harga & jam perdagangan resmi BEI HANYA jika saham Indonesia
     if (isIDX) {
@@ -745,9 +746,10 @@ export const usePortfolioStore = create<PortfolioState>()(
     // Deteksi apakah instrumen merupakan cryptocurrency
     const isCrypto =
       params.assetClass === 'CRYPTO' ||
+      params.currency === 'USDT' ||
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX'].includes(
+      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(
         (displaySymbol || symbol).replace(/USDT$/i, '').toUpperCase()
       )
 
@@ -755,7 +757,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
-    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || cleanSym.length === 4)
+    const isIDX = !isCrypto && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
     // Validasi fraksi harga BEI HANYA jika saham Indonesia
     if (isIDX) {

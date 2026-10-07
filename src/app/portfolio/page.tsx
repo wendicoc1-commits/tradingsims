@@ -40,9 +40,10 @@ function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
 }
 
-/* ─── Order Form (Paper Trading Engine) ─── */
+/* ─── Order Form (Paper Trading Engine - Saham IDX & Crypto Spot) ─── */
 function OrderForm() {
   const { cash, placeBuyOrder, placeSellOrder } = usePortfolioStore();
+  const [assetClass, setAssetClass] = useState<'EQUITY' | 'CRYPTO'>('EQUITY');
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
   const [symbol, setSymbol] = useState('');
   const [price, setPrice] = useState('');
@@ -50,29 +51,39 @@ function OrderForm() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const priceNum = parseFloat(price) || 0;
-  const lotsNum = parseInt(lots, 10) || 0;
+  const lotsNum = parseFloat(lots) || 0;
   const rawSym = symbol.trim().toUpperCase();
+  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'PEPE'].includes(rawSym);
 
-  const shareInfo = calculateShares(rawSym, lotsNum);
-  const tradeValue = priceNum * shareInfo.shares;
+  const rate = 16000; // Kurs acuan USDT to IDR
+  const shareInfo = calculateShares(rawSym, Math.floor(lotsNum));
+  const tradeValue = isCrypto
+    ? Math.round(priceNum * lotsNum * rate)
+    : priceNum * (shareInfo.shares || Math.floor(lotsNum) * 100);
   
-  // Rincian fee broker & PPh bursa
-  const brokerFee = Math.round(tradeValue * 0.0015); // 0.15%
-  const taxFee = orderType === 'SELL' ? Math.round(tradeValue * 0.0010) : 0; // PPh Final 0.1% untuk jual
+  // Rincian fee broker & PPh bursa / crypto
+  const brokerFee = isCrypto ? Math.round(tradeValue * 0.0010) : Math.round(tradeValue * 0.0015);
+  const taxFee = orderType === 'SELL' ? Math.round(tradeValue * 0.0010) : 0;
   const totalFee = brokerFee + taxFee;
   const grandTotal = orderType === 'BUY' ? tradeValue + totalFee : tradeValue - totalFee;
 
-  // Validasi fraksi harga BEI secara realtime
-  const tickValidation = rawSym && priceNum > 0 && !shareInfo.isUS ? isValidIDXTick(priceNum) : { valid: true, tick: 1, nearest: priceNum };
+  // Validasi fraksi harga BEI secara realtime (hanya untuk saham IDX)
+  const tickValidation = !isCrypto && rawSym && priceNum > 0 && !shareInfo.isUS ? isValidIDXTick(priceNum) : { valid: true, tick: 1, nearest: priceNum };
+
+  const handleSelectQuickCrypto = (coin: string, seedPrice: number) => {
+    setAssetClass('CRYPTO');
+    setSymbol(coin);
+    setPrice(seedPrice.toString());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawSym || priceNum <= 0 || lotsNum <= 0) {
-      setNotification({ type: 'error', message: 'Silakan isi kode saham, harga, dan lot dengan benar.' });
+      setNotification({ type: 'error', message: 'Silakan isi kode aset, harga, dan jumlah dengan benar.' });
       return;
     }
 
-    if (!tickValidation.valid) {
+    if (!isCrypto && !tickValidation.valid) {
       setNotification({
         type: 'error',
         message: `Harga Rp ${priceNum} tidak mematuhi fraksi harga BEI (Tick size: Rp ${tickValidation.tick}). Rekomendasi terdekat: Rp ${tickValidation.nearest}.`,
@@ -81,16 +92,25 @@ function OrderForm() {
     }
 
     if (orderType === 'BUY') {
+      const cleanSym = rawSym.replace(/USDT$/i, '');
       const res = placeBuyOrder({
-        symbol: rawSym,
-        displaySymbol: rawSym,
+        symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
+        displaySymbol: cleanSym,
         price: priceNum,
         lots: lotsNum,
-        name: rawSym,
-        orderType: 'LIMIT',
+        name: isCrypto ? `${cleanSym} (Crypto Spot)` : rawSym,
+        assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : 'IDR',
+        exchangeRate: isCrypto ? rate : undefined,
+        orderType: isCrypto ? 'MARKET' : 'LIMIT',
       });
       if (res.order) {
-        setNotification({ type: 'success', message: `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!` });
+        setNotification({
+          type: 'success',
+          message: isCrypto
+            ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+            : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
+        });
         setSymbol('');
         setPrice('');
         setLots('');
@@ -98,18 +118,22 @@ function OrderForm() {
         setNotification({ type: 'error', message: res.error || 'Gagal melakukan pembelian.' });
       }
     } else {
+      const cleanSym = rawSym.replace(/USDT$/i, '');
       const res = placeSellOrder({
-        symbol: rawSym,
-        displaySymbol: rawSym,
+        symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
+        displaySymbol: cleanSym,
         price: priceNum,
         lots: lotsNum,
-        orderType: 'LIMIT',
+        assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : 'IDR',
+        exchangeRate: isCrypto ? rate : undefined,
+        orderType: isCrypto ? 'MARKET' : 'LIMIT',
       });
       if (res.order) {
         const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
         setNotification({
           type: 'success',
-          message: `Order SELL ${lotsNum} lot ${rawSym} berhasil diproses! Realized P/L: ${plText}`,
+          message: `Order SELL ${lotsNum} ${isCrypto ? 'koin' : 'lot'} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
         });
         setSymbol('');
         setPrice('');
@@ -124,10 +148,15 @@ function OrderForm() {
 
   return (
     <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-      <div className="flex items-center gap-2 mb-3">
-        <ShoppingCart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Order Execution (Beli / Jual Saham)
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Order Execution Desk
+          </span>
+        </div>
+        <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+          ● INSTANT 24/7 PAPER TRADING
         </span>
       </div>
 
@@ -145,8 +174,79 @@ function OrderForm() {
         </div>
       )}
 
+      {/* Asset Class Selector: Saham IDX vs Crypto Spot */}
+      <div className="grid grid-cols-2 gap-1 mb-2.5 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-bold font-mono">
+        <button
+          type="button"
+          onClick={() => {
+            setAssetClass('EQUITY');
+            setSymbol('');
+            setPrice('');
+            setLots('');
+          }}
+          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1.5 ${
+            assetClass === 'EQUITY'
+              ? 'bg-[#f59e0b] text-black shadow-sm'
+              : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          <span>🇮🇩</span>
+          <span>SAHAM IDX</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setAssetClass('CRYPTO');
+            setSymbol('BTC');
+            setPrice('68450');
+            setLots('0.05');
+          }}
+          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1.5 ${
+            assetClass === 'CRYPTO'
+              ? 'bg-cyan-500 text-black shadow-sm'
+              : 'text-cyan-400 hover:text-white'
+          }`}
+        >
+          <span>⚡</span>
+          <span>CRYPTO SPOT (24/7)</span>
+        </button>
+      </div>
+
+      {/* Quick Crypto Tickers */}
+      {assetClass === 'CRYPTO' && (
+        <div className="mb-3 p-2 rounded-lg bg-cyan-950/20 border border-cyan-500/25">
+          <div className="text-[10px] text-cyan-300 font-bold mb-1.5 flex items-center justify-between">
+            <span>PILIH CEPAT KRIPTO SPOT:</span>
+            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000</span>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {[
+              { coin: 'BTC', price: 68450 },
+              { coin: 'ETH', price: 2450 },
+              { coin: 'SOL', price: 154 },
+              { coin: 'DOGE', price: 0.125 },
+              { coin: 'BNB', price: 585 },
+              { coin: 'XRP', price: 0.54 },
+            ].map((c) => (
+              <button
+                key={c.coin}
+                type="button"
+                onClick={() => handleSelectQuickCrypto(c.coin, c.price)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                  symbol === c.coin
+                    ? 'bg-cyan-400 text-black'
+                    : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
+                }`}
+              >
+                {c.coin} (${c.price})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Buy/Sell toggle */}
-      <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="flex gap-1 mb-3.5 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <button
           type="button"
           onClick={() => setOrderType('BUY')}
@@ -175,13 +275,13 @@ function OrderForm() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
-            Kode Saham IDX (e.g. BBCA, BBRI) atau US (NVDA, AAPL)
+            {assetClass === 'CRYPTO' ? 'Kode Kripto (contoh: BTC, ETH, SOL, DOGE)' : 'Kode Saham IDX (contoh: BBCA, BBRI, BMRI, TLKM)'}
           </label>
           <input
             type="text"
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            placeholder="e.g. BBCA, BBRI, BMRI, TLKM"
+            placeholder={assetClass === 'CRYPTO' ? 'e.g. BTC, ETH, SOL, DOGE' : 'e.g. BBCA, BBRI, BMRI, TLKM'}
             className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-transparent outline-none uppercase"
             style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
@@ -191,9 +291,9 @@ function OrderForm() {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Harga (Rp)
+                {assetClass === 'CRYPTO' ? 'Harga ($ USDT)' : 'Harga (Rp)'}
               </label>
-              {priceNum > 0 && !shareInfo.isUS && (
+              {!isCrypto && priceNum > 0 && !shareInfo.isUS && (
                 <span className="text-[10px] font-mono" style={{ color: tickValidation.valid ? 'var(--positive)' : 'var(--negative)' }}>
                   Tick: {tickValidation.tick}
                 </span>
@@ -201,35 +301,42 @@ function OrderForm() {
             </div>
             <input
               type="number"
+              step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="9850"
+              placeholder={assetClass === 'CRYPTO' ? '68450' : '9850'}
               className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
               style={{
                 borderColor: !tickValidation.valid ? 'var(--negative)' : 'var(--border)',
                 color: 'var(--text-primary)',
               }}
             />
-            {!tickValidation.valid && (
+            {!isCrypto && !tickValidation.valid && (
               <span className="text-[10px] block mt-0.5 text-red-400">
                 Gunakan Rp {tickValidation.nearest}
+              </span>
+            )}
+            {isCrypto && priceNum > 0 && (
+              <span className="text-[9px] block mt-0.5 text-zinc-400 font-mono">
+                ≈ Rp {(priceNum * rate).toLocaleString('id-ID')}
               </span>
             )}
           </div>
 
           <div>
             <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
-              Jumlah {shareInfo.unitLabel}
+              {assetClass === 'CRYPTO' ? 'Jumlah Koin (Unit)' : `Jumlah ${shareInfo.unitLabel}`}
             </label>
             <input
               type="number"
+              step="any"
               value={lots}
               onChange={(e) => setLots(e.target.value)}
-              placeholder="10"
+              placeholder={assetClass === 'CRYPTO' ? '0.05' : '10'}
               className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
               style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
-            {lotsNum > 0 && (
+            {!isCrypto && lotsNum > 0 && (
               <span className="text-[10px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 = {shareInfo.shares.toLocaleString()} lembar
               </span>
@@ -240,20 +347,20 @@ function OrderForm() {
         {/* Breakdown Transaksi Realistis */}
         <div className="space-y-1.5 pt-2 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Nilai Bruto Saham</span>
+            <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'Nilai Transaksi (IDR)' : 'Nilai Bruto Saham'}</span>
             <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
               Rp {formatPrice(tradeValue)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Fee Broker & Bursa (0.15%)</span>
+            <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'Spot Fee (0.10%)' : 'Fee Broker & Bursa (0.15%)'}</span>
             <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
               Rp {formatPrice(brokerFee)}
             </span>
           </div>
           {orderType === 'SELL' && (
             <div className="flex justify-between">
-              <span style={{ color: 'var(--text-muted)' }}>PPh Final Penjualan (0.10%)</span>
+              <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'PPh Final Kripto (0.10%)' : 'PPh Final Penjualan (0.10%)'}</span>
               <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
                 Rp {formatPrice(taxFee)}
               </span>
@@ -273,11 +380,11 @@ function OrderForm() {
           type="submit"
           className="w-full py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
           style={{
-            backgroundColor: orderType === 'BUY' ? 'var(--positive)' : 'var(--negative)',
+            backgroundColor: orderType === 'BUY' ? (isCrypto ? '#06b6d4' : 'var(--positive)') : 'var(--negative)',
             color: orderType === 'BUY' ? '#000' : '#fff',
           }}
         >
-          {orderType === 'BUY' ? 'Eksekusi Beli Sekarang' : 'Eksekusi Jual Sekarang'}
+          {orderType === 'BUY' ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang` : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`}
         </button>
 
         <div className="pt-2 border-t border-zinc-800">
