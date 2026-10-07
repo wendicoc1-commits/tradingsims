@@ -7,9 +7,14 @@ serta me-recall refleksi trading masa lalu (evaluasi Win/Loss dan pelajaran pent
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Pastikan environment variables selalu dimuat
+load_dotenv()
+
 import chromadb
 from chromadb.config import Settings
-from langchain_openai import OpenAIEmbeddings
+from openai import OpenAI
 
 
 class AgentMemory:
@@ -33,11 +38,8 @@ class AgentMemory:
         os.makedirs(self.persist_directory, exist_ok=True)
         self.chroma_client = chromadb.PersistentClient(path=self.persist_directory)
 
-        # Inisialisasi model embedding OpenAI (text-embedding-3-small secara default)
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=self.api_key,
-            model="text-embedding-3-small"
-        )
+        # Inisialisasi OpenAI client langsung untuk komputasi embedding
+        self.openai_client = OpenAI(api_key=self.api_key)
 
         # Ambil atau buat koleksi vektor di ChromaDB
         self.collection = self.chroma_client.get_or_create_collection(
@@ -75,7 +77,11 @@ class AgentMemory:
         )
 
         # Hitung vector embedding via OpenAI
-        vector = self.embeddings.embed_query(embedded_document)
+        emb_res = self.openai_client.embeddings.create(
+            input=embedded_document,
+            model="text-embedding-3-small"
+        )
+        vector = emb_res.data[0].embedding
 
         # Metadata terstruktur untuk filtering jika diperlukan
         metadata = {
@@ -119,7 +125,11 @@ class AgentMemory:
             return []
 
         # Hitung vector embedding untuk query situasi pasar saat ini
-        query_vector = self.embeddings.embed_query(query_context)
+        emb_res = self.openai_client.embeddings.create(
+            input=query_context,
+            model="text-embedding-3-small"
+        )
+        query_vector = emb_res.data[0].embedding
 
         # Opsional: Filter berdasarkan ticker spesifik jika diminta
         where_filter = None
