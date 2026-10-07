@@ -168,9 +168,15 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const nav = Math.max(10_000_000, portfolioNav(portfolio));
   const isIDR = intel.currency === 'IDR';
   const rawEntry = rr.entry || intel.currentPrice || 100;
-  const entry = isIDR ? roundTick(rawEntry) : (rawEntry < 50 ? Number(rawEntry.toFixed(rawEntry < 1 ? 6 : 2)) : Number(rawEntry.toFixed(2)));
-  const rawStop = rr.stopLoss > 0 && rr.stopLoss < entry ? rr.stopLoss : (isIDR ? Math.round(entry * 0.97) : entry * 0.97);
-  const rawTp = rr.tp1 > entry ? rr.tp1 : (isIDR ? Math.round(entry * 1.06) : entry * 1.06);
+  // Berikan ruang nafas volatilitas sehat (Stop Loss ~5.5% - 6.0%, TP ~10.0% - 12.0%)
+  const defaultStopDistance = isIDR ? 0.94 : 0.935; // 6.0% - 6.5% stop loss di bawah entry
+  const minStopBoundary = entry * 0.95; // Stop loss tidak boleh terlalu dekat (< 5%) agar tidak terkena kocokan fraksi harga
+  const rawStop = (rr.stopLoss > 0 && rr.stopLoss < minStopBoundary)
+    ? rr.stopLoss
+    : (isIDR ? Math.round(entry * defaultStopDistance) : entry * defaultStopDistance);
+  const rawTp = (rr.tp1 && rr.tp1 >= entry * 1.08)
+    ? rr.tp1
+    : (isIDR ? Math.round(entry * 1.10) : entry * 1.10);
   const stop = isIDR ? roundTick(rawStop) : (rawStop < 50 ? Number(rawStop.toFixed(rawStop < 1 ? 6 : 2)) : Number(rawStop.toFixed(2)));
   const takeProfit = isIDR ? roundTick(rawTp) : (rawTp < 50 ? Number(rawTp.toFixed(rawTp < 1 ? 6 : 2)) : Number(rawTp.toFixed(2)));
 

@@ -212,9 +212,9 @@ export function evaluateJesseStrategy(
     confidence = 72;
   }
 
-  // Parameter Risk Management Jesse (Risk-to-Reward minimum 1:2.5)
-  const stopLossPct = signal.includes('BUY') ? 0.024 : 0.015; // 2.4% stop
-  const tpMultiplier = 2.6;
+  // Parameter Risk Management Jesse (Risk-to-Reward minimum 1:2.5, volatilitas sehat 6.5%)
+  const stopLossPct = signal.includes('BUY') ? 0.065 : 0.035; // 6.5% stop loss untuk ruang nafas kripto
+  const tpMultiplier = 2.5; // Target Take Profit ~16.25%
   const stopLoss = Number((signal.includes('BUY') ? p * (1 - stopLossPct) : p * (1 + stopLossPct)).toFixed(p < 1 ? 6 : 2));
   const takeProfit = Number((signal.includes('BUY') ? p * (1 + stopLossPct * tpMultiplier) : p * (1 - stopLossPct * tpMultiplier)).toFixed(p < 1 ? 6 : 2));
   const suggestedEntry = p;

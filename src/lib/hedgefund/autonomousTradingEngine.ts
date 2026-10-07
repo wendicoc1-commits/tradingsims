@@ -302,8 +302,10 @@ export async function runAutonomousAgentCycle(
       const supplyZone = holdingIntel.technicals.orderBlockSupply?.min || Infinity;
       const profitPct = holding.unrealizedPLPercent ?? 0;
 
-      // 1. Likuidasi Pelemahan Tren: Sinyal berbalik Strong Bearish atau Bearish dengan fundamental rapuh
-      const isTrendBroken = mtfTrend === 'STRONG_BEARISH' || (mtfTrend === 'BEARISH' && holdingIntel.financials.roe < 7);
+      // 1. Likuidasi Pelemahan Tren: Hanya dieksekusi jika posisi sudah cuan (mengamankan modal) atau breakdown struktural parah (loss <= -7.5%)
+      const isTrendBroken =
+        (mtfTrend === 'STRONG_BEARISH' || (mtfTrend === 'BEARISH' && holdingIntel.financials.roe < 7)) &&
+        (profitPct >= 0 || profitPct <= -7.5);
       
       // 2. Kunci Keuntungan Dinamis (Trailing TP): Profit > 8% dan menyentuh zona Order Block Supply
       const isSupplyResistance = profitPct >= 8.0 && sellPrice >= supplyZone;
@@ -474,7 +476,7 @@ export async function runAutonomousAgentCycle(
         (c) =>
           (isBEIOpen || !isIndonesianStock(c.symbol)) &&
           c.suggestedAction.action === 'BUY' &&
-          c.score >= 70 &&
+          c.score >= 82 &&
           !isAllocated(c.symbol.toUpperCase())
       ) ?? topPick;
 
@@ -502,42 +504,45 @@ export async function runAutonomousAgentCycle(
         });
       }
       // Bursa BEI tutup, eksekusi saham dilewati namun Crypto Desk 24/7 tetap berjalan
-    } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 78 && target.suggestedAction.action === 'BUY') {
+    } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 82 && target.suggestedAction.action === 'BUY') {
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
       const sizing = computePositionSizing(intel, snapshot);
 
       // Hitung total biaya pembelian termasuk broker fee (0.15%)
       const totalBuyCost = Math.round(sizing.notional * 1.0015);
 
-      // Cek apakah kas tidak cukup dan perlu rotasi modal dari holding terlemah
-      // Syarat ketat: sizing harus valid, plafon aman, dan hasil likuidasi harus mencukupi untuk membeli target
+      // Cek apakah kas tidak cukup dan perlu rotasi modal
+      // Proteksi Modal Ketat: Rotasi modal HANYA diizinkan jika melikuidasi posisi yang SUDAH UNTUNG (>= 2%),
+      // DILARANG keras menjual posisi yang sedang floating rugi demi merotasi ke saham baru!
       if (
         aiStore.discretionarySellingEnabled &&
-        target.score >= 84 &&
+        target.score >= 86 &&
         sizing.ok &&
         sizing.lots > 0 &&
         (currentAssetExposure + totalBuyCost <= maxAllocationPerAsset) &&
         portfolioStore.cash < totalBuyCost &&
         portfolioStore.holdings.length > 0
       ) {
-        // Cari holding dengan skor/kinerja paling buruk untuk dirotasi
-        const equityHoldings = portfolioStore.holdings.filter((h) => h.assetClass !== 'CRYPTO' && !h.symbol.endsWith('USDT') && h.lots > 0);
-        if (equityHoldings.length > 0) {
-          // Sort by lowest unrealized P/L percent
-          equityHoldings.sort((a, b) => (a.unrealizedPLPercent || 0) - (b.unrealizedPLPercent || 0));
-          const weakest = equityHoldings[0];
-          const weakSym = weakest.displaySymbol.replace('.JK', '').toUpperCase();
-          const weakPrice = roundTick(liveQuotesMap[weakSym]?.price ?? weakest.currentPrice);
-          const estimatedProceeds = weakPrice * weakest.lots * 100 * 0.9975;
+        // Cari holding yang sudah profit untuk take-profit parsial/rotasi modal
+        const profitableHoldings = portfolioStore.holdings.filter(
+          (h) => h.assetClass !== 'CRYPTO' && !h.symbol.endsWith('USDT') && h.lots > 0 && (h.unrealizedPLPercent || 0) >= 2.0
+        );
+        if (profitableHoldings.length > 0) {
+          // Sort by highest profit
+          profitableHoldings.sort((a, b) => (b.unrealizedPLPercent || 0) - (a.unrealizedPLPercent || 0));
+          const rotCandidate = profitableHoldings[0];
+          const rotSym = rotCandidate.displaySymbol.replace('.JK', '').toUpperCase();
+          const rotPrice = roundTick(liveQuotesMap[rotSym]?.price ?? rotCandidate.currentPrice);
+          const estimatedProceeds = rotPrice * rotCandidate.lots * 100 * 0.9975;
 
           // Hanya likuidasi jika hasil penjualan ditambah kas saat ini benar-benar cukup untuk membeli target
-          if (weakPrice > 0 && weakSym !== cleanSym && (portfolioStore.cash + estimatedProceeds >= totalBuyCost)) {
+          if (rotPrice > 0 && rotSym !== cleanSym && (portfolioStore.cash + estimatedProceeds >= totalBuyCost)) {
             const sellRes = portfolioStore.placeSellOrder({
-              symbol: weakest.symbol,
-              displaySymbol: weakest.displaySymbol,
-              name: weakest.name,
-              price: weakPrice,
-              lots: weakest.lots,
+              symbol: rotCandidate.symbol,
+              displaySymbol: rotCandidate.displaySymbol,
+              name: rotCandidate.name,
+              price: rotPrice,
+              lots: rotCandidate.lots,
               orderType: 'MARKET',
             });
 

@@ -574,12 +574,12 @@ export const usePortfolioStore = create<PortfolioState>()(
         takeProfitPrice: params.takeProfitPrice,
         stopLossPrice: params.stopLossPrice,
         peakPrice: execPrice,
-        trailingStopPct: isCrypto ? 6 : 4, // 6% untuk volatilitas kripto, 4% untuk saham
+        trailingStopPct: isCrypto ? 8 : 6, // 8% untuk volatilitas kripto, 6% untuk saham
         trailingStopPrice: isCrypto
-          ? Number((execPrice * 0.94).toFixed(execPrice < 0.01 ? 8 : 4))
+          ? Number((execPrice * 0.92).toFixed(execPrice < 0.01 ? 8 : 4))
           : isUS
-          ? Number((execPrice * 0.96).toFixed(2))
-          : Math.round(execPrice * 0.96),
+          ? Number((execPrice * 0.94).toFixed(2))
+          : Math.round(execPrice * 0.94),
         validityType: params.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
         currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
@@ -1062,7 +1062,7 @@ export const usePortfolioStore = create<PortfolioState>()(
 
         // ── ATR Trailing Stop: Naikkan batas pengunci profit jika harga mencetak puncak baru ──
         const peakPrice = Math.max(holding.peakPrice || holding.avgPrice || newPrice, newPrice)
-        const trailPct = holding.trailingStopPct || (isCrypto ? 6 : 4)
+        const trailPct = holding.trailingStopPct || (isCrypto ? 8 : 6)
         const calculatedTrailingPrice = isCrypto
           ? Number((peakPrice * (1 - trailPct / 100)).toFixed(peakPrice < 0.01 ? 8 : 4))
           : isUS

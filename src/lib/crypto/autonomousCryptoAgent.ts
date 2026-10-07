@@ -37,7 +37,7 @@ export function scanCryptoUniverse(
 } {
   const fallbackMap: Record<string, number> = {
     BTCUSDT: 68450, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
-    XRPUSDT: 0.54, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.80,
+    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.80,
     LINKUSDT: 11.5, PEPEUSDT: 0.0000095,
   };
 
@@ -66,7 +66,7 @@ export function scanCryptoUniverse(
   // Urutkan dari skor tertinggi
   ranked.sort((a, b) => b.compositeScore - a.compositeScore);
 
-  const topPick = ranked.length > 0 && ranked[0].compositeScore >= 75 ? ranked[0] : null;
+  const topPick = ranked.length > 0 && ranked[0].compositeScore >= 82 ? ranked[0] : null;
 
   return {
     leaderboard: ranked,
@@ -164,7 +164,9 @@ export async function runAutonomousCryptoAgentCycle(
     }
 
     // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate)
-    if (holding.stopLossPrice && livePrice <= holding.stopLossPrice) {
+    // Proteksi: Tidak boleh terpicu akibat glitch feed anomali (>35% dalam 1 tick)
+    const isGlitchDrop = holding.peakPrice ? livePrice < holding.peakPrice * 0.65 : false;
+    if (!isGlitchDrop && holding.stopLossPrice && livePrice <= holding.stopLossPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
         displaySymbol: cleanSym,
@@ -203,12 +205,15 @@ export async function runAutonomousCryptoAgentCycle(
     }
 
     // C. JUAL DISKRESIONER OTONOM AI (Kuasa Penuh Jesse AI Bot)
-    // AI berhak melikuidasi koin kapan pun saat sinyal berbalik SELL atau divergensi momentum
+    // Proteksi Overtrading: Jangan panik jual posisi jika baru dibuka atau belum menyentuh batas stop loss riil,
+    // kecuali posisi sudah dalam kondisi cuan (mengamankan profit) atau penurunan ekstrem (> -8%).
     if (aiStore.discretionarySellingEnabled) {
       const chg = tickerMap[sym]?.change24h ?? 0;
       const jesseSignal = evaluateJesseStrategy(sym, livePrice, chg);
+      const isProfitable = livePrice > holding.avgPrice;
+      const isSevereBreakdown = holding.avgPrice > 0 && livePrice < holding.avgPrice * 0.92;
 
-      if (jesseSignal.signal === 'SELL') {
+      if (jesseSignal.signal === 'SELL' && (isProfitable || isSevereBreakdown)) {
         const res = portfolioStore.placeSellOrder({
           symbol: sym,
           displaySymbol: cleanSym,
@@ -232,7 +237,7 @@ export async function runAutonomousCryptoAgentCycle(
             agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
             agentEmoji: '⚡',
             title: `Likuidasi Diskresioner Kripto: ${cleanSym}`,
-            details: `Strategi Jesse AI mendeteksi pembalikan tren ke SELL (${jesseSignal.strategyName}). Kuasa portofolio penuh AI melikuidasi posisi untuk menyelamatkan modal.`,
+            details: `Strategi Jesse AI mendeteksi pembalikan tren ke SELL (${jesseSignal.strategyName}). Posisi dilikuidasi untuk mengamankan kas.`,
             metadata: {
               price: livePrice,
               lots: units,
@@ -330,7 +335,7 @@ export async function runAutonomousCryptoAgentCycle(
 
     const isSignalEligible =
       (topPick.signal.signal === 'STRONG_BUY' || topPick.signal.signal === 'BUY') &&
-      topPick.compositeScore >= 78;
+      topPick.compositeScore >= 82;
 
     const hasBudget = targetTradeAmountIDR >= 500000 && portfolioStore.cash >= targetTradeAmountIDR * 1.001;
     const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget;
