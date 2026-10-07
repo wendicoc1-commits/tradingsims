@@ -204,7 +204,7 @@ const SHARES_PER_LOT = 100
 const BUY_FEE_RATE = 0.0015 // 0.15% fee
 const SELL_FEE_RATE = 0.0025 // 0.25% fee
 
-export const INITIAL_CASH = 100000000 // Rp 100 Juta murni
+export const INITIAL_CASH = 0 // Rp 0 murni (bersih kosong)
 
 export const INITIAL_HOLDINGS: PortfolioHolding[] = []
 
@@ -1310,7 +1310,16 @@ export const usePortfolioStore = create<PortfolioState>()(
   },
     }),
     {
-      name: 'stockbit_portfolio_storage',
+      name: 'stockbit_portfolio_storage_v2',
+      version: 2,
+      migrate: () => ({
+        cash: 0,
+        realizedPL: 0,
+        holdings: [],
+        orders: [],
+        conditionalOrders: [],
+        dividends: [],
+      }),
       partialize: (state) => ({
         cash: state.cash,
         realizedPL: state.realizedPL,
@@ -1322,3 +1331,10 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
   )
 )
+
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('stockbit_portfolio_storage')
+  } catch {}
+}
+

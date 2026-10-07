@@ -355,8 +355,8 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Reset total portofolio di database Supabase ke modal awal murni Rp 100.000.000
-      resetPortfolioInDatabase: async () => {
+      // Reset total portofolio di database Supabase ke modal awal bersih Rp 0
+      resetPortfolioInDatabase: async (targetCash: number = 0) => {
         const user = get().user;
         if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
 
@@ -365,13 +365,23 @@ export const useAuthStore = create<AuthState>()(
           try {
             await supabase.from('portfolios').upsert({
               user_id: user.id,
-              cash: 100000000,
+              cash: targetCash,
               realized_pl: 0,
               updated_at: new Date().toISOString(),
-            });
+            }, { onConflict: 'user_id' });
           } catch {
             // Ignore
           }
+
+          try {
+            await supabase.from('users').update({
+              cash_balance: targetCash,
+              updated_at: new Date().toISOString(),
+            }).eq('id', user.id);
+          } catch {
+            // Ignore
+          }
+
           await supabase.from('holdings').delete().eq('user_id', user.id);
           await supabase.from('orders').delete().eq('user_id', user.id);
         } catch (err) {
@@ -462,6 +472,16 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
+          // Jika tidak ada holding baik di lokal maupun di DB (bersih/reset), sinkronkan saldo kas dari DB
+          if (!hasLocalHoldings && !hasDbHoldings) {
+            usePortfolioStore.setState({
+              holdings: [],
+              cash: dbCash !== null ? dbCash : 0,
+              realizedPL: dbRealizedPL || 0,
+            });
+            return;
+          }
+
           // Jika lokal kosong tapi DB memiliki data (misal user baru login di device/browser baru):
           if (hasDbHoldings) {
             const mappedHoldings = holdingsData.map((row: any) => ({
@@ -487,7 +507,8 @@ export const useAuthStore = create<AuthState>()(
 
             usePortfolioStore.setState({
               holdings: mappedHoldings,
-              ...(dbCash !== null && dbCash > 0 ? { cash: dbCash, realizedPL: dbRealizedPL } : {}),
+              cash: dbCash !== null ? dbCash : 0,
+              realizedPL: dbRealizedPL || 0,
             });
           }
         } catch (err) {
