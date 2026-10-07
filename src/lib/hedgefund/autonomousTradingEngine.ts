@@ -99,6 +99,21 @@ export async function runAutonomousAgentCycle(
         });
 
         aiStore.recordTradeStat(false, estProfit);
+
+        if (typeof window !== 'undefined') {
+          fetch('/api/ai/agent?action=reflect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticker: sym,
+              trade_result: 'WIN',
+              pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : 5.0,
+              reflection_text: `Take Profit tercapai pada Rp ${sellPrice.toLocaleString('id-ID')}. Keuntungan Rp ${estProfit.toLocaleString('id-ID')} terkunci. Momentum breakout terkonfirmasi.`,
+              market_condition: 'IHSG Sesi Aktif',
+            }),
+          }).catch(() => {});
+        }
+
         break; // satu eksekusi per siklus untuk kestabilan
       } else if (res.error) {
         aiStore.logAction({
@@ -153,6 +168,21 @@ export async function runAutonomousAgentCycle(
         });
 
         aiStore.recordTradeStat(false, estProfit);
+
+        if (typeof window !== 'undefined') {
+          fetch('/api/ai/agent?action=reflect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticker: sym,
+              trade_result: 'WIN',
+              pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : 3.0,
+              reflection_text: `Trailing Stop Chandelier terpicu pada Rp ${sellPrice.toLocaleString('id-ID')}. Profit Rp ${estProfit.toLocaleString('id-ID')} berhasil diamankan setelah harga berbalik dari puncak.`,
+              market_condition: 'IHSG Retracement',
+            }),
+          }).catch(() => {});
+        }
+
         break;
       }
     }
@@ -191,6 +221,21 @@ export async function runAutonomousAgentCycle(
         });
 
         aiStore.recordTradeStat(false, -lossVal);
+
+        if (typeof window !== 'undefined') {
+          fetch('/api/ai/agent?action=reflect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticker: sym,
+              trade_result: 'LOSS',
+              pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : -3.0,
+              reflection_text: `Cut loss pada Rp ${sellPrice.toLocaleString('id-ID')} (Rugi: -Rp ${lossVal.toLocaleString('id-ID')}). Support tertembus dan volume buyer melemah. Pelajaran: perketat filter volume sebelum entry.`,
+              market_condition: 'IHSG Breakdown / Volatilitas Tinggi',
+            }),
+          }).catch(() => {});
+        }
+
         break;
       } else if (res.error) {
         aiStore.logAction({
@@ -469,6 +514,60 @@ export async function runAutonomousAgentCycle(
         portfolioStore.cash >= totalBuyCost &&
         (currentAssetExposure + totalBuyCost <= maxAllocationPerAsset)
       ) {
+        // ── KONSULTASI DUE DILIGENCE DENGAN TRADEMIND-ALPHA (PYTHON FASTAPI GPT-4o + RAG) ──
+        let oodaDecision: any = null;
+        if (typeof window !== 'undefined') {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 7000);
+            const oodaRes = await fetch('/api/ai/agent?action=analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ticker: target.symbol,
+                additional_intel: `Emiten ${target.symbol} Rank #${target.rank} di Fincept Alpha Scanner (Skor ${target.score}/100). Sinyal: ${target.suggestedAction.reason}.`,
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            if (oodaRes.ok) {
+              const oodaJson = await oodaRes.json();
+              if (oodaJson?.decision) {
+                oodaDecision = oodaJson.decision;
+              }
+            }
+          } catch {
+            // Fallback anggap aman jika server offline
+          }
+        }
+
+        // Jika GPT-4o me-veto dengan rekomendasi HOLD atau SELL, tahan eksekusi
+        if (oodaDecision && oodaDecision.keputusan && oodaDecision.keputusan !== 'BUY') {
+          aiStore.logAction({
+            type: 'RISK_GATE',
+            symbol: target.symbol,
+            agentId: 'cro',
+            agentName: 'TradeMind-Alpha (GPT-4o Deep OODA)',
+            agentEmoji: '🧠',
+            title: `Order Ditolak Otak AI: ${target.symbol} (${oodaDecision.keputusan})`,
+            details: `TradeMind-Alpha me-veto pembelian ${target.symbol}. Catatan Memori: ${oodaDecision.korelasi_memori || '-'} | Alasan: ${oodaDecision.alasan_eksekusi || '-'}`,
+            metadata: {
+              score: target.score,
+              aiDecision: oodaDecision.keputusan,
+              tp: oodaDecision.target_price,
+              sl: oodaDecision.stop_loss,
+            },
+          });
+          return;
+        }
+
+        const finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
+          ? roundTick(oodaDecision.target_price)
+          : sizing.takeProfit;
+        const finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
+          ? roundTick(oodaDecision.stop_loss)
+          : sizing.stop;
+
         const res = portfolioStore.placeBuyOrder({
           symbol: `${target.symbol}.JK`,
           displaySymbol: target.symbol,
@@ -476,31 +575,34 @@ export async function runAutonomousAgentCycle(
           price: sizing.entry,
           lots: sizing.lots,
           orderType: 'LIMIT',
-          takeProfitPrice: sizing.takeProfit,
-          stopLossPrice: sizing.stop,
+          takeProfitPrice: finalTakeProfit,
+          stopLossPrice: finalStopLoss,
           validityType: 'GTC',
           source: 'AI_AGENT',
         });
 
         if (res.order) {
           tradeExecuted = true;
-          actionTaken = `⚡ ORDER BUY OTOMATIS: ${sizing.lots} lot ${target.symbol} @ Rp ${sizing.entry.toLocaleString('id-ID')} (SL: Rp ${sizing.stop.toLocaleString('id-ID')} / TP: Rp ${sizing.takeProfit.toLocaleString('id-ID')})`;
+          actionTaken = `⚡ ORDER BUY OTOMATIS: ${sizing.lots} lot ${target.symbol} @ Rp ${sizing.entry.toLocaleString('id-ID')} (SL: Rp ${finalStopLoss.toLocaleString('id-ID')} / TP: Rp ${finalTakeProfit.toLocaleString('id-ID')})`;
 
           aiStore.logAction({
             type: 'TRADE_BUY',
             symbol: target.symbol,
             agentId: 'pm_equity',
-            agentName: 'Raditya Pratama (L/S Equity PM)',
-            agentEmoji: '💼',
+            agentName: oodaDecision ? 'Raditya Pratama & TradeMind-Alpha (GPT-4o)' : 'Raditya Pratama (L/S Equity PM)',
+            agentEmoji: oodaDecision ? '🧠' : '💼',
             title: `Beli Saham Otonom: ${target.symbol}`,
-            details: `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100). Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
+            details: oodaDecision?.alasan_eksekusi
+              ? `[OODA Loop Approved] ${oodaDecision.alasan_eksekusi} | Memori RAG: ${oodaDecision.korelasi_memori || 'Pola terverifikasi aman'}`
+              : `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100). Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
             metadata: {
               price: sizing.entry,
               lots: sizing.lots,
               amount: sizing.notional,
               score: target.score,
-              stopLoss: sizing.stop,
-              takeProfit: sizing.takeProfit,
+              stopLoss: finalStopLoss,
+              takeProfit: finalTakeProfit,
+              aiAnalysis: oodaDecision?.analisis_teknikal,
             },
           });
 

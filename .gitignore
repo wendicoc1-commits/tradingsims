@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python backend
+trading_agent_backend/venv/
+trading_agent_backend/data/
+__pycache__/
+*.pyc
