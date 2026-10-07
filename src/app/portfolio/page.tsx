@@ -33,6 +33,8 @@ import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTest
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
 import TopUpModal from '@/components/portfolio/TopUpModal';
+import AuthModal from '@/components/auth/AuthModal';
+import { useAuthStore } from '@/store/useAuthStore';
 
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
@@ -319,16 +321,39 @@ export default function PortfolioPage() {
     resetToDefaultDemo,
     updateHoldingPrices,
   } = usePortfolioStore();
+  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'analytics' | 'orders' | 'news'>('holdings');
   const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
   const [useDRIP, setUseDRIP] = useState(false);
   const [isStressTestOpen, setIsStressTestOpen] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Sync to database if user is logged in
+  const handleCloudSync = async () => {
+    if (!user) {
+      setIsAuthOpen(true);
+      return;
+    }
+    setSyncStatus('Menyimpan ke Cloud Database...');
+    try {
+      await syncPortfolioToDatabase();
+      setSyncStatus('✓ Data Portofolio Tersimpan di Cloud Supabase!');
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch {
+      setSyncStatus('Gagal menyinkronkan data.');
+      setTimeout(() => setSyncStatus(null), 3000);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    if (user && isConfigured) {
+      loadPortfolioFromDatabase();
+    }
 
     // Auto-sync holding prices with backend live prices (with offline fallback)
     const syncPrices = async () => {
@@ -547,9 +572,36 @@ export default function PortfolioPage() {
             📑 CLASSIC DETAILED DESK
           </button>
         </div>
-        <span className="text-[10px] text-[#71717a] hidden sm:inline">
-          {portfolioView === 'institutional' ? 'BLOOMBERG PORTFOLIO ATTRIBUTION' : 'DETAILED HOLDINGS & ORDERS'}
-        </span>
+        <div className="flex items-center gap-2">
+          {syncStatus && (
+            <span className="text-[10px] text-emerald-400 font-mono animate-pulse hidden md:inline">
+              {syncStatus}
+            </span>
+          )}
+          {user ? (
+            <button
+              onClick={handleCloudSync}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+              title="Klik untuk menyinkronkan saldo kas & portofolio ke Cloud Database Supabase"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>Cloud: {user.fullName || user.email}</span>
+              <span className="text-[10px] opacity-75">💾 Sync</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b]/15 border border-[#f59e0b]/50 text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-colors cursor-pointer"
+              title="Masuk / Daftar Akun Member untuk menyimpan portofolio Anda secara permanen"
+            >
+              <span>👤</span>
+              <span>Login Member (Simpan Porto)</span>
+            </button>
+          )}
+          <span className="text-[10px] text-[#71717a] hidden sm:inline">
+            {portfolioView === 'institutional' ? 'BLOOMBERG PORTFOLIO ATTRIBUTION' : 'DETAILED HOLDINGS & ORDERS'}
+          </span>
+        </div>
       </div>
 
       {portfolioView === 'institutional' ? (
@@ -1166,6 +1218,12 @@ export default function PortfolioPage() {
       <TopUpModal
         isOpen={isTopUpModalOpen}
         onClose={() => setIsTopUpModalOpen(false)}
+      />
+
+      {/* Member Authentication Modal (Email, Apple, Facebook, Google) */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
       />
     </div>
   );

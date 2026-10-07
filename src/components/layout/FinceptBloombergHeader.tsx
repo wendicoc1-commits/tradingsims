@@ -28,6 +28,8 @@ import CompanyLogo from '@/components/common/CompanyLogo';
 import { bloombergAudio } from '@/lib/bloombergAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
 import AdminTopUpApprovalModal from '@/components/portfolio/AdminTopUpApprovalModal';
+import AuthModal from '@/components/auth/AuthModal';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface CliSuggestion {
   cmd: string;
@@ -62,6 +64,7 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'PORT <GO>', desc: 'Portofolio Investasi & Trade Blotter', cat: 'alat' },
   { cmd: 'TOPUP <GO>', desc: 'Top Up Saldo Kas RDN via QRIS Resmi', cat: 'alat' },
   { cmd: 'ADMIN <GO>', desc: 'Panel Verifikasi Persetujuan Top-Up (PIN)', cat: 'alat' },
+  { cmd: 'LOGIN <GO>', desc: 'Masuk / Daftar Akun Member (Email, Apple, FB)', cat: 'alat' },
   { cmd: 'SOUND <GO>', desc: 'Toggle Audio Suara Bloomberg Terminal', cat: 'alat' },
   { cmd: 'HELP <GO>', desc: 'Buka Panduan & Cheatsheet Terminal', cat: 'alat' },
 ];
@@ -70,6 +73,7 @@ export default function FinceptBloombergHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme, setSelectedSymbol, setRightDockOpen, setActiveDockTab } = useMarketStore();
+  const { user, logout, checkSession } = useAuthStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<'markets' | 'research' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -86,7 +90,12 @@ export default function FinceptBloombergHeader() {
   const [isSoundEnabled, setIsSoundEnabled] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   useEffect(() => {
     setIsSoundEnabled(bloombergAudio.getSoundEnabled());
@@ -215,6 +224,9 @@ export default function FinceptBloombergHeader() {
     }
     else if (cmd === 'ADMIN' || cmd === 'APPROVAL' || cmd === 'ACC') {
       setIsAdminOpen(true);
+    }
+    else if (cmd === 'LOGIN' || cmd === 'AUTH' || cmd === 'SIGNIN' || cmd === 'REGISTER') {
+      setIsAuthModalOpen(true);
     }
     else if (cmd === 'OBB' || cmd === 'OPENBB' || cmd === 'STATEMENTS') router.push('/stock/BBCA?tab=openbb');
     else if (cmd === 'OPTIONS' || cmd === 'OPTION' || cmd === 'GREEKS' || cmd === 'DERIV') router.push('/stock/BBCA?tab=openbb');
@@ -581,8 +593,36 @@ export default function FinceptBloombergHeader() {
           </Link>
         </div>
 
-        {/* Right Action Tools: Top Up QRIS, Watchlist Dock & Quick Trade */}
+        {/* Right Action Tools: Member Login, Top Up QRIS, Watchlist Dock & Quick Trade */}
         <div className="flex items-center gap-2 pl-2 shrink-0">
+          {/* Member Auth Button */}
+          {user ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#18181b] border border-zinc-700 text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-bold text-amber-300 max-w-[80px] truncate">
+                {user.fullName || user.email.split('@')[0]}
+              </span>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="text-zinc-500 hover:text-rose-400 text-[9px] underline ml-0.5 cursor-pointer"
+                title="Keluar (Logout)"
+              >
+                Keluar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-750 text-white border border-zinc-700 text-[10px] font-black cursor-pointer shadow-sm transition-all active:scale-95"
+              title="Masuk / Daftar Akun Member (Email, Apple ID, Facebook)"
+            >
+              <span>👤</span>
+              <span>MASUK</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsTopUpOpen(true)}
@@ -705,6 +745,9 @@ export default function FinceptBloombergHeader() {
 
       {/* ── Panel Verifikasi Admin Top-Up (Metode A) ── */}
       <AdminTopUpApprovalModal isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+
+      {/* ── Member Auth Modal (Email, Apple, Facebook, Google) ── */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </header>
   );
 }
