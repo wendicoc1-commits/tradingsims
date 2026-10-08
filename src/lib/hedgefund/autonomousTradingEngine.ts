@@ -702,17 +702,27 @@ export async function runAutonomousAgentCycle(
               sl: oodaDecision.stop_loss,
             },
           });
-        } else {
-          const finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
-            ? roundTick(oodaDecision.target_price)
-            : sizing.takeProfit;
-          const finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
-            ? roundTick(oodaDecision.stop_loss)
-            : sizing.stop;
-
           const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
           const shareInfo = calculateShares(target.symbol, sizing.lots);
           const isTargetForeign = shareInfo.isCrypto || shareInfo.isUS;
+
+          let finalTakeProfit: number | undefined;
+          let finalStopLoss: number | undefined;
+
+          if (shareInfo.isCrypto) {
+            finalTakeProfit = Number((sizing.entry * 1.15).toFixed(sizing.entry < 1 ? 8 : 4));
+            finalStopLoss = Number((sizing.entry * 0.94).toFixed(sizing.entry < 1 ? 8 : 4));
+          } else if (shareInfo.isUS) {
+            finalTakeProfit = Number((sizing.entry * 1.15).toFixed(2));
+            finalStopLoss = Number((sizing.entry * 0.94).toFixed(2));
+          } else {
+            finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
+              ? roundTick(oodaDecision.target_price)
+              : sizing.takeProfit;
+            finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
+              ? roundTick(oodaDecision.stop_loss)
+              : sizing.stop;
+          }
 
           const res = portfolioStore.placeBuyOrder({
             symbol: fullSymbol,

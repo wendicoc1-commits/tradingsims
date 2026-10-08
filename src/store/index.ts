@@ -4,6 +4,7 @@ import type { Watchlist, WatchlistItem, Order, PortfolioHolding, DividendRecord,
 import ALL_DIVIDEND_DATA from '@/data/idx_dividend_all.json'
 import { DIVIDEND_PAYING_STOCKS } from '@/data/dividend_stocks'
 import { checkIDXMarketStatus } from '@/lib/market/marketHours'
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse'
 
 // ==========================================
 // Market Store
@@ -213,6 +214,61 @@ export const INITIAL_ORDERS: Order[] = []
 
 export const INITIAL_DIVIDENDS: DividendRecord[] = []
 
+/**
+ * Sanitasi & auto-kalibrasi holding portofolio terhadap anomali harga seed historis atau kebocoran TP/SL
+ */
+export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHolding[] {
+  if (!Array.isArray(rawHoldings)) return []
+  return rawHoldings.map((h) => {
+    const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
+    if (!isCrypto) return h
+
+    const curPrice = h.currentPrice || 0
+    let effectiveAvg = h.avgPrice
+
+    // Kalibrasi anomali seed harga statis historis (APT ~$8.5, RENDER ~$5.8, PEPE ~$0.000010, ARB ~$0.000600)
+    if (curPrice > 0) {
+      if (
+        (clean === 'APT' && effectiveAvg >= 3.0 && curPrice < 2.0) ||
+        (clean === 'RENDER' && effectiveAvg >= 3.5 && curPrice < 2.5) ||
+        (clean === 'PEPE' && effectiveAvg >= 0.000006 && curPrice < 0.000005) ||
+        (clean === 'ARB' && effectiveAvg < 0.01 && curPrice > 0.08) ||
+        (effectiveAvg > curPrice * 2.2) ||
+        (effectiveAvg < curPrice * 0.2)
+      ) {
+        effectiveAvg = curPrice
+      }
+    }
+
+    let effectiveTP = h.takeProfitPrice
+    let effectiveSL = h.stopLossPrice
+    if (curPrice > 0) {
+      if (effectiveTP && (effectiveTP > effectiveAvg * 2.5 || (effectiveAvg < 100 && effectiveTP >= 500))) {
+        effectiveTP = Number((effectiveAvg * 1.15).toFixed(effectiveAvg < 1 ? 8 : 4))
+      }
+      if (effectiveSL && (effectiveSL < effectiveAvg * 0.5 || effectiveSL > effectiveAvg)) {
+        effectiveSL = Number((effectiveAvg * 0.94).toFixed(effectiveAvg < 1 ? 8 : 4))
+      }
+    }
+
+    const rate = h.exchangeRate || 16000
+    const units = h.cryptoUnits ?? h.lots
+    const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
+    const unrealizedPLPercent = effectiveAvg > 0
+      ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
+      : 0
+
+    return {
+      ...h,
+      avgPrice: effectiveAvg,
+      takeProfitPrice: effectiveTP,
+      stopLossPrice: effectiveSL,
+      unrealizedPL,
+      unrealizedPLPercent,
+    }
+  })
+}
 
 export interface DividendItemInfo {
   dps: number
@@ -1070,10 +1126,10 @@ export const usePortfolioStore = create<PortfolioState>()(
   updateHoldingPrices: (priceMap: Record<string, number>) => {
     set((state) => ({
       holdings: state.holdings.map((holding) => {
-        const clean = holding.displaySymbol.toUpperCase()
-        const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT')
+        const clean = (holding.displaySymbol || holding.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+        const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || isCryptoSymbol(clean)
         const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-        const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(clean))
+        const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || isUSSymbol(clean) || KNOWN_US.includes(clean))
         const candidatePrice =
           priceMap[holding.symbol] ??
           priceMap[clean] ??
@@ -1086,6 +1142,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         let effectiveUnits = holding.cryptoUnits ?? holding.lots
         let effectiveLots = holding.lots
         let effectiveShares = holding.shares
+        let effectiveTakeProfit = holding.takeProfitPrice
+        let effectiveStopLoss = holding.stopLossPrice
         let wasHealed = false
 
         // Proteksi jika terjadi anomali ekstrem akibat kekeliruan input mata uang IDR ke USD (rasio > 200x)
@@ -1104,19 +1162,34 @@ export const usePortfolioStore = create<PortfolioState>()(
         // 2. Kasus RENDER: terbeli di ~$5.8 padahal harga pasar Binance ~$1.83
         // 3. Kasus PEPE: terbeli di ~$0.000010 padahal harga pasar Binance ~$0.00000378
         // 4. Kasus ARB: terbeli di ~$0.000600 padahal harga pasar Binance ~$0.1685
+        // 5. Aturan Umum Kripto: jika rasio avgPrice terhadap newPrice menyimpang > 2.2x atau < 0.2x
         const isSeedAnomaly =
           isCrypto &&
           newPrice > 0 &&
           (
-            (clean === 'APT' && effectiveAvgPrice >= 5.0 && newPrice < 2.0) ||
-            (clean === 'RENDER' && effectiveAvgPrice >= 4.0 && newPrice < 2.5) ||
-            (clean === 'PEPE' && effectiveAvgPrice >= 0.000007 && newPrice < 0.000005) ||
-            (clean === 'ARB' && effectiveAvgPrice < 0.01 && newPrice > 0.08)
+            (clean === 'APT' && effectiveAvgPrice >= 3.0 && newPrice < 2.0) ||
+            (clean === 'RENDER' && effectiveAvgPrice >= 3.5 && newPrice < 2.5) ||
+            (clean === 'PEPE' && effectiveAvgPrice >= 0.000006 && newPrice < 0.000005) ||
+            (clean === 'ARB' && effectiveAvgPrice < 0.01 && newPrice > 0.08) ||
+            (effectiveAvgPrice > newPrice * 2.2) ||
+            (effectiveAvgPrice < newPrice * 0.2)
           )
 
         if (isSeedAnomaly) {
           effectiveAvgPrice = newPrice
           wasHealed = true
+        }
+
+        // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
+        if (isCrypto && newPrice > 0) {
+          if (effectiveTakeProfit && (effectiveTakeProfit > newPrice * 2.5 || (newPrice < 100 && effectiveTakeProfit >= 500))) {
+            effectiveTakeProfit = Number((newPrice * 1.15).toFixed(newPrice < 1 ? 8 : 4))
+            wasHealed = true
+          }
+          if (effectiveStopLoss && (effectiveStopLoss < newPrice * 0.5 || effectiveStopLoss > newPrice)) {
+            effectiveStopLoss = Number((newPrice * 0.94).toFixed(newPrice < 1 ? 8 : 4))
+            wasHealed = true
+          }
         }
 
         let unrealizedPL = 0
@@ -1166,6 +1239,8 @@ export const usePortfolioStore = create<PortfolioState>()(
           shares: effectiveShares,
           cryptoUnits: isCrypto ? effectiveUnits : holding.cryptoUnits,
           currentPrice: newPrice,
+          takeProfitPrice: effectiveTakeProfit,
+          stopLossPrice: effectiveStopLoss,
           peakPrice,
           trailingStopPrice,
           unrealizedPL,
@@ -1479,7 +1554,7 @@ export const usePortfolioStore = create<PortfolioState>()(
                   return {
                     cash: legacyState.cash,
                     realizedPL: legacyState.realizedPL || 0,
-                    holdings: Array.isArray(legacyState.holdings) ? legacyState.holdings : [],
+                    holdings: Array.isArray(legacyState.holdings) ? sanitizeHoldings(legacyState.holdings) : [],
                     orders: Array.isArray(legacyState.orders) ? legacyState.orders : [],
                     conditionalOrders: Array.isArray(legacyState.conditionalOrders) ? legacyState.conditionalOrders : [],
                     dividends: Array.isArray(legacyState.dividends) ? legacyState.dividends : [],
@@ -1502,7 +1577,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         return {
           cash: typeof persistedState.cash === 'number' ? persistedState.cash : 0,
           realizedPL: typeof persistedState.realizedPL === 'number' ? persistedState.realizedPL : 0,
-          holdings: Array.isArray(persistedState.holdings) ? persistedState.holdings : [],
+          holdings: Array.isArray(persistedState.holdings) ? sanitizeHoldings(persistedState.holdings) : [],
           orders: Array.isArray(persistedState.orders) ? persistedState.orders : [],
           conditionalOrders: Array.isArray(persistedState.conditionalOrders) ? persistedState.conditionalOrders : [],
           dividends: Array.isArray(persistedState.dividends) ? persistedState.dividends : [],

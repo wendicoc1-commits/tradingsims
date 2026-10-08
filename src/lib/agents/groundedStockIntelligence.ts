@@ -174,19 +174,21 @@ export function getGroundedStockIntelligence(
   const idxBenchmark = IDX_BENCHMARK_PRICES[cleanSym] || getVerifiedBenchmarkPrice(cleanSym);
 
   const CRYPTO_PROFILES: Record<string, { name: string; price: number; upside: number; target: number; thesis: string }> = {
-    BTC: { name: 'Bitcoin Network', price: 82500, upside: 22.5, target: 98000, thesis: 'Aset cadangan nilai terdesentralisasi global & ETF institutional inflows.' },
+    BTC: { name: 'Bitcoin Network', price: 81118, upside: 22.5, target: 98000, thesis: 'Aset cadangan nilai terdesentralisasi global & ETF institutional inflows.' },
     ETH: { name: 'Ethereum Network', price: 2450, upside: 34.0, target: 3280, thesis: 'Pusat likuiditas smart contract L1 & dominasi ekosistem Layer-2 rollups.' },
-    SOL: { name: 'Solana High-Speed L1', price: 152, upside: 42.0, target: 215, thesis: 'Throughput ultra-cepat 65k TPS & pertumbuhan masif volume DEX.' },
-    BNB: { name: 'BNB Smart Chain', price: 580, upside: 25.0, target: 725, thesis: 'Utilitas ekosistem Binance exchange & burn kuartalan deflasioner.' },
+    SOL: { name: 'Solana High-Speed L1', price: 108.32, upside: 42.0, target: 154, thesis: 'Throughput ultra-cepat 65k TPS & pertumbuhan masif volume DEX.' },
+    BNB: { name: 'BNB Smart Chain', price: 585, upside: 25.0, target: 725, thesis: 'Utilitas ekosistem Binance exchange & burn kuartalan deflasioner.' },
     XRP: { name: 'XRP Ledger (Ripple)', price: 1.42, upside: 48.0, target: 2.10, thesis: 'Penyelesaian likuiditas pembayaran lintas batas perbankan global.' },
-    DOGE: { name: 'Dogecoin', price: 0.12, upside: 55.0, target: 0.18, thesis: 'Likuiditas ritel raksasa & adopsi kultural pembayaran peer-to-peer.' },
+    DOGE: { name: 'Dogecoin', price: 0.0827, upside: 55.0, target: 0.128, thesis: 'Likuiditas ritel raksasa & adopsi kultural pembayaran peer-to-peer.' },
     ADA: { name: 'Cardano', price: 0.35, upside: 32.0, target: 0.46, thesis: 'Arsitektur UTXO diperluas & protokol riset peer-reviewed akademik.' },
     AVAX: { name: 'Avalanche', price: 26.5, upside: 38.0, target: 36.5, thesis: 'Subnet konsensus multi-chain untuk institusi keuangan global.' },
-    SUI: { name: 'Sui Network', price: 1.14, upside: 45.0, target: 1.65, thesis: 'Bahasa pemrograman Move & eksekusi transaksi paralel berbasis objek.' },
-    NEAR: { name: 'NEAR Protocol', price: 4.80, upside: 40.0, target: 6.72, thesis: 'Infrastruktur User-Owned AI & sharding Nightshade tanpa batas.' },
+    SUI: { name: 'Sui Network', price: 1.85, upside: 45.0, target: 2.68, thesis: 'Bahasa pemrograman Move & eksekusi transaksi paralel berbasis objek.' },
+    NEAR: { name: 'NEAR Protocol', price: 4.67, upside: 40.0, target: 6.54, thesis: 'Infrastruktur User-Owned AI & sharding Nightshade tanpa batas.' },
     LINK: { name: 'Chainlink', price: 11.5, upside: 35.0, target: 15.5, thesis: 'Monopoli standar industri oracle terdesentralisasi & CCIP interop.' },
-    PEPE: { name: 'Pepe Token', price: 0.0000095, upside: 60.0, target: 0.000015, thesis: 'Meme deflasioner terpopuler di Ethereum dengan momentum sosial kuat.' },
-    RENDER: { name: 'Render Network', price: 5.40, upside: 50.0, target: 8.10, thesis: 'Jaringan komputasi GPU terdesentralisasi untuk rendering 3D & AI.' },
+    PEPE: { name: 'Pepe Token', price: 0.00000378, upside: 60.0, target: 0.0000060, thesis: 'Meme deflasioner terpopuler di Ethereum dengan momentum sosial kuat.' },
+    RENDER: { name: 'Render Network', price: 1.828, upside: 50.0, target: 2.74, thesis: 'Jaringan komputasi GPU terdesentralisasi untuk rendering 3D & AI.' },
+    ARB: { name: 'Arbitrum', price: 0.1672, upside: 45.0, target: 0.245, thesis: 'Ekosistem rollups Layer-2 terpopuler dengan TVL dan likuiditas DeFi tertinggi.' },
+    APT: { name: 'Aptos', price: 0.7161, upside: 55.0, target: 1.12, thesis: 'Infrastruktur L1 Move konsensus AptosBFT dengan latensi transaksi sub-detik.' },
     TAO: { name: 'Bittensor', price: 540, upside: 45.0, target: 780, thesis: 'Pasar terdesentralisasi untuk komoditas kecerdasan buatan (machine intelligence).' },
     FET: { name: 'ASI Alliance', price: 1.35, upside: 52.0, target: 2.05, thesis: 'Ekosistem multi-agent autonomous AI untuk otomatisasi web3.' },
   };
@@ -211,11 +213,11 @@ export function getGroundedStockIntelligence(
 
   let currentPrice = providedPrice && providedPrice > 0 ? providedPrice : 0;
   if (!currentPrice) {
-    if (isCryptoAsset && CRYPTO_PROFILES[cleanSym]) currentPrice = CRYPTO_PROFILES[cleanSym].price;
+    if (idxBenchmark?.price && idxBenchmark.price > 0) currentPrice = idxBenchmark.price;
     else if (masterAsset?.defaultPrice) currentPrice = masterAsset.defaultPrice;
+    else if (isCryptoAsset && CRYPTO_PROFILES[cleanSym]) currentPrice = CRYPTO_PROFILES[cleanSym].price;
     else if (consensus?.currentPrice) currentPrice = consensus.currentPrice;
     else if (globalMatch?.price) currentPrice = globalMatch.price;
-    else if (idxBenchmark?.price) currentPrice = idxBenchmark.price;
     else currentPrice = currency === 'IDR' ? 1000 : 100;
   }
 

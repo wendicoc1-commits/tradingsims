@@ -633,30 +633,46 @@ export default function PortfolioPage() {
     return () => clearInterval(interval);
   }, [holdings.length, updateHoldingPrices]);
 
-  // Realtime streaming crypto synchronization via Binance WebSocket
+  // Realtime streaming crypto synchronization via Binance WebSocket & auto-healing
   useEffect(() => {
     if (!tickerMap || Object.keys(tickerMap).length === 0 || holdings.length === 0) return;
     const cryptoMap: Record<string, number> = {};
+    let needsHeal = false;
+
     holdings.forEach((h) => {
+      const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
       const isCrypto =
         h.assetClass === 'CRYPTO' ||
         h.currency === 'USDT' ||
         h.symbol.endsWith('USDT') ||
-        ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(h.displaySymbol.toUpperCase());
+        isCryptoSymbol(clean);
+
       if (isCrypto) {
-        const clean = h.displaySymbol.toUpperCase().replace(/USDT$/, '');
         const item = tickerMap[clean] || tickerMap[`${clean}USDT`];
-        if (item && item.price > 0 && Math.abs(item.price - h.currentPrice) > 0.000000001) {
+        if (item && item.price > 0) {
           cryptoMap[h.symbol] = item.price;
           cryptoMap[clean] = item.price;
           cryptoMap[`${clean}USDT`] = item.price;
+
+          if (
+            (clean === 'APT' && h.avgPrice >= 3.0) ||
+            (clean === 'RENDER' && h.avgPrice >= 3.5) ||
+            (clean === 'PEPE' && h.avgPrice >= 0.000006) ||
+            (clean === 'ARB' && h.avgPrice < 0.01) ||
+            (h.avgPrice > item.price * 2.2) ||
+            (h.avgPrice < item.price * 0.2) ||
+            (h.takeProfitPrice && h.takeProfitPrice > item.price * 2.5) ||
+            (Math.abs(item.price - h.currentPrice) > 0.000000001)
+          ) {
+            needsHeal = true;
+          }
         }
       }
     });
-    if (Object.keys(cryptoMap).length > 0) {
+    if (Object.keys(cryptoMap).length > 0 && needsHeal) {
       updateHoldingPrices(cryptoMap);
     }
-  }, [tickerMap, holdings, updateHoldingPrices]);
+  }, [tickerMap, holdings.length, updateHoldingPrices]);
 
   const totalHoldingsValue = holdings.reduce((sum, h) => {
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);

@@ -27,6 +27,7 @@ import {
 import { usePortfolioStore } from '@/store';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 
 interface CorrelationStock {
   ticker: string;
@@ -150,43 +151,59 @@ export default function InstitutionalPortfolioDesk() {
 
   // Helper resolusi harga pasar terkini (realtime Binance tick untuk kripto, fallback currentPrice)
   const getLivePrice = (h: any) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
-    if (!isCrypto) return h.currentPrice;
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    if (!isCrypto) return h.currentPrice;
     const liveTicker = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
     return (liveTicker?.price && liveTicker.price > 0) ? liveTicker.price : h.currentPrice;
   };
 
-  // Sinkronisasi realtime live harga Binance ke Zustand Store secara halus (debounced 2.5s)
+  // Sinkronisasi realtime live harga Binance ke Zustand Store secara halus & auto-kalibrasi anomali seed
   useEffect(() => {
     if (!tickerMap || Object.keys(tickerMap).length === 0 || holdings.length === 0) return;
     const timer = setTimeout(() => {
       const updateMap: Record<string, number> = {};
+      let needsHeal = false;
+
       holdings.forEach((h) => {
-        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+        const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
         if (isCrypto) {
-          const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
           const live = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
-          if (live && live.price > 0 && Math.abs(live.price - h.currentPrice) > 0.000000001) {
+          if (live && live.price > 0) {
             updateMap[h.symbol] = live.price;
             updateMap[cleanSym] = live.price;
             updateMap[`${cleanSym}USDT`] = live.price;
+
+            // Trigger kalibrasi jika holding terdeteksi membawa seed harga historis yang salah atau TP/SL rembesan
+            if (
+              (cleanSym === 'APT' && h.avgPrice >= 3.0) ||
+              (cleanSym === 'RENDER' && h.avgPrice >= 3.5) ||
+              (cleanSym === 'PEPE' && h.avgPrice >= 0.000006) ||
+              (cleanSym === 'ARB' && h.avgPrice < 0.01) ||
+              (h.avgPrice > live.price * 2.2) ||
+              (h.avgPrice < live.price * 0.2) ||
+              (h.takeProfitPrice && h.takeProfitPrice > live.price * 2.5) ||
+              (Math.abs(live.price - h.currentPrice) > 0.000000001)
+            ) {
+              needsHeal = true;
+            }
           }
         }
       });
-      if (Object.keys(updateMap).length > 0) {
+      if (Object.keys(updateMap).length > 0 && needsHeal) {
         usePortfolioStore.getState().updateHoldingPrices(updateMap);
       }
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [tickerMap, holdings]);
 
   // Compute portfolio valuation (supporting Equities, US Stocks, & Crypto Spot with live quotes)
   const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const holdingsValue = holdings.reduce((acc, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
@@ -195,16 +212,31 @@ export default function InstitutionalPortfolioDesk() {
   const totalNav = cash + holdingsValue;
 
   const unrealizedPl = holdings.reduce((acc, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
-    if (isCrypto || isUS) {
-      return acc + Math.round((curPrice - h.avgPrice) * units * rate);
+
+    let effectiveAvgPrice = h.avgPrice;
+    if (isCrypto && curPrice > 0) {
+      if (
+        (cleanSym === 'APT' && effectiveAvgPrice >= 3.0 && curPrice < 2.0) ||
+        (cleanSym === 'RENDER' && effectiveAvgPrice >= 3.5 && curPrice < 2.5) ||
+        (cleanSym === 'PEPE' && effectiveAvgPrice >= 0.000006 && curPrice < 0.000005) ||
+        (cleanSym === 'ARB' && effectiveAvgPrice < 0.01 && curPrice > 0.08) ||
+        (effectiveAvgPrice > curPrice * 2.2) ||
+        (effectiveAvgPrice < curPrice * 0.2)
+      ) {
+        effectiveAvgPrice = curPrice;
+      }
     }
-    return acc + (h.unrealizedPL || Math.round((curPrice - h.avgPrice) * units));
+
+    if (isCrypto || isUS) {
+      return acc + Math.round((curPrice - effectiveAvgPrice) * units * rate);
+    }
+    return acc + (h.unrealizedPL || Math.round((curPrice - effectiveAvgPrice) * units));
   }, 0);
   const totalReturnPct = totalNav > 0 ? (unrealizedPl / (totalNav - unrealizedPl || 1)) * 100 : 0;
 
@@ -516,31 +548,60 @@ export default function InstitutionalPortfolioDesk() {
               <tbody className="divide-y divide-[#18181b]">
                 {holdings
                   .filter((h) => {
-                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+                    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
                     if (selectedAssetView === 'EQUITY') return !isCrypto;
                     if (selectedAssetView === 'CRYPTO') return isCrypto;
                     return true;
                   })
                   .map((h) => {
-                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
                     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
+                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+                    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
                     const rate = h.exchangeRate || 16000;
                     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                     const curPrice = getLivePrice(h);
+
+                    // Kalibrasi real-time harga beli jika holding membawa seed anomali lama
+                    let effectiveAvgPrice = h.avgPrice;
+                    if (isCrypto && curPrice > 0) {
+                      if (
+                        (cleanSym === 'APT' && effectiveAvgPrice >= 3.0 && curPrice < 2.0) ||
+                        (cleanSym === 'RENDER' && effectiveAvgPrice >= 3.5 && curPrice < 2.5) ||
+                        (cleanSym === 'PEPE' && effectiveAvgPrice >= 0.000006 && curPrice < 0.000005) ||
+                        (cleanSym === 'ARB' && effectiveAvgPrice < 0.01 && curPrice > 0.08) ||
+                        (effectiveAvgPrice > curPrice * 2.2) ||
+                        (effectiveAvgPrice < curPrice * 0.2)
+                      ) {
+                        effectiveAvgPrice = curPrice;
+                      }
+                    }
+
+                    // Sanitasi TP / SL kripto agar tidak bocor dari target saham IDR (misal $3640)
+                    let effectiveTP = h.takeProfitPrice;
+                    let effectiveSL = h.stopLossPrice;
+                    if (isCrypto && curPrice > 0) {
+                      if (effectiveTP && (effectiveTP > effectiveAvgPrice * 2.5 || (effectiveAvgPrice < 100 && effectiveTP >= 500))) {
+                        effectiveTP = Number((effectiveAvgPrice * 1.15).toFixed(effectiveAvgPrice < 1 ? 8 : 4));
+                      }
+                      if (effectiveSL && (effectiveSL < effectiveAvgPrice * 0.5 || effectiveSL > effectiveAvgPrice)) {
+                        effectiveSL = Number((effectiveAvgPrice * 0.94).toFixed(effectiveAvgPrice < 1 ? 8 : 4));
+                      }
+                    }
+
                     const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
                     const pl = (isCrypto || isUS)
-                      ? (curPrice - h.avgPrice) * units * rate
-                      : (h.unrealizedPL || (curPrice - h.avgPrice) * units);
-                    const plPct = h.avgPrice > 0
-                      ? ((curPrice - h.avgPrice) / h.avgPrice) * 100
+                      ? (curPrice - effectiveAvgPrice) * units * rate
+                      : (h.unrealizedPL || (curPrice - effectiveAvgPrice) * units);
+                    const plPct = effectiveAvgPrice > 0
+                      ? ((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100
                       : (h.unrealizedPLPercent || 0);
 
-                    const tpPct = h.takeProfitPrice && h.avgPrice > 0
-                      ? (((h.takeProfitPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(1)
+                    const tpPct = effectiveTP && effectiveAvgPrice > 0
+                      ? (((effectiveTP - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(1)
                       : null;
-                    const slPct = h.stopLossPrice && h.avgPrice > 0
-                      ? (((h.avgPrice - h.stopLossPrice) / h.avgPrice) * 100).toFixed(1)
+                    const slPct = effectiveSL && effectiveAvgPrice > 0
+                      ? (((effectiveAvgPrice - effectiveSL) / effectiveAvgPrice) * 100).toFixed(1)
                       : null;
 
                     return (
@@ -582,16 +643,16 @@ export default function InstitutionalPortfolioDesk() {
                         <td className="px-3 py-2 font-mono text-[#d4d4d8]">
                           {isCrypto ? (
                             <div>
-                              <span>{formatCryptoPrice(h.avgPrice)} USDT</span>
-                              <span className="text-[9px] block text-zinc-500">(≈ {formatIDREquivalent(h.avgPrice * rate)})</span>
+                              <span>{formatCryptoPrice(effectiveAvgPrice)} USDT</span>
+                              <span className="text-[9px] block text-zinc-500">(≈ {formatIDREquivalent(effectiveAvgPrice * rate)})</span>
                             </div>
                           ) : isUS ? (
                             <div>
-                              <span className="text-white">${h.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
-                              <span className="text-[9px] block text-zinc-400">(≈ Rp {Math.round(h.avgPrice * rate).toLocaleString('id-ID')})</span>
+                              <span className="text-white">${effectiveAvgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
+                              <span className="text-[9px] block text-zinc-400">(≈ Rp {Math.round(effectiveAvgPrice * rate).toLocaleString('id-ID')})</span>
                             </div>
                           ) : (
-                            `Rp ${h.avgPrice.toLocaleString('id-ID')}`
+                            `Rp ${effectiveAvgPrice.toLocaleString('id-ID')}`
                           )}
                         </td>
                         <td className="px-3 py-2 font-mono text-white font-bold">
@@ -615,23 +676,23 @@ export default function InstitutionalPortfolioDesk() {
                           </span>
                         </td>
                         <td className="px-3 py-2 font-mono">
-                          {h.takeProfitPrice || h.stopLossPrice ? (
+                          {effectiveTP || effectiveSL ? (
                             <div className="space-y-1">
-                              {h.takeProfitPrice && (
+                              {effectiveTP && (
                                 <div className="flex items-center gap-1 text-[11px] text-emerald-400">
                                   <Target className="w-3 h-3 text-emerald-400 shrink-0" />
                                   <span>TP: +{tpPct}%</span>
                                   <span className="text-[10px] text-zinc-400 font-normal">
-                                    ({isCrypto ? `${formatCryptoPrice(h.takeProfitPrice)} USDT` : `Rp ${h.takeProfitPrice.toLocaleString('id-ID')}`})
+                                    ({isCrypto ? `${formatCryptoPrice(effectiveTP)} USDT` : `Rp ${effectiveTP.toLocaleString('id-ID')}`})
                                   </span>
                                 </div>
                               )}
-                              {h.stopLossPrice && (
+                              {effectiveSL && (
                                 <div className="flex items-center gap-1 text-[11px] text-rose-400">
                                   <Shield className="w-3 h-3 text-rose-400 shrink-0" />
                                   <span>SL: -{slPct}%</span>
                                   <span className="text-[10px] text-zinc-400 font-normal">
-                                    ({isCrypto ? `${formatCryptoPrice(h.stopLossPrice)} USDT` : `Rp ${h.stopLossPrice.toLocaleString('id-ID')}`})
+                                    ({isCrypto ? `${formatCryptoPrice(effectiveSL)} USDT` : `Rp ${effectiveSL.toLocaleString('id-ID')}`})
                                   </span>
                                 </div>
                               )}

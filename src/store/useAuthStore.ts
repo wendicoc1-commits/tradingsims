@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { usePortfolioStore, waitForPortfolioHydration } from '@/store';
+import { usePortfolioStore, waitForPortfolioHydration, sanitizeHoldings } from '@/store';
 
 let isSyncingPortfolio = false;
 let needsPortfolioReSync = false;
@@ -519,7 +519,7 @@ export const useAuthStore = create<AuthState>()(
                     usePortfolioStore.setState({
                       cash: sPort.cash,
                       realizedPL: sPort.realizedPL || 0,
-                      holdings: sPort.holdings,
+                      holdings: sanitizeHoldings(sPort.holdings),
                       orders: Array.isArray(sPort.orders) ? sPort.orders : [],
                       conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
                       dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
@@ -543,7 +543,7 @@ export const useAuthStore = create<AuthState>()(
                       usePortfolioStore.setState({
                         cash: sPort.cash,
                         realizedPL: sPort.realizedPL || 0,
-                        holdings: sPort.holdings,
+                        holdings: sanitizeHoldings(sPort.holdings),
                         orders: Array.isArray(sPort.orders) ? sPort.orders : [],
                         conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
                         dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
@@ -629,7 +629,7 @@ export const useAuthStore = create<AuthState>()(
                   // JANGAN PERNAH menimpa saham lokal aktif jika Supabase kosong!
                   if (mappedHoldings.length > 0 && currentHoldings.length === 0) {
                     usePortfolioStore.setState({
-                      holdings: mappedHoldings,
+                      holdings: sanitizeHoldings(mappedHoldings),
                       cash: dbCash,
                       realizedPL: dbRealizedPL,
                       lastUpdated: Date.now(),
