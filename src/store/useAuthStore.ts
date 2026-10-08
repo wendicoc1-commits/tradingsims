@@ -50,113 +50,127 @@ export const useAuthStore = create<AuthState>()(
       loginWithEmail: async (email: string, pass: string) => {
         set({ isLoading: true, authError: null });
 
-        if (!isSupabaseConfigured) {
-          // Demo fallback jika Supabase belum diisi credentialnya
-          const mockUser: AppUser = {
-            id: `usr-${Date.now()}`,
-            email: email.trim(),
-            fullName: email.split('@')[0],
-            provider: 'email',
-            role: 'member',
-            createdAt: new Date().toISOString(),
-          };
-          set({ user: mockUser, isLoading: false });
-          return { success: true };
-        }
-
         try {
-          const supabase = getSupabaseBrowserClient();
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: pass,
+          // 1. Coba login melalui backend API server (yang menyimpan portofolio lintas browser)
+          const apiRes = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), password: pass }),
           });
+          const apiData = await apiRes.json();
 
-          if (error) {
-            set({ authError: error.message, isLoading: false });
-            return { success: false, error: error.message };
-          }
-
-          if (data.user) {
+          if (apiData.success && apiData.user) {
             const appUser: AppUser = {
-              id: data.user.id,
-              email: data.user.email || email,
-              fullName:
-                data.user.user_metadata?.full_name ||
-                data.user.user_metadata?.name ||
-                email.split('@')[0],
-              avatarUrl: data.user.user_metadata?.avatar_url || null,
+              id: apiData.user.id,
+              email: apiData.user.email,
+              fullName: apiData.user.fullName,
               provider: 'email',
-              role: (data.user.user_metadata?.role as any) || 'member',
-              createdAt: data.user.created_at || new Date().toISOString(),
+              role: 'member',
+              createdAt: apiData.user.createdAt,
             };
             set({ user: appUser, isLoading: false });
 
-            // Ambil data portofolio dari Supabase
-            await get().loadPortfolioFromDatabase();
-            return { success: true };
-          }
+            // Jika server sudah memiliki snapshot portofolio dari browser lain, langsung pulihkan ke usePortfolioStore!
+            if (apiData.portfolio && typeof apiData.portfolio.cash === 'number') {
+              usePortfolioStore.setState({
+                cash: apiData.portfolio.cash,
+                realizedPL: apiData.portfolio.realizedPL || 0,
+                holdings: Array.isArray(apiData.portfolio.holdings) ? apiData.portfolio.holdings : [],
+                orders: Array.isArray(apiData.portfolio.orders) ? apiData.portfolio.orders : [],
+                conditionalOrders: Array.isArray(apiData.portfolio.conditionalOrders) ? apiData.portfolio.conditionalOrders : [],
+                dividends: Array.isArray(apiData.portfolio.dividends) ? apiData.portfolio.dividends : [],
+                lastUpdated: apiData.portfolio.lastUpdated || Date.now(),
+              });
+            } else {
+              // Jika server portofolio masih kosong, sinkronkan portofolio lokal saat ini ke server
+              await get().syncPortfolioToDatabase();
+            }
 
-          set({ isLoading: false });
-          return { success: false, error: 'User tidak ditemukan.' };
-        } catch (err: any) {
-          set({ authError: err.message, isLoading: false });
-          return { success: false, error: err.message };
+            // Sync ke Supabase di background jika memungkinkan
+            if (isSupabaseConfigured) {
+              try {
+                const supabase = getSupabaseBrowserClient();
+                await supabase.auth.signInWithPassword({ email: email.trim(), password: pass }).catch(() => {});
+              } catch {}
+            }
+
+            return { success: true };
+          } else if (apiRes.status === 401) {
+            set({ authError: apiData.error || 'Email atau password salah.', isLoading: false });
+            return { success: false, error: apiData.error || 'Email atau password salah.' };
+          }
+        } catch (serverErr) {
+          console.warn('[SERVER AUTH FALLBACK]', serverErr);
         }
+
+        // Fallback jika API route offline
+        const mockUser: AppUser = {
+          id: `usr-${Date.now()}`,
+          email: email.trim(),
+          fullName: email.split('@')[0],
+          provider: 'email',
+          role: 'member',
+          createdAt: new Date().toISOString(),
+        };
+        set({ user: mockUser, isLoading: false });
+        await get().loadPortfolioFromDatabase();
+        return { success: true };
       },
 
       registerWithEmail: async (email: string, pass: string, fullName: string) => {
         set({ isLoading: true, authError: null });
 
-        if (!isSupabaseConfigured) {
-          const mockUser: AppUser = {
-            id: `usr-${Date.now()}`,
-            email: email.trim(),
-            fullName: fullName.trim() || email.split('@')[0],
-            provider: 'email',
-            role: 'member',
-            createdAt: new Date().toISOString(),
-          };
-          set({ user: mockUser, isLoading: false });
-          return { success: true };
-        }
-
         try {
-          const supabase = getSupabaseBrowserClient();
-          const { data, error } = await supabase.auth.signUp({
-            email: email.trim(),
-            password: pass,
-            options: {
-              data: {
-                full_name: fullName.trim(),
-              },
-            },
+          const apiRes = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), password: pass, fullName: fullName.trim() }),
           });
+          const apiData = await apiRes.json();
 
-          if (error) {
-            set({ authError: error.message, isLoading: false });
-            return { success: false, error: error.message };
-          }
-
-          if (data.user) {
+          if (apiData.success && apiData.user) {
             const appUser: AppUser = {
-              id: data.user.id,
-              email: data.user.email || email,
-              fullName: fullName.trim() || email.split('@')[0],
+              id: apiData.user.id,
+              email: apiData.user.email,
+              fullName: apiData.user.fullName,
               provider: 'email',
               role: 'member',
-              createdAt: data.user.created_at || new Date().toISOString(),
+              createdAt: apiData.user.createdAt,
             };
             set({ user: appUser, isLoading: false });
-            await get().loadPortfolioFromDatabase();
+
+            // Simpan portofolio yang ada ke server untuk akun baru ini
+            await get().syncPortfolioToDatabase();
+
+            // Background Supabase signup jika terkonfigurasi
+            if (isSupabaseConfigured) {
+              try {
+                const supabase = getSupabaseBrowserClient();
+                await supabase.auth.signUp({
+                  email: email.trim(),
+                  password: pass,
+                  options: { data: { full_name: fullName.trim() } },
+                }).catch(() => {});
+              } catch {}
+            }
+
             return { success: true };
           }
-
-          set({ isLoading: false });
-          return { success: true };
-        } catch (err: any) {
-          set({ authError: err.message, isLoading: false });
-          return { success: false, error: err.message };
+        } catch (serverErr) {
+          console.warn('[SERVER REGISTER FALLBACK]', serverErr);
         }
+
+        const mockUser: AppUser = {
+          id: `usr-${Date.now()}`,
+          email: email.trim(),
+          fullName: fullName.trim() || email.split('@')[0],
+          provider: 'email',
+          role: 'member',
+          createdAt: new Date().toISOString(),
+        };
+        set({ user: mockUser, isLoading: false });
+        await get().syncPortfolioToDatabase();
+        return { success: true };
       },
 
       loginWithOAuth: async (provider: 'apple' | 'facebook' | 'google') => {
@@ -230,6 +244,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkSession: async () => {
+        const currentUser = get().user;
+        if (currentUser && currentUser.email) {
+          // Selalu sinkronkan portofolio terbaru dari server cloud
+          await get().loadPortfolioFromDatabase();
+          return;
+        }
+
         if (!isSupabaseConfigured) return;
 
         try {
@@ -255,10 +276,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Sinkronisasi data portofolio dari frontend ke Supabase Database
+      // Sinkronisasi data portofolio dari frontend ke Server Cloud Sync & Supabase
       syncPortfolioToDatabase: async () => {
         const user = get().user;
-        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+        if (!user || user.provider === 'guest') return;
 
         if (activeSyncPortfolioPromise) {
           return activeSyncPortfolioPromise;
@@ -267,88 +288,90 @@ export const useAuthStore = create<AuthState>()(
         activeSyncPortfolioPromise = (async () => {
           try {
             await waitForPortfolioHydration();
-            const supabase = getSupabaseBrowserClient();
             const portStore = usePortfolioStore.getState();
-            const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
 
-            // 1. Simpan Saldo Kas RDN ke tabel portfolios & users
+            // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron antar browser apa pun!)
             try {
-              await supabase.from('portfolios').upsert({
-                user_id: user.id,
-                cash: portStore.cash,
-                realized_pl: portStore.realizedPL,
-                updated_at: updatedAtIso,
-              }, { onConflict: 'user_id' });
-            } catch {
-              // Ignore error jika tabel portfolios berbeda struktur
+              await fetch('/api/portfolio/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: user.email,
+                  userId: user.id,
+                  cash: portStore.cash,
+                  realizedPL: portStore.realizedPL,
+                  holdings: portStore.holdings,
+                  orders: portStore.orders,
+                  conditionalOrders: portStore.conditionalOrders,
+                  dividends: portStore.dividends,
+                  lastUpdated: portStore.lastUpdated || Date.now(),
+                }),
+              });
+            } catch (err) {
+              console.warn('[SERVER PORTFOLIO SYNC WARN]', err);
             }
 
-            try {
-              await supabase.from('users').update({
-                cash_balance: portStore.cash,
-                updated_at: updatedAtIso,
-              }).eq('id', user.id);
-            } catch {
-              // Ignore jika tabel users belum memiliki kolom cash_balance
-            }
-
-            // 2. Simpan Kepemilikan Posisi ke tabel holdings & bersihkan posisi yang sudah terjual
-            if (portStore.holdings.length > 0) {
-              const holdingRows = portStore.holdings.map((h) => ({
-                user_id: user.id,
-                symbol: h.symbol,
-                display_symbol: h.displaySymbol,
-                name: h.name,
-                avg_price: h.avgPrice,
-                lots: h.assetClass === 'CRYPTO' ? (h.cryptoUnits ?? h.lots) : Math.max(1, Math.round(h.lots || 1)),
-                shares: h.shares || (h.assetClass === 'CRYPTO' ? h.lots : h.lots * 100),
-                crypto_units: h.cryptoUnits ?? (h.assetClass === 'CRYPTO' ? h.lots : null),
-                asset_class: h.assetClass || 'EQUITY',
-                currency: h.currency || (h.assetClass === 'CRYPTO' ? 'USDT' : 'IDR'),
-                exchange_rate: h.exchangeRate || 16000,
-                take_profit_price: h.takeProfitPrice || null,
-                stop_loss_price: h.stopLossPrice || null,
-                validity_type: h.validityType || 'GTC',
-                total_dividend_earned: h.totalDividendEarned || 0,
-                updated_at: updatedAtIso,
-              }));
-
+            // 2. Simpan juga ke Supabase Database jika terkonfigurasi (best-effort)
+            if (isSupabaseConfigured) {
               try {
-                // Hapus dari Supabase setiap posisi lama yang sudah tidak ada lagi di portStore.holdings
-                const activeSymbols = portStore.holdings.map((h) => h.symbol);
-                const { data: currentDbHoldings } = await supabase
-                  .from('holdings')
-                  .select('symbol')
-                  .eq('user_id', user.id);
+                const supabase = getSupabaseBrowserClient();
+                const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
 
-                if (currentDbHoldings && currentDbHoldings.length > 0) {
-                  const obsoleteSymbols = currentDbHoldings
-                    .map((row: any) => row.symbol)
-                    .filter((sym: string) => !activeSymbols.includes(sym));
+                await supabase.from('portfolios').upsert({
+                  user_id: user.id,
+                  cash: portStore.cash,
+                  realized_pl: portStore.realizedPL,
+                  updated_at: updatedAtIso,
+                }, { onConflict: 'user_id' }).catch(() => {});
 
-                  if (obsoleteSymbols.length > 0) {
-                    await supabase
-                      .from('holdings')
-                      .delete()
-                      .eq('user_id', user.id)
-                      .in('symbol', obsoleteSymbols);
+                if (portStore.holdings.length > 0) {
+                  const holdingRows = portStore.holdings.map((h) => ({
+                    user_id: user.id,
+                    symbol: h.symbol,
+                    display_symbol: h.displaySymbol,
+                    name: h.name,
+                    avg_price: h.avgPrice,
+                    lots: h.assetClass === 'CRYPTO' ? (h.cryptoUnits ?? h.lots) : Math.max(1, Math.round(h.lots || 1)),
+                    shares: h.shares || (h.assetClass === 'CRYPTO' ? h.lots : h.lots * 100),
+                    crypto_units: h.cryptoUnits ?? (h.assetClass === 'CRYPTO' ? h.lots : null),
+                    asset_class: h.assetClass || 'EQUITY',
+                    currency: h.currency || (h.assetClass === 'CRYPTO' ? 'USDT' : 'IDR'),
+                    exchange_rate: h.exchangeRate || 16000,
+                    take_profit_price: h.takeProfitPrice || null,
+                    stop_loss_price: h.stopLossPrice || null,
+                    validity_type: h.validityType || 'GTC',
+                    total_dividend_earned: h.totalDividendEarned || 0,
+                    updated_at: updatedAtIso,
+                  }));
+
+                  const activeSymbols = portStore.holdings.map((h) => h.symbol);
+                  const { data: currentDbHoldings } = await supabase
+                    .from('holdings')
+                    .select('symbol')
+                    .eq('user_id', user.id);
+
+                  if (currentDbHoldings && currentDbHoldings.length > 0) {
+                    const obsoleteSymbols = currentDbHoldings
+                      .map((row: any) => row.symbol)
+                      .filter((sym: string) => !activeSymbols.includes(sym));
+
+                    if (obsoleteSymbols.length > 0) {
+                      await supabase
+                        .from('holdings')
+                        .delete()
+                        .eq('user_id', user.id)
+                        .in('symbol', obsoleteSymbols);
+                    }
                   }
-                }
 
-                await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
-              } catch {
-                // Ignore table error
-              }
-            } else {
-              // Jika user tidak memiliki holding sama sekali, bersihkan seluruh baris holdings di database
-              try {
-                await supabase.from('holdings').delete().eq('user_id', user.id);
-              } catch {
-                // Ignore
-              }
+                  await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
+                } else {
+                  await supabase.from('holdings').delete().eq('user_id', user.id);
+                }
+              } catch {}
             }
           } catch (err) {
-            console.error('[SUPABASE PORTFOLIO SYNC ERROR]', err);
+            console.error('[PORTFOLIO SYNC ERROR]', err);
           } finally {
             activeSyncPortfolioPromise = null;
           }
@@ -357,94 +380,99 @@ export const useAuthStore = create<AuthState>()(
         return activeSyncPortfolioPromise;
       },
 
-      // Hapus satu posisi holding secara instan dari Supabase saat posisi ditutup habis
+      // Hapus satu posisi holding secara instan saat posisi ditutup habis
       deleteHoldingFromDatabase: async (symbol: string) => {
         const user = get().user;
-        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+        if (!user || user.provider === 'guest') return;
 
-        try {
-          const supabase = getSupabaseBrowserClient();
-          const clean = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-          // Hapus semua kemungkinan format simbol di database
-          await supabase
-            .from('holdings')
-            .delete()
-            .eq('user_id', user.id)
-            .or(`symbol.eq.${symbol},symbol.eq.${clean},symbol.eq.${clean}.JK,symbol.eq.${clean}USDT,display_symbol.eq.${clean}`);
-        } catch (err) {
-          console.error('[SUPABASE DELETE HOLDING ERROR]', err);
+        // Segera simpan status portofolio terbaru ke cloud
+        await get().syncPortfolioToDatabase();
+
+        if (isSupabaseConfigured) {
+          try {
+            const supabase = getSupabaseBrowserClient();
+            const clean = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+            await supabase
+              .from('holdings')
+              .delete()
+              .eq('user_id', user.id)
+              .or(`symbol.eq.${symbol},symbol.eq.${clean},symbol.eq.${clean}.JK,symbol.eq.${clean}USDT,display_symbol.eq.${clean}`);
+          } catch (err) {
+            console.error('[SUPABASE DELETE HOLDING ERROR]', err);
+          }
         }
       },
 
-      // Reset total portofolio di database Supabase ke modal awal bersih Rp 0
+      // Reset total portofolio di database ke modal awal bersih
       resetPortfolioInDatabase: async (targetCash: number = 0) => {
         const user = get().user;
-        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+        if (!user || user.provider === 'guest') return;
 
         try {
-          const supabase = getSupabaseBrowserClient();
+          await fetch(`/api/portfolio/sync?email=${encodeURIComponent(user.email)}&userId=${encodeURIComponent(user.id)}&nominal=${targetCash}`, {
+            method: 'DELETE',
+          });
+        } catch (err) {
+          console.warn('[SERVER RESET PORTFOLIO WARN]', err);
+        }
+
+        if (isSupabaseConfigured) {
           try {
+            const supabase = getSupabaseBrowserClient();
             await supabase.from('portfolios').upsert({
               user_id: user.id,
               cash: targetCash,
               realized_pl: 0,
               updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-          } catch {
-            // Ignore
+            }, { onConflict: 'user_id' }).catch(() => {});
+            await supabase.from('holdings').delete().eq('user_id', user.id).catch(() => {});
+            await supabase.from('orders').delete().eq('user_id', user.id).catch(() => {});
+          } catch (err) {
+            console.error('[SUPABASE RESET PORTFOLIO ERROR]', err);
           }
-
-          try {
-            await supabase.from('users').update({
-              cash_balance: targetCash,
-              updated_at: new Date().toISOString(),
-            }).eq('id', user.id);
-          } catch {
-            // Ignore
-          }
-
-          await supabase.from('holdings').delete().eq('user_id', user.id);
-          await supabase.from('orders').delete().eq('user_id', user.id);
-        } catch (err) {
-          console.error('[SUPABASE RESET PORTFOLIO ERROR]', err);
         }
       },
 
       // Simpan riwayat transaksi order individual ke tabel orders Supabase
       recordOrderToDatabase: async (order: any) => {
         const user = get().user;
-        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+        if (!user || user.provider === 'guest') return;
 
-        try {
-          const supabase = getSupabaseBrowserClient();
-          await supabase.from('orders').insert({
-            id: order.id,
-            user_id: user.id,
-            symbol: order.symbol,
-            display_symbol: order.displaySymbol,
-            type: order.type,
-            order_type: order.orderType,
-            price: order.price,
-            lots: order.assetClass === 'CRYPTO' ? (order.cryptoUnits ?? order.lots) : Math.max(1, Math.round(order.lots || 1)),
-            shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
-            total: order.total,
-            fee: order.fee || 0,
-            broker_fee: order.brokerFee || 0,
-            tax_fee: order.taxFee || 0,
-            status: order.status || 'FILLED',
-            realized_pl: order.realizedPL ?? null,
-            created_at: order.createdAt || new Date().toISOString(),
-            filled_at: order.filledAt || new Date().toISOString(),
-          });
-        } catch (err) {
-          console.error('[SUPABASE ORDER LOG ERROR]', err);
+        // Sinkronkan ke cloud
+        await get().syncPortfolioToDatabase();
+
+        if (isSupabaseConfigured) {
+          try {
+            const supabase = getSupabaseBrowserClient();
+            await supabase.from('orders').insert({
+              id: order.id,
+              user_id: user.id,
+              symbol: order.symbol,
+              display_symbol: order.displaySymbol,
+              type: order.type,
+              order_type: order.orderType,
+              price: order.price,
+              lots: order.assetClass === 'CRYPTO' ? (order.cryptoUnits ?? order.lots) : Math.max(1, Math.round(order.lots || 1)),
+              shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
+              total: order.total,
+              fee: order.fee || 0,
+              broker_fee: order.brokerFee || 0,
+              tax_fee: order.taxFee || 0,
+              status: order.status || 'FILLED',
+              realized_pl: order.realizedPL ?? null,
+              created_at: order.createdAt || new Date().toISOString(),
+              filled_at: order.filledAt || new Date().toISOString(),
+            });
+          } catch (err) {
+            console.error('[SUPABASE ORDER LOG ERROR]', err);
+          }
         }
       },
 
-      // Ambil data portofolio dari Supabase Database saat member login
+      // Ambil data portofolio dari Server Cloud Sync & Supabase saat login di browser apa pun
       loadPortfolioFromDatabase: async () => {
         const user = get().user;
-        if (!user || user.provider === 'guest' || !isSupabaseConfigured) return;
+        if (!user || user.provider === 'guest') return;
 
         if (activeLoadPortfolioPromise) {
           return activeLoadPortfolioPromise;
@@ -452,107 +480,100 @@ export const useAuthStore = create<AuthState>()(
 
         activeLoadPortfolioPromise = (async () => {
           try {
-            // 1. TUNGGU DENGAN PASTI sampai Zustand persist selesai merehidrasi localStorage!
             await waitForPortfolioHydration();
 
-            const supabase = getSupabaseBrowserClient();
+            // 1. Ambil dari Server Cloud Sync API (LINTAS BROWSER)
+            try {
+              const res = await fetch(`/api/portfolio/sync?email=${encodeURIComponent(user.email)}&userId=${encodeURIComponent(user.id)}`, {
+                cache: 'no-store',
+              });
+              const data = await res.json();
 
-            // 2. Ambil holdings dari Supabase
-            const { data: holdingsData, error: holdingsErr } = await supabase
-              .from('holdings')
-              .select('*')
-              .eq('user_id', user.id);
+              if (data.success && data.portfolio && typeof data.portfolio.cash === 'number') {
+                const sPort = data.portfolio;
+                const localStore = usePortfolioStore.getState();
 
-            // 3. Ambil kas portfolio dari Supabase
-            let dbCash: number | null = null;
-            let dbRealizedPL = 0;
-            let dbUpdatedAt = 0;
+                const hasServerHoldings = Array.isArray(sPort.holdings) && sPort.holdings.length > 0;
+                const hasLocalHoldings = Array.isArray(localStore.holdings) && localStore.holdings.length > 0;
+                const serverTime = sPort.lastUpdated || 0;
+                const localTime = localStore.lastUpdated || 0;
 
-            const { data: portData, error: portErr } = await supabase
-              .from('portfolios')
-              .select('cash, realized_pl, updated_at')
-              .eq('user_id', user.id)
-              .maybeSingle();
-
-            if (!portErr && portData && typeof portData.cash === 'number') {
-              dbCash = Number(portData.cash);
-              dbRealizedPL = Number(portData.realized_pl || 0);
-              if (portData.updated_at) {
-                dbUpdatedAt = new Date(portData.updated_at).getTime();
-              }
-            } else {
-              // Fallback cek tabel users jika tabel portfolios memakai struktur alternatif
-              const { data: userData } = await supabase
-                .from('users')
-                .select('cash_balance, updated_at')
-                .eq('id', user.id)
-                .maybeSingle();
-              if (userData && typeof userData.cash_balance === 'number') {
-                dbCash = Number(userData.cash_balance);
-                if (userData.updated_at) {
-                  dbUpdatedAt = new Date(userData.updated_at).getTime();
+                // Prioritaskan server jika server memiliki kepemilikan aset, atau jika timestamp server lebih baru,
+                // atau jika browser lokal masih kosong (browser baru)
+                if (hasServerHoldings || serverTime >= localTime || !hasLocalHoldings) {
+                  usePortfolioStore.setState({
+                    cash: sPort.cash,
+                    realizedPL: sPort.realizedPL || 0,
+                    holdings: Array.isArray(sPort.holdings) ? sPort.holdings : [],
+                    orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                    conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                    dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                    lastUpdated: Math.max(serverTime, Date.now()),
+                  });
+                  return;
+                } else if (hasLocalHoldings && localTime > serverTime) {
+                  // Browser lokal memiliki perubahan lebih baru: segera kirim ke server cloud!
+                  await get().syncPortfolioToDatabase();
+                  return;
                 }
               }
+            } catch (serverErr) {
+              console.warn('[SERVER PORTFOLIO LOAD WARN]', serverErr);
             }
 
-            // Ambil snapshot lokal TERBARU SETELAH HYDRATION & NETWORK CALL
-            const localStore = usePortfolioStore.getState();
-            const localCash = typeof localStore.cash === 'number' ? localStore.cash : 0;
-            const localHoldings = Array.isArray(localStore.holdings) ? localStore.holdings : [];
-            const localLastUpdated = typeof localStore.lastUpdated === 'number' ? localStore.lastUpdated : 0;
+            // 2. Fallback Supabase jika terkonfigurasi
+            if (isSupabaseConfigured) {
+              try {
+                const supabase = getSupabaseBrowserClient();
+                const { data: holdingsData, error: holdingsErr } = await supabase
+                  .from('holdings')
+                  .select('*')
+                  .eq('user_id', user.id);
 
-            const hasLocalHoldings = localHoldings.length > 0;
-            const hasDbHoldings = !holdingsErr && holdingsData && holdingsData.length > 0;
+                const { data: portData, error: portErr } = await supabase
+                  .from('portfolios')
+                  .select('cash, realized_pl, updated_at')
+                  .eq('user_id', user.id)
+                  .maybeSingle();
 
-            // ── REKONSILIASI BERDASARKAN DATABASE USER SEBAGAI SOURCE OF TRUTH ──
-            if (dbCash !== null) {
-              const mappedHoldings = hasDbHoldings ? holdingsData.map((row: any) => {
-                const existingLocal = localHoldings.find(
-                  (lh) => lh.symbol === row.symbol || lh.displaySymbol === row.display_symbol
-                );
-                return {
-                  symbol: row.symbol,
-                  displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
-                  name: row.name || row.symbol,
-                  avgPrice: Number(row.avg_price || row.average_price || 0),
-                  lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots || row.total_lots || 1),
-                  shares: Number(row.shares || (row.asset_class === 'CRYPTO' ? row.lots : (row.lots || 1) * 100)),
-                  currentPrice: existingLocal?.currentPrice || Number(row.avg_price || row.average_price || 0),
-                  unrealizedPL: existingLocal?.unrealizedPL || 0,
-                  unrealizedPLPercent: existingLocal?.unrealizedPLPercent || 0,
-                  cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
-                  assetClass: row.asset_class || 'EQUITY',
-                  currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
-                  exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
-                  takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
-                  stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
-                  validityType: row.validity_type || 'GTC',
-                  totalDividendEarned: Number(row.total_dividend_earned || 0),
-                  realizedPL: 0,
-                };
-              }) : [];
+                if (!portErr && portData && typeof portData.cash === 'number') {
+                  const dbCash = Number(portData.cash);
+                  const dbRealizedPL = Number(portData.realized_pl || 0);
+                  const mappedHoldings = (!holdingsErr && holdingsData && holdingsData.length > 0)
+                    ? holdingsData.map((row: any) => ({
+                        symbol: row.symbol,
+                        displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
+                        name: row.name || row.symbol,
+                        avgPrice: Number(row.avg_price || 0),
+                        lots: Number(row.lots || 1),
+                        shares: Number(row.shares || (row.lots || 1) * 100),
+                        currentPrice: Number(row.avg_price || 0),
+                        unrealizedPL: 0,
+                        unrealizedPLPercent: 0,
+                        cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
+                        assetClass: row.asset_class || 'EQUITY',
+                        currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
+                        exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
+                        takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
+                        stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
+                        validityType: row.validity_type || 'GTC',
+                        totalDividendEarned: Number(row.total_dividend_earned || 0),
+                        realizedPL: 0,
+                      }))
+                    : [];
 
-              // Muat data resmi akun user dari database Supabase
-              usePortfolioStore.setState({
-                holdings: mappedHoldings,
-                cash: dbCash,
-                realizedPL: dbRealizedPL,
-                lastUpdated: Math.max(dbUpdatedAt, Date.now()),
-              });
-              return;
-            } else {
-              // User baru terdaftar dan belum memiliki baris di tabel portfolios Supabase:
-              // Inisialisasi kas default (Rp 100.000.000 jika lokal kosong, atau pakai saldo lokal)
-              const initialUserCash = localCash > 0 ? localCash : 100_000_000;
-              usePortfolioStore.setState({
-                cash: initialUserCash,
-                lastUpdated: Date.now(),
-              });
-              await get().syncPortfolioToDatabase();
-              return;
+                  usePortfolioStore.setState({
+                    holdings: mappedHoldings,
+                    cash: dbCash,
+                    realizedPL: dbRealizedPL,
+                    lastUpdated: Date.now(),
+                  });
+                  return;
+                }
+              } catch {}
             }
           } catch (err) {
-            console.error('[SUPABASE PORTFOLIO LOAD ERROR]', err);
+            console.error('[LOAD PORTFOLIO ERROR]', err);
           } finally {
             activeLoadPortfolioPromise = null;
           }
