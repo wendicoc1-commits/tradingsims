@@ -78,12 +78,59 @@ export default function GlobalAutonomousAgentRunner() {
     // Jalankan pertama kali setelah delay 1.5 detik
     const initialTimer = setTimeout(runCycle, 1500);
 
-    // Jalankan siklus berkala setiap 15 detik
+    // Jalankan siklus berkala setiap 15 detik (standard interval)
     const intervalTimer = setInterval(runCycle, 15000);
+
+    // ── Web Worker Anti-Throttling ──
+    // Browser modern membekukan / throttle setInterval saat tab tidak aktif (background tab).
+    // Web Worker berjalan di thread terpisah sehingga tidak terpengaruh throttling browser!
+    let worker: Worker | null = null;
+    let workerUrl: string | null = null;
+    try {
+      const workerBlob = new Blob([
+        `let t = null;
+         self.onmessage = function(e) {
+           if (e.data === 'start') {
+             t = setInterval(function() { self.postMessage('tick'); }, 15000);
+           } else if (e.data === 'stop' && t) {
+             clearInterval(t);
+           }
+         };`
+      ], { type: 'application/javascript' });
+      workerUrl = URL.createObjectURL(workerBlob);
+      worker = new Worker(workerUrl);
+      worker.onmessage = () => {
+        runCycle();
+      };
+      worker.postMessage('start');
+    } catch {
+      // Fallback ke intervalTimer biasa jika Web Worker dibatasi oleh browser
+    }
+
+    // ── Instant Wake-Up on Visibility Change ──
+    // Saat pengguna kembali mengklik atau membuka tab ini, langsung jalankan evaluasi pasar!
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        runCycle();
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
       clearTimeout(initialTimer);
       clearInterval(intervalTimer);
+      if (worker) {
+        worker.postMessage('stop');
+        worker.terminate();
+      }
+      if (workerUrl) {
+        URL.revokeObjectURL(workerUrl);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [autoTradingEnabled]);
 
