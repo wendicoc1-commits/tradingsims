@@ -227,17 +227,36 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
     const curPrice = h.currentPrice || 0
     let effectiveAvg = h.avgPrice
 
-    // Kalibrasi anomali seed harga statis historis (APT ~$8.5, RENDER ~$5.8, PEPE ~$0.000010, ARB ~$0.000600)
+    // Kalibrasi anomali seed harga statis historis (APT, RENDER, PEPE, ARB, TON, NEAR, TIA, FET, WIF)
+    let effectiveUnits = h.cryptoUnits ?? h.lots
+    let effectiveLots = h.lots
+    let effectiveShares = h.shares
+
     if (curPrice > 0) {
+      const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false
+      const recentDisparity = isRecentlyBought && effectiveAvg > 0 && Math.abs(effectiveAvg - curPrice) / effectiveAvg > 0.05
+
       if (
-        (clean === 'APT' && effectiveAvg >= 3.0 && curPrice < 2.0) ||
-        (clean === 'RENDER' && effectiveAvg >= 3.5 && curPrice < 2.5) ||
+        recentDisparity ||
+        (clean === 'APT' && effectiveAvg >= 2.0 && curPrice < 1.5) ||
+        (clean === 'RENDER' && effectiveAvg >= 2.5 && curPrice < 2.2) ||
         (clean === 'PEPE' && effectiveAvg >= 0.000006 && curPrice < 0.000005) ||
         (clean === 'ARB' && effectiveAvg < 0.01 && curPrice > 0.08) ||
-        (effectiveAvg > curPrice * 2.2) ||
-        (effectiveAvg < curPrice * 0.2)
+        (clean === 'TON' && effectiveAvg >= 4.0 && curPrice < 3.5) ||
+        (clean === 'NEAR' && effectiveAvg >= 3.8 && curPrice < 3.0) ||
+        (clean === 'TIA' && effectiveAvg >= 4.5 && curPrice < 3.8) ||
+        (clean === 'FET' && effectiveAvg >= 0.9 && curPrice < 0.8) ||
+        (clean === 'WIF' && effectiveAvg >= 2.0 && curPrice < 1.8) ||
+        (effectiveAvg > curPrice * 1.30) ||
+        (effectiveAvg < curPrice * 0.70)
       ) {
+        const investedUSD = effectiveAvg * effectiveUnits
         effectiveAvg = curPrice
+        if (investedUSD > 0 && curPrice > 0) {
+          effectiveUnits = Number((investedUSD / curPrice).toFixed(effectiveUnits < 0.01 ? 8 : 4))
+          effectiveLots = effectiveUnits
+          effectiveShares = effectiveUnits
+        }
       }
     }
 
@@ -253,7 +272,7 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
     }
 
     const rate = h.exchangeRate || 16000
-    const units = h.cryptoUnits ?? h.lots
+    const units = effectiveUnits
     const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
     const unrealizedPLPercent = effectiveAvg > 0
       ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
@@ -262,6 +281,9 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
     return {
       ...h,
       avgPrice: effectiveAvg,
+      lots: effectiveLots,
+      shares: effectiveShares,
+      cryptoUnits: effectiveUnits,
       takeProfitPrice: effectiveTP,
       stopLossPrice: effectiveSL,
       unrealizedPL,
@@ -451,21 +473,21 @@ export const usePortfolioStore = create<PortfolioState>()(
       return { order: null, error: 'Jumlah koin/lot dan harga harus bernilai positif.' }
     }
 
+    // Normalisasi simbol konsisten
+    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
+
     // Deteksi apakah instrumen merupakan cryptocurrency
     const isCrypto =
       params.assetClass === 'CRYPTO' ||
       params.currency === 'USDT' ||
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(
-        (displaySymbol || symbol).replace(/USDT$/i, '').toUpperCase()
-      )
+      isCryptoSymbol(cleanSym) ||
+      isCryptoSymbol(symbol)
 
-    // Normalisasi simbol konsisten
-    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
     const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || KNOWN_US.includes(cleanSym))
+    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : isUS
@@ -1158,25 +1180,38 @@ export const usePortfolioStore = create<PortfolioState>()(
         }
 
         // Deteksi & kalibrasi otomatis anomali seed harga kripto (koin terbeli dengan harga fallback statis lama):
-        // 1. Kasus APT: terbeli di ~$8.5 padahal harga pasar Binance ~$0.72
-        // 2. Kasus RENDER: terbeli di ~$5.8 padahal harga pasar Binance ~$1.83
-        // 3. Kasus PEPE: terbeli di ~$0.000010 padahal harga pasar Binance ~$0.00000378
-        // 4. Kasus ARB: terbeli di ~$0.000600 padahal harga pasar Binance ~$0.1685
-        // 5. Aturan Umum Kripto: jika rasio avgPrice terhadap newPrice menyimpang > 2.2x atau < 0.2x
+        // 1. Kasus APT, RENDER, PEPE, ARB, TON, NEAR, TIA, FET, WIF yang terpaut jauh dari pasar live
+        // 2. Transaksi baru (< 48 jam) dengan disparitas harga beli vs live ticker > 5%
+        // 3. Batas umum: jika avgPrice > newPrice * 1.30 (langsung minus > 23%) atau < newPrice * 0.70
+        const isRecentlyBought = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 48 * 3600 * 1000) : false
+        const recentDisparity = isRecentlyBought && effectiveAvgPrice > 0 && Math.abs(effectiveAvgPrice - newPrice) / effectiveAvgPrice > 0.05
+
         const isSeedAnomaly =
           isCrypto &&
           newPrice > 0 &&
           (
-            (clean === 'APT' && effectiveAvgPrice >= 3.0 && newPrice < 2.0) ||
-            (clean === 'RENDER' && effectiveAvgPrice >= 3.5 && newPrice < 2.5) ||
+            recentDisparity ||
+            (clean === 'APT' && effectiveAvgPrice >= 2.0 && newPrice < 1.5) ||
+            (clean === 'RENDER' && effectiveAvgPrice >= 2.5 && newPrice < 2.2) ||
             (clean === 'PEPE' && effectiveAvgPrice >= 0.000006 && newPrice < 0.000005) ||
             (clean === 'ARB' && effectiveAvgPrice < 0.01 && newPrice > 0.08) ||
-            (effectiveAvgPrice > newPrice * 2.2) ||
-            (effectiveAvgPrice < newPrice * 0.2)
+            (clean === 'TON' && effectiveAvgPrice >= 4.0 && newPrice < 3.5) ||
+            (clean === 'NEAR' && effectiveAvgPrice >= 3.8 && newPrice < 3.0) ||
+            (clean === 'TIA' && effectiveAvgPrice >= 4.5 && newPrice < 3.8) ||
+            (clean === 'FET' && effectiveAvgPrice >= 0.9 && newPrice < 0.8) ||
+            (clean === 'WIF' && effectiveAvgPrice >= 2.0 && newPrice < 1.8) ||
+            (effectiveAvgPrice > newPrice * 1.30) ||
+            (effectiveAvgPrice < newPrice * 0.70)
           )
 
         if (isSeedAnomaly) {
+          const investedUSD = effectiveAvgPrice * effectiveUnits
           effectiveAvgPrice = newPrice
+          if (investedUSD > 0 && newPrice > 0) {
+            effectiveUnits = Number((investedUSD / newPrice).toFixed(effectiveUnits < 0.01 ? 8 : 4))
+            effectiveLots = effectiveUnits
+            effectiveShares = effectiveUnits
+          }
           wasHealed = true
         }
 

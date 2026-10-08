@@ -229,13 +229,13 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   // ── LAYER 1 / MAJOR CONSENSUS ──
   { rank: 1, symbol: 'BTCUSDT', name: 'Bitcoin', category: 'L1', price: 81118.00, change24h: 0.15, high24h: 82500.00, low24h: 80800.00, volume24h: '$42.4B', marketCap: '$1.60T' },
   { rank: 2, symbol: 'ETHUSDT', name: 'Ethereum', category: 'L1', price: 2450.00, change24h: 1.15, high24h: 2490.00, low24h: 2380.00, volume24h: '$18.2B', marketCap: '$294B' },
-  { rank: 3, symbol: 'SOLUSDT', name: 'Solana', category: 'L1', price: 108.32, change24h: -0.06, high24h: 112.50, low24h: 106.00, volume24h: '$5.12B', marketCap: '$52B' },
+  { rank: 3, symbol: 'SOLUSDT', name: 'Solana', category: 'L1', price: 152.50, change24h: 1.25, high24h: 156.00, low24h: 148.50, volume24h: '$5.12B', marketCap: '$72B' },
   { rank: 4, symbol: 'BNBUSDT', name: 'BNB Chain', category: 'L1', price: 585.00, change24h: 0.95, high24h: 592.00, low24h: 578.00, volume24h: '$1.25B', marketCap: '$85B' },
   { rank: 5, symbol: 'XRPUSDT', name: 'Ripple XRP', category: 'L1', price: 1.42, change24h: 1.20, high24h: 1.48, low24h: 1.38, volume24h: '$4.10B', marketCap: '$80B' },
   { rank: 6, symbol: 'SUIUSDT', name: 'Sui Network', category: 'L1', price: 1.85, change24h: 2.20, high24h: 1.95, low24h: 1.78, volume24h: '$890M', marketCap: '$5.4B' },
   { rank: 7, symbol: 'AVAXUSDT', name: 'Avalanche', category: 'L1', price: 26.50, change24h: 1.80, high24h: 27.40, low24h: 25.60, volume24h: '$450M', marketCap: '$10.8B' },
-  { rank: 8, symbol: 'TONUSDT', name: 'Toncoin (Telegram)', category: 'L1', price: 5.24, change24h: 1.85, high24h: 5.40, low24h: 5.10, volume24h: '$320M', marketCap: '$13.2B' },
-  { rank: 9, symbol: 'NEARUSDT', name: 'NEAR Protocol', category: 'L1', price: 4.67, change24h: -0.49, high24h: 4.85, low24h: 4.60, volume24h: '$410M', marketCap: '$5.6B' },
+  { rank: 8, symbol: 'TONUSDT', name: 'Toncoin (Telegram)', category: 'L1', price: 2.85, change24h: 1.85, high24h: 2.98, low24h: 2.75, volume24h: '$320M', marketCap: '$7.2B' },
+  { rank: 9, symbol: 'NEARUSDT', name: 'NEAR Protocol', category: 'L1', price: 2.45, change24h: 1.40, high24h: 2.58, low24h: 2.38, volume24h: '$410M', marketCap: '$3.1B' },
   { rank: 10, symbol: 'ADAUSDT', name: 'Cardano', category: 'L1', price: 0.35, change24h: 0.50, high24h: 0.365, low24h: 0.342, volume24h: '$350M', marketCap: '$12.5B' },
   { rank: 11, symbol: 'APTUSDT', name: 'Aptos', category: 'L1', price: 0.7161, change24h: 1.20, high24h: 0.745, low24h: 0.701, volume24h: '$180M', marketCap: '$1.2B' },
   { rank: 12, symbol: 'DOTUSDT', name: 'Polkadot', category: 'L1', price: 4.25, change24h: 0.85, high24h: 4.38, low24h: 4.15, volume24h: '$175M', marketCap: '$6.1B' },
@@ -256,7 +256,7 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   { rank: 25, symbol: 'POLUSDT', name: 'Polygon (POL/MATIC)', category: 'L2', price: 0.368, change24h: 1.80, high24h: 0.380, low24h: 0.355, volume24h: '$162M', marketCap: '$2.9B' },
   { rank: 26, symbol: 'IMXUSDT', name: 'Immutable X', category: 'L2', price: 1.485, change24h: 5.20, high24h: 1.55, low24h: 1.39, volume24h: '$75M', marketCap: '$2.4B' },
   { rank: 27, symbol: 'STRKUSDT', name: 'Starknet (ZK-Rollup)', category: 'L2', price: 0.395, change24h: 2.45, high24h: 0.415, low24h: 0.380, volume24h: '$65M', marketCap: '$820M' },
-  { rank: 28, symbol: 'TIAUSDT', name: 'Celestia (Modular DA)', category: 'L2', price: 5.85, change24h: 7.20, high24h: 6.20, low24h: 5.35, volume24h: '$210M', marketCap: '$1.3B' },
+  { rank: 28, symbol: 'TIAUSDT', name: 'Celestia (Modular DA)', category: 'L2', price: 2.95, change24h: 2.20, high24h: 3.15, low24h: 2.75, volume24h: '$210M', marketCap: '$1.3B' },
   { rank: 29, symbol: 'MANTAUSDT', name: 'Manta Network', category: 'L2', price: 0.725, change24h: 3.80, high24h: 0.760, low24h: 0.690, volume24h: '$45M', marketCap: '$275M' },
   { rank: 30, symbol: 'ZKUSDT', name: 'ZKsync Era', category: 'L2', price: 0.142, change24h: 4.10, high24h: 0.150, low24h: 0.136, volume24h: '$88M', marketCap: '$520M' },
 
@@ -279,7 +279,7 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   // ── AI & DEPIN (DECENTRALIZED PHYSICAL INFRASTRUCTURE) ──
   { rank: 45, symbol: 'TAOUSDT', name: 'Bittensor (Decentralized AI)', category: 'AI', price: 540.00, change24h: 2.80, high24h: 560.00, low24h: 518.00, volume24h: '$190M', marketCap: '$4.1B' },
   { rank: 46, symbol: 'RENDERUSDT', name: 'Render Network (GPU Compute)', category: 'AI', price: 1.828, change24h: 1.50, high24h: 1.92, low24h: 1.78, volume24h: '$240M', marketCap: '$2.4B' },
-  { rank: 47, symbol: 'FETUSDT', name: 'Artificial Superintelligence (ASI)', category: 'AI', price: 1.35, change24h: 2.20, high24h: 1.42, low24h: 1.28, volume24h: '$150M', marketCap: '$3.4B' },
+  { rank: 47, symbol: 'FETUSDT', name: 'Artificial Superintelligence (ASI)', category: 'AI', price: 0.62, change24h: 1.50, high24h: 0.68, low24h: 0.58, volume24h: '$150M', marketCap: '$1.8B' },
   { rank: 48, symbol: 'AKTUSDT', name: 'Akash Network (Cloud GPU)', category: 'AI', price: 2.95, change24h: 6.30, high24h: 3.15, low24h: 2.72, volume24h: '$48M', marketCap: '$720M' },
   { rank: 49, symbol: 'ARUSDT', name: 'Arweave Permanent Storage', category: 'AI', price: 18.20, change24h: 3.40, high24h: 19.10, low24h: 17.50, volume24h: '$78M', marketCap: '$1.2B' },
   { rank: 50, symbol: 'FILUSDT', name: 'Filecoin (Decentralized Storage)', category: 'AI', price: 3.85, change24h: 1.80, high24h: 4.02, low24h: 3.70, volume24h: '$110M', marketCap: '$2.3B' },
@@ -287,10 +287,10 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   { rank: 52, symbol: 'THETAUSDT', name: 'Theta Network (Video & AI)', category: 'AI', price: 1.42, change24h: 2.90, high24h: 1.48, low24h: 1.36, volume24h: '$45M', marketCap: '$1.4B' },
 
   // ── MEMECOINS & CULTURE ──
-  { rank: 53, symbol: 'DOGEUSDT', name: 'Dogecoin', category: 'MEME', price: 0.0827, change24h: -0.13, high24h: 0.086, low24h: 0.081, volume24h: '$1.5B', marketCap: '$12.1B' },
+  { rank: 53, symbol: 'DOGEUSDT', name: 'Dogecoin', category: 'MEME', price: 0.154, change24h: 1.20, high24h: 0.165, low24h: 0.145, volume24h: '$1.5B', marketCap: '$22.5B' },
   { rank: 54, symbol: 'SHIBUSDT', name: 'Shiba Inu', category: 'MEME', price: 0.000018, change24h: 1.20, high24h: 0.0000188, low24h: 0.0000174, volume24h: '$310M', marketCap: '$10.6B' },
   { rank: 55, symbol: 'PEPEUSDT', name: 'Pepe', category: 'MEME', price: 0.00000378, change24h: 1.80, high24h: 0.00000395, low24h: 0.00000365, volume24h: '$780M', marketCap: '$3.8B' },
-  { rank: 56, symbol: 'WIFUSDT', name: 'dogwifhat (Solana)', category: 'MEME', price: 2.65, change24h: 8.90, high24h: 2.82, low24h: 2.38, volume24h: '$555M', marketCap: '$2.6B' },
+  { rank: 56, symbol: 'WIFUSDT', name: 'dogwifhat (Solana)', category: 'MEME', price: 1.45, change24h: 2.40, high24h: 1.58, low24h: 1.35, volume24h: '$555M', marketCap: '$1.4B' },
   { rank: 57, symbol: 'BONKUSDT', name: 'Bonk (Solana)', category: 'MEME', price: 0.0000215, change24h: 4.10, high24h: 0.0000228, low24h: 0.0000201, volume24h: '$210M', marketCap: '$1.5B' },
   { rank: 58, symbol: 'FLOKIUSDT', name: 'Floki', category: 'MEME', price: 0.000148, change24h: 3.80, high24h: 0.000155, low24h: 0.000141, volume24h: '$180M', marketCap: '$1.4B' },
   { rank: 59, symbol: 'POPCATUSDT', name: 'Popcat (Solana)', category: 'MEME', price: 1.42, change24h: 9.40, high24h: 1.55, low24h: 1.28, volume24h: '$195M', marketCap: '$1.4B' },

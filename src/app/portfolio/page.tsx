@@ -46,6 +46,7 @@ function formatPrice(price: number) {
 /* ─── Order Form (Paper Trading Engine - Saham IDX, Saham US, & Crypto Spot) ─── */
 function OrderForm() {
   const { cash, placeBuyOrder, placeSellOrder } = usePortfolioStore();
+  const { tickerMap } = useBinanceLivePrices();
   const [assetClass, setAssetClass] = useState<'EQUITY' | 'CRYPTO' | 'US'>('EQUITY');
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
   const [symbol, setSymbol] = useState('');
@@ -56,7 +57,7 @@ function OrderForm() {
   const priceNum = parseFloat(price) || 0;
   const lotsNum = parseFloat(lots) || 0;
   const rawSym = symbol.trim().toUpperCase();
-  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(rawSym);
+  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || isCryptoSymbol(rawSym);
 
   const rate = 16000; // Kurs acuan USDT/USD to IDR
   const shareInfo = calculateShares(rawSym, lotsNum);
@@ -78,7 +79,8 @@ function OrderForm() {
   const handleSelectQuickCrypto = (coin: string, seedPrice: number) => {
     setAssetClass('CRYPTO');
     setSymbol(coin);
-    setPrice(seedPrice.toString());
+    const live = tickerMap[coin]?.price ?? tickerMap[`${coin}USDT`]?.price ?? seedPrice;
+    setPrice(live.toString());
   };
 
   const handleSelectQuickUS = (ticker: string, seedPrice: number) => {
@@ -105,10 +107,16 @@ function OrderForm() {
 
     if (orderType === 'BUY') {
       const cleanSym = rawSym.replace(/USDT$/i, '');
+      const liveMarketPrice = tickerMap[cleanSym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price;
+      // Gunakan harga live pasar jika harga form terpaut > 5% dari live Binance atau jika harga default
+      const finalPrice = (isCrypto && liveMarketPrice && liveMarketPrice > 0 && Math.abs(priceNum - liveMarketPrice) / liveMarketPrice > 0.05)
+        ? liveMarketPrice
+        : priceNum;
+
       const res = placeBuyOrder({
         symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
         displaySymbol: cleanSym,
-        price: priceNum,
+        price: finalPrice,
         lots: lotsNum,
         name: isCrypto ? `${cleanSym} (Crypto Spot)` : isUS ? `${cleanSym} (US Stock)` : rawSym,
         assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
@@ -302,39 +310,43 @@ function OrderForm() {
             {[
               { coin: 'BTC', price: 81118 },
               { coin: 'ETH', price: 2450 },
-              { coin: 'SOL', price: 108.32 },
+              { coin: 'SOL', price: 154.20 },
               { coin: 'BNB', price: 585 },
               { coin: 'XRP', price: 1.42 },
-              { coin: 'DOGE', price: 0.0827 },
+              { coin: 'DOGE', price: 0.154 },
               { coin: 'SUI', price: 1.85 },
-              { coin: 'NEAR', price: 4.67 },
+              { coin: 'NEAR', price: 2.45 },
               { coin: 'PEPE', price: 0.00000378 },
               { coin: 'SHIB', price: 0.000018 },
               { coin: 'RENDER', price: 1.828 },
               { coin: 'ARB', price: 0.1672 },
               { coin: 'APT', price: 0.7161 },
-              { coin: 'TON', price: 5.24 },
+              { coin: 'TON', price: 2.85 },
               { coin: 'KAS', price: 0.138 },
               { coin: 'TAO', price: 540 },
-              { coin: 'FET', price: 1.35 },
+              { coin: 'FET', price: 0.62 },
               { coin: 'LINK', price: 11.50 },
               { coin: 'AAVE', price: 154.20 },
               { coin: 'ONDO', price: 0.765 },
-              { coin: 'WIF', price: 2.65 },
-            ].map((c) => (
-              <button
-                key={c.coin}
-                type="button"
-                onClick={() => handleSelectQuickCrypto(c.coin, c.price)}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                  symbol === c.coin
-                    ? 'bg-cyan-400 text-black'
-                    : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
-                }`}
-              >
-                {c.coin} (${c.price})
-              </button>
-            ))}
+              { coin: 'WIF', price: 1.45 },
+            ].map((c) => {
+              const live = tickerMap[c.coin]?.price ?? tickerMap[`${c.coin}USDT`]?.price ?? c.price;
+              const displayVal = live < 0.01 ? live.toFixed(8) : live < 1 ? live.toFixed(4) : live.toLocaleString();
+              return (
+                <button
+                  key={c.coin}
+                  type="button"
+                  onClick={() => handleSelectQuickCrypto(c.coin, live)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                    symbol === c.coin
+                      ? 'bg-cyan-400 text-black'
+                      : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
+                  }`}
+                >
+                  {c.coin} (${displayVal})
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -660,13 +672,22 @@ export default function PortfolioPage() {
           cryptoMap[clean] = item.price;
           cryptoMap[`${clean}USDT`] = item.price;
 
+          const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false;
+          const recentDisparity = isRecentlyBought && h.avgPrice > 0 && Math.abs(h.avgPrice - item.price) / h.avgPrice > 0.05;
+
           if (
-            (clean === 'APT' && h.avgPrice >= 3.0) ||
-            (clean === 'RENDER' && h.avgPrice >= 3.5) ||
-            (clean === 'PEPE' && h.avgPrice >= 0.000006) ||
-            (clean === 'ARB' && h.avgPrice < 0.01) ||
-            (h.avgPrice > item.price * 2.2) ||
-            (h.avgPrice < item.price * 0.2) ||
+            recentDisparity ||
+            (clean === 'APT' && h.avgPrice >= 2.0 && item.price < 1.5) ||
+            (clean === 'RENDER' && h.avgPrice >= 2.5 && item.price < 2.2) ||
+            (clean === 'PEPE' && h.avgPrice >= 0.000006 && item.price < 0.000005) ||
+            (clean === 'ARB' && h.avgPrice < 0.01 && item.price > 0.08) ||
+            (clean === 'TON' && h.avgPrice >= 4.0 && item.price < 3.5) ||
+            (clean === 'NEAR' && h.avgPrice >= 3.8 && item.price < 3.0) ||
+            (clean === 'TIA' && h.avgPrice >= 4.5 && item.price < 3.8) ||
+            (clean === 'FET' && h.avgPrice >= 0.9 && item.price < 0.8) ||
+            (clean === 'WIF' && h.avgPrice >= 2.0 && item.price < 1.8) ||
+            (h.avgPrice > item.price * 1.30) ||
+            (h.avgPrice < item.price * 0.70) ||
             (h.takeProfitPrice && h.takeProfitPrice > item.price * 2.5) ||
             (Math.abs(item.price - h.currentPrice) > 0.000000001)
           ) {
