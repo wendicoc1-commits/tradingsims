@@ -32,7 +32,8 @@ import PortfolioNewsFeed from '@/components/portfolio/PortfolioNewsFeed';
 import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTestModal';
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
-import TopUpModal from '@/components/portfolio/TopUpModal';
+import AuthModal from '@/components/auth/AuthModal';
+import CompanyLogo from '@/components/common/CompanyLogo';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
@@ -439,7 +440,6 @@ export default function PortfolioPage() {
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
   const [useDRIP, setUseDRIP] = useState(false);
   const [isStressTestOpen, setIsStressTestOpen] = useState(false);
-  const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -1384,11 +1384,6 @@ export default function PortfolioPage() {
         onClose={() => setIsStressTestOpen(false)}
       />
 
-      {/* Top Up Saldo Kas RDN Modal (QRIS) */}
-      <TopUpModal
-        isOpen={isTopUpModalOpen}
-        onClose={() => setIsTopUpModalOpen(false)}
-      />
 
       {/* Member Authentication Modal (Email, Apple, Facebook, Google) */}
       <AuthModal
