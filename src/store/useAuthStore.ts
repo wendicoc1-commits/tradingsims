@@ -294,16 +294,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginAsGuest: (guestName = 'Tamu Demo') => {
-        // Reset portofolio saat masuk mode tamu
-        usePortfolioStore.setState({
-          cash: 100_000_000,
-          realizedPL: 0,
-          holdings: [],
-          orders: [],
-          conditionalOrders: [],
-          dividends: [],
-          lastUpdated: Date.now(),
-        });
+        const currentPort = usePortfolioStore.getState();
+        const hasExistingAssets = currentPort.holdings.length > 0 || (currentPort.cash > 0 && currentPort.cash !== 100_000_000) || currentPort.orders.length > 0;
+
+        // Hanya beri modal awal 100 Juta jika browser benar-benar belum memiliki portofolio/transaksi sama sekali
+        if (!hasExistingAssets && (currentPort.cash <= 0 || currentPort.holdings.length === 0)) {
+          usePortfolioStore.setState({
+            cash: 100_000_000,
+            realizedPL: 0,
+            holdings: [],
+            orders: [],
+            conditionalOrders: [],
+            dividends: [],
+            lastUpdated: Date.now(),
+          });
+        }
         const guestUser: AppUser = {
           id: `guest-${Date.now()}`,
           email: 'demo@tradingsims.my.id',
