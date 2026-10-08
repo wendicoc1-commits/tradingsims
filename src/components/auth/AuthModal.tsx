@@ -37,12 +37,14 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMsg(null);
+    setLocalError(null);
 
     if (mode === 'login') {
       const res = await loginWithEmail(email, password);
@@ -51,6 +53,8 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
         setTimeout(() => {
           onClose();
         }, 1200);
+      } else {
+        setLocalError(res.error || 'Login gagal, periksa email dan password Anda.');
       }
     } else {
       const res = await registerWithEmail(email, password, fullName);
@@ -59,6 +63,8 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
         setTimeout(() => {
           onClose();
         }, 1500);
+      } else {
+        setLocalError(res.error || 'Pendaftaran gagal. Silakan coba lagi.');
       }
     }
   };
@@ -114,10 +120,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
             </div>
           )}
 
-          {authError && (
+          {(authError || localError) && (
             <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{authError}</span>
+              <span>{localError || authError}</span>
             </div>
           )}
 

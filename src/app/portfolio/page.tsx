@@ -434,7 +434,7 @@ export default function PortfolioPage() {
     resetToDefaultDemo,
     updateHoldingPrices,
   } = usePortfolioStore();
-  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase } = useAuthStore();
+  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'analytics' | 'orders' | 'news'>('holdings');
   const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
@@ -447,7 +447,7 @@ export default function PortfolioPage() {
 
   // Sync to database if user is logged in
   const handleCloudSync = async () => {
-    if (!user) {
+    if (!user || user.provider === 'guest') {
       setIsAuthOpen(true);
       return;
     }
@@ -465,7 +465,7 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     setMounted(true);
-    if (user && isConfigured) {
+    if (user && user.provider !== 'guest' && isConfigured) {
       loadPortfolioFromDatabase();
     }
 
@@ -754,20 +754,39 @@ export default function PortfolioPage() {
               {syncStatus}
             </span>
           )}
-          {user ? (
-            <button
-              onClick={handleCloudSync}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
-              title="Klik untuk menyinkronkan saldo kas & portofolio ke Cloud Database Supabase"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>Cloud: {user.fullName || user.email}</span>
-              <span className="text-[10px] opacity-75">💾 Sync</span>
-            </button>
+          {user && user.provider !== 'guest' ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleCloudSync}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                title="Klik untuk menyinkronkan saldo kas & portofolio ke Cloud Database Supabase"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>Cloud: {user.fullName || user.email}</span>
+                <span className="text-[10px] opacity-75">💾 Sync</span>
+              </button>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-2 py-1 rounded text-[11px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors cursor-pointer"
+                title="Ganti akun atau login akun lain"
+              >
+                Ganti Akun
+              </button>
+              <button
+                onClick={async () => {
+                  await logout();
+                  setIsAuthOpen(true);
+                }}
+                className="px-2 py-1 rounded text-[11px] font-semibold text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Logout dari akun ini"
+              >
+                Keluar
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => setIsAuthOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b]/15 border border-[#f59e0b]/50 text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b]/15 border border-[#f59e0b]/50 text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-colors cursor-pointer shadow-sm"
               title="Masuk / Daftar Akun Member untuk menyimpan portofolio Anda secara permanen"
             >
               <span>👤</span>
