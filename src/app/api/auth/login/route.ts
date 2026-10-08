@@ -15,23 +15,29 @@ export async function POST(req: NextRequest) {
 
     const normEmail = email.trim().toLowerCase();
     const existing = getUserByEmail(normEmail);
+    let authUser: any = null;
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Akun dengan email ini belum terdaftar. Silakan pilih tab "Daftar Akun Baru" terlebih dahulu.' },
-        { status: 404 }
-      );
+      const existingPortfolio = getUserPortfolio({ email: normEmail });
+      if (existingPortfolio) {
+        // Portofolio dari sinkronisasi perangkat sudah ada, daftarkan akun sekarang dengan password yang diinput
+        authUser = registerOrUpdateUser(normEmail, password, normEmail.split('@')[0]);
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Akun dengan email ini belum terdaftar. Silakan pilih tab "Daftar Akun Baru" terlebih dahulu.' },
+          { status: 404 }
+        );
+      }
+    } else {
+      const verify = verifyUserPassword(normEmail, password);
+      if (!verify.valid || !verify.user) {
+        return NextResponse.json(
+          { success: false, error: 'Password yang Anda masukkan salah. Silakan coba lagi.' },
+          { status: 401 }
+        );
+      }
+      authUser = verify.user;
     }
-
-    const verify = verifyUserPassword(normEmail, password);
-    if (!verify.valid || !verify.user) {
-      return NextResponse.json(
-        { success: false, error: 'Password yang Anda masukkan salah. Silakan coba lagi.' },
-        { status: 401 }
-      );
-    }
-
-    authUser = verify.user;
 
     // Ambil portofolio tersimpan di server
     const portfolio = getUserPortfolio({ userId: authUser?.id, email: normEmail });

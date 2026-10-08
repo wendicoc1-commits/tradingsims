@@ -303,6 +303,7 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
+        // Jika user di device belum login tapi ada data lokal, jangan lakukan apa-apa
         if (!isSupabaseConfigured) return;
 
         try {

@@ -23,6 +23,8 @@ import {
   Shield,
   Check,
   X,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
@@ -68,6 +70,8 @@ export default function InstitutionalPortfolioDesk() {
   const { cash, holdings } = usePortfolioStore();
   const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'FIXED' | 'CRYPTO'>('ALL');
   const { tickerMap } = useBinanceLivePrices();
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
 
   // State Modal Pengaturan TP & SL Manual Pengguna
   const [editingRiskHolding, setEditingRiskHolding] = useState<any | null>(null);
@@ -272,6 +276,34 @@ export default function InstitutionalPortfolioDesk() {
         </div>
 
         <div className="flex items-center gap-2">
+          {syncStatusMsg && (
+            <span className="text-[10px] text-emerald-400 font-mono animate-in fade-in">
+              {syncStatusMsg}
+            </span>
+          )}
+          <button
+            onClick={async () => {
+              setIsSyncingCloud(true);
+              setSyncStatusMsg('Menyinkronkan ke Cloud...');
+              try {
+                const { useAuthStore } = await import('@/store/useAuthStore');
+                await useAuthStore.getState().syncPortfolioToDatabase();
+                await useAuthStore.getState().loadPortfolioFromDatabase();
+                setSyncStatusMsg('✓ Portofolio Tersinkron');
+                setTimeout(() => setSyncStatusMsg(null), 3000);
+              } catch (err) {
+                setSyncStatusMsg('Gagal sync');
+              } finally {
+                setIsSyncingCloud(false);
+              }
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] hover:text-white border border-[#27272a] rounded text-[11px] transition-colors cursor-pointer"
+            title="Kirim & Sinkronkan Portofolio ke Server Cloud Lintas Perangkat"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+            <span>SYNC CLOUD</span>
+          </button>
+
           <button
             onClick={handlePrintReport}
             className="flex items-center gap-1.5 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] hover:text-white border border-[#27272a] rounded text-[11px] transition-colors cursor-pointer"

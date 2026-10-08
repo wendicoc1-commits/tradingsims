@@ -22,6 +22,8 @@ import {
   User,
   LogOut,
   Wallet,
+  RefreshCw,
+  Cloud,
 } from 'lucide-react';
 import { useMarketStore, usePortfolioStore } from '@/store';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
@@ -78,6 +80,7 @@ export default function TradeSimHeader() {
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -317,21 +320,49 @@ export default function TradeSimHeader() {
             </button>
 
             {user ? (
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
-                title={`Keluar (${user.email})`}
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsManualSyncing(true);
+                    try {
+                      await useAuthStore.getState().syncPortfolioToDatabase();
+                      await useAuthStore.getState().loadPortfolioFromDatabase();
+                    } finally {
+                      setTimeout(() => setIsManualSyncing(false), 600);
+                    }
+                  }}
+                  className={`p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors ${
+                    isManualSyncing ? 'animate-spin text-emerald-400' : ''
+                  }`}
+                  title="Sinkronkan Portofolio ke Cloud Sekarang (Lintas Perangkat)"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <div
+                  className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 font-mono"
+                  title={`Akun Member: ${user.email}`}
+                >
+                  <Cloud className="w-3 h-3 text-emerald-400" />
+                  <span className="max-w-[110px] truncate">{user.email.split('@')[0]}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
+                  title={`Keluar (${user.email})`}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-bold transition-colors"
+                className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
               >
-                Masuk
+                <User className="w-3 h-3" />
+                <span>Masuk</span>
               </button>
             )}
           </div>

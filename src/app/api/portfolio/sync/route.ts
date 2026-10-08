@@ -32,6 +32,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Email atau userId wajib diisi' }, { status: 400 });
     }
 
+    if (email) {
+      const { getUserByEmail, registerOrUpdateUser } = await import('@/lib/server/portfolioStorage');
+      const existing = getUserByEmail(email);
+      if (!existing) {
+        registerOrUpdateUser(email, undefined, email.split('@')[0]);
+      }
+    }
+
     const saved = saveUserPortfolio(
       { email, userId },
       {
