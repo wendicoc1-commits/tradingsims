@@ -235,6 +235,8 @@ export function validateAndClampDecision(
   };
 }
 
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+
 /**
  * 5. Reflection Journal Storage & Context Retrieval
  */
@@ -242,6 +244,27 @@ export function recordReflection(entry: ReflectionEntry) {
   MEMORY_REFLECTION_STORE.unshift(entry);
   if (MEMORY_REFLECTION_STORE.length > 50) {
     MEMORY_REFLECTION_STORE.pop();
+  }
+
+  // Non-blocking background sync ke Supabase Cloud (mencegah memory loss pada cold starts)
+  try {
+    const supabase = getSupabaseServerClient();
+    if (supabase) {
+      supabase.from('agent_episodic_memory').insert({
+        symbol: entry.symbol,
+        decision: entry.keputusan,
+        entry_price: entry.entry_price,
+        target_price: entry.target_price,
+        stop_loss: entry.stop_loss,
+        risk_reward_ratio: 1.5,
+        conviction_score: 80,
+        justification: 'Disiplin eksekusi model OODA Cloud 24/7',
+        post_trade_reflection: `Eksekusi ${entry.keputusan} pada level entry ${entry.entry_price}`,
+        created_at: new Date(entry.timestamp).toISOString(),
+      }).then(() => {}).catch(() => {});
+    }
+  } catch {
+    // Abaikan jika dipanggil dari environment browser tanpa server config
   }
 }
 

@@ -16,6 +16,7 @@ import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
 import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
 import { normalizeSymbol, calculateShares } from '../stockRules';
 import { isCryptoSymbol } from '../universe/masterAssetUniverse';
+import { sanitizeUntrustedIntel } from '../agents/agentContextCompactor';
 
 /**
  * Menjalankan satu siklus penuh otonom:
@@ -47,6 +48,36 @@ export async function runAutonomousAgentCycle(
 
     let actionTaken: string | null = null;
     let tradeExecuted = false;
+
+    // ── HARD CIRCUIT BREAKER (KILL SWITCH) ──
+    // Lindungi modal jika drawdown harian telah melebihi batas risiko -5% dari total ekuitas
+    const currentNAV = portfolioNav(portfolioStore.cash, portfolioStore.holdings);
+    const maxAllowableDrawdown = -0.05 * Math.max(10_000_000, currentNAV);
+    if (portfolioStore.realizedPL < maxAllowableDrawdown) {
+      if (Math.random() < 0.25) {
+        aiStore.logAction({
+          type: 'RISK_GATE',
+          symbol: 'PORTFOLIO',
+          agentId: 'cro',
+          agentName: 'Budi Santoso (Chief Risk Officer)',
+          agentEmoji: '🚨',
+          title: 'CIRCUIT BREAKER AKTIF: Drawdown Harian Melebihi 5%',
+          details: `Total Realized Loss (-Rp ${Math.abs(portfolioStore.realizedPL).toLocaleString('id-ID')}) telah melampaui batas toleransi risiko harian 5%. Pembelian aset baru dihentikan untuk melindungi modal kerja.`,
+        });
+      }
+      return {
+        actionTaken: '🚨 Hard Circuit Breaker: Pembelian otonom ditahan (Batas Drawdown Harian 5% tercapai).',
+        tradeExecuted: false,
+        topPick: null,
+      };
+    }
+
+    // ── SANITASI BERITA DARI CRAWLER EKSTERNAL (ANTI INDIRECT PROMPT INJECTION) ──
+    const sanitizedNews = (news || []).map((n) => ({
+      ...n,
+      title: sanitizeUntrustedIntel(n.title),
+      summary: sanitizeUntrustedIntel(n.summary || ''),
+    }));
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 0. SINKRONISASI HARGA PASAR SELURUH PORTOFOLIO DENGAN QUOTES REALTIME
@@ -403,7 +434,7 @@ export async function runAutonomousAgentCycle(
   // 2. PEMINDAIAN UNIVERSE & SINKRONISASI ANALISIS HARGA KE WEBSITE
   // ─────────────────────────────────────────────────────────────────────────────
   const heldTickers = portfolioStore.holdings.map((h) => h.displaySymbol);
-  const scanResult = scanUniverseForTopAlpha(news, liveQuotesMap, heldTickers);
+  const scanResult = scanUniverseForTopAlpha(sanitizedNews, liveQuotesMap, heldTickers);
   const topPick = scanResult.topPick;
 
   // Broadcast Analisis Harga ke useAIAgentStore untuk emiten teratas

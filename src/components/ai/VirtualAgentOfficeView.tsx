@@ -1646,7 +1646,7 @@ export default function VirtualAgentOfficeView() {
     return () => ro.disconnect();
   }, [mounted]);
 
-  // ── game loop ──
+  // ── game loop with visibility state throttling ──
   useEffect(() => {
     const canvas = canvasRef.current;
     const mini = miniRef.current;
@@ -1658,7 +1658,22 @@ export default function VirtualAgentOfficeView() {
     const MW = 220;
     const MH = Math.round((220 * WORLD_H) / WORLD_W);
 
+    let isVisible = typeof document !== 'undefined' ? !document.hidden : true;
+    const onVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible && simRef.current) {
+        simRef.current.time = performance.now() / 1000;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     const loop = (t: number) => {
+      // Throttle jika tab sedang di latar belakang / minimize untuk menghemat CPU & GPU
+      if (!isVisible) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+
       const sim = simRef.current!;
       const now = t / 1000;
       const dt = sim.time ? Math.min(0.05, now - sim.time) : 0.016;
@@ -1683,7 +1698,10 @@ export default function VirtualAgentOfficeView() {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [mounted]);
 
   // ── interaksi pointer ──

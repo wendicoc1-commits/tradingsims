@@ -95,12 +95,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Proteksi Integritas Aset & Anti-Tamper:
+    // 1. Lindungi user terproteksi (wendicoc1@gmail.com) agar posisinya tidak ter-wipe secara tidak sengaja
+    const isProtectedAccount = email === 'wendicoc1@gmail.com';
+    let finalHoldings = sanitizedHoldings;
+    if (isProtectedAccount && currentPortfolio?.holdings?.length && sanitizedHoldings.length === 0) {
+      finalHoldings = currentPortfolio.holdings;
+    }
+
+    // 2. Proteksi Saldo Arbitrer:
+    // Jika ada portofolio eksisting dan selisih cash melompat naik drastis (> Rp 1 Miliar) tanpa adanya order jual baru,
+    // tolak kenaikan saldo liar untuk menjaga integritas kompetisi & simulasi pasar
+    let finalCash = sanitizedCash;
+    if (currentPortfolio && typeof currentPortfolio.cash === 'number') {
+      const cashDelta = sanitizedCash - currentPortfolio.cash;
+      if (cashDelta > 1_000_000_000 && sanitizedOrders.length === (currentPortfolio.orders?.length || 0)) {
+        finalCash = currentPortfolio.cash; // Pertahankan saldo sah
+      }
+    }
+
     const saved = saveUserPortfolio(
       { email, userId },
       {
-        cash: sanitizedCash,
+        cash: finalCash,
         realizedPL: sanitizedRealizedPL,
-        holdings: sanitizedHoldings,
+        holdings: finalHoldings,
         orders: sanitizedOrders,
         conditionalOrders: sanitizedConditional,
         dividends: sanitizedDividends,
