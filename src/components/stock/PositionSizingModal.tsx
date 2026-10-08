@@ -12,7 +12,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
-import { getIDXTickSize } from '@/lib/stockRules';
+import { getIDXTickSize, calculateShares, getForeignTick } from '@/lib/stockRules';
 import type { StockQuote } from '@/types';
 
 interface PositionSizingModalProps {
@@ -35,36 +35,61 @@ export default function PositionSizingModal({
 }: PositionSizingModalProps) {
   const { cash } = usePortfolioStore();
 
-  const currentPrice = quote.price || 1000;
-  const tick = getIDXTickSize(currentPrice);
+  const cleanSymbol = quote.symbol.replace('.JK', '').toUpperCase();
+  const shareInfo = calculateShares(cleanSymbol, 1);
+  const isForeign = shareInfo.isCrypto || shareInfo.isUS;
+  const currencySymbol = isForeign ? '$' : 'Rp ';
+  const minPrice = isForeign ? 0.000001 : 50;
+
+  const currentPrice = quote.price || (isForeign ? 1 : 1000);
+  const tick = isForeign ? getForeignTick(currentPrice) : getIDXTickSize(currentPrice);
 
   const [totalCapital, setTotalCapital] = useState<number>(cash > 0 ? cash : 100_000_000);
   const [riskPercent, setRiskPercent] = useState<number>(2); // 2% standard institutional rule
   const [entryPrice, setEntryPrice] = useState<number>(currentPrice);
-  const [slPrice, setSlPrice] = useState<number>(Math.max(50, Math.round(currentPrice * 0.95)));
-  const [tpPrice, setTpPrice] = useState<number>(Math.round(currentPrice * 1.12));
+  const [slPrice, setSlPrice] = useState<number>(
+    isForeign
+      ? Number((currentPrice * 0.95).toFixed(currentPrice < 1 ? 6 : 4))
+      : Math.max(50, Math.round(currentPrice * 0.95))
+  );
+  const [tpPrice, setTpPrice] = useState<number>(
+    isForeign
+      ? Number((currentPrice * 1.12).toFixed(currentPrice < 1 ? 6 : 4))
+      : Math.round(currentPrice * 1.12)
+  );
 
   // Calculation
   const calculation = useMemo(() => {
     const maxRupiahRisk = (totalCapital * riskPercent) / 100;
-    const riskPerShare = Math.max(1, entryPrice - slPrice);
-    const rewardPerShare = Math.max(0, tpPrice - entryPrice);
+    const rate = isForeign ? shareInfo.exchangeRate : 1;
+    const multiplier = isForeign ? 1 : 100;
 
-    // Lots calculation: each lot is 100 shares
-    let maxSafeLots = Math.floor(maxRupiahRisk / (riskPerShare * 100));
-    const capitalRequired = maxSafeLots * 100 * entryPrice;
+    const riskPerUnit = Math.max(0.000001, entryPrice - slPrice);
+    const rewardPerUnit = Math.max(0, tpPrice - entryPrice);
+
+    const riskPerUnitIDR = riskPerUnit * multiplier * rate;
+    const costPerUnitIDR = entryPrice * multiplier * rate;
+
+    let maxSafeLots = costPerUnitIDR > 0
+      ? (isForeign && shareInfo.isCrypto
+          ? Number((maxRupiahRisk / (riskPerUnitIDR || 1)).toFixed(4))
+          : Math.floor(maxRupiahRisk / (riskPerUnitIDR || 1)))
+      : 1;
 
     // Cap by available capital
-    if (capitalRequired > totalCapital) {
-      maxSafeLots = Math.floor(totalCapital / (entryPrice * 100));
+    const capitalRequired = maxSafeLots * costPerUnitIDR;
+    if (capitalRequired > totalCapital && costPerUnitIDR > 0) {
+      maxSafeLots = isForeign && shareInfo.isCrypto
+        ? Number((totalCapital / costPerUnitIDR).toFixed(4))
+        : Math.floor(totalCapital / costPerUnitIDR);
     }
-    maxSafeLots = Math.max(1, maxSafeLots);
+    maxSafeLots = Math.max(isForeign && shareInfo.isCrypto ? 0.001 : 1, maxSafeLots);
 
-    const actualCapitalRequired = maxSafeLots * 100 * entryPrice;
-    const actualRupiahRisk = maxSafeLots * 100 * riskPerShare;
-    const actualRupiahReward = maxSafeLots * 100 * rewardPerShare;
+    const actualCapitalRequired = Math.round(maxSafeLots * costPerUnitIDR);
+    const actualRupiahRisk = Math.round(maxSafeLots * riskPerUnitIDR);
+    const actualRupiahReward = Math.round(maxSafeLots * rewardPerUnit * multiplier * rate);
 
-    const rrRatio = riskPerShare > 0 ? Number((rewardPerShare / riskPerShare).toFixed(2)) : 0;
+    const rrRatio = riskPerUnit > 0 ? Number((rewardPerUnit / riskPerUnit).toFixed(2)) : 0;
 
     let rrStatus = 'R:R Kurang Ideal (< 1:1.5)';
     let rrColor = 'var(--negative)';
@@ -82,8 +107,9 @@ export default function PositionSizingModal({
 
     return {
       maxRupiahRisk,
-      riskPerShare,
-      rewardPerShare,
+      riskPerUnit,
+      riskPerUnitIDR,
+      rewardPerUnit,
       maxSafeLots,
       actualCapitalRequired,
       actualRupiahRisk,
@@ -93,7 +119,7 @@ export default function PositionSizingModal({
       rrColor,
       rrBg,
     };
-  }, [totalCapital, riskPercent, entryPrice, slPrice, tpPrice]);
+  }, [totalCapital, riskPercent, entryPrice, slPrice, tpPrice, isForeign, shareInfo]);
 
   if (!isOpen) return null;
 
@@ -174,11 +200,12 @@ export default function PositionSizingModal({
           <div className="p-3 rounded-xl border bg-neutral-950/60 space-y-3" style={{ borderColor: 'var(--border)' }}>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-[10px] text-neutral-400 block mb-1">Entry Price (Beli)</label>
+                <label className="text-[10px] text-neutral-400 block mb-1">Entry Price ({isForeign ? 'USD' : 'IDR'})</label>
                 <input
                   type="number"
+                  step={isForeign ? (currentPrice < 1 ? '0.0001' : '0.01') : '1'}
                   value={entryPrice}
-                  onChange={(e) => setEntryPrice(Math.max(50, Number(e.target.value)))}
+                  onChange={(e) => setEntryPrice(Math.max(minPrice, Number(e.target.value)))}
                   className="w-full bg-neutral-900 border border-neutral-700 rounded px-2.5 py-1 text-xs text-white font-mono outline-none focus:border-sky-400"
                 />
               </div>
@@ -186,8 +213,9 @@ export default function PositionSizingModal({
                 <label className="text-[10px] text-rose-400 block mb-1">Stop Loss (SL)</label>
                 <input
                   type="number"
+                  step={isForeign ? (currentPrice < 1 ? '0.0001' : '0.01') : '1'}
                   value={slPrice}
-                  onChange={(e) => setSlPrice(Math.max(50, Number(e.target.value)))}
+                  onChange={(e) => setSlPrice(Math.max(minPrice, Number(e.target.value)))}
                   className="w-full bg-neutral-900 border border-rose-500/50 rounded px-2.5 py-1 text-xs text-rose-300 font-mono outline-none focus:border-rose-400"
                 />
               </div>
@@ -195,6 +223,7 @@ export default function PositionSizingModal({
                 <label className="text-[10px] text-emerald-400 block mb-1">Take Profit (TP)</label>
                 <input
                   type="number"
+                  step={isForeign ? (currentPrice < 1 ? '0.0001' : '0.01') : '1'}
                   value={tpPrice}
                   onChange={(e) => setTpPrice(Math.max(entryPrice, Number(e.target.value)))}
                   className="w-full bg-neutral-900 border border-emerald-500/50 rounded px-2.5 py-1 text-xs text-emerald-300 font-mono outline-none focus:border-emerald-400"
@@ -203,8 +232,10 @@ export default function PositionSizingModal({
             </div>
 
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-800">
-              <span className="text-neutral-400">Toleransi Resiko per Lembar:</span>
-              <span className="text-rose-400 font-bold">-Rp {calculation.riskPerShare.toLocaleString('id-ID')} (-{((calculation.riskPerShare / entryPrice) * 100).toFixed(1)}%)</span>
+              <span className="text-neutral-400">Toleransi Resiko per {isForeign ? (shareInfo.isCrypto ? 'Koin' : 'Lembar') : 'Lembar'}:</span>
+              <span className="text-rose-400 font-bold">
+                -{currencySymbol}{calculation.riskPerUnit.toLocaleString('id-ID')} (-{((calculation.riskPerUnit / (entryPrice || 1)) * 100).toFixed(1)}%)
+              </span>
             </div>
           </div>
 
@@ -213,7 +244,7 @@ export default function PositionSizingModal({
             <div className="flex items-center justify-between">
               <span className="text-neutral-400">Rekomendasi Alokasi Aman:</span>
               <span className="text-base font-bold text-amber-400 font-mono">
-                {calculation.maxSafeLots} Lot ({(calculation.maxSafeLots * 100).toLocaleString('id-ID')} lbr)
+                {calculation.maxSafeLots} {isForeign ? (shareInfo.isCrypto ? 'Koin Unit' : 'Shares') : `Lot (${(calculation.maxSafeLots * 100).toLocaleString('id-ID')} lbr)`}
               </span>
             </div>
 

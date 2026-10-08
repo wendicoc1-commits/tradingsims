@@ -117,7 +117,12 @@ export function portfolioNav(p: PortfolioSnapshot): number {
   const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const hv = p.holdings.reduce((sum, h: any) => {
     const sym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-    const isCrypto = h.assetClass === 'CRYPTO' || h.displaySymbol?.toUpperCase().endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX'].includes(sym);
+    const isCrypto =
+      h.assetClass === 'CRYPTO' ||
+      h.currency === 'USDT' ||
+      h.displaySymbol?.toUpperCase().endsWith('USDT') ||
+      h.symbol?.toUpperCase().endsWith('USDT') ||
+      ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(sym);
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US.includes(sym));
     const rate = h.exchangeRate || 16000;
     if (isCrypto) {

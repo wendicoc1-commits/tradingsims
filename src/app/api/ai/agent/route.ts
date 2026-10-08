@@ -127,17 +127,26 @@ Berikan output dalam JSON format sesuai instruksi sistem.
   }
 
   // Algorithmic Fallback jika semua API Groq offline
+  const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(cleanTicker) || ticker.toUpperCase().endsWith('USDT');
+  const isUS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META'].includes(cleanTicker);
+  const isForeign = isCrypto || isUS;
+
   const isUp = bench.changePct > 0.5;
-  const tick = bench.price > 5000 ? 25 : bench.price > 2000 ? 10 : 5;
-  const roundTick = (v: number) => Math.round(v / tick) * tick;
+  const roundPrice = (v: number) => {
+    if (isForeign) return Number(v.toFixed(v < 1 ? 6 : 2));
+    const tick = bench.price > 5000 ? 25 : bench.price > 2000 ? 10 : bench.price > 500 ? 5 : bench.price > 200 ? 2 : 1;
+    return Math.round(v / tick) * tick;
+  };
+
+  const priceLabel = isForeign ? `$${bench.price}` : `Rp ${bench.price.toLocaleString('id-ID')}`;
 
   return {
     decision: {
-      analisis_teknikal: `Analisis Kuantitatif Algoritmik 24/7: ${cleanTicker} diperdagangkan di Rp ${bench.price.toLocaleString('id-ID')} (${bench.changePct > 0 ? '+' : ''}${bench.changePct}%). Order block demand terdeteksi di area konsolidasi.`,
+      analisis_teknikal: `Analisis Kuantitatif Algoritmik 24/7: ${cleanTicker} diperdagangkan di ${priceLabel} (${bench.changePct > 0 ? '+' : ''}${bench.changePct}%). Order block demand terdeteksi di area konsolidasi.`,
       korelasi_memori: 'Mempertahankan rasio risk-to-reward sehat 1:2 dan mitigasi risiko volatilitas.',
       keputusan: isUp ? 'BUY' : 'HOLD',
-      target_price: isUp ? roundTick(bench.price * 1.04) : roundTick(bench.price * 1.02),
-      stop_loss: roundTick(bench.price * 0.97),
+      target_price: isUp ? roundPrice(bench.price * 1.04) : roundPrice(bench.price * 1.02),
+      stop_loss: roundPrice(bench.price * 0.97),
       alasan_eksekusi: isUp
         ? 'Momentum harga mengonfirmasi breakout di atas moving average.'
         : 'Pasar konsolidasi sideways; menunggu konfirmasi volume institusional.',
@@ -149,7 +158,12 @@ Berikan output dalam JSON format sesuai instruksi sistem.
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
     const action = req.nextUrl.searchParams.get('action') || 'analyze';
     const ticker = body.ticker || 'BBCA';
 

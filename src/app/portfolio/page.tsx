@@ -53,7 +53,7 @@ function OrderForm() {
   const priceNum = parseFloat(price) || 0;
   const lotsNum = parseFloat(lots) || 0;
   const rawSym = symbol.trim().toUpperCase();
-  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'PEPE'].includes(rawSym);
+  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(rawSym);
 
   const rate = 16000; // Kurs acuan USDT/USD to IDR
   const shareInfo = calculateShares(rawSym, lotsNum);
@@ -471,7 +471,11 @@ export default function PortfolioPage() {
       if (holdings.length === 0) return;
       try {
         const symbols = holdings.map((h) => {
-          const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(h.displaySymbol.toUpperCase());
+          const isCrypto =
+            h.assetClass === 'CRYPTO' ||
+            h.currency === 'USDT' ||
+            h.symbol.endsWith('USDT') ||
+            ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(h.displaySymbol.toUpperCase());
           if (isCrypto) return h.symbol;
           return h.symbol.includes('.') ? h.symbol : `${h.displaySymbol}.JK`;
         });
