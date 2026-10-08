@@ -27,10 +27,6 @@ export default function GlobalAutonomousAgentRunner() {
     // Jika auto-trading dinonaktifkan pengguna, jangan jalankan background loop
     if (!autoTradingEnabled) return;
 
-    // Jika pengguna sedang di halaman /ai (Trading Floor), biarkan VirtualAgentOfficeView
-    // yang menangani visual meeting & War Room secara interaktif.
-    if (pathname === '/ai') return;
-
     const runCycle = async () => {
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
@@ -79,17 +75,17 @@ export default function GlobalAutonomousAgentRunner() {
       }
     };
 
-    // Jalankan pertama kali setelah delay singkat (3 detik) agar navigasi halaman lancar
-    const initialTimer = setTimeout(runCycle, 3000);
+    // Jalankan pertama kali setelah delay 1.5 detik
+    const initialTimer = setTimeout(runCycle, 1500);
 
-    // Jalankan siklus berkala setiap 25 detik
-    const intervalTimer = setInterval(runCycle, 25000);
+    // Jalankan siklus berkala setiap 15 detik
+    const intervalTimer = setInterval(runCycle, 15000);
 
     return () => {
       clearTimeout(initialTimer);
       clearInterval(intervalTimer);
     };
-  }, [autoTradingEnabled, pathname]);
+  }, [autoTradingEnabled]);
 
   // Auto-dismiss toast setelah 8 detik
   useEffect(() => {

@@ -299,7 +299,7 @@ export async function runAutonomousCryptoAgentCycle(
   const scanResult = scanCryptoUniverse(tickerMap);
   const topPick = scanResult.topPick;
 
-  if (aiStore.autoTradingEnabled && !tradeExecuted && topPick) {
+  if (aiStore.autoTradingEnabled && !tradeExecuted) {
     const MIN_BOT_CASH_RESERVE = 1_000_000;
 
     // Proteksi Kas Minimum: Bot crypto DILARANG membeli koin jika kas di bawah Rp 1.000.000
@@ -307,9 +307,9 @@ export async function runAutonomousCryptoAgentCycle(
       if (Math.random() < 0.2) {
         aiStore.logAction({
           type: 'RISK_GATE',
-          symbol: topPick.asset.baseAsset,
+          symbol: topPick?.asset.baseAsset || 'CRYPTO',
           agentId: 'trader_crypto',
-          agentName: 'Jesse Livermore (Crypto Desk Lead)',
+          agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
           agentEmoji: '⚡',
           title: `Jesse AI Risk Gate: Pembelian Crypto Ditolak (Kas < Rp 1 Juta)`,
           details: `Sisa saldo kas saat ini (Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 1.000.000. Sesuai aturan manajemen risiko modal, bot crypto menonaktifkan seluruh pembelian koin baru.`,
@@ -321,13 +321,6 @@ export async function runAutonomousCryptoAgentCycle(
       }
       return { tradeExecuted, actionTaken, scanResult };
     }
-
-    const cleanSym = topPick.asset.baseAsset;
-    const existingHolding = portfolioStore.holdings.find(
-      (h) =>
-        (h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT')) &&
-        (h.displaySymbol.toUpperCase() === cleanSym || h.symbol.toUpperCase() === topPick.asset.symbol)
-    );
 
     // Hitung total nilai portofolio untuk alokasi risiko
     const totalCryptoValueIDR = cryptoHoldings.reduce((sum, h) => {
@@ -341,76 +334,87 @@ export async function runAutonomousCryptoAgentCycle(
       .reduce((sum, h) => sum + h.currentPrice * (h.shares || h.lots * 100), 0);
 
     const totalNav = portfolioStore.cash + totalCryptoValueIDR + totalEquityValueIDR;
-    const maxCryptoBudgetTotal = totalNav * 0.35; // Maks 35% NAV total untuk aset crypto
-    const maxPerCoinBudget = totalNav * 0.15;     // Maks 15% NAV per koin
-
-    const currentCoinExposureIDR = existingHolding
-      ? (existingHolding.cryptoUnits ?? existingHolding.lots) * topPick.signal.currentPrice * exchangeRate
-      : 0;
+    const maxCryptoBudgetTotal = totalNav * 0.40; // Maks 40% NAV total untuk aset crypto
+    const maxPerCoinBudget = totalNav * 0.20;     // Maks 20% NAV per koin
 
     const availableCashAfterReserve = Math.max(0, portfolioStore.cash - MIN_BOT_CASH_RESERVE);
 
-    // Sizing alokasi beli per trade (disesuaikan kas yang aman setelah cadangan Rp 1 Juta)
-    const targetTradeAmountIDR = Math.min(
-      Math.max(500000, Math.floor(availableCashAfterReserve * 0.10)),
-      maxPerCoinBudget - currentCoinExposureIDR,
-      maxCryptoBudgetTotal - totalCryptoValueIDR,
-      availableCashAfterReserve
+    // Cari kandidat koin terbaik dari seluruh leaderboard yang sinyalnya BUY / STRONG_BUY dan belum over-allocated
+    const eligibleCandidates = scanResult.leaderboard.filter(
+      (c) => (c.signal.signal === 'STRONG_BUY' || c.signal.signal === 'BUY') && c.compositeScore >= 74
     );
 
-    const isSignalEligible =
-      (topPick.signal.signal === 'STRONG_BUY' || topPick.signal.signal === 'BUY') &&
-      topPick.compositeScore >= 82;
+    for (const candidate of eligibleCandidates) {
+      const cleanSym = candidate.asset.baseAsset;
+      const existingHolding = portfolioStore.holdings.find(
+        (h) =>
+          (h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT')) &&
+          (h.displaySymbol.toUpperCase() === cleanSym || h.symbol.toUpperCase() === candidate.asset.symbol)
+      );
 
-    const hasBudget =
-      portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
-      targetTradeAmountIDR >= 500000 &&
-      (portfolioStore.cash - targetTradeAmountIDR * 1.001 >= MIN_BOT_CASH_RESERVE);
-    const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget;
+      const currentCoinExposureIDR = existingHolding
+        ? (existingHolding.cryptoUnits ?? existingHolding.lots) * candidate.signal.currentPrice * exchangeRate
+        : 0;
 
-    if (isSignalEligible && hasBudget && isUnderAllocated) {
-      const budgetUSDT = targetTradeAmountIDR / exchangeRate;
-      const calculatedUnits = Number((budgetUSDT / topPick.signal.currentPrice).toFixed(6));
+      // Sizing alokasi beli per trade (disesuaikan kas yang aman setelah cadangan Rp 1 Juta)
+      const targetTradeAmountIDR = Math.min(
+        Math.max(1_000_000, Math.floor(availableCashAfterReserve * 0.05)),
+        maxPerCoinBudget - currentCoinExposureIDR,
+        maxCryptoBudgetTotal - totalCryptoValueIDR,
+        availableCashAfterReserve
+      );
 
-      if (calculatedUnits > 0) {
-        const res = portfolioStore.placeBuyOrder({
-          symbol: topPick.asset.symbol,
-          displaySymbol: topPick.asset.baseAsset,
-          name: `${topPick.asset.name} (Crypto)`,
-          price: topPick.signal.currentPrice,
-          lots: calculatedUnits,
-          orderType: 'MARKET',
-          assetClass: 'CRYPTO',
-          currency: 'USDT',
-          exchangeRate,
-          takeProfitPrice: topPick.signal.takeProfit,
-          stopLossPrice: topPick.signal.stopLoss,
-          source: 'AI_AGENT',
-        });
+      const hasBudget =
+        portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
+        targetTradeAmountIDR >= 500_000 &&
+        (portfolioStore.cash - targetTradeAmountIDR * 1.001 >= MIN_BOT_CASH_RESERVE);
+      const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget && totalCryptoValueIDR < maxCryptoBudgetTotal;
 
-        if (res.order) {
-          tradeExecuted = true;
-          actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${topPick.asset.baseAsset} @ $${topPick.signal.currentPrice.toLocaleString()} (TP: $${topPick.signal.takeProfit.toLocaleString()} / SL: $${topPick.signal.stopLoss.toLocaleString()})`;
+      if (hasBudget && isUnderAllocated) {
+        const budgetUSDT = targetTradeAmountIDR / exchangeRate;
+        const calculatedUnits = Number((budgetUSDT / candidate.signal.currentPrice).toFixed(6));
 
-          aiStore.logAction({
-            type: 'TRADE_BUY',
-            symbol: topPick.asset.baseAsset,
-            agentId: 'trader_crypto',
-            agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
-            agentEmoji: '⚡',
-            title: `Beli Crypto Otonom: ${topPick.asset.baseAsset}`,
-            details: `Strategi Jesse Adaptive Trend & SMC mengonfirmasi sinyal ${topPick.signal.signal} (Skor ${topPick.compositeScore}/100, Win Rate ${topPick.signal.backtestMetrics.winRate}%). Total pembelian Rp ${targetTradeAmountIDR.toLocaleString('id-ID')}.`,
-            metadata: {
-              price: topPick.signal.currentPrice,
-              lots: calculatedUnits,
-              amount: targetTradeAmountIDR,
-              score: topPick.compositeScore,
-              stopLoss: topPick.signal.stopLoss,
-              takeProfit: topPick.signal.takeProfit,
-            },
+        if (calculatedUnits > 0) {
+          const res = portfolioStore.placeBuyOrder({
+            symbol: candidate.asset.symbol,
+            displaySymbol: candidate.asset.baseAsset,
+            name: `${candidate.asset.name} (Crypto)`,
+            price: candidate.signal.currentPrice,
+            lots: calculatedUnits,
+            orderType: 'MARKET',
+            assetClass: 'CRYPTO',
+            currency: 'USDT',
+            exchangeRate,
+            takeProfitPrice: candidate.signal.takeProfit,
+            stopLossPrice: candidate.signal.stopLoss,
+            source: 'AI_AGENT',
           });
 
-          aiStore.recordTradeStat(true);
+          if (res.order) {
+            tradeExecuted = true;
+            actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${candidate.asset.baseAsset} @ $${candidate.signal.currentPrice.toLocaleString()} (TP: $${candidate.signal.takeProfit.toLocaleString()} / SL: $${candidate.signal.stopLoss.toLocaleString()})`;
+
+            aiStore.logAction({
+              type: 'TRADE_BUY',
+              symbol: candidate.asset.baseAsset,
+              agentId: 'trader_crypto',
+              agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
+              agentEmoji: '⚡',
+              title: `Beli Crypto Otonom: ${candidate.asset.baseAsset}`,
+              details: `Strategi Jesse Adaptive Trend & SMC mengonfirmasi sinyal ${candidate.signal.signal} (Skor ${candidate.compositeScore}/100, Win Rate ${candidate.signal.backtestMetrics.winRate}%). Total pembelian Rp ${Math.round(targetTradeAmountIDR).toLocaleString('id-ID')}.`,
+              metadata: {
+                price: candidate.signal.currentPrice,
+                lots: calculatedUnits,
+                amount: Math.round(targetTradeAmountIDR),
+                score: candidate.compositeScore,
+                stopLoss: candidate.signal.stopLoss,
+                takeProfit: candidate.signal.takeProfit,
+              },
+            });
+
+            aiStore.recordTradeStat(true);
+            break;
+          }
         }
       }
     }

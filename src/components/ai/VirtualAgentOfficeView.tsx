@@ -1295,10 +1295,9 @@ export default function VirtualAgentOfficeView() {
         setPendingWarRoomTarget(candidate.symbol);
       }
 
-      // Picu siklus otonom (monitoring TP/SL portofolio, crypto desk, news dispatch)
-      // skipEquityBuy diaktifkan agar pembelian saham diputuskan resmi melalui sidang War Room seluruh departemen
+      // Picu siklus otonom penuh (monitoring TP/SL portofolio, auto crypto desk, dan eksekusi saham)
       try {
-        await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: true });
+        await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: false });
       } catch {
         // cycle error handled gracefully
       }
