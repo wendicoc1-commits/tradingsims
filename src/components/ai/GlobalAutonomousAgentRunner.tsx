@@ -8,6 +8,7 @@ import { useAIAgentStore } from '@/store/aiAgentStore';
 import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine';
 import { UNIVERSE_TICKERS } from '@/lib/hedgefund/autonomousStockPicker';
 import { tradeSimAudio } from '@/lib/tradeSimAudio';
+import { initCrossTabSync, isTabLeader, broadcastEvent } from '@/lib/crossTabSync';
 
 /**
  * GlobalAutonomousAgentRunner
@@ -16,6 +17,9 @@ import { tradeSimAudio } from '@/lib/tradeSimAudio';
  * Memastikan AI Agent tetap memindai Alpha, melindungi keuntungan (Take Profit),
  * memotong kerugian (Stop Loss), dan mengeksekusi rotasi modal meskipun pengguna
  * TIDAK sedang membuka halaman AI Trading Floor (/ai).
+ * 
+ * Dilengkapi Multi-Tab Coordination (Single Leader Election & Sub-millisecond State Sync):
+ * Mencegah eksekusi ganda jika membuka banyak tab sekaligus, dan mensinkronkan data antar tab secara live.
  */
 export default function GlobalAutonomousAgentRunner() {
   const pathname = usePathname();
@@ -24,10 +28,27 @@ export default function GlobalAutonomousAgentRunner() {
   const isExecutingRef = useRef(false);
 
   useEffect(() => {
+    // ── Inisialisasi Sinkronisasi Multi-Tab ──
+    const cleanupCrossTab = initCrossTabSync((alertMsg) => {
+      tradeSimAudio.playOrderFilledChime();
+      setToastNotification({
+        id: `toast-${Date.now()}`,
+        message: alertMsg,
+        type: 'trade',
+      });
+    });
+
     // Jika auto-trading dinonaktifkan pengguna, jangan jalankan background loop
-    if (!autoTradingEnabled) return;
+    if (!autoTradingEnabled) {
+      return () => {
+        cleanupCrossTab();
+      };
+    }
 
     const runCycle = async () => {
+      // Leader Election: Hanya 1 tab aktif yang mengeksekusi siklus bot.
+      // Tab lain tetap standby untuk menghindari duplicate execution!
+      if (!isTabLeader()) return;
       if (isExecutingRef.current) return;
       isExecutingRef.current = true;
 
@@ -67,6 +88,14 @@ export default function GlobalAutonomousAgentRunner() {
             message: cycleResult.actionTaken,
             type: 'trade',
           });
+
+          // Siarkan ke seluruh tab lain yang sedang terbuka
+          broadcastEvent({
+            type: 'TRADE_EXECUTED_ALERT',
+            message: cycleResult.actionTaken,
+          });
+          broadcastEvent({ type: 'PORTFOLIO_CHANGED' });
+          broadcastEvent({ type: 'AI_AGENT_CHANGED' });
         }
       } catch (err) {
         console.error('[GlobalAutonomousAgentRunner] Siklus gagal:', err);
@@ -131,6 +160,7 @@ export default function GlobalAutonomousAgentRunner() {
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
+      cleanupCrossTab();
     };
   }, [autoTradingEnabled]);
 

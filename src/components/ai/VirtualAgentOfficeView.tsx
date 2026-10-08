@@ -85,6 +85,7 @@ import {
 import { NavGrid, type Pt } from '@/lib/office/navGrid';
 import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
+import { broadcastEvent } from '@/lib/crossTabSync';
 import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import {
@@ -1316,6 +1317,7 @@ export default function VirtualAgentOfficeView() {
   const toggleAutoPilot = () => {
     if (!autoPilot) {
       setAutoPilot(true);
+      broadcastEvent({ type: 'AI_AGENT_CHANGED' });
       if (scanResult?.topPick) {
         const isBEIOpen = checkIDXMarketStatus().isOpen;
         const validPick = (isBEIOpen || !isIndonesianStock(scanResult.topPick.symbol))
@@ -1326,6 +1328,7 @@ export default function VirtualAgentOfficeView() {
       executeUniverseScan();
     } else {
       setAutoPilot(false);
+      broadcastEvent({ type: 'AI_AGENT_CHANGED' });
     }
   };
 
@@ -2114,6 +2117,12 @@ export default function VirtualAgentOfficeView() {
         },
       });
       useAIAgentStore.getState().recordTradeStat(true);
+      broadcastEvent({ type: 'PORTFOLIO_CHANGED' });
+      broadcastEvent({ type: 'AI_AGENT_CHANGED' });
+      broadcastEvent({
+        type: 'TRADE_EXECUTED_ALERT',
+        message: `War Room AI: BUY ${qtyLabel} ${snapshot.symbol} @ ${priceLabel}`,
+      });
     }
     setAlarm(false);
   }, [snapshot, intel.name, intel.currentPrice]);

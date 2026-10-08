@@ -23,6 +23,7 @@ import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
 import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine';
 import { UNIVERSE_TICKERS } from '@/lib/hedgefund/autonomousStockPicker';
+import { broadcastEvent } from '@/lib/crossTabSync';
 
 export default function FinceptAIPortfolioAgentBar() {
   const { cash, holdings, realizedPL } = usePortfolioStore();
@@ -160,7 +161,11 @@ export default function FinceptAIPortfolioAgentBar() {
 
           {/* Toggle Auto-Trade */}
           <button
-            onClick={() => setAutoTradingEnabled(!autoTradingEnabled)}
+            onClick={() => {
+              const next = !autoTradingEnabled;
+              setAutoTradingEnabled(next);
+              broadcastEvent({ type: 'AI_AGENT_CHANGED' });
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 transition-all ${
               autoTradingEnabled
                 ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
