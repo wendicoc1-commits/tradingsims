@@ -449,10 +449,11 @@ export default function PortfolioPage() {
       setIsAuthOpen(true);
       return;
     }
-    setSyncStatus('Menyimpan ke Cloud Database...');
+    setSyncStatus('Menyinkronkan dengan Akun Cloud...');
     try {
+      await loadPortfolioFromDatabase();
       await syncPortfolioToDatabase();
-      setSyncStatus('✓ Data Portofolio Tersimpan di Cloud Supabase!');
+      setSyncStatus('✓ Saldo & Portofolio Berhasil Tersinkronkan dengan Akun Anda!');
       setTimeout(() => setSyncStatus(null), 3000);
     } catch {
       setSyncStatus('Gagal menyinkronkan data.');

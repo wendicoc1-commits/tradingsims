@@ -29,6 +29,7 @@ interface AuthState {
   registerWithEmail: (email: string, pass: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithOAuth: (provider: 'apple' | 'facebook' | 'google') => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: (guestName?: string) => void;
+  enterGuestMode: (guestName?: string) => void;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   syncPortfolioToDatabase: () => Promise<void>;
@@ -146,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
               createdAt: data.user.created_at || new Date().toISOString(),
             };
             set({ user: appUser, isLoading: false });
+            await get().loadPortfolioFromDatabase();
             return { success: true };
           }
 
@@ -209,6 +211,10 @@ export const useAuthStore = create<AuthState>()(
           createdAt: new Date().toISOString(),
         };
         set({ user: guestUser });
+      },
+
+      enterGuestMode: (guestName = 'Tamu Demo') => {
+        get().loginAsGuest(guestName);
       },
 
       logout: async () => {
@@ -498,109 +504,52 @@ export const useAuthStore = create<AuthState>()(
             const hasLocalHoldings = localHoldings.length > 0;
             const hasDbHoldings = !holdingsErr && holdingsData && holdingsData.length > 0;
 
-            // ── REKONSILIASI BERDASARKAN TIMESTAMP & INTEGRITAS DATA ──
-            // Skenario A: Browser lokal lebih baru atau sama dengan database
-            // (User baru bertransaksi, reset, atau top up di sesi lokal ini).
-            // JANGAN PERNAH MENIMPA LOKAL DENGAN DATA DB LAMA!
-            if (localLastUpdated > 0 && localLastUpdated >= dbUpdatedAt) {
-              await get().syncPortfolioToDatabase();
-              return;
-            }
+            // ── REKONSILIASI BERDASARKAN DATABASE USER SEBAGAI SOURCE OF TRUTH ──
+            if (dbCash !== null) {
+              const mappedHoldings = hasDbHoldings ? holdingsData.map((row: any) => {
+                const existingLocal = localHoldings.find(
+                  (lh) => lh.symbol === row.symbol || lh.displaySymbol === row.display_symbol
+                );
+                return {
+                  symbol: row.symbol,
+                  displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
+                  name: row.name || row.symbol,
+                  avgPrice: Number(row.avg_price || row.average_price || 0),
+                  lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots || row.total_lots || 1),
+                  shares: Number(row.shares || (row.asset_class === 'CRYPTO' ? row.lots : (row.lots || 1) * 100)),
+                  currentPrice: existingLocal?.currentPrice || Number(row.avg_price || row.average_price || 0),
+                  unrealizedPL: existingLocal?.unrealizedPL || 0,
+                  unrealizedPLPercent: existingLocal?.unrealizedPLPercent || 0,
+                  cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
+                  assetClass: row.asset_class || 'EQUITY',
+                  currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
+                  exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
+                  takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
+                  stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
+                  validityType: row.validity_type || 'GTC',
+                  totalDividendEarned: Number(row.total_dividend_earned || 0),
+                  realizedPL: 0,
+                };
+              }) : [];
 
-            // Skenario B: Database Supabase LEBIH BARU daripada lokal
-            // (User bertransaksi di device/browser lain, atau ada pembaruan cloud).
-            if (dbUpdatedAt > localLastUpdated) {
-              if (hasDbHoldings) {
-                const mappedHoldings = holdingsData.map((row: any) => {
-                  const existingLocal = localHoldings.find(
-                    (lh) => lh.symbol === row.symbol || lh.displaySymbol === row.display_symbol
-                  );
-                  return {
-                    symbol: row.symbol,
-                    displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
-                    name: row.name || row.symbol,
-                    avgPrice: Number(row.avg_price || row.average_price || 0),
-                    lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots || row.total_lots || 1),
-                    shares: Number(row.shares || (row.asset_class === 'CRYPTO' ? row.lots : (row.lots || 1) * 100)),
-                    currentPrice: existingLocal?.currentPrice || Number(row.avg_price || row.average_price || 0),
-                    unrealizedPL: existingLocal?.unrealizedPL || 0,
-                    unrealizedPLPercent: existingLocal?.unrealizedPLPercent || 0,
-                    cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
-                    assetClass: row.asset_class || 'EQUITY',
-                    currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
-                    exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
-                    takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
-                    stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
-                    validityType: row.validity_type || 'GTC',
-                    totalDividendEarned: Number(row.total_dividend_earned || 0),
-                    realizedPL: 0,
-                  };
-                });
-
-                usePortfolioStore.setState({
-                  holdings: mappedHoldings,
-                  cash: dbCash !== null ? dbCash : localCash,
-                  realizedPL: dbRealizedPL || localStore.realizedPL || 0,
-                  lastUpdated: dbUpdatedAt,
-                });
-                return;
-              } else {
-                // Di database kosong (misal akun di-reset dari device lain)
-                usePortfolioStore.setState({
-                  holdings: [],
-                  cash: dbCash !== null ? dbCash : 0,
-                  realizedPL: dbRealizedPL,
-                  lastUpdated: dbUpdatedAt,
-                });
-                return;
-              }
-            }
-
-            // Skenario C: Timestamp lokal belum pernah disimpan (0) atau fallback awal
-            if (hasLocalHoldings) {
-              await get().syncPortfolioToDatabase();
-              return;
-            }
-
-            if (hasDbHoldings) {
-              const mappedHoldings = holdingsData.map((row: any) => ({
-                symbol: row.symbol,
-                displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
-                name: row.name || row.symbol,
-                avgPrice: Number(row.avg_price || row.average_price || 0),
-                lots: row.asset_class === 'CRYPTO' && row.crypto_units ? Number(row.crypto_units) : Number(row.lots || row.total_lots || 1),
-                shares: Number(row.shares || (row.asset_class === 'CRYPTO' ? row.lots : (row.lots || 1) * 100)),
-                currentPrice: Number(row.avg_price || row.average_price || 0),
-                unrealizedPL: 0,
-                unrealizedPLPercent: 0,
-                cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
-                assetClass: row.asset_class || 'EQUITY',
-                currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
-                exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
-                takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
-                stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
-                validityType: row.validity_type || 'GTC',
-                totalDividendEarned: Number(row.total_dividend_earned || 0),
-                realizedPL: 0,
-              }));
-
+              // Muat data resmi akun user dari database Supabase
               usePortfolioStore.setState({
                 holdings: mappedHoldings,
-                cash: dbCash !== null ? dbCash : localCash,
-                realizedPL: dbRealizedPL || localStore.realizedPL || 0,
-                lastUpdated: dbUpdatedAt || Date.now(),
+                cash: dbCash,
+                realizedPL: dbRealizedPL,
+                lastUpdated: Math.max(dbUpdatedAt, Date.now()),
               });
               return;
-            }
-
-            // Keduanya bersih / kosong
-            if (!hasLocalHoldings && !hasDbHoldings) {
+            } else {
+              // User baru terdaftar dan belum memiliki baris di tabel portfolios Supabase:
+              // Inisialisasi kas default (Rp 100.000.000 jika lokal kosong, atau pakai saldo lokal)
+              const initialUserCash = localCash > 0 ? localCash : 100_000_000;
               usePortfolioStore.setState({
-                holdings: [],
-                cash: dbCash !== null && dbCash > 0 ? dbCash : localCash,
-                realizedPL: dbRealizedPL || localStore.realizedPL || 0,
+                cash: initialUserCash,
                 lastUpdated: Date.now(),
               });
+              await get().syncPortfolioToDatabase();
+              return;
             }
           } catch (err) {
             console.error('[SUPABASE PORTFOLIO LOAD ERROR]', err);
