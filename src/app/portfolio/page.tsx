@@ -563,10 +563,16 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Ambil portofolio dari cloud segera saat user login atau akun berubah
+  useEffect(() => {
     if (user && user.provider !== 'guest') {
       loadPortfolioFromDatabase();
     }
+  }, [user?.id, user?.email, loadPortfolioFromDatabase]);
 
+  useEffect(() => {
     // Auto-sync holding prices with backend live prices (with offline fallback)
     const syncPrices = async () => {
       if (holdings.length === 0) return;
