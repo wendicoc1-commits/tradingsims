@@ -22,6 +22,8 @@ export interface UserPortfolioData {
   lastUpdated: number;
 }
 
+import SEED_DATABASE from '@/data/server_user_portfolios.json';
+
 interface ServerDatabase {
   users: Record<string, StoredUser>; // keyed by email (lowercase)
   portfolios: Record<string, UserPortfolioData>; // keyed by user id AND by email
@@ -30,6 +32,8 @@ interface ServerDatabase {
 const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const DB_FILE = path.join(DATA_DIR, 'server_user_portfolios.json');
 const SALT = 'tradingsims_cloud_sync_salt_v1';
+
+let inMemoryDb: ServerDatabase | null = null;
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password + SALT).digest('hex');
@@ -41,37 +45,47 @@ function ensureDataDirectory(): void {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
   } catch (err) {
-    console.warn('[PORTFOLIO STORAGE MKDIR WARN]', err);
+    // Di serverless read-only disk fs.mkdirSync bisa gagal, itu wajar
   }
 }
 
 function loadDatabase(): ServerDatabase {
+  if (inMemoryDb) {
+    return inMemoryDb;
+  }
+
+  const baseUsers = ((SEED_DATABASE as any)?.users || {}) as Record<string, StoredUser>;
+  const basePortfolios = ((SEED_DATABASE as any)?.portfolios || {}) as Record<string, UserPortfolioData>;
+
   try {
     ensureDataDirectory();
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      return {
-        users: parsed.users || {},
-        portfolios: parsed.portfolios || {},
+      inMemoryDb = {
+        users: { ...baseUsers, ...(parsed.users || {}) },
+        portfolios: { ...basePortfolios, ...(parsed.portfolios || {}) },
       };
-    } else {
-      const initialDb: ServerDatabase = { users: {}, portfolios: {} };
-      fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
-      return initialDb;
+      return inMemoryDb;
     }
   } catch (err) {
-    console.error('[PORTFOLIO STORAGE LOAD ERROR]', err);
+    console.warn('[PORTFOLIO STORAGE LOAD WARN, FALLING BACK TO SEED BUNDLE]', err);
   }
-  return { users: {}, portfolios: {} };
+
+  inMemoryDb = {
+    users: { ...baseUsers },
+    portfolios: { ...basePortfolios },
+  };
+  return inMemoryDb;
 }
 
 function saveDatabase(db: ServerDatabase): void {
+  inMemoryDb = db;
   try {
     ensureDataDirectory();
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
   } catch (err) {
-    console.error('[PORTFOLIO STORAGE SAVE ERROR]', err);
+    // Handle read-only filesystem on serverless gracefully
   }
 }
 
@@ -329,6 +343,14 @@ export function getUserPortfolio(identifier: { userId?: string; email?: string }
       if (foundUser && db.portfolios[foundUser.email]) {
         return db.portfolios[foundUser.email];
       }
+    }
+
+    // 4. Fallback ke static seed data
+    if (emailKey && (SEED_DATABASE as any)?.portfolios?.[emailKey]) {
+      return (SEED_DATABASE as any).portfolios[emailKey];
+    }
+    if (userIdKey && (SEED_DATABASE as any)?.portfolios?.[userIdKey]) {
+      return (SEED_DATABASE as any).portfolios[userIdKey];
     }
 
     return null;

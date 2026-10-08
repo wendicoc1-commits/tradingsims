@@ -24,17 +24,29 @@ function saveLocalUserBackup(email: string, userId: string, data: any) {
   } catch {}
 }
 
+import SEED_DATABASE from '@/data/server_user_portfolios.json';
+
 function loadLocalUserBackup(email: string): any | null {
-  if (typeof window === 'undefined' || !email) return null;
-  try {
-    const key = BACKUP_STORAGE_PREFIX + email.trim().toLowerCase();
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.portfolio || null;
-  } catch {
-    return null;
+  if (!email) return null;
+  const normEmail = email.trim().toLowerCase();
+  if (typeof window !== 'undefined') {
+    try {
+      const key = BACKUP_STORAGE_PREFIX + normEmail;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.portfolio && typeof parsed.portfolio.cash === 'number') {
+          return parsed.portfolio;
+        }
+      }
+    } catch {}
   }
+  // Fallback cadangan dari static seed bundle jika user membuka di device / browser baru!
+  const seedPort = (SEED_DATABASE as any)?.portfolios?.[normEmail];
+  if (seedPort && typeof seedPort.cash === 'number') {
+    return seedPort;
+  }
+  return null;
 }
 
 
@@ -115,9 +127,15 @@ export const useAuthStore = create<AuthState>()(
               ? apiData.portfolio
               : null;
 
-            // Jika server cloud belum membalas atau instance serverless baru restart, periksa backup lokal perangkat untuk email ini!
-            if (!resolvedPortfolio) {
-              const localBackup = loadLocalUserBackup(apiData.user.email);
+            // Jika server cloud belum membalas, ATAU mengembalikan 100 Juta kosong padahal akun punya aset di backup/seed:
+            const localBackup = loadLocalUserBackup(apiData.user.email);
+            if (
+              !resolvedPortfolio ||
+              (resolvedPortfolio.cash === 100_000_000 &&
+                (!resolvedPortfolio.holdings || resolvedPortfolio.holdings.length === 0) &&
+                localBackup &&
+                (localBackup.holdings?.length > 0 || localBackup.cash !== 100_000_000))
+            ) {
               if (localBackup && typeof localBackup.cash === 'number') {
                 resolvedPortfolio = localBackup;
               }
@@ -600,15 +618,24 @@ export const useAuthStore = create<AuthState>()(
                   // KASUS 1: Browser saat ini adalah perangkat baru / belum punya transaksi riil
                   // Atau server memiliki kepemilikan saham aktif sedangkan lokal belum punya
                   if (isLocalFresh || (hasServerHoldings && !hasLocalHoldings)) {
+                    // Jika server kosong 100M tapi kita punya data riil di backup lokal / seed, prioritaskan backup lokal
+                    const fallbackBackup = loadLocalUserBackup(user.email);
+                    const effectivePort = (!hasServerHoldings && sPort.cash === 100_000_000 && fallbackBackup && (fallbackBackup.holdings?.length > 0 || fallbackBackup.cash !== 100_000_000))
+                      ? fallbackBackup
+                      : sPort;
+
                     usePortfolioStore.setState({
-                      cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
-                      realizedPL: sPort.realizedPL || 0,
-                      holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
-                      orders: Array.isArray(sPort.orders) ? sPort.orders : [],
-                      conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
-                      dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
-                      lastUpdated: Math.max(serverTime, Date.now()),
+                      cash: typeof effectivePort.cash === 'number' ? effectivePort.cash : 100_000_000,
+                      realizedPL: effectivePort.realizedPL || 0,
+                      holdings: sanitizeHoldings(Array.isArray(effectivePort.holdings) ? effectivePort.holdings : []),
+                      orders: Array.isArray(effectivePort.orders) ? effectivePort.orders : [],
+                      conditionalOrders: Array.isArray(effectivePort.conditionalOrders) ? effectivePort.conditionalOrders : [],
+                      dividends: Array.isArray(effectivePort.dividends) ? effectivePort.dividends : [],
+                      lastUpdated: Math.max(effectivePort.lastUpdated || serverTime, Date.now()),
                     });
+                    if (effectivePort === fallbackBackup) {
+                      await get().syncPortfolioToDatabase();
+                    }
                     return;
                   }
 
