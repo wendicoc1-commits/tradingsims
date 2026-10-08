@@ -1345,7 +1345,7 @@ export default function VirtualAgentOfficeView() {
   // ── sinkronisasi harga live Binance untuk crypto ──
   const isCryptoSelected = useMemo(() => {
     const a = getAssetBySymbol(selectedStock);
-    return a?.category === 'CRYPTO' || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'RENDER', 'TAO', 'FET'].includes(selectedStock.toUpperCase());
+    return a?.category === 'CRYPTO' || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(selectedStock.toUpperCase());
   }, [selectedStock]);
 
   const liveCryptoTicker = isCryptoSelected

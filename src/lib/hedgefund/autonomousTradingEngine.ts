@@ -792,7 +792,7 @@ export async function runAutonomousAgentCycle(
   try {
     const cryptoTickersMap: Record<string, any> = {};
     for (const [sym, q] of Object.entries(liveQuotesMap)) {
-      if (['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(sym.toUpperCase())) {
+      if (['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'RENDER', 'ARB', 'APT', 'TAO', 'FET', 'OP', 'KAS', 'TON'].includes(sym.toUpperCase())) {
         cryptoTickersMap[`${sym.toUpperCase()}USDT`] = {
           symbol: `${sym.toUpperCase()}USDT`,
           price: q.price,

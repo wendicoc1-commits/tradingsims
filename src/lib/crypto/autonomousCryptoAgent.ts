@@ -37,9 +37,10 @@ export function scanCryptoUniverse(
   timestamp: string;
 } {
   const fallbackMap: Record<string, number> = {
-    BTCUSDT: 82500, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
-    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.14, NEARUSDT: 4.80,
-    LINKUSDT: 11.5, PEPEUSDT: 0.0000095, RENDERUSDT: 5.8, ARBUSDT: 0.58, APTUSDT: 8.5,
+    BTCUSDT: 81118, ETHUSDT: 2450, SOLUSDT: 108.32, BNBUSDT: 585, DOGEUSDT: 0.0827,
+    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.67,
+    LINKUSDT: 11.5, PEPEUSDT: 0.00000378, RENDERUSDT: 1.828, ARBUSDT: 0.1672, APTUSDT: 0.7161,
+    TAOUSDT: 540, FETUSDT: 1.35, SHIBUSDT: 0.000018, DOTUSDT: 4.25,
   };
 
   const ranked: CryptoAlphaRanking[] = SUPPORTED_CRYPTO_PAIRS.map((asset) => {
@@ -471,7 +472,8 @@ export async function runAutonomousCryptoAgentCycle(
         if (calculatedUnits > 0) {
           const userTpPct = aiStore.cryptoTakeProfitPct || 15;
           const userSlPct = aiStore.cryptoStopLossPct || 6;
-          const curP = candidate.signal.currentPrice;
+          const liveP = tickerMap[candidate.asset.symbol]?.price ?? tickerMap[candidate.asset.baseAsset]?.price;
+          const curP = (liveP && liveP > 0) ? liveP : candidate.signal.currentPrice;
           const calculatedTP = Number((curP * (1 + userTpPct / 100)).toFixed(curP < 1 ? 8 : 4));
           const calculatedSL = Number((curP * (1 - userSlPct / 100)).toFixed(curP < 1 ? 8 : 4));
 

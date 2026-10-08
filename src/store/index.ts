@@ -1099,6 +1099,26 @@ export const usePortfolioStore = create<PortfolioState>()(
           wasHealed = true
         }
 
+        // Deteksi & kalibrasi otomatis anomali seed harga kripto (koin terbeli dengan harga fallback statis lama):
+        // 1. Kasus APT: terbeli di ~$8.5 padahal harga pasar Binance ~$0.72
+        // 2. Kasus RENDER: terbeli di ~$5.8 padahal harga pasar Binance ~$1.83
+        // 3. Kasus PEPE: terbeli di ~$0.000010 padahal harga pasar Binance ~$0.00000378
+        // 4. Kasus ARB: terbeli di ~$0.000600 padahal harga pasar Binance ~$0.1685
+        const isSeedAnomaly =
+          isCrypto &&
+          newPrice > 0 &&
+          (
+            (clean === 'APT' && effectiveAvgPrice >= 5.0 && newPrice < 2.0) ||
+            (clean === 'RENDER' && effectiveAvgPrice >= 4.0 && newPrice < 2.5) ||
+            (clean === 'PEPE' && effectiveAvgPrice >= 0.000007 && newPrice < 0.000005) ||
+            (clean === 'ARB' && effectiveAvgPrice < 0.01 && newPrice > 0.08)
+          )
+
+        if (isSeedAnomaly) {
+          effectiveAvgPrice = newPrice
+          wasHealed = true
+        }
+
         let unrealizedPL = 0
         let unrealizedPLPercent = 0
 

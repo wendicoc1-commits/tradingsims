@@ -88,8 +88,12 @@ export default function JesseCryptoDeskView() {
   }, [selectedPair]);
 
   // Data harga Binance terkini
-  const liveTicker: BinanceTickerData | undefined = tickerMap[selectedPair] || tickerMap[selectedPair.replace(/USDT$/, '')];
-  const currentPriceUSDT = liveTicker?.price ?? (selectedPair === 'BTCUSDT' ? 68500 : selectedPair === 'ETHUSDT' ? 2450 : selectedPair === 'SOLUSDT' ? 154 : selectedPair === 'BNBUSDT' ? 585 : selectedPair === 'DOGEUSDT' ? 0.125 : selectedPair === 'XRPUSDT' ? 0.54 : selectedPair === 'ADAUSDT' ? 0.35 : selectedPair === 'AVAXUSDT' ? 26.5 : selectedPair === 'SUIUSDT' ? 1.14 : selectedPair === 'NEARUSDT' ? 4.80 : selectedPair === 'LINKUSDT' ? 11.5 : selectedPair === 'PEPEUSDT' ? 0.0000095 : 10);
+  const fallbackPrices: Record<string, number> = {
+    BTCUSDT: 81118, ETHUSDT: 2450, SOLUSDT: 108.32, BNBUSDT: 585, DOGEUSDT: 0.0827,
+    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.67,
+    LINKUSDT: 11.5, PEPEUSDT: 0.00000378, RENDERUSDT: 1.828, ARBUSDT: 0.1672, APTUSDT: 0.7161,
+  };
+  const currentPriceUSDT = liveTicker?.price ?? (fallbackPrices[selectedPair] ?? fallbackPrices[`${selectedPair}USDT`] ?? 1);
   const change24h = liveTicker?.change24h ?? 1.85;
 
   // Evaluasi Algoritma Jesse AI
