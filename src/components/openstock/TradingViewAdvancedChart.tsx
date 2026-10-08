@@ -77,8 +77,12 @@ export default function TradingViewAdvancedChart({
   return (
     <div
       ref={containerRef}
-      style={{ height: typeof height === 'number' ? `${height}px` : height, width: '100%' }}
-      className="tradingview-widget-container rounded overflow-hidden border border-[#27272a] bg-[#09090b] w-full min-h-[300px]"
+      style={{
+        height: typeof height === 'number' ? `${height}px` : height,
+        width: '100%',
+        touchAction: 'pan-y', // Mencegah chart menjebak scroll vertikal pada perangkat ponsel/tablet
+      }}
+      className="tradingview-widget-container rounded overflow-hidden border border-[#27272a] bg-[#09090b] w-full min-h-[300px] touch-pan-y"
     />
   );
 }

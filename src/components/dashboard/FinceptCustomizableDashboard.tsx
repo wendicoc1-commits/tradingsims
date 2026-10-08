@@ -57,6 +57,16 @@ const CUSTOM_PRESETS_KEY = 'fincept_custom_presets_v1';
 
 const PRESET_LAYOUTS: { id: string; label: string; icon: string; widgets: DashboardWidgetConfig[] }[] = [
   {
+    id: 'cleanBeginnerDesk',
+    label: 'Mode Pemula (Clean & Simple)',
+    icon: '🌱',
+    widgets: [
+      { id: 'w-chart', type: 'CHART', title: 'CANDLESTICK CHART • BBCA', cols: 'col-span-3', symbol: 'BBCA', timeframe: '1D', isSynced: true },
+      { id: 'w-order', type: 'QUICK_ORDER', title: 'EXECUTION SLIP • BBCA', cols: 'col-span-1', symbol: 'BBCA', isSynced: true },
+      { id: 'w-portfolio', type: 'PORTFOLIO_HOLDINGS', title: 'PORTOFOLIO & SALDO SAYA', cols: 'col-span-4' },
+    ],
+  },
+  {
     id: 'aiPilotDesk',
     label: 'AI Chart Pilot & Pine Studio (TradesDontLie)',
     icon: '⚡',
