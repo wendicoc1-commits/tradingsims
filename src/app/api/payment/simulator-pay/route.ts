@@ -12,10 +12,10 @@ export async function POST(req: Request) {
     }
 
     const config = getMidtransConfig();
-    // Jika production aktif, jangan izinkan simulasi instan tanpa bayar asli
-    if (config.isProduction && config.serverKey) {
+    // Proteksi: Larang simulasi pembayaran jika berada di lingkungan Production
+    if (process.env.NODE_ENV === 'production' || config.isProduction) {
       return NextResponse.json(
-        { error: 'Simulasi tidak diizinkan di mode Production. Harap bayar via QRIS bank Anda.' },
+        { error: 'Simulasi tidak diizinkan di mode Production. Harap selesaikan pembayaran via QRIS resmi.' },
         { status: 403 }
       );
     }
@@ -37,6 +37,6 @@ export async function POST(req: Request) {
       record: updated,
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memproses simulasi pembayaran' }, { status: 500 });
   }
 }

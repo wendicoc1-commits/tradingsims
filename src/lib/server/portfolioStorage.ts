@@ -36,7 +36,22 @@ const SALT = 'tradingsims_cloud_sync_salt_v1';
 let inMemoryDb: ServerDatabase | null = null;
 
 function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password + SALT).digest('hex');
+  // Gunakan PBKDF2 (10.000 iterasi HMAC-SHA256) untuk mitigasi GPU rainbow-table & brute-force
+  return 'pbkdf2$' + crypto.pbkdf2Sync(password, SALT, 10000, 32, 'sha256').toString('hex');
+}
+
+function verifyPasswordHash(password: string, storedHash: string): boolean {
+  try {
+    if (storedHash.startsWith('pbkdf2$')) {
+      const computed = hashPassword(password);
+      return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(storedHash));
+    }
+    // Kompatibilitas mundur untuk hash SHA-256 legacy
+    const legacyHash = crypto.createHash('sha256').update(password + SALT).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(legacyHash), Buffer.from(storedHash));
+  } catch {
+    return false;
+  }
 }
 
 function ensureDataDirectory(): void {
@@ -247,8 +262,7 @@ export function verifyUserPassword(email: string, password: string): { valid: bo
   if (!user) {
     return { valid: false, user: null };
   }
-  const inputHash = hashPassword(password);
-  const valid = inputHash === user.passwordHash;
+  const valid = verifyPasswordHash(password, user.passwordHash);
   return { valid, user: valid ? user : null };
 }
 
@@ -258,8 +272,7 @@ export async function verifyUserPasswordAsync(email: string, password: string): 
   if (!user) {
     return { valid: false, user: null };
   }
-  const inputHash = hashPassword(password);
-  const valid = inputHash === user.passwordHash;
+  const valid = verifyPasswordHash(password, user.passwordHash);
   return { valid, user: valid ? user : null };
 }
 

@@ -66,15 +66,35 @@ ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_portfolios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
--- 5. Kebijakan Akses (Drop dahulu jika sudah ada, agar tidak bentrok)
+-- 5. Kebijakan Akses Row Level Security (RLS Hardened)
+-- Drop kebijakan lama agar tidak bentrok
 DROP POLICY IF EXISTS "Allow public anon access for app_users" ON public.app_users;
-CREATE POLICY "Allow public anon access for app_users"
-  ON public.app_users FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow public anon access for user_portfolios" ON public.user_portfolios;
-CREATE POLICY "Allow public anon access for user_portfolios"
-  ON public.user_portfolios FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow public anon access for orders" ON public.orders;
-CREATE POLICY "Allow public anon access for orders"
-  ON public.orders FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Users can manage own account" ON public.app_users;
+DROP POLICY IF EXISTS "Allow account registration" ON public.app_users;
+DROP POLICY IF EXISTS "Users can access own portfolio" ON public.user_portfolios;
+DROP POLICY IF EXISTS "Users can manage own orders" ON public.orders;
+
+-- 1. app_users: Pengguna hanya dapat membaca dan memodifikasi profil miliknya sendiri
+CREATE POLICY "Users can manage own account"
+  ON public.app_users FOR ALL
+  USING (auth.uid()::text = id OR auth.jwt() ->> 'email' = email)
+  WITH CHECK (auth.uid()::text = id OR auth.jwt() ->> 'email' = email);
+
+-- Izinkan registrasi akun baru (INSERT)
+CREATE POLICY "Allow account registration"
+  ON public.app_users FOR INSERT
+  WITH CHECK (true);
+
+-- 2. user_portfolios: Hanya pemilik akun yang dapat membaca & memperbarui portofolionya
+CREATE POLICY "Users can access own portfolio"
+  ON public.user_portfolios FOR ALL
+  USING (auth.uid()::text = user_id OR auth.jwt() ->> 'email' = email)
+  WITH CHECK (auth.uid()::text = user_id OR auth.jwt() ->> 'email' = email);
+
+-- 3. orders: Riwayat transaksi hanya dapat diakses oleh pemiliknya
+CREATE POLICY "Users can manage own orders"
+  ON public.orders FOR ALL
+  USING (auth.uid()::text = user_id)
+  WITH CHECK (auth.uid()::text = user_id);

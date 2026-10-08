@@ -795,7 +795,11 @@ export default function PortfolioPage() {
         await fetch('/api/portfolio/reset', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nominal: 100000000 }),
+          body: JSON.stringify({
+            nominal: 100000000,
+            email: user?.email,
+            userId: user?.id,
+          }),
         });
       } catch {
         // ignore

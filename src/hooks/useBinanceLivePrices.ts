@@ -170,19 +170,23 @@ export function useBinanceLivePrices() {
 
   // 2. Connect to Binance WebSocket (!miniTicker@arr for all USDT pairs in realtime)
   useEffect(() => {
+    let isMounted = true;
     fetchInitialSnapshot();
 
     function connectWs() {
+      if (!isMounted) return;
       try {
         const ws = new WebSocket('wss://stream.binance.com:9443/ws/!miniTicker@arr');
         wsRef.current = ws;
 
         ws.onopen = () => {
+          if (!isMounted) return;
           setIsConnected(true);
           setError(null);
         };
 
         ws.onmessage = (event) => {
+          if (!isMounted) return;
           try {
             const rawTickers = JSON.parse(event.data);
             if (!Array.isArray(rawTickers)) return;
@@ -246,19 +250,21 @@ export function useBinanceLivePrices() {
         };
 
         ws.onerror = () => {
-          // In some Indonesian ISPs or restricted networks, WS fails. Fallback to REST polling.
+          if (!isMounted) return;
           setIsConnected(false);
           fetchInternalFallback();
         };
 
         ws.onclose = () => {
+          if (!isMounted) return;
           setIsConnected(false);
-          // Auto reconnect after 5 seconds
+          // Auto reconnect after 5 seconds jika komponen masih mounted
           reconnectTimeoutRef.current = setTimeout(() => {
-            connectWs();
+            if (isMounted) connectWs();
           }, 5000);
         };
       } catch (err) {
+        if (!isMounted) return;
         setIsConnected(false);
         setError(String(err));
         fetchInternalFallback();
@@ -269,12 +275,13 @@ export function useBinanceLivePrices() {
 
     // Fallback polling interval every 8s to keep prices live regardless of WebSocket status
     const fallbackInterval = setInterval(() => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      if (isMounted && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
         fetchInitialSnapshot();
       }
     }, 8000);
 
     return () => {
+      isMounted = false;
       clearInterval(fallbackInterval);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) {
