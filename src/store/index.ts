@@ -642,6 +642,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         }
       }
       return h
+    })
     set({ holdings: updated, lastUpdated: Date.now() })
 
     if (typeof window !== 'undefined') {
