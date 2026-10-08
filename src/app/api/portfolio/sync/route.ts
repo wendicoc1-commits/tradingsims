@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveUserPortfolio, getUserPortfolio, resetUserPortfolio } from '@/lib/server/portfolioStorage';
+import {
+  saveUserPortfolio,
+  getUserPortfolioAsync,
+  resetUserPortfolio,
+  getUserByEmailAsync,
+  registerOrUpdateUser
+} from '@/lib/server/portfolioStorage';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,7 +17,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Email atau userId wajib diberikan' }, { status: 400 });
     }
 
-    const portfolio = getUserPortfolio({ email, userId });
+    const portfolio = await getUserPortfolioAsync({ email, userId });
 
     return NextResponse.json({
       success: true,
@@ -33,8 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (email) {
-      const { getUserByEmail, registerOrUpdateUser } = await import('@/lib/server/portfolioStorage');
-      const existing = getUserByEmail(email);
+      const existing = await getUserByEmailAsync(email);
       if (!existing) {
         registerOrUpdateUser(email, undefined, email.split('@')[0]);
       }
@@ -70,14 +75,14 @@ export async function DELETE(req: NextRequest) {
     const nominal = parseInt(searchParams.get('nominal') || '100000000', 10);
 
     if (!email && !userId) {
-      return NextResponse.json({ success: false, error: 'Email atau userId wajib diberikan' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Email atau userId wajib diisi' }, { status: 400 });
     }
 
-    resetUserPortfolio({ email, userId }, isNaN(nominal) ? 100_000_000 : nominal);
-
+    const reset = resetUserPortfolio({ email, userId }, nominal);
     return NextResponse.json({
-      success: true,
-      message: 'Portofolio pengguna berhasil di-reset.',
+      success: reset,
+      cash: nominal,
+      timestamp: Date.now(),
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerOrUpdateUser, getUserPortfolio } from '@/lib/server/portfolioStorage';
+import { registerOrUpdateUser, getUserPortfolioAsync, getUserByEmailAsync } from '@/lib/server/portfolioStorage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,8 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normEmail = email.trim().toLowerCase();
-    const { getUserByEmail } = await import('@/lib/server/portfolioStorage');
-    const existing = getUserByEmail(normEmail);
+    const existing = await getUserByEmailAsync(normEmail);
     if (existing) {
       return NextResponse.json(
         { success: false, error: 'Email ini sudah terdaftar sebagai Member. Silakan masuk (login) menggunakan password Anda.' },
@@ -24,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const user = registerOrUpdateUser(normEmail, password, fullName);
-    const portfolio = getUserPortfolio({ userId: user.id, email: normEmail });
+    const portfolio = await getUserPortfolioAsync({ userId: user.id, email: normEmail });
 
     return NextResponse.json({
       success: true,

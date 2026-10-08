@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyUserPassword, registerOrUpdateUser, getUserPortfolio, getUserByEmail } from '@/lib/server/portfolioStorage';
+import {
+  verifyUserPasswordAsync,
+  registerOrUpdateUser,
+  getUserPortfolioAsync,
+  getUserByEmailAsync
+} from '@/lib/server/portfolioStorage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,11 +19,11 @@ export async function POST(req: NextRequest) {
     }
 
     const normEmail = email.trim().toLowerCase();
-    const existing = getUserByEmail(normEmail);
+    const existing = await getUserByEmailAsync(normEmail);
     let authUser: any = null;
 
     if (!existing) {
-      const existingPortfolio = getUserPortfolio({ email: normEmail });
+      const existingPortfolio = await getUserPortfolioAsync({ email: normEmail });
       if (existingPortfolio) {
         // Portofolio dari sinkronisasi perangkat sudah ada, daftarkan akun sekarang dengan password yang diinput
         authUser = registerOrUpdateUser(normEmail, password, normEmail.split('@')[0]);
@@ -29,7 +34,7 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      const verify = verifyUserPassword(normEmail, password);
+      const verify = await verifyUserPasswordAsync(normEmail, password);
       if (!verify.valid || !verify.user) {
         return NextResponse.json(
           { success: false, error: 'Password yang Anda masukkan salah. Silakan coba lagi.' },
@@ -39,8 +44,8 @@ export async function POST(req: NextRequest) {
       authUser = verify.user;
     }
 
-    // Ambil portofolio tersimpan di server
-    const portfolio = getUserPortfolio({ userId: authUser?.id, email: normEmail });
+    // Ambil portofolio tersimpan di cloud Supabase atau server
+    const portfolio = await getUserPortfolioAsync({ userId: authUser?.id, email: normEmail });
 
     return NextResponse.json({
       success: true,
