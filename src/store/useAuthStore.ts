@@ -370,63 +370,24 @@ export const useAuthStore = create<AuthState>()(
               console.warn('[SERVER PORTFOLIO SYNC WARN]', err);
             }
 
-            // 2. Simpan juga ke Supabase Database jika terkonfigurasi (best-effort)
+            // 2. Simpan juga ke Supabase Database jika terkonfigurasi (Langsung ke tabel user_portfolios)
             if (isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
                 const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
 
-                await supabase.from('portfolios').upsert({
+                await supabase.from('user_portfolios').upsert({
                   user_id: currentUser.id,
+                  email: currentUser.email.toLowerCase(),
                   cash: portStore.cash,
                   realized_pl: portStore.realizedPL,
+                  holdings: portStore.holdings,
+                  orders: portStore.orders,
+                  conditional_orders: portStore.conditionalOrders || [],
+                  dividends: portStore.dividends || [],
+                  last_updated: portStore.lastUpdated || Date.now(),
                   updated_at: updatedAtIso,
                 }, { onConflict: 'user_id' }).catch(() => {});
-
-                if (portStore.holdings.length > 0) {
-                  const holdingRows = portStore.holdings.map((h) => ({
-                    user_id: currentUser.id,
-                    symbol: h.symbol,
-                    display_symbol: h.displaySymbol,
-                    name: h.name,
-                    avg_price: h.avgPrice,
-                    lots: h.assetClass === 'CRYPTO' ? (h.cryptoUnits ?? h.lots) : Math.max(1, Math.round(h.lots || 1)),
-                    shares: h.shares || (h.assetClass === 'CRYPTO' ? h.lots : h.lots * 100),
-                    crypto_units: h.cryptoUnits ?? (h.assetClass === 'CRYPTO' ? h.lots : null),
-                    asset_class: h.assetClass || 'EQUITY',
-                    currency: h.currency || (h.assetClass === 'CRYPTO' ? 'USDT' : 'IDR'),
-                    exchange_rate: h.exchangeRate || 16000,
-                    take_profit_price: h.takeProfitPrice || null,
-                    stop_loss_price: h.stopLossPrice || null,
-                    validity_type: h.validityType || 'GTC',
-                    total_dividend_earned: h.totalDividendEarned || 0,
-                    updated_at: updatedAtIso,
-                  }));
-
-                  const activeSymbols = portStore.holdings.map((h) => h.symbol);
-                  const { data: currentDbHoldings } = await supabase
-                    .from('holdings')
-                    .select('symbol')
-                    .eq('user_id', currentUser.id);
-
-                  if (currentDbHoldings && currentDbHoldings.length > 0) {
-                    const obsoleteSymbols = currentDbHoldings
-                      .map((row: any) => row.symbol)
-                      .filter((sym: string) => !activeSymbols.includes(sym));
-
-                    if (obsoleteSymbols.length > 0) {
-                      await supabase
-                        .from('holdings')
-                        .delete()
-                        .eq('user_id', currentUser.id)
-                        .in('symbol', obsoleteSymbols);
-                    }
-                  }
-
-                  await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
-                } else {
-                  await supabase.from('holdings').delete().eq('user_id', currentUser.id);
-                }
               } catch {}
             }
           } while (needsPortfolioReSync);
@@ -634,63 +595,41 @@ export const useAuthStore = create<AuthState>()(
               console.warn('[SERVER PORTFOLIO LOAD WARN]', serverErr);
             }
 
-            // 2. Fallback Supabase jika terkonfigurasi (HANYA JIKA TIDAK MENGHAPUS HOLDING LOKAL)
+            // 2. Fallback Supabase jika terkonfigurasi (Langsung dari tabel user_portfolios)
             if (isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
-                const { data: holdingsData, error: holdingsErr } = await supabase
-                  .from('holdings')
+                const { data: cloudPort, error: portErr } = await supabase
+                  .from('user_portfolios')
                   .select('*')
-                  .eq('user_id', user.id);
-
-                const { data: portData, error: portErr } = await supabase
-                  .from('portfolios')
-                  .select('cash, realized_pl, updated_at')
-                  .eq('user_id', user.id)
+                  .or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase()}`)
                   .maybeSingle();
 
-                if (!portErr && portData && typeof portData.cash === 'number') {
-                  const dbCash = Number(portData.cash);
-                  const dbRealizedPL = Number(portData.realized_pl || 0);
-                  const mappedHoldings = (!holdingsErr && holdingsData && holdingsData.length > 0)
-                    ? holdingsData.map((row: any) => ({
-                        symbol: row.symbol,
-                        displaySymbol: row.display_symbol || row.symbol.replace('.JK', '').replace(/USDT$/i, ''),
-                        name: row.name || row.symbol,
-                        avgPrice: Number(row.avg_price || 0),
-                        lots: Number(row.lots || 1),
-                        shares: Number(row.shares || (row.lots || 1) * 100),
-                        currentPrice: Number(row.avg_price || 0),
-                        unrealizedPL: 0,
-                        unrealizedPLPercent: 0,
-                        cryptoUnits: row.crypto_units ? Number(row.crypto_units) : undefined,
-                        assetClass: row.asset_class || 'EQUITY',
-                        currency: row.currency || (row.symbol.endsWith('USDT') ? 'USDT' : 'IDR'),
-                        exchangeRate: row.exchange_rate ? Number(row.exchange_rate) : 16000,
-                        takeProfitPrice: row.take_profit_price ? Number(row.take_profit_price) : undefined,
-                        stopLossPrice: row.stop_loss_price ? Number(row.stop_loss_price) : undefined,
-                        validityType: row.validity_type || 'GTC',
-                        totalDividendEarned: Number(row.total_dividend_earned || 0),
-                        realizedPL: 0,
-                      }))
-                    : [];
+                if (!portErr && cloudPort && typeof cloudPort.cash === 'number') {
+                  const dbCash = Number(cloudPort.cash);
+                  const dbRealizedPL = Number(cloudPort.realized_pl || 0);
+                  const rawHoldings = Array.isArray(cloudPort.holdings) ? cloudPort.holdings : [];
+                  const rawOrders = Array.isArray(cloudPort.orders) ? cloudPort.orders : [];
+                  const cloudTime = Number(cloudPort.last_updated || 0);
 
                   const currentHoldings = usePortfolioStore.getState().holdings;
-                  // JANGAN PERNAH menimpa saham lokal aktif jika Supabase kosong!
-                  if (mappedHoldings.length > 0 && currentHoldings.length === 0) {
+                  // Pulihkan jika lokal masih kosong atau data cloud lebih mutakhir
+                  if ((rawHoldings.length > 0 || dbCash !== 100_000_000 || rawOrders.length > 0) && currentHoldings.length === 0) {
                     usePortfolioStore.setState({
-                      holdings: sanitizeHoldings(mappedHoldings),
                       cash: dbCash,
                       realizedPL: dbRealizedPL,
-                      lastUpdated: Date.now(),
+                      holdings: sanitizeHoldings(rawHoldings),
+                      orders: rawOrders,
+                      conditionalOrders: Array.isArray(cloudPort.conditional_orders) ? cloudPort.conditional_orders : [],
+                      dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
+                      lastUpdated: cloudTime || Date.now(),
                     });
-                    return;
-                  } else if (currentHoldings.length > 0 && mappedHoldings.length === 0) {
-                    await get().syncPortfolioToDatabase();
                     return;
                   }
                 }
-              } catch {}
+              } catch (cloudErr) {
+                console.warn('[SUPABASE DIRECT FETCH WARN]', cloudErr);
+              }
             }
           } catch (err) {
             console.error('[LOAD PORTFOLIO ERROR]', err);
