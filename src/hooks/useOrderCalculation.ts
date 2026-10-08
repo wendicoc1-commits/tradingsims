@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { calculateShares, isValidIDXTick } from '@/lib/utils';
+import { calculateShares, isValidIDXTick } from '@/lib/stockRules';
 import { isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
 
 interface UseOrderCalculationParams {
