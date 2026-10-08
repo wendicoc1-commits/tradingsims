@@ -566,13 +566,14 @@ export const usePortfolioStore = create<PortfolioState>()(
         currentPrice: execPrice,
         unrealizedPL,
         unrealizedPLPercent,
-        takeProfitPrice: params.takeProfitPrice || existing.takeProfitPrice,
-        stopLossPrice: params.stopLossPrice || existing.stopLossPrice,
+        takeProfitPrice: (params.takeProfitPrice && params.takeProfitPrice > execPrice) ? params.takeProfitPrice : existing.takeProfitPrice,
+        stopLossPrice: (params.stopLossPrice && params.stopLossPrice < execPrice) ? params.stopLossPrice : existing.stopLossPrice,
         validityType: params.validityType || existing.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : existing.assetClass || 'EQUITY',
         currency: isCrypto ? 'USDT' : isUS ? 'USD' : existing.currency || 'IDR',
         cryptoUnits: isCrypto ? newTotalShares : undefined,
         exchangeRate: isForeign ? rate : undefined,
+        lastBoughtAt: Date.now(),
       }
     } else {
       const initialAvgPrice = isForeign ? execPrice : Math.round((tradeValue + brokerFee) / totalShares)
@@ -580,6 +581,9 @@ export const usePortfolioStore = create<PortfolioState>()(
         ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
         : (execPrice - initialAvgPrice) * totalShares
       const unrealizedPLPercent = Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
+
+      const safeTakeProfit = (params.takeProfitPrice && params.takeProfitPrice > execPrice) ? params.takeProfitPrice : undefined
+      const safeStopLoss = (params.stopLossPrice && params.stopLossPrice < execPrice) ? params.stopLossPrice : undefined
 
       const newHolding: PortfolioHolding = {
         symbol: resolvedSym,
@@ -591,8 +595,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         currentPrice: execPrice,
         unrealizedPL,
         unrealizedPLPercent,
-        takeProfitPrice: params.takeProfitPrice,
-        stopLossPrice: params.stopLossPrice,
+        takeProfitPrice: safeTakeProfit,
+        stopLossPrice: safeStopLoss,
         peakPrice: execPrice,
         trailingStopPct: isCrypto ? 8 : 6, // 8% untuk volatilitas kripto, 6% untuk saham
         trailingStopPrice: isCrypto
@@ -607,6 +611,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         exchangeRate: isForeign ? rate : undefined,
         totalDividendEarned: 0,
         realizedPL: 0,
+        createdAt: new Date().toISOString(),
+        lastBoughtAt: Date.now(),
       }
       updatedHoldings = [...holdings, newHolding]
     }
@@ -681,9 +687,13 @@ export const usePortfolioStore = create<PortfolioState>()(
     const clean = symbol.replace('.JK', '').toUpperCase()
     const targetHolding = holdings.find((h) => h.displaySymbol.toUpperCase() === clean || h.symbol.toUpperCase() === symbol.toUpperCase())
 
-    // 1. Cek Target TP/SL Direct Holding
+    // 1. Cek Target TP/SL Direct Holding (Hanya terpicu jika target TP benar-benar di atas modal dan target SL di bawah modal)
     if (targetHolding && targetHolding.lots > 0) {
-      if (targetHolding.takeProfitPrice && currentPrice >= targetHolding.takeProfitPrice) {
+      if (
+        targetHolding.takeProfitPrice &&
+        targetHolding.takeProfitPrice > targetHolding.avgPrice &&
+        currentPrice >= targetHolding.takeProfitPrice
+      ) {
         const res = placeSellOrder({
           symbol: targetHolding.symbol,
           displaySymbol: targetHolding.displaySymbol,
@@ -702,7 +712,11 @@ export const usePortfolioStore = create<PortfolioState>()(
         }
       }
 
-      if (targetHolding.stopLossPrice && currentPrice <= targetHolding.stopLossPrice) {
+      if (
+        targetHolding.stopLossPrice &&
+        targetHolding.stopLossPrice < targetHolding.avgPrice &&
+        currentPrice <= targetHolding.stopLossPrice
+      ) {
         const res = placeSellOrder({
           symbol: targetHolding.symbol,
           displaySymbol: targetHolding.displaySymbol,

@@ -82,8 +82,13 @@ export async function runAutonomousAgentCycle(
 
     if (sellPrice <= 0) continue;
 
-    // A. Cek Take Profit
-    if (holding.takeProfitPrice && sellPrice >= holding.takeProfitPrice && holding.lots > 0) {
+    // A. Cek Take Profit (Hanya terpicu jika target TP benar-benar di atas modal)
+    if (
+      holding.takeProfitPrice &&
+      holding.takeProfitPrice > holding.avgPrice &&
+      sellPrice >= holding.takeProfitPrice &&
+      holding.lots > 0
+    ) {
       const sellLots = holding.lots;
       const res = portfolioStore.placeSellOrder({
         symbol: holding.symbol,
@@ -222,11 +227,12 @@ export async function runAutonomousAgentCycle(
       }
     }
 
-    // C. Cek Hard Stop Loss (CRO Risk Gate Veto)
+    // C. Cek Hard Stop Loss (CRO Risk Gate Veto - hanya terpicu jika stop loss benar di bawah modal)
     if (
       isLiveValid &&
       !isGlitchDrop &&
       holding.stopLossPrice &&
+      holding.stopLossPrice < holding.avgPrice &&
       sellPrice <= holding.stopLossPrice &&
       holding.lots > 0
     ) {
@@ -302,10 +308,17 @@ export async function runAutonomousAgentCycle(
       const supplyZone = holdingIntel.technicals.orderBlockSupply?.min || Infinity;
       const profitPct = holding.unrealizedPLPercent ?? 0;
 
-      // 1. Likuidasi Pelemahan Tren: Hanya dieksekusi jika posisi sudah cuan (mengamankan modal) atau breakdown struktural parah (loss <= -7.5%)
+      // ── Proteksi Posisi Baru (Cooldown Grace Period) ──
+      // Posisi yang baru dibeli kurang dari 5 menit dilarang keras dilikuidasi karena fluktuasi minor,
+      // memberikan waktu bagi posisi untuk berkembang dan mencegah sindrom langsung jual setelah beli.
+      const isHoldingFresh = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 5 * 60 * 1000) : false;
+
+      // 1. Likuidasi Pelemahan Tren: Hanya dieksekusi jika posisi SUDAH CUAN NYATA (>= +2.5%) untuk mengamankan keuntungan,
+      // ATAU jika terjadi breakdown struktural parah (cut loss darurat <= -7.5%)
       const isTrendBroken =
+        !isHoldingFresh &&
         (mtfTrend === 'STRONG_BEARISH' || (mtfTrend === 'BEARISH' && holdingIntel.financials.roe < 7)) &&
-        (profitPct >= 0 || profitPct <= -7.5);
+        (profitPct >= 2.5 || profitPct <= -7.5);
       
       // 2. Kunci Keuntungan Dinamis (Trailing TP): Profit > 8% dan menyentuh zona Order Block Supply
       const isSupplyResistance = profitPct >= 8.0 && sellPrice >= supplyZone;

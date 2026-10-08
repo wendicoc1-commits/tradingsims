@@ -135,6 +135,8 @@ export interface PortfolioHolding {
   exchangeRate?: number
   totalDividendEarned?: number
   realizedPL?: number // Akumulasi profit/loss terealisasi dari penjualan emiten ini
+  createdAt?: string
+  lastBoughtAt?: number
 }
 
 export interface DividendRecord {

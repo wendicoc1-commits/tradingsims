@@ -125,8 +125,8 @@ export async function runAutonomousCryptoAgentCycle(
 
     if (units <= 0 || livePrice <= 0) continue;
 
-    // A. Cek Take Profit Otomatis Kripto
-    if (holding.takeProfitPrice && livePrice >= holding.takeProfitPrice) {
+    // A. Cek Take Profit Otomatis Kripto (Hanya jika TP benar-benar di atas modal)
+    if (holding.takeProfitPrice && holding.takeProfitPrice > holding.avgPrice && livePrice >= holding.takeProfitPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
         displaySymbol: cleanSym,
@@ -164,10 +164,10 @@ export async function runAutonomousCryptoAgentCycle(
       }
     }
 
-    // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate)
+    // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate - hanya jika SL di bawah modal)
     // Proteksi: Tidak boleh terpicu akibat glitch feed anomali (>35% dalam 1 tick)
     const isGlitchDrop = holding.peakPrice ? livePrice < holding.peakPrice * 0.65 : false;
-    if (!isGlitchDrop && holding.stopLossPrice && livePrice <= holding.stopLossPrice) {
+    if (!isGlitchDrop && holding.stopLossPrice && holding.stopLossPrice < holding.avgPrice && livePrice <= holding.stopLossPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
         displaySymbol: cleanSym,
@@ -206,15 +206,16 @@ export async function runAutonomousCryptoAgentCycle(
     }
 
     // C. JUAL DISKRESIONER OTONOM AI (Kuasa Penuh Jesse AI Bot)
-    // Proteksi Overtrading: Jangan panik jual posisi jika baru dibuka atau belum menyentuh batas stop loss riil,
-    // kecuali posisi sudah dalam kondisi cuan (mengamankan profit) atau penurunan ekstrem (> -8%).
+    // Proteksi Overtrading: Jangan panik jual posisi jika baru dibuka kurang dari 5 menit,
+    // dan posisi harus sudah profit nyata (>= +2%) sebelum diizinkan likuidasi diskresioner
     if (aiStore.discretionarySellingEnabled) {
+      const isHoldingFresh = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 5 * 60 * 1000) : false;
       const chg = tickerMap[sym]?.change24h ?? 0;
       const jesseSignal = evaluateJesseStrategy(sym, livePrice, chg);
-      const isProfitable = livePrice > holding.avgPrice;
+      const isProfitable = livePrice >= holding.avgPrice * 1.02; // Minimal profit +2% nyata
       const isSevereBreakdown = holding.avgPrice > 0 && livePrice < holding.avgPrice * 0.92;
 
-      if (jesseSignal.signal === 'SELL' && (isProfitable || isSevereBreakdown)) {
+      if (!isHoldingFresh && jesseSignal.signal === 'SELL' && (isProfitable || isSevereBreakdown)) {
         const res = portfolioStore.placeSellOrder({
           symbol: sym,
           displaySymbol: cleanSym,
