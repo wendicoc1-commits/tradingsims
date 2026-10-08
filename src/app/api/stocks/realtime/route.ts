@@ -31,18 +31,22 @@ const cache: CachedData = {
 
 const CACHE_TTL_MS = 3000; // 3 seconds live refresh
 
+import { MASTER_GLOBAL_CRYPTO, MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
+
 // Crypto symbols set
 export const CRYPTO_SYMBOLS = new Set([
+  ...MASTER_GLOBAL_CRYPTO.map((c) => c.symbol.replace(/USDT$/, '')),
   'BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE',
-  'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'MATIC', 'POL', 'LTC', 'BCH', 'UNI', 'APT'
+  'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'MATIC', 'POL', 'LTC', 'BCH', 'UNI', 'APT',
 ]);
 
 // Map friendly tickers to Yahoo Finance symbols
 export const US_STOCKS = new Set([
+  ...MASTER_GLOBAL_STOCKS.map((s) => s.ticker.toUpperCase()),
   'AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'GOOG', 'META', 'KO', 'JNJ', 'PG', 'PEP',
   'MCD', 'DIS', 'MMM', 'ABBV', 'CVX', 'O', 'PLTR', 'AMD', 'INTC', 'COIN', 'ARM', 'SMCI',
   'NFLX', 'BABA', 'ORCL', 'CRM', 'UBER', 'ABNB', 'AVGO', 'QCOM', 'PANW', 'NOW', 'SNOW',
-  'PYPL', 'SQ', 'SHOP', 'BA', 'CAT', 'GE', 'GS', 'JPM', 'V', 'MA', 'WMT', 'COST', 'NKE'
+  'PYPL', 'SQ', 'SHOP', 'BA', 'CAT', 'GE', 'GS', 'JPM', 'V', 'MA', 'WMT', 'COST', 'NKE',
 ]);
 
 export function mapToYahooSymbol(ticker: string): string {

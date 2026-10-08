@@ -1,14 +1,14 @@
 /**
  * Fincept Master Asset Universe
- * Unifies 1000+ assets across:
+ * Unifies 1200+ assets across:
  * - 951+ Indonesia Stock Exchange (IDX / BEI) Equities
- * - 50+ Global US & International Stocks (NASDAQ, S&P 500)
- * - 15+ Top Liquid Cryptocurrencies (Binance / Spot)
+ * - 160+ Global US & International Stocks (NASDAQ, S&P 500, NYSE, TSE, HKEX, Euronext)
+ * - 72+ Top Liquid Cryptocurrencies (Binance / Spot)
  */
 
 import idxDividendJson from '@/data/idx_dividend_all.json';
 import { IDX_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
-import { MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
+import { MASTER_GLOBAL_STOCKS, MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
 
 export type AssetCategory = 'IDX' | 'CRYPTO' | 'GLOBAL';
 
@@ -25,30 +25,35 @@ export interface UnifiedAsset {
   isPopular?: boolean;
 }
 
-// 1. Top Cryptocurrencies
-const CRYPTO_MASTER: UnifiedAsset[] = [
-  { symbol: 'BTC', name: 'Bitcoin (Spot / Satoshi)', category: 'CRYPTO', sector: 'Digital Gold / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 81118, flag: '⚡', isPopular: true },
-  { symbol: 'ETH', name: 'Ethereum (Smart Contracts)', category: 'CRYPTO', sector: 'Layer-1 Smart Contracts', currency: 'USD', market: 'CRYPTO', defaultPrice: 2450, flag: '⚡', isPopular: true },
-  { symbol: 'SOL', name: 'Solana (High Throughput L1)', category: 'CRYPTO', sector: 'Layer-1 High Speed', currency: 'USD', market: 'CRYPTO', defaultPrice: 108.32, flag: '⚡', isPopular: true },
-  { symbol: 'BNB', name: 'BNB (Binance Ecosystem)', category: 'CRYPTO', sector: 'Exchange Token / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 585, flag: '⚡', isPopular: true },
-  { symbol: 'DOGE', name: 'Dogecoin (Meme Liquidity)', category: 'CRYPTO', sector: 'Meme / Payment', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.0827, flag: '⚡', isPopular: true },
-  { symbol: 'XRP', name: 'XRP (Ripple Settlement)', category: 'CRYPTO', sector: 'Cross-Border Payments', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.42, flag: '⚡', isPopular: true },
-  { symbol: 'ADA', name: 'Cardano (PoS Blockchain)', category: 'CRYPTO', sector: 'Layer-1 UTXO', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.35, flag: '⚡' },
-  { symbol: 'AVAX', name: 'Avalanche (Subnet Consensus)', category: 'CRYPTO', sector: 'Layer-1 Multi-Chain', currency: 'USD', market: 'CRYPTO', defaultPrice: 26.5, flag: '⚡' },
-  { symbol: 'SUI', name: 'Sui Network (Move VM)', category: 'CRYPTO', sector: 'Layer-1 Move Language', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.85, flag: '⚡' },
-  { symbol: 'NEAR', name: 'NEAR Protocol (AI Chain)', category: 'CRYPTO', sector: 'Layer-1 Sharded / AI', currency: 'USD', market: 'CRYPTO', defaultPrice: 4.67, flag: '⚡' },
-  { symbol: 'LINK', name: 'Chainlink (Oracle Network)', category: 'CRYPTO', sector: 'Decentralized Oracle', currency: 'USD', market: 'CRYPTO', defaultPrice: 11.5, flag: '⚡' },
-  { symbol: 'PEPE', name: 'Pepe Token (Deflationary Meme)', category: 'CRYPTO', sector: 'Meme Momentum', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.00000378, flag: '⚡' },
-  { symbol: 'RENDER', name: 'Render Network (GPU Cloud)', category: 'CRYPTO', sector: 'Decentralized Compute', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.828, flag: '⚡' },
-  { symbol: 'ARB', name: 'Arbitrum (L2 Rollup)', category: 'CRYPTO', sector: 'Layer-2 Ethereum Scaling', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.1672, flag: '⚡' },
-  { symbol: 'APT', name: 'Aptos (Move Language L1)', category: 'CRYPTO', sector: 'Layer-1 High Speed', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.7161, flag: '⚡' },
-  { symbol: 'SHIB', name: 'Shiba Inu (Ecosystem)', category: 'CRYPTO', sector: 'Meme Ecosystem', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.000018, flag: '⚡' },
-  { symbol: 'DOT', name: 'Polkadot (Interoperability)', category: 'CRYPTO', sector: 'Cross-Chain Relay', currency: 'USD', market: 'CRYPTO', defaultPrice: 4.25, flag: '⚡' },
-  { symbol: 'TAO', name: 'Bittensor (Decentralized AI)', category: 'CRYPTO', sector: 'Machine Intelligence', currency: 'USD', market: 'CRYPTO', defaultPrice: 540, flag: '⚡' },
-  { symbol: 'FET', name: 'Artificial Superintelligence', category: 'CRYPTO', sector: 'Autonomous AI Agents', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.35, flag: '⚡' },
-];
+// 1. Top Cryptocurrencies generated dynamically from MASTER_GLOBAL_CRYPTO (72+ pairs)
+const POPULAR_CRYPTO = new Set([
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR',
+  'LINK', 'PEPE', 'SHIB', 'RENDER', 'ARB', 'APT', 'TAO', 'FET', 'TON', 'KAS',
+]);
 
-// 2. Global US Stocks
+const CRYPTO_MASTER: UnifiedAsset[] = MASTER_GLOBAL_CRYPTO.map((c) => {
+  const base = c.symbol.replace(/USDT$/, '');
+  return {
+    symbol: base,
+    name: c.name,
+    category: 'CRYPTO' as AssetCategory,
+    sector: `Crypto ${c.category}`,
+    currency: 'USD' as const,
+    market: 'CRYPTO' as const,
+    defaultPrice: c.price,
+    flag: '⚡',
+    isPopular: POPULAR_CRYPTO.has(base),
+  };
+});
+
+// 2. Global US & World Stocks (160+ emiten)
+const POPULAR_GLOBAL = new Set([
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'META', 'PLTR', 'AVGO', 'AMD',
+  'BRK.B', 'LLY', 'JPM', 'V', 'WMT', 'NFLX', 'ORCL', 'COST', 'XOM', 'COIN', 'QCOM',
+  'CRM', 'ADBE', 'INTC', 'MA', 'PG', 'JNJ', 'HD', 'TSM', 'BABA', 'ASML', 'NVO',
+  'SPY', 'QQQ', 'SOXX', 'SMH', 'VOO',
+]);
+
 const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS.map((s) => ({
   symbol: s.ticker.toUpperCase(),
   name: s.name,
@@ -58,7 +63,7 @@ const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS.map((s) => ({
   market: 'US' as const,
   defaultPrice: s.price,
   flag: s.flag || '🌐',
-  isPopular: ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'META', 'PLTR'].includes(s.ticker.toUpperCase()),
+  isPopular: POPULAR_GLOBAL.has(s.ticker.toUpperCase()),
 }));
 
 // Popular IDX Bluechips
@@ -95,16 +100,57 @@ export const MASTER_ASSETS: UnifiedAsset[] = [...CRYPTO_MASTER, ...IDX_MASTER, .
 // Index for O(1) lookup
 const ASSET_BY_SYMBOL = new Map<string, UnifiedAsset>();
 for (const a of MASTER_ASSETS) {
-  ASSET_BY_SYMBOL.set(a.symbol.toUpperCase(), a);
+  const sym = a.symbol.toUpperCase();
+  ASSET_BY_SYMBOL.set(sym, a);
+  if (a.category === 'CRYPTO') {
+    ASSET_BY_SYMBOL.set(`${sym}USDT`, a);
+    ASSET_BY_SYMBOL.set(`${sym}-USD`, a);
+  }
+}
+
+// Global sets for fast O(1) membership checks
+const CRYPTO_SET = new Set(CRYPTO_MASTER.map((c) => c.symbol.toUpperCase()));
+const GLOBAL_SET = new Set(GLOBAL_MASTER.map((g) => g.symbol.toUpperCase()));
+
+/**
+ * Check whether a symbol represents a Cryptocurrency
+ */
+export function isCryptoSymbol(symbol: string): boolean {
+  if (!symbol) return false;
+  const clean = symbol.trim().toUpperCase().replace(/USDT$/i, '').replace(/-USD$/i, '');
+  return CRYPTO_SET.has(clean) || symbol.toUpperCase().endsWith('USDT');
 }
 
 /**
- * Get asset definition by symbol (supports ticker like BBCA, BTC, NVDA)
+ * Check whether a symbol represents a US / Foreign Global Stock
+ */
+export function isUSSymbol(symbol: string): boolean {
+  if (!symbol) return false;
+  const clean = symbol.trim().toUpperCase().replace('.JK', '');
+  return GLOBAL_SET.has(clean);
+}
+
+/**
+ * Return all supported crypto base tickers
+ */
+export function getAllCryptoSymbols(): string[] {
+  return Array.from(CRYPTO_SET);
+}
+
+/**
+ * Return all supported global / US stock tickers
+ */
+export function getAllGlobalSymbols(): string[] {
+  return Array.from(GLOBAL_SET);
+}
+
+/**
+ * Get asset definition by symbol (supports ticker like BBCA, BTC, NVDA, BTCUSDT)
  */
 export function getAssetBySymbol(symbol: string): UnifiedAsset | undefined {
   if (!symbol) return undefined;
   const clean = symbol.toUpperCase().trim().replace('.JK', '');
-  return ASSET_BY_SYMBOL.get(clean);
+  return ASSET_BY_SYMBOL.get(clean) || ASSET_BY_SYMBOL.get(clean.replace(/USDT$/i, ''));
 }
 
 /**
@@ -154,8 +200,17 @@ export function getAllSectors(): string[] {
 }
 
 /**
- * Total statistics for UI display
+ * Universe metrics
  */
+export function getUniverseSummary() {
+  return {
+    totalAssets: MASTER_ASSETS.length,
+    idxCount: IDX_MASTER.length,
+    cryptoCount: CRYPTO_MASTER.length,
+    globalCount: GLOBAL_MASTER.length,
+  };
+}
+
 export const UNIVERSE_STATS = {
   totalAssets: MASTER_ASSETS.length,
   idxCount: IDX_MASTER.length,

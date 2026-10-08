@@ -11,10 +11,7 @@ interface CachedHistory {
 const historyCache: Map<string, CachedHistory> = new Map();
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
 
-const CRYPTO_SYMBOLS = new Set([
-  'BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE',
-  'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'MATIC', 'POL', 'LTC', 'BCH', 'UNI', 'APT'
-]);
+import { CRYPTO_SYMBOLS, US_STOCKS } from '../realtime/route';
 
 function mapToYahooSymbol(ticker: string): string {
   const t = ticker.trim().toUpperCase().replace('.JK', '');
@@ -27,8 +24,7 @@ function mapToYahooSymbol(ticker: string): string {
   if (CRYPTO_SYMBOLS.has(t)) {
     return `${t}-USD`;
   }
-  const usStocks = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'KO', 'JNJ', 'PG', 'PEP', 'MCD', 'DIS', 'MMM', 'ABBV', 'CVX', 'O'];
-  if (usStocks.includes(t)) return t;
+  if (US_STOCKS.has(t) || t.includes('.') || t.length < 4) return t;
   if (/^[A-Z]{4,5}$/.test(t)) {
     return `${t}.JK`;
   }

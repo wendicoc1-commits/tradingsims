@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 
 interface TradingViewAdvancedChartProps {
   symbol?: string;
@@ -19,7 +20,12 @@ export default function TradingViewAdvancedChart({
   const getTvSymbol = (sym: string) => {
     const s = sym.toUpperCase().trim().replace('.JK', '');
     if (s.includes(':')) return s;
-    if (['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META'].includes(s)) {
+    if (s === '^JKSE' || s === 'JKSE') return 'IDX:COMPOSITE';
+    if (isCryptoSymbol(s) || s.endsWith('USDT')) {
+      const clean = s.replace(/USDT$/i, '');
+      return `BINANCE:${clean}USDT`;
+    }
+    if (isUSSymbol(s)) {
       return `NASDAQ:${s}`;
     }
     return `IDX:${s}`;

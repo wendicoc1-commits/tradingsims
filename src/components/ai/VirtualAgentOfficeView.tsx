@@ -96,6 +96,8 @@ import {
   getAssetBySymbol,
   getAssetsByCategory,
   getAllSectors,
+  isCryptoSymbol,
+  isUSSymbol,
   type UnifiedAsset,
 } from '@/lib/universe/masterAssetUniverse';
 
@@ -1268,7 +1270,7 @@ export default function VirtualAgentOfficeView() {
       const currentHoldings = usePortfolioStore.getState().holdings;
       const currentCash = usePortfolioStore.getState().cash;
       const totalNav = currentCash + currentHoldings.reduce((s, h) => {
-        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(h.displaySymbol.toUpperCase());
+        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(h.displaySymbol);
         const liveP = liveQuotesMap[h.displaySymbol]?.price || h.currentPrice;
         return s + (isCrypto ? (h.cryptoUnits || h.lots) * liveP * 16000 : (h.shares || h.lots * 100) * liveP);
       }, 0);
@@ -1276,7 +1278,7 @@ export default function VirtualAgentOfficeView() {
 
       const isAllocated = (sym: string) => {
         const clean = sym.toUpperCase();
-        const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(clean);
+        const isCrypto = isCryptoSymbol(clean);
         const h = currentHoldings.find((x) => x.displaySymbol.toUpperCase() === clean || x.symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase() === clean);
         if (!h) return false;
         const liveP = liveQuotesMap[clean]?.price || h.currentPrice;
@@ -1846,7 +1848,7 @@ export default function VirtualAgentOfficeView() {
       factors: rawDecision.factors.length ? rawDecision.factors : ['Rekomendasi Alpha Engine terkonfirmasi untuk akumulasi beli'],
     };
 
-    const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(selectedStock.toUpperCase());
+    const isCrypto = isCryptoSymbol(selectedStock);
     const liveCryptoPrice = isCrypto
       ? (liveCryptoTicker?.price ?? tickerMap[selectedStock]?.price ?? tickerMap[`${selectedStock}USDT`]?.price)
       : undefined;
@@ -2002,8 +2004,8 @@ export default function VirtualAgentOfficeView() {
     if (!snapshot) return;
     const sz = snapshot.sizing;
     const cleanSym = snapshot.symbol.toUpperCase();
-    const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(cleanSym);
-    const isIDR = !isCrypto;
+    const isCrypto = isCryptoSymbol(cleanSym);
+    const isIDR = !isCrypto && !isUSSymbol(cleanSym);
 
     // ── ATURAN STRICT JAM BURSA BEI ──
     // Saham BEI (Indonesia): Bot DILARANG membeli di luar jam bursa resmi (Senin–Jumat 09:00–16:00 WIB)
@@ -2798,8 +2800,8 @@ export default function VirtualAgentOfficeView() {
                       </div>
                     ) : (
                       useAIAgentStore.getState().logs.filter(l => l.type === 'TRADE_BUY' || l.type === 'TRADE_SELL' || l.type === 'RISK_GATE').slice(0, 10).map((l) => {
-                        const clean = l.symbol?.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                        const isCryptoLog = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(clean) || l.symbol?.endsWith('USDT');
+                        const clean = l.symbol?.replace('.JK', '').replace(/USDT$/i, '').toUpperCase() || '';
+                        const isCryptoLog = isCryptoSymbol(clean) || Boolean(l.symbol?.endsWith('USDT'));
                         return (
                         <div key={l.id} className="p-2 rounded-lg border border-zinc-800 bg-zinc-900/60 space-y-1">
                           <div className="flex items-center justify-between">

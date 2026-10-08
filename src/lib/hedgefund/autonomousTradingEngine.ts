@@ -15,6 +15,7 @@ import { getGroundedStockIntelligence } from '../agents/groundedStockIntelligenc
 import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
 import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
 import { normalizeSymbol, calculateShares } from '../stockRules';
+import { isCryptoSymbol } from '../universe/masterAssetUniverse';
 
 /**
  * Menjalankan satu siklus penuh otonom:
@@ -792,9 +793,10 @@ export async function runAutonomousAgentCycle(
   try {
     const cryptoTickersMap: Record<string, any> = {};
     for (const [sym, q] of Object.entries(liveQuotesMap)) {
-      if (['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'RENDER', 'ARB', 'APT', 'TAO', 'FET', 'OP', 'KAS', 'TON'].includes(sym.toUpperCase())) {
-        cryptoTickersMap[`${sym.toUpperCase()}USDT`] = {
-          symbol: `${sym.toUpperCase()}USDT`,
+      if (isCryptoSymbol(sym)) {
+        const cleanBase = sym.toUpperCase().replace(/USDT$/i, '');
+        cryptoTickersMap[`${cleanBase}USDT`] = {
+          symbol: `${cleanBase}USDT`,
           price: q.price,
           change24h: q.changePct,
           high24h: q.high,

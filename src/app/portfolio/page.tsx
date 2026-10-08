@@ -37,6 +37,7 @@ import CompanyLogo from '@/components/common/CompanyLogo';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
@@ -252,12 +253,26 @@ function OrderForm() {
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {[
+              { ticker: 'NVDA', price: 141.54 },
+              { ticker: 'AAPL', price: 232.15 },
+              { ticker: 'MSFT', price: 428.50 },
+              { ticker: 'AMZN', price: 187.80 },
               { ticker: 'GOOGL', price: 168.20 },
-              { ticker: 'AAPL', price: 228.50 },
-              { ticker: 'NVDA', price: 125.40 },
-              { ticker: 'MSFT', price: 420.10 },
-              { ticker: 'TSLA', price: 240.80 },
-              { ticker: 'AMZN', price: 185.30 },
+              { ticker: 'META', price: 589.40 },
+              { ticker: 'TSLA', price: 218.80 },
+              { ticker: 'PLTR', price: 44.20 },
+              { ticker: 'AMD', price: 156.40 },
+              { ticker: 'AVGO', price: 182.40 },
+              { ticker: 'COIN', price: 215.40 },
+              { ticker: 'LLY', price: 924.50 },
+              { ticker: 'JPM', price: 224.50 },
+              { ticker: 'WMT', price: 82.50 },
+              { ticker: 'COST', price: 912.40 },
+              { ticker: 'SPY', price: 578.40 },
+              { ticker: 'QQQ', price: 494.20 },
+              { ticker: 'TSM', price: 198.50 },
+              { ticker: 'BABA', price: 101.20 },
+              { ticker: 'ASML', price: 712.40 },
             ].map((st) => (
               <button
                 key={st.ticker}
@@ -285,12 +300,27 @@ function OrderForm() {
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {[
-              { coin: 'BTC', price: 82500 },
+              { coin: 'BTC', price: 81118 },
               { coin: 'ETH', price: 2450 },
-              { coin: 'SOL', price: 154 },
-              { coin: 'DOGE', price: 0.125 },
+              { coin: 'SOL', price: 108.32 },
               { coin: 'BNB', price: 585 },
-              { coin: 'XRP', price: 0.54 },
+              { coin: 'XRP', price: 1.42 },
+              { coin: 'DOGE', price: 0.0827 },
+              { coin: 'SUI', price: 1.85 },
+              { coin: 'NEAR', price: 4.67 },
+              { coin: 'PEPE', price: 0.00000378 },
+              { coin: 'SHIB', price: 0.000018 },
+              { coin: 'RENDER', price: 1.828 },
+              { coin: 'ARB', price: 0.1672 },
+              { coin: 'APT', price: 0.7161 },
+              { coin: 'TON', price: 5.24 },
+              { coin: 'KAS', price: 0.138 },
+              { coin: 'TAO', price: 540 },
+              { coin: 'FET', price: 1.35 },
+              { coin: 'LINK', price: 11.50 },
+              { coin: 'AAVE', price: 154.20 },
+              { coin: 'ONDO', price: 0.765 },
+              { coin: 'WIF', price: 2.65 },
             ].map((c) => (
               <button
                 key={c.coin}
@@ -546,8 +576,9 @@ export default function PortfolioPage() {
             h.assetClass === 'CRYPTO' ||
             h.currency === 'USDT' ||
             h.symbol.endsWith('USDT') ||
-            ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(h.displaySymbol.toUpperCase());
+            isCryptoSymbol(h.displaySymbol);
           if (isCrypto) return h.symbol;
+          if (isUSSymbol(h.displaySymbol) || h.currency === 'USD' || h.assetClass === 'US') return h.displaySymbol;
           return h.symbol.includes('.') ? h.symbol : `${h.displaySymbol}.JK`;
         });
         const { fetchBatchQuotes } = await import('@/lib/api');
@@ -628,10 +659,9 @@ export default function PortfolioPage() {
   }, [tickerMap, holdings, updateHoldingPrices]);
 
   const totalHoldingsValue = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
     const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-    const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
-    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean));
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     if (isCrypto || isUS) {
@@ -1104,10 +1134,9 @@ export default function PortfolioPage() {
                     </thead>
                     <tbody>
                       {holdings.map((h) => {
-                        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+                        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
                         const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                        const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
-                        const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
+                        const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym));
                         const rate = h.exchangeRate || 16000;
                         const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                         const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;

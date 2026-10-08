@@ -14,27 +14,20 @@ export interface BinanceTickerData {
   lastUpdated: number;
 }
 
-const INITIAL_CRYPTO_SEEDS: Record<string, { price: number; change24h: number; high: number; low: number; vol: string; qVol: number }> = {
-  BTC: { price: 81118, change24h: 0.15, high: 82500, low: 80800, vol: '$42.4B', qVol: 42400000000 },
-  ETH: { price: 2450, change24h: 1.15, high: 2490, low: 2380, vol: '$14.2B', qVol: 14200000000 },
-  SOL: { price: 108.32, change24h: -0.06, high: 112, low: 106, vol: '$4.8B', qVol: 4800000000 },
-  BNB: { price: 585, change24h: 0.95, high: 592, low: 578, vol: '$1.2B', qVol: 1200000000 },
-  DOGE: { price: 0.0827, change24h: -0.13, high: 0.086, low: 0.081, vol: '$1.5B', qVol: 1500000000 },
-  XRP: { price: 1.42, change24h: 1.20, high: 1.48, low: 1.38, vol: '$3.8B', qVol: 3800000000 },
-  ADA: { price: 0.35, change24h: 0.50, high: 0.362, low: 0.341, vol: '$320M', qVol: 320000000 },
-  AVAX: { price: 26.5, change24h: 1.80, high: 27.4, low: 25.6, vol: '$450M', qVol: 450000000 },
-  SUI: { price: 1.85, change24h: 2.20, high: 1.92, low: 1.78, vol: '$820M', qVol: 820000000 },
-  NEAR: { price: 4.67, change24h: -0.49, high: 4.85, low: 4.60, vol: '$380M', qVol: 380000000 },
-  LINK: { price: 11.5, change24h: 1.45, high: 11.85, low: 11.15, vol: '$290M', qVol: 290000000 },
-  PEPE: { price: 0.00000378, change24h: 1.80, high: 0.00000395, low: 0.00000365, vol: '$780M', qVol: 780000000 },
-  SHIB: { price: 0.000018, change24h: 1.20, high: 0.0000188, low: 0.0000174, vol: '$310M', qVol: 310000000 },
-  DOT: { price: 4.25, change24h: 0.85, high: 4.38, low: 4.16, vol: '$180M', qVol: 180000000 },
-  RENDER: { price: 1.828, change24h: 1.50, high: 1.92, low: 1.78, vol: '$240M', qVol: 240000000 },
-  ARB: { price: 0.1672, change24h: 0.80, high: 0.175, low: 0.162, vol: '$210M', qVol: 210000000 },
-  APT: { price: 0.7161, change24h: 1.20, high: 0.745, low: 0.701, vol: '$180M', qVol: 180000000 },
-  TAO: { price: 540, change24h: 2.80, high: 560, low: 518, vol: '$190M', qVol: 190000000 },
-  FET: { price: 1.35, change24h: 2.20, high: 1.42, low: 1.28, vol: '$150M', qVol: 150000000 },
-};
+import { MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
+
+const INITIAL_CRYPTO_SEEDS: Record<string, { price: number; change24h: number; high: number; low: number; vol: string; qVol: number }> = {};
+for (const c of MASTER_GLOBAL_CRYPTO) {
+  const base = c.symbol.replace(/USDT$/, '');
+  INITIAL_CRYPTO_SEEDS[base] = {
+    price: c.price,
+    change24h: c.change24h,
+    high: c.high24h,
+    low: c.low24h,
+    vol: c.volume24h,
+    qVol: 500000000,
+  };
+}
 
 function buildInitialSeeds(): Record<string, BinanceTickerData> {
   const initial: Record<string, BinanceTickerData> = {};

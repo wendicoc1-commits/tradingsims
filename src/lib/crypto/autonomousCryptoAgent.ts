@@ -20,6 +20,8 @@ import {
 import type { BinanceTickerData } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice } from '@/lib/utils';
 
+import { CRYPTO_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
+
 export interface CryptoAlphaRanking {
   asset: CryptoAssetMeta;
   signal: JesseStrategySignal;
@@ -36,12 +38,10 @@ export function scanCryptoUniverse(
   topPick: CryptoAlphaRanking | null;
   timestamp: string;
 } {
-  const fallbackMap: Record<string, number> = {
-    BTCUSDT: 81118, ETHUSDT: 2450, SOLUSDT: 108.32, BNBUSDT: 585, DOGEUSDT: 0.0827,
-    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.67,
-    LINKUSDT: 11.5, PEPEUSDT: 0.00000378, RENDERUSDT: 1.828, ARBUSDT: 0.1672, APTUSDT: 0.7161,
-    TAOUSDT: 540, FETUSDT: 1.35, SHIBUSDT: 0.000018, DOTUSDT: 4.25,
-  };
+  const fallbackMap: Record<string, number> = {};
+  for (const [sym, b] of Object.entries(CRYPTO_BENCHMARK_PRICES)) {
+    fallbackMap[sym] = b.price;
+  }
 
   const ranked: CryptoAlphaRanking[] = SUPPORTED_CRYPTO_PAIRS.map((asset) => {
     const t = tickerMap[asset.symbol] || tickerMap[asset.baseAsset];

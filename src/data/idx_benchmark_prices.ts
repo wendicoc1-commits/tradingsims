@@ -77,27 +77,23 @@ export const IDX_BENCHMARK_PRICES: Record<string, IDXStockBenchmark> = {
   '^LQ45': { ticker: '^LQ45', name: 'Indeks LQ45', sector: 'Index', price: 785.40, currency: 'IDR', prevClose: 780.20, changePct: 0.67 },
 };
 
-export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: string }> = {
-  BTC: { price: 81118, name: 'Bitcoin (BTC)' },
-  ETH: { price: 2450, name: 'Ethereum (ETH)' },
-  SOL: { price: 108.32, name: 'Solana (SOL)' },
-  BNB: { price: 585, name: 'BNB (Binance)' },
-  DOGE: { price: 0.0827, name: 'Dogecoin (DOGE)' },
-  XRP: { price: 1.42, name: 'XRP (Ripple)' },
-  ADA: { price: 0.35, name: 'Cardano (ADA)' },
-  AVAX: { price: 26.5, name: 'Avalanche (AVAX)' },
-  SUI: { price: 1.85, name: 'Sui Network (SUI)' },
-  NEAR: { price: 4.67, name: 'NEAR Protocol (NEAR)' },
-  LINK: { price: 11.5, name: 'Chainlink (LINK)' },
-  PEPE: { price: 0.00000378, name: 'Pepe Token (PEPE)' },
-  SHIB: { price: 0.000018, name: 'Shiba Inu (SHIB)' },
-  DOT: { price: 4.25, name: 'Polkadot (DOT)' },
-  RENDER: { price: 1.828, name: 'Render (RENDER)' },
-  ARB: { price: 0.1672, name: 'Arbitrum (ARB)' },
-  APT: { price: 0.7161, name: 'Aptos (APT)' },
-  TAO: { price: 540, name: 'Bittensor (TAO)' },
-  FET: { price: 1.35, name: 'Artificial Superintelligence (FET)' },
-};
+import { MASTER_GLOBAL_CRYPTO, MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
+
+export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: string }> = {};
+for (const c of MASTER_GLOBAL_CRYPTO) {
+  const base = c.symbol.replace(/USDT$/, '');
+  CRYPTO_BENCHMARK_PRICES[base] = { price: c.price, name: `${c.name} (${base})` };
+  CRYPTO_BENCHMARK_PRICES[`${base}USDT`] = { price: c.price, name: `${c.name} (${base})` };
+}
+
+const GLOBAL_STOCKS_MAP = new Map<string, { price: number; currency: string; name: string }>();
+for (const s of MASTER_GLOBAL_STOCKS) {
+  GLOBAL_STOCKS_MAP.set(s.ticker.toUpperCase(), {
+    price: s.price,
+    currency: s.currency,
+    name: s.name,
+  });
+}
 
 /**
  * Resolves verified benchmark price and metadata for any ticker (IDX, Crypto, or Global)
@@ -112,21 +108,26 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
     return { price: c.price, currency: 'USD', name: c.name };
   }
 
-  // 2. Check IDX benchmarks
+  // 2. Check Global / US Stocks benchmarks
+  if (GLOBAL_STOCKS_MAP.has(clean)) {
+    const g = GLOBAL_STOCKS_MAP.get(clean)!;
+    return { price: g.price, currency: g.currency, name: g.name };
+  }
+
+  // 3. Check IDX benchmarks
   if (IDX_BENCHMARK_PRICES[clean]) {
     const b = IDX_BENCHMARK_PRICES[clean];
     return { price: b.price, currency: b.currency, name: b.name };
   }
 
-  // 3. Check ^JKSE with caret
+  // 4. Check ^JKSE with caret
   if (IDX_BENCHMARK_PRICES[`^${clean}`]) {
     const b = IDX_BENCHMARK_PRICES[`^${clean}`];
     return { price: b.price, currency: b.currency, name: b.name };
   }
 
-  // 4. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters)
+  // 5. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters)
   if (/^[A-Z]{4}$/.test(clean)) {
-    // Generate deterministic realistic price between 800 and 4500 based on ticker letters
     const hash = clean.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const estimatedPrice = 500 + (hash % 40) * 100;
     return { price: estimatedPrice, currency: 'IDR', name: `${clean} Tbk` };

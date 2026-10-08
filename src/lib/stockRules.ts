@@ -1,6 +1,8 @@
 /**
- * Utilitas dan Aturan Bursa Efek Indonesia (IDX) & Pasar US
+ * Utilitas dan Aturan Bursa Efek Indonesia (IDX) & Pasar US & Crypto
  */
+
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 
 export interface TickRule {
   min: number;
@@ -14,7 +16,7 @@ export const IDX_TICK_RULES: TickRule[] = [
   { min: 200, max: 500, tick: 2 },
   { min: 500, max: 2000, tick: 5 },
   { min: 2000, max: 5000, tick: 10 },
-  { min: 5000, max: Infinity, tick: 25 },
+  { min: 500, max: Infinity, tick: 25 },
 ];
 
 /**
@@ -52,13 +54,26 @@ export function isValidIDXTick(price: number): { valid: boolean; tick: number; n
   return { valid: false, tick, nearest };
 }
 
-const CRYPTO_TICKERS = new Set([
+const FALLBACK_CRYPTO = new Set([
   'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK',
-  'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'
+  'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS',
+  'TON', 'SEI', 'LTC', 'BCH', 'XLM', 'ALGO', 'HBAR', 'ICP', 'FTM', 'POL', 'IMX',
+  'STRK', 'TIA', 'MANTA', 'ZK', 'UNI', 'AAVE', 'MKR', 'ONDO', 'PENDLE', 'INJ', 'JUP',
+  'ENA', 'CRV', 'LDO', 'RUNE', 'DYDX', 'RAY', 'AKT', 'AR', 'FIL', 'GRT', 'THETA',
+  'WIF', 'BONK', 'FLOKI', 'POPCAT', 'MEW', 'BOME', 'NEIRO', 'PYTH', 'W', 'JTO',
+  'STX', 'CHZ', 'ENS', 'GALA', 'SAND', 'MANA', 'APE',
 ]);
 
-const US_TICKERS = new Set([
-  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'
+const FALLBACK_US = new Set([
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX',
+  'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR', 'AVGO', 'BRK.B', 'LLY', 'JPM', 'V',
+  'WMT', 'ORCL', 'COST', 'XOM', 'QCOM', 'CRM', 'ADBE', 'MA', 'PG', 'JNJ', 'HD',
+  'ARM', 'MU', 'TXN', 'AMAT', 'LRCX', 'KLAC', 'SMCI', 'NOW', 'SNOW', 'PANW', 'CRWD',
+  'DDOG', 'NET', 'IBM', 'CSCO', 'DELL', 'DIS', 'MCD', 'SBUX', 'NKE', 'KO', 'PEP',
+  'UBER', 'ABNB', 'SPOT', 'BAC', 'WFC', 'GS', 'MS', 'BLK', 'AXP', 'PYPL', 'UNH',
+  'ABBV', 'MRK', 'PFE', 'TMO', 'ISRG', 'CVX', 'CAT', 'GE', 'BA', 'LMT', 'RTX',
+  'DE', 'VOO', 'SOXX', 'SMH', 'TSM', 'BABA', 'ASML', 'NVO', 'SAP', 'SHEL', 'AZN',
+  'RACE', 'TTE', 'SE', 'GRAB', 'CPNG', 'MELI', 'NU', 'VALE', 'PBR',
 ]);
 
 /**
@@ -77,8 +92,8 @@ export function calculateShares(symbol: string, lots: number): {
   exchangeRate: number;
 } {
   const clean = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-  const isCrypto = symbol.toUpperCase().endsWith('USDT') || CRYPTO_TICKERS.has(clean);
-  const isUS = !isCrypto && US_TICKERS.has(clean);
+  const isCrypto = symbol.toUpperCase().endsWith('USDT') || isCryptoSymbol(clean) || FALLBACK_CRYPTO.has(clean);
+  const isUS = !isCrypto && (isUSSymbol(clean) || FALLBACK_US.has(clean) || clean.includes('.T') || clean.includes('.HK') || clean.includes('.KS') || clean.includes('.NS') || clean.includes('.AS') || clean.includes('.PA') || clean.includes('.DE'));
   const isIDX = !isCrypto && !isUS && (symbol.endsWith('.JK') || /^[A-Z]{4}$/.test(clean));
 
   if (isCrypto) {
@@ -122,10 +137,10 @@ export function calculateShares(symbol: string, lots: number): {
 export function normalizeSymbol(sym: string): { fullSymbol: string; displaySymbol: string } {
   let clean = sym.trim().toUpperCase().replace('.JK', '').replace(/USDT$/i, '');
   if (clean === 'GOOGLE') clean = 'GOOGL';
-  if (CRYPTO_TICKERS.has(clean) || sym.toUpperCase().endsWith('USDT')) {
+  if (isCryptoSymbol(clean) || FALLBACK_CRYPTO.has(clean) || sym.toUpperCase().endsWith('USDT')) {
     return { fullSymbol: `${clean}USDT`, displaySymbol: clean };
   }
-  if (US_TICKERS.has(clean) || sym.includes(':') || sym.startsWith('^')) {
+  if (isUSSymbol(clean) || FALLBACK_US.has(clean) || sym.includes(':') || sym.startsWith('^')) {
     return { fullSymbol: clean, displaySymbol: clean };
   }
   // Default saham Indonesia jika 4 huruf

@@ -51,6 +51,7 @@ import {
 import { bloombergAudio } from '@/lib/bloombergAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
 import { formatCryptoPrice } from '@/lib/utils';
+import { CRYPTO_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
 
 export default function JesseCryptoDeskView() {
   const { cash, holdings, orders, placeBuyOrder, placeSellOrder } = usePortfolioStore();
@@ -88,12 +89,9 @@ export default function JesseCryptoDeskView() {
   }, [selectedPair]);
 
   // Data harga Binance terkini
-  const fallbackPrices: Record<string, number> = {
-    BTCUSDT: 81118, ETHUSDT: 2450, SOLUSDT: 108.32, BNBUSDT: 585, DOGEUSDT: 0.0827,
-    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.67,
-    LINKUSDT: 11.5, PEPEUSDT: 0.00000378, RENDERUSDT: 1.828, ARBUSDT: 0.1672, APTUSDT: 0.7161,
-  };
-  const currentPriceUSDT = liveTicker?.price ?? (fallbackPrices[selectedPair] ?? fallbackPrices[`${selectedPair}USDT`] ?? 1);
+  const cleanBase = selectedPair.replace(/USDT$/i, '');
+  const benchmarkFallback = CRYPTO_BENCHMARK_PRICES[selectedPair]?.price ?? CRYPTO_BENCHMARK_PRICES[cleanBase]?.price ?? 1;
+  const currentPriceUSDT = liveTicker?.price ?? benchmarkFallback;
   const change24h = liveTicker?.change24h ?? 1.85;
 
   // Evaluasi Algoritma Jesse AI
