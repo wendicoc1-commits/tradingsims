@@ -39,6 +39,7 @@ import { getGroundedStockIntelligence } from '@/lib/agents/groundedStockIntellig
 import { BLOOMBERG_ECONOMIC_EVENTS } from '@/data/bloomberg_economic_calendar';
 import {
   scanUniverseForTopAlpha,
+  selectDiversifiedCandidate,
   UNIVERSE_TICKERS,
   type StockAlphaEvaluation,
   type UniverseScanResult,
@@ -1285,15 +1286,17 @@ export default function VirtualAgentOfficeView() {
         return exp >= maxAlloc;
       };
 
-      // Pilih kandidat Alpha terbaik (Saham IDX maupun Kripto)
-      // JIKA BURSA BEI TUTUP (malam/weekend): Wajib HANYA pilih aset aktif (Kripto 24/7 atau Saham Luar Negeri)!
+      // Pilih kandidat Alpha terbaik dengan Diversifikasi Portofolio Multi-Sektoral & Multi-Faktor:
+      // Mengutamakan rotasi ke sektor baru (Energi, Tambang, Consumer, Otomotif, Telco) dan emiten yang belum dimiliki
       const idxMarketCheck = checkIDXMarketStatus();
       const isBEIOpen = idxMarketCheck.isOpen;
 
-      const candidate = result.rankedLeaderboard.find(
-        (c) => (isBEIOpen || !isIndonesianStock(c.symbol)) && c.suggestedAction.action === 'BUY' && c.score >= 70 && !isAllocated(c.symbol)
-      ) ?? (result.topPick && (isBEIOpen || !isIndonesianStock(result.topPick.symbol)) && !isAllocated(result.topPick.symbol) ? result.topPick : null)
-        ?? result.rankedLeaderboard.find((c) => (isBEIOpen || !isIndonesianStock(c.symbol)) && !isAllocated(c.symbol));
+      const candidate = selectDiversifiedCandidate(
+        result.rankedLeaderboard,
+        currentHoldings,
+        isBEIOpen,
+        selectedStock
+      );
 
       if (autoPilot && candidate && phase === 'IDLE') {
         setSelectedStock(candidate.symbol);

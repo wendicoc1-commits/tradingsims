@@ -7,10 +7,9 @@
  * 3. Berdampak ke Berita: Menerbitkan buletin live newsroom ke ticker dan wire feed website.
  */
 
-import { usePortfolioStore } from '@/store';
-import { useWatchlistStore } from '@/store';
+import { usePortfolioStore, useWatchlistStore } from '@/store';
 import { useAIAgentStore, type AIPriceAnalysis } from '@/store/aiAgentStore';
-import { scanUniverseForTopAlpha, type StockAlphaEvaluation } from './autonomousStockPicker';
+import { scanUniverseForTopAlpha, selectDiversifiedCandidate, type StockAlphaEvaluation } from './autonomousStockPicker';
 import { computePositionSizing, roundTick, portfolioNav, type LiveQuote, type NewsItem, type PortfolioSnapshot } from './deskReports';
 import { getGroundedStockIntelligence } from '../agents/groundedStockIntelligence';
 import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
@@ -498,14 +497,23 @@ export async function runAutonomousAgentCycle(
           !isAllocated(c.symbol.toUpperCase())
       ) || scanResult.rankedLeaderboard.find((c) => !isIndonesianStock(c.symbol));
 
-    const target = isBEIOpen
-      ? (scanResult.rankedLeaderboard.find(
-          (c) =>
-            c.suggestedAction.action === 'BUY' &&
-            c.score >= 80 &&
-            !isAllocated(c.symbol.toUpperCase())
-        ) ?? topPick)
-      : (nonIndoTarget ?? topPick);
+    // Multi-sektor & multi-pilar rotasi portofolio: hindari konsentrasi bank/ROE prima saja
+    const diversifiedCandidate = selectDiversifiedCandidate(
+      scanResult.rankedLeaderboard,
+      portfolioStore.holdings,
+      isBEIOpen
+    );
+
+    const target = diversifiedCandidate ?? (
+      isBEIOpen
+        ? (scanResult.rankedLeaderboard.find(
+            (c) =>
+              c.suggestedAction.action === 'BUY' &&
+              c.score >= 80 &&
+              !isAllocated(c.symbol.toUpperCase())
+          ) ?? topPick)
+        : (nonIndoTarget ?? topPick)
+    );
 
     const cleanSym = target.symbol.toUpperCase();
     const existingHolding = findHolding(cleanSym);
@@ -709,7 +717,8 @@ export async function runAutonomousAgentCycle(
             tradeExecuted = true;
             const priceLabel = isTargetForeign ? `$${sizing.entry.toLocaleString('en-US')}` : `Rp ${sizing.entry.toLocaleString('id-ID')}`;
             const unitLabel = shareInfo.isCrypto ? `${sizing.lots} unit` : shareInfo.isUS ? `${sizing.lots} shares` : `${sizing.lots} lot`;
-            actionTaken = `⚡ ORDER BUY OTOMATIS: ${unitLabel} ${target.symbol} @ ${priceLabel} (SL: ${finalStopLoss} / TP: ${finalTakeProfit})`;
+            const strategyTag = target.strategyLabel ? ` [${target.strategyLabel}]` : target.sector ? ` [${target.sector}]` : '';
+            actionTaken = `⚡ ORDER BUY OTOMATIS: ${unitLabel} ${target.symbol}${strategyTag} @ ${priceLabel} (SL: ${finalStopLoss} / TP: ${finalTakeProfit})`;
 
             aiStore.logAction({
               type: 'TRADE_BUY',
@@ -717,15 +726,17 @@ export async function runAutonomousAgentCycle(
               agentId: 'pm_equity',
               agentName: oodaDecision ? 'Raditya Pratama & TradeMind-Alpha (GPT-4o)' : 'Raditya Pratama (L/S Equity PM)',
               agentEmoji: oodaDecision ? '🧠' : '💼',
-              title: `Beli Saham Otonom: ${target.symbol}`,
+              title: `Beli Saham Otonom: ${target.symbol}${strategyTag}`,
               details: oodaDecision?.alasan_eksekusi
                 ? `[OODA Loop Approved] ${oodaDecision.alasan_eksekusi} | Memori RAG: ${oodaDecision.korelasi_memori || 'Pola terverifikasi aman'}`
-                : `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100). Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
+                : `Berdasarkan konsensus sidang komite Fincept, emiten menduduki Rank #${target.rank} (Skor ${target.score}/100)${target.strategyLabel ? ` dengan pilar ${target.strategyLabel}` : ''}. Sizing dibatasi pada 1% risiko NAV (${sizing.lots} lot).`,
               metadata: {
                 price: sizing.entry,
                 lots: sizing.lots,
                 amount: sizing.notional,
                 score: target.score,
+                strategy: target.strategyLabel,
+                pillar: target.strategyPillar,
                 stopLoss: finalStopLoss,
                 takeProfit: finalTakeProfit,
                 aiAnalysis: oodaDecision?.analisis_teknikal,

@@ -47,6 +47,8 @@ export interface StockAlphaEvaluation {
   rank: number;
   conviction: 'TOP_PICK' | 'STRONG_BUY' | 'BUY' | 'HOLD' | 'AVOID';
   sector: string;
+  strategyPillar?: 'MOMENTUM_BREAKOUT' | 'BANDAR_FLOW' | 'DEEP_VALUE' | 'DIVIDEND_PLAY' | 'BLUECHIP_QUALITY' | 'GROWTH_EXPANSION';
+  strategyLabel?: string;
   breakdown: {
     fundamental: number;     // 0 - 25
     technicalQuant: number;  // 0 - 25
@@ -165,53 +167,56 @@ function evaluateFundamentalScore(intel: GroundedStockIntelligence): { score: nu
   const drivers: string[] = [];
   const fin = intel.financials;
 
-  // ROE (Return on Equity) - max 8 poin
-  if (fin.roe >= 18) {
-    score += 8;
-    drivers.push(`ROE Prima (${fin.roe.toFixed(1)}%) mencerminkan efisiensi modal institusional`);
-  } else if (fin.roe >= 12) {
-    score += 6;
-    drivers.push(`ROE Sehat (${fin.roe.toFixed(1)}%)`);
-  } else if (fin.roe >= 6) {
-    score += 4;
-  } else {
-    score += 1;
-  }
-
-  // P/E Valuation - max 7 poin
-  if (fin.peRatio > 0 && fin.peRatio <= 14) {
+  // 1. P/E Valuation & Deep Value - max 7 poin (Mengangkat saham bervaluation murah seperti ASII, ADRO, PTBA, PGAS)
+  if (fin.peRatio > 0 && fin.peRatio <= 10) {
     score += 7;
-    drivers.push(`Valuasi P/E menarik (${fin.peRatio.toFixed(1)}x) berada di bawah rata-rata historis`);
-  } else if (fin.peRatio > 14 && fin.peRatio <= 22) {
+    drivers.push(`Valuasi Deep Value: P/E murah (${fin.peRatio.toFixed(1)}x) dengan margin of safety tinggi`);
+  } else if (fin.peRatio > 10 && fin.peRatio <= 16) {
     score += 5;
-  } else if (fin.peRatio > 22 && fin.peRatio <= 35) {
+    drivers.push(`Valuasi Menarik: P/E wajar (${fin.peRatio.toFixed(1)}x)`);
+  } else if (fin.peRatio > 16 && fin.peRatio <= 25) {
     score += 3;
   } else if (fin.peRatio <= 0) {
-    score += 0;
+    score += 1;
   } else {
     score += 2;
   }
 
-  // Free Cash Flow & Margin - max 5 poin
-  if (fin.fcfPositive && fin.netMarginPct >= 12) {
-    score += 5;
-    drivers.push(`Net Margin solid (${fin.netMarginPct.toFixed(1)}%) didukung FCF positif`);
-  } else if (fin.fcfPositive || fin.netMarginPct >= 8) {
-    score += 3;
+  // 2. Dividen Yield & Distribusi Kas - max 6 poin (Mengangkat saham dividen play)
+  if (fin.dividendYield >= 5.0) {
+    score += 6;
+    drivers.push(`Dividen Unggulan: Yield tunai tinggi (${fin.dividendYield.toFixed(1)}%) memberikan imbal hasil defensif`);
+  } else if (fin.dividendYield >= 2.5) {
+    score += 4;
+    drivers.push(`Dividen Reguler (${fin.dividendYield.toFixed(1)}%)`);
+  } else if (fin.dividendYield > 0) {
+    score += 2;
   } else {
     score += 1;
   }
 
-  // Debt to Equity Health - max 5 poin
-  if (fin.debtToEquity < 1.0) {
-    score += 5;
-    drivers.push(`Neraca konservatif dengan D/E rendah (${fin.debtToEquity.toFixed(2)}x)`);
-  } else if (fin.debtToEquity < 2.5) {
+  // 3. Profitabilitas & Efisiensi Modal (ROE & Margin) - max 6 poin
+  if (fin.roe >= 16) {
+    score += 6;
+    drivers.push(`Efisiensi Modal: ROE ${fin.roe.toFixed(1)}% & Net Margin ${fin.netMarginPct.toFixed(1)}%`);
+  } else if (fin.roe >= 10) {
     score += 4;
-  } else if (fin.debtToEquity < 6.0) {
-    score += 3; // Wajar untuk bank
+    drivers.push(`ROE Sehat (${fin.roe.toFixed(1)}%)`);
+  } else if (fin.roe >= 5) {
+    score += 2;
   } else {
     score += 1;
+  }
+
+  // 4. Free Cash Flow & Neraca Sehat - max 6 poin
+  if (fin.fcfPositive && fin.debtToEquity < 1.5) {
+    score += 6;
+    drivers.push(`Arus Kas Solid: FCF Positif dengan rasio utang aman (D/E ${fin.debtToEquity.toFixed(2)}x)`);
+  } else if (fin.fcfPositive || fin.debtToEquity < 3.0) {
+    score += 4;
+    drivers.push(`Arus Kas Operasional Positif`);
+  } else {
+    score += 2;
   }
 
   return { score: Math.min(25, score), drivers };
@@ -405,6 +410,27 @@ export function scanUniverseForTopAlpha(
     // Jika bursa BEI tutup, aksi saham Indonesia wajib WAIT, bukan BUY
     const action = (!isBEIOpen && isIndo) ? 'WAIT' : (rr.action === 'BUY' ? 'BUY' : 'WAIT');
 
+    // Tentukan Pilar Strategi Utama (Diversified Multi-Factor Pillars)
+    let strategyPillar: StockAlphaEvaluation['strategyPillar'] = 'BLUECHIP_QUALITY';
+    let strategyLabel = 'Kualitas Fundamental & ROE Institusional';
+
+    if (intel.bandarmologi && intel.bandarmologi.status === 'BIG_ACCUMULATION') {
+      strategyPillar = 'BANDAR_FLOW';
+      strategyLabel = 'Arus Dana Smart Money & Akumulasi Bandar';
+    } else if (intel.technicals.mtfConsensus === 'STRONG_BULLISH' || (intel.technicals.orderBlockDemand && intel.technicals.fairValueGap)) {
+      strategyPillar = 'MOMENTUM_BREAKOUT';
+      strategyLabel = 'Breakout Momentum Kuantitatif & SMC Order Block';
+    } else if (intel.financials.dividendYield >= 4.5) {
+      strategyPillar = 'DIVIDEND_PLAY';
+      strategyLabel = `Dividen Tunai Tinggi (${intel.financials.dividendYield.toFixed(1)}%) & Defensif`;
+    } else if (intel.financials.peRatio > 0 && intel.financials.peRatio <= 12) {
+      strategyPillar = 'DEEP_VALUE';
+      strategyLabel = `Deep Value: Diskon P/E Menarik (${intel.financials.peRatio.toFixed(1)}x)`;
+    } else if (intel.institutionalConsensus.impliedUpsidePct >= 20 || intel.financials.epsGrowthYoY >= 12) {
+      strategyPillar = 'GROWTH_EXPANSION';
+      strategyLabel = `Pertumbuhan Laba & Target Analis Konsensus (+${intel.institutionalConsensus.impliedUpsidePct.toFixed(0)}%)`;
+    }
+
     evaluations.push({
       symbol: sym,
       name: intel.name,
@@ -414,6 +440,8 @@ export function scanUniverseForTopAlpha(
       rank: 0, // diisi setelah sorting
       conviction,
       sector: detectSector(sym),
+      strategyPillar,
+      strategyLabel,
       breakdown: {
         fundamental: fEval.score,
         technicalQuant: tEval.score,
@@ -471,7 +499,7 @@ export function scanUniverseForTopAlpha(
   const topPick = evaluations[0];
   const summaryThesis = !isBEIOpen
     ? `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} aset. Berhubung Bursa BEI sedang tutup (${idxMarketCheck.statusLabel}), komite memprioritaskan aset aktif Kripto 24/7 & Global Luar Negeri. Aset ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 Alpha aktif dengan skor ${topPick.score}/100. Pemicu: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`
-    : `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} emiten. Saham ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 dengan skor komposit ${topPick.score}/100. Pemicu keunggulan: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`;
+    : `Sistem pemindaian otonom Fincept Capital menyaring ${evaluations.length} emiten. Saham ${topPick.symbol} (${topPick.name}) menduduki peringkat #1 dengan skor komposit ${topPick.score}/100 [Pilar: ${topPick.strategyLabel}]. Pemicu keunggulan: ${topPick.keyDrivers.slice(0, 3).join('; ')}.`;
 
   return {
     topPick,
@@ -480,4 +508,95 @@ export function scanUniverseForTopAlpha(
     timestamp: new Date().toLocaleTimeString('id-ID'),
     summaryThesis,
   };
+}
+
+/**
+ * Memilih kandidat saham terbaik dengan Diversifikasi Portofolio Multi-Sektoral:
+ * - Menghindari membeli saham dari sektor yang sudah jenuh (misal: Perbankan terus-menerus).
+ * - Memberi bobot prioritas tinggi pada emiten baru yang belum dimiliki di portofolio.
+ * - Mengutamakan rotasi ke sektor-sektor unggulan lain: Energi, Tambang/Komoditas, Consumer Goods, Telekomunikasi, Otomotif, dsb.
+ * - Menerapkan rotasi strategi multi-faktor (Bandarmologi, Deep Value, Momentum Breakout, Dividen).
+ */
+export function selectDiversifiedCandidate(
+  leaderboard: StockAlphaEvaluation[],
+  holdings: { displaySymbol: string; symbol: string; lots?: number; assetClass?: string; currency?: string }[],
+  isBEIOpen: boolean,
+  currentStock?: string | null
+): StockAlphaEvaluation | null {
+  if (!leaderboard || leaderboard.length === 0) return null;
+
+  // 1. Ekstrak data kepemilikan saham saat ini
+  const ownedSymbols = new Set(
+    holdings
+      .filter((h) => (h.lots === undefined || h.lots > 0))
+      .map((h) => (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase())
+  );
+
+  // 2. Hitung jumlah saham per sektor di portofolio
+  const sectorCounts: Record<string, number> = {};
+  for (const h of holdings) {
+    if (h.lots !== undefined && h.lots <= 0) continue;
+    const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const sec = detectSector(clean);
+    sectorCounts[sec] = (sectorCounts[sec] || 0) + 1;
+  }
+
+  // 3. Saring kandidat yang valid (bisa ditradingkan dan memiliki sinyal BUY)
+  const validCandidates = leaderboard.filter(
+    (c) => (isBEIOpen || !isIndonesianStock(c.symbol)) && c.suggestedAction.action === 'BUY' && c.score >= 68
+  );
+
+  if (validCandidates.length === 0) {
+    const fallback = leaderboard.find((c) => isBEIOpen || !isIndonesianStock(c.symbol));
+    return fallback || leaderboard[0] || null;
+  }
+
+  // 4. Hitung Skor Prioritas Diversifikasi untuk setiap kandidat
+  const scoredCandidates = validCandidates.map((c) => {
+    const cleanSym = c.symbol.toUpperCase();
+    const isAlreadyOwned = ownedSymbols.has(cleanSym);
+    const sec = c.sector;
+    const countInSector = sectorCounts[sec] || 0;
+
+    let priority = c.score; // Skor dasar 68 - 100
+
+    // A. Bonus Emiten Baru (+18 Poin)
+    // Sangat memprioritaskan emiten yang BELUM dimiliki di portofolio agar variasi saham kaya
+    if (!isAlreadyOwned) {
+      priority += 18;
+    } else {
+      priority -= 15; // Penalti jika sudah punya saham ini agar tidak beli emiten yang sama terus
+    }
+
+    // B. Bonus Rotasi Sektoral (+14 Poin untuk sektor yang belum ada di portofolio)
+    if (countInSector === 0) {
+      priority += 14;
+    } else if (countInSector === 1) {
+      priority -= 4; // Sedikit penalti jika sektor sudah ada 1 saham
+    } else {
+      priority -= (countInSector * 12); // Penalti berat jika sektor sudah jenuh (>= 2 saham)
+    }
+
+    // C. Bonus Keragaman Strategi Alpha (+6 Poin)
+    // Mendorong diversifikasi pilar: Bandarmologi, Deep Value, Dividen, Momentum Breakout
+    if (c.strategyPillar === 'BANDAR_FLOW' || c.strategyPillar === 'MOMENTUM_BREAKOUT') {
+      priority += 6;
+    } else if (c.strategyPillar === 'DEEP_VALUE' || c.strategyPillar === 'DIVIDEND_PLAY') {
+      priority += 5;
+    } else if (c.strategyPillar === 'GROWTH_EXPANSION') {
+      priority += 4;
+    }
+
+    // D. Penalti jika saham ini adalah saham yang sedang ditampilkan saat ini dan sudah dipertimbangkan
+    if (currentStock && cleanSym === currentStock.toUpperCase() && isAlreadyOwned) {
+      priority -= 8;
+    }
+
+    return { candidate: c, priority };
+  });
+
+  // Urutkan berdasarkan prioritas diversifikasi tertinggi
+  scoredCandidates.sort((a, b) => b.priority - a.priority);
+
+  return scoredCandidates[0]?.candidate || validCandidates[0] || null;
 }

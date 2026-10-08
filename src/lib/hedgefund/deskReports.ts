@@ -363,13 +363,29 @@ export function buildDebateScript(ctx: DeskContext, autoPickInfo?: StockAlphaEva
         : `🏛️ Rekan-rekan pimpinan eksekutif, selamat datang di War Room. Kita berkumpul untuk memusyawarahkan alokasi pembelian pada emiten ${sym} (${intel.name}). Dr. Samuel, mohon sampaikan tesis fundamentalnya terlebih dahulu.`,
   });
 
-  // 2. HEAD OF RESEARCH MENANGGAPI CIO
+  // 2. HEAD OF RESEARCH MENANGGAPI CIO (Disesuaikan secara dinamis dengan pilar strategi saham)
+  let researchSpeech = isCrypto
+    ? `Terima kasih Bu Evelyn. Tim riset telah membedah on-chain & likuiditas ${sym}: likuiditas spot global sangat tebal di Binance, inflow modal institusional stabil, dan adopsi jaringan bertumbuh solid. Aset ini memiliki profil Alpha prima untuk kita akumulasi.`
+    : `Terima kasih Bu Evelyn. Tim riset telah membedah laporan keuangan ${sym}: laba bersih ${f.netIncomeFormatted}, efisiensi modal ROE ${f.roe.toFixed(1)}%, dan P/E ${f.peRatio.toFixed(1)}x. Neraca sehat dengan D/E ${f.debtToEquity.toFixed(2)}x serta FCF positif ${f.freeCashFlowFormatted}. Fundamentalnya sangat layak untuk kita akumulasi beli.`;
+
+  if (!isCrypto && autoPickInfo) {
+    if (autoPickInfo.strategyPillar === 'BANDAR_FLOW') {
+      researchSpeech = `Terima kasih Bu Evelyn. Tim riset memvalidasi arus dana Smart Money pada ${sym}: terdapat akumulasi bandar masif dari broker institusi, valuasi P/E menarik di ${f.peRatio.toFixed(1)}x, serta neraca sehat dengan FCF ${f.freeCashFlowFormatted}. Tesis akumulasi bandarmologi sangat solid untuk kita masuk.`;
+    } else if (autoPickInfo.strategyPillar === 'DEEP_VALUE') {
+      researchSpeech = `Terima kasih Bu Evelyn. Tim riset menemukan peluang Deep Value pada ${sym}: valuasi P/E sangat murah di ${f.peRatio.toFixed(1)}x dengan margin of safety tebal, dividen yield ${f.dividendYield.toFixed(1)}%, dan neraca konservatif (D/E ${f.debtToEquity.toFixed(2)}x). Sangat atraktif untuk alokasi modal.`;
+    } else if (autoPickInfo.strategyPillar === 'DIVIDEND_PLAY') {
+      researchSpeech = `Terima kasih Bu Evelyn. Tim riset merekomendasikan tesis dividen defensif pada ${sym}: yield dividen tunai mencapai ${f.dividendYield.toFixed(1)}% dengan arus kas bebas kuat ${f.freeCashFlowFormatted} dan P/E wajar ${f.peRatio.toFixed(1)}x. Profil yang sangat stabil untuk mendiversifikasi portofolio.`;
+    } else if (autoPickInfo.strategyPillar === 'MOMENTUM_BREAKOUT') {
+      researchSpeech = `Terima kasih Bu Evelyn. Tim riset mencatat lonjakan momentum pada ${sym}: likuiditas pasar melonjak, marjin operasional solid ${f.operatingMarginPct.toFixed(1)}%, dan ekspansi bisnis agresif. Sangat ideal untuk strategi kuantitatif momentum breakout.`;
+    } else if (autoPickInfo.strategyPillar === 'GROWTH_EXPANSION') {
+      researchSpeech = `Terima kasih Bu Evelyn. Tim riset memproyeksikan pertumbuhan ekspansi kuat pada ${sym}: laba bersih ${f.netIncomeFormatted} dengan konsensus analis menargetkan kenaikan harga signifikan. Katalis pertumbuhan sektor sangat mendukung akumulasi posisi ini.`;
+    }
+  }
+
   lines.push({
     agentId: 'head_research',
     src: f.isAudited ? 'AUDITED' : 'MODEL',
-    text: isCrypto
-      ? `Terima kasih Bu Evelyn. Tim riset telah membedah on-chain & likuiditas ${sym}: likuiditas spot global sangat tebal di Binance, inflow modal institusional stabil, dan adopsi jaringan bertumbuh solid. Aset ini memiliki profil Alpha prima untuk kita akumulasi.`
-      : `Terima kasih Bu Evelyn. Tim riset telah membedah laporan keuangan ${sym}: laba bersih ${f.netIncomeFormatted}, ROE prima di ${f.roe.toFixed(1)}%, dan P/E ${f.peRatio.toFixed(1)}x. Neraca sangat sehat dengan D/E ${f.debtToEquity.toFixed(2)}x serta FCF positif ${f.freeCashFlowFormatted}. Fundamentalnya sangat layak untuk kita akumulasi beli.`,
+    text: researchSpeech,
   });
 
   // 3. HEAD QUANT MENIMPALI HEAD OF RESEARCH & CIO
