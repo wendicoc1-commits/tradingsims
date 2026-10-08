@@ -1,5 +1,4 @@
 import { MetadataRoute } from 'next';
-import { POPULAR_IDX_TICKERS } from '@/components/dashboard/FinceptDashboardWidgets';
 import { MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -22,16 +21,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.8 },
   ];
 
-  // Extended IDX popular tickers for high-traffic search engine keywords
-  const extendedIdxTickers = Array.from(new Set([
-    ...POPULAR_IDX_TICKERS,
-    'BBNI', 'ASII', 'TLKM', 'UNTR', 'ICBP', 'INDF', 'KLBF', 'CPIN', 'SMGR',
-    'INKP', 'MEDC', 'PGAS', 'MDKA', 'ANTM', 'BRPT', 'TPIA', 'AMMN', 'GOTO',
-    'BUKA', 'ARTO', 'ESSA', 'AKRA', 'ACES', 'MYOR', 'INCO', 'HRUM', 'ITMG',
-    'PTBA', 'ADRO', 'PGEO', 'MAPA', 'MAPI', 'CTRA', 'BSDE', 'PWON', 'SMRA',
-  ]));
+  // Static list of popular IDX tickers (murni server-side safe tanpa import 'use client')
+  const popularIdxTickers = [
+    'BBCA', 'BBRI', 'BMRI', 'ADRO', 'ASII', 'TLKM', 'BBNI', 'ICBP', 'UNTR',
+    'GOTO', 'AMMN', 'ANTM', 'PTBA', 'BRPT', 'PGAS', 'INDF', 'KLBF', 'CPIN',
+    'SMGR', 'INKP', 'MEDC', 'MDKA', 'TPIA', 'BUKA', 'ARTO', 'ESSA', 'AKRA',
+    'ACES', 'MYOR', 'INCO', 'HRUM', 'ITMG', 'PGEO', 'MAPA', 'MAPI', 'CTRA',
+    'BSDE', 'PWON', 'SMRA', 'BUMI', 'DEWA', 'BRMS', 'ENRG', 'ERAA', 'EXCL'
+  ];
 
-  const stockRoutes = extendedIdxTickers.map((ticker) => ({
+  const stockRoutes = popularIdxTickers.map((ticker) => ({
     url: `${baseUrl}/stock/${ticker}`,
     lastModified: now,
     changeFrequency: 'hourly' as const,
