@@ -40,13 +40,19 @@ import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 
+import { useOrderCalculation } from '@/hooks/useOrderCalculation';
+
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
 }
 
 /* ─── Order Form (Paper Trading Engine - Saham IDX, Saham US, & Crypto Spot) ─── */
 function OrderForm() {
-  const { cash, placeBuyOrder, placeSellOrder } = usePortfolioStore();
+  // Granular Zustand selectors: Mencegah re-render form saat holding price / lastUpdated bergerak
+  const cash = usePortfolioStore((state) => state.cash);
+  const placeBuyOrder = usePortfolioStore((state) => state.placeBuyOrder);
+  const placeSellOrder = usePortfolioStore((state) => state.placeSellOrder);
+
   const { tickerMap } = useBinanceLivePrices();
   const [assetClass, setAssetClass] = useState<'EQUITY' | 'CRYPTO' | 'US'>('EQUITY');
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
@@ -56,27 +62,24 @@ function OrderForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const priceNum = parseFloat(price) || 0;
-  const lotsNum = parseFloat(lots) || 0;
-  const rawSym = symbol.trim().toUpperCase();
-  const isCrypto = assetClass === 'CRYPTO' || rawSym.endsWith('USDT') || isCryptoSymbol(rawSym);
-
-  const rate = 16000; // Kurs acuan USDT/USD to IDR
-  const shareInfo = calculateShares(rawSym, lotsNum);
-  const isUS = assetClass === 'US' || shareInfo.isUS;
-  const isForeign = isCrypto || isUS;
-  const tradeValue = isForeign
-    ? Math.round(priceNum * lotsNum * rate)
-    : priceNum * (shareInfo.shares || Math.round(lotsNum * 100));
-  
-  // Rincian fee broker & PPh bursa / crypto
-  const brokerFee = isCrypto ? Math.round(tradeValue * 0.0010) : Math.round(tradeValue * 0.0015);
-  const taxFee = orderType === 'SELL' ? (isCrypto ? Math.round(tradeValue * 0.0010) : isUS ? 0 : Math.round(tradeValue * 0.0010)) : 0;
-  const totalFee = brokerFee + taxFee;
-  const grandTotal = orderType === 'BUY' ? tradeValue + totalFee : tradeValue - totalFee;
-
-  // Validasi fraksi harga BEI secara realtime (hanya untuk saham IDX)
-  const tickValidation = !isForeign && rawSym && priceNum > 0 ? isValidIDXTick(priceNum) : { valid: true, tick: 1, nearest: priceNum };
+  // Ekstraksi domain math order calculation ke hook terpisah
+  const {
+    priceNum,
+    lotsNum,
+    rawSym,
+    cleanSym,
+    isCrypto,
+    isUS,
+    isForeign,
+    rate,
+    tradeValue,
+    brokerFee,
+    taxFee,
+    totalFee,
+    grandTotal,
+    shareInfo,
+    tickValidation,
+  } = useOrderCalculation({ symbol, price, lots, assetClass, orderType });
 
   const handleSelectQuickCrypto = (coin: string, seedPrice: number) => {
     setAssetClass('CRYPTO');

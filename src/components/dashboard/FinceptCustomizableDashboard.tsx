@@ -51,6 +51,7 @@ import {
   AIChartPilotWidget,
   playAudioChime,
 } from '@/components/dashboard/FinceptDashboardWidgets';
+import WidgetErrorBoundary from '@/components/dashboard/core/WidgetErrorBoundary';
 
 const STORAGE_KEY = 'fincept_dashboard_widgets_v10';
 const CUSTOM_PRESETS_KEY = 'fincept_custom_presets_v1';
@@ -1288,17 +1289,23 @@ export default function FinceptCustomizableDashboard() {
         <div className="mt-2 bg-[#09090b] border border-[#27272a] rounded-lg overflow-hidden">
           {mobileTab === 'chart' && (
             <div className="h-[460px]">
-              {renderWidgetContent(widgets.find((w) => w.type === 'CHART') || widgets[0])}
+              <WidgetErrorBoundary title="Grafik Pasar">
+                {renderWidgetContent(widgets.find((w) => w.type === 'CHART') || widgets[0])}
+              </WidgetErrorBoundary>
             </div>
           )}
           {mobileTab === 'order' && (
             <div className="min-h-[460px] p-2">
-              {renderWidgetContent(widgets.find((w) => w.type === 'QUICK_ORDER') || widgets[0])}
+              <WidgetErrorBoundary title="Order Slip">
+                {renderWidgetContent(widgets.find((w) => w.type === 'QUICK_ORDER') || widgets[0])}
+              </WidgetErrorBoundary>
             </div>
           )}
           {mobileTab === 'portfolio' && (
             <div className="min-h-[380px] p-2">
-              {renderWidgetContent(widgets.find((w) => w.type === 'PORTFOLIO_HOLDINGS') || widgets[0])}
+              <WidgetErrorBoundary title="Portofolio">
+                {renderWidgetContent(widgets.find((w) => w.type === 'PORTFOLIO_HOLDINGS') || widgets[0])}
+              </WidgetErrorBoundary>
             </div>
           )}
           {mobileTab === 'secondary' && (
@@ -1308,7 +1315,9 @@ export default function FinceptCustomizableDashboard() {
                 .slice(0, 4)
                 .map((w) => (
                   <div key={w.id} className="h-[340px] border border-zinc-800 rounded-lg overflow-hidden">
-                    {renderWidgetContent(w)}
+                    <WidgetErrorBoundary title={w.title}>
+                      {renderWidgetContent(w)}
+                    </WidgetErrorBoundary>
                   </div>
                 ))}
             </div>
@@ -1434,7 +1443,9 @@ export default function FinceptCustomizableDashboard() {
 
               {/* Widget Body Content */}
               <div className="flex-1 min-h-0 overflow-hidden [&>div]:border-0 [&>div]:rounded-none">
-                {renderWidgetContent(w)}
+                <WidgetErrorBoundary title={w.title}>
+                  {renderWidgetContent(w)}
+                </WidgetErrorBoundary>
               </div>
             </div>
           );
