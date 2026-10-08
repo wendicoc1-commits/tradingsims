@@ -301,6 +301,14 @@ export async function runAutonomousCryptoAgentCycle(
   const topPick = scanResult.topPick;
 
   if (aiStore.autoTradingEnabled && !tradeExecuted) {
+    // ── SINKRONISASI RAPAT WAR ROOM ──
+    // Jika Dewan Komite Investasi di War Room sedang aktif menggelar sidang (misal: BMRI):
+    // Tahan pembelian koin crypto selama sidang berlangsung (~25 detik) agar seluruh fokus
+    // dan eksekusi tertuju pada keputusan mufakat komite dan tidak terjadi trade yang tumpang tindih.
+    if (aiStore.activeDeliberatingTicker) {
+      return { tradeExecuted, actionTaken, scanResult };
+    }
+
     const MIN_BOT_CASH_RESERVE = 1_000_000;
 
     // Proteksi Kas Minimum: Bot crypto DILARANG membeli koin jika kas di bawah Rp 1.000.000

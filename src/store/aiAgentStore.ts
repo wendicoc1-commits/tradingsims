@@ -73,6 +73,7 @@ export interface AIAgentState {
   trailingStopPct: number;       // default 5% (Trailing Lock)
 
   activeAgentTask: string | null;
+  activeDeliberatingTicker: string | null; // Simpan emiten yang sedang dirapatkan di War Room agar seluruh bot tersinkronisasi
   logs: AIAgentLog[];
   dispatches: AIDispatch[];
   priceAnalyses: Record<string, AIPriceAnalysis>;
@@ -93,6 +94,7 @@ export interface AIAgentState {
     trailingStopPct?: number;
   }) => void;
   setActiveAgentTask: (task: string | null) => void;
+  setActiveDeliberatingTicker: (ticker: string | null) => void;
   logAction: (log: Omit<AIAgentLog, 'id' | 'timestamp'>) => void;
   publishDispatch: (dispatch: Omit<AIDispatch, 'id' | 'timestamp'>) => void;
   setPriceAnalysis: (symbol: string, analysis: AIPriceAnalysis) => void;
@@ -116,6 +118,7 @@ export const useAIAgentStore = create<AIAgentState>()(
       trailingStopPct: 5,
 
       activeAgentTask: 'AI Agent aktif mengawasi 1,000+ saham bursa & crypto...',
+      activeDeliberatingTicker: null,
       logs: [
         {
           id: 'log-init-1',
@@ -172,6 +175,7 @@ export const useAIAgentStore = create<AIAgentState>()(
           trailingStopPct: targets.trailingStopPct ?? state.trailingStopPct,
         })),
       setActiveAgentTask: (task) => set({ activeAgentTask: task }),
+      setActiveDeliberatingTicker: (ticker) => set({ activeDeliberatingTicker: ticker }),
 
       logAction: (log) =>
         set((state) => {

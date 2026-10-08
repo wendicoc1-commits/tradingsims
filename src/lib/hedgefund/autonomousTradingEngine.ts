@@ -500,12 +500,20 @@ export async function runAutonomousAgentCycle(
     const isAlreadySufficientlyAllocated = isAllocated(cleanSym);
 
     // ── ATURAN STRICT JAM BURSA BEI ──
-    // Saham BEI (Indonesia): Bot DILARANG membeli saham BEI di luar jam perdagangan resmi (Senin–Jumat 09:00–16:00 WIB)
-    // Kripto dan Saham Luar Negeri: Bebas trading kapan saja (24/7/365 nonstop)
     const isTargetIDX = (target.currency === 'IDR' || isIndonesianStock(target.symbol)) && !target.symbol.endsWith('USDT');
     const idxMarketCheck = isTargetIDX ? checkIDXMarketStatus() : null;
+    const deliberatingTicker = aiStore.activeDeliberatingTicker;
 
-    if (isTargetIDX && idxMarketCheck && !idxMarketCheck.isOpen) {
+    // ── SINKRONISASI RAPAT WAR ROOM AI AGENT DENGAN EKSEKUSI PEMBELIAN ──
+    // Jika Dewan Komite Investasi di War Room sedang aktif menggelar sidang untuk suatu emiten (misal: BMRI):
+    // 1. DILARANG KERAS membeli saham LAIN (seperti BBRI/dll) di background saat sidang BMRI berlangsung!
+    // 2. Eksekusi pembelian saham ditangani langsung oleh musyawarah visual War Room (approveOrder),
+    //    sehingga aset yang dieksekusi 100% SAMA PERSIS dengan apa yang ditampilkan di meja sidang avatar.
+    if (deliberatingTicker) {
+      aiStore.setActiveAgentTask(
+        `Dewan Komite Investasi sedang menggelar Sidang War Room untuk ${deliberatingTicker}. Eksekusi diserahkan kepada dewan sidang.`
+      );
+    } else if (isTargetIDX && idxMarketCheck && !idxMarketCheck.isOpen) {
       if (Math.random() < 0.25) {
         aiStore.logAction({
           type: 'RISK_GATE',

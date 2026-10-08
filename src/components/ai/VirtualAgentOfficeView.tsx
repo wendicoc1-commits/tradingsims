@@ -1300,9 +1300,12 @@ export default function VirtualAgentOfficeView() {
         setPendingWarRoomTarget(candidate.symbol);
       }
 
-      // Picu siklus otonom penuh (monitoring TP/SL portofolio, auto crypto desk, dan eksekusi saham)
+      // Picu siklus otonom (monitoring TP/SL portofolio dan background checks).
+      // Catatan: skipEquityBuy diset TRUE di sini karena tampilan VirtualAgentOfficeView mengeksekusi
+      // pembelian ekuitas secara visual melalui musyawarah Sidang War Room (approveOrder),
+      // agar tidak terjadi anomali rapat BMRI tapi bot background membeli saham lain!
       try {
-        await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: false });
+        await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: true });
       } catch {
         // cycle error handled gracefully
       }
@@ -1870,6 +1873,9 @@ export default function VirtualAgentOfficeView() {
     setSnapshot({ script: buildDebateScript(ctxData, activeEval), decision, sizing: validSizing, symbol: selectedStock });
     setStep(0);
     setPhase('RUNNING');
+    // Sinkronisasi status sidang ke seluruh background AI engine
+    useAIAgentStore.getState().setActiveDeliberatingTicker(selectedStock);
+    useAIAgentStore.getState().setActiveAgentTask(`Sidang War Room Paripurna: Deliberasi ${selectedStock} oleh Dewan Komite Investasi`);
     setAlarm(false);
     setOrderResult(null);
     setPanelTab('TRANSCRIPT');
@@ -1878,6 +1884,7 @@ export default function VirtualAgentOfficeView() {
 
   const resetDebate = useCallback(() => {
     executiveVoice.stop();
+    useAIAgentStore.getState().setActiveDeliberatingTicker(null);
     setPhase('IDLE');
     setStep(-1);
     setAlarm(false);
@@ -1885,12 +1892,22 @@ export default function VirtualAgentOfficeView() {
     setOrderResult(null);
   }, []);
 
-  // Hentikan suara vokal jika sidang keluar dari fase RUNNING
+  // Hentikan suara vokal & reset ticker sidang jika sidang keluar dari fase RUNNING
   useEffect(() => {
     if (phase !== 'RUNNING') {
       executiveVoice.stop();
+      if (phase === 'IDLE') {
+        useAIAgentStore.getState().setActiveDeliberatingTicker(null);
+      }
     }
   }, [phase]);
+
+  // Bersihkan ticker deliberasi saat unmount komponen
+  useEffect(() => {
+    return () => {
+      useAIAgentStore.getState().setActiveDeliberatingTicker(null);
+    };
+  }, []);
 
   // ganti saham saat sidang → bubarkan
   const prevStock = useRef(selectedStock);
