@@ -90,6 +90,7 @@ export default function JesseCryptoDeskView() {
 
   // Data harga Binance terkini
   const cleanBase = selectedPair.replace(/USDT$/i, '');
+  const liveTicker = tickerMap[selectedPair] || tickerMap[cleanBase] || tickerMap[`${cleanBase}USDT`];
   const benchmarkFallback = CRYPTO_BENCHMARK_PRICES[selectedPair]?.price ?? CRYPTO_BENCHMARK_PRICES[cleanBase]?.price ?? 1;
   const currentPriceUSDT = liveTicker?.price ?? benchmarkFallback;
   const change24h = liveTicker?.change24h ?? 1.85;
