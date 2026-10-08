@@ -642,8 +642,13 @@ export const usePortfolioStore = create<PortfolioState>()(
         }
       }
       return h
-    })
     set({ holdings: updated, lastUpdated: Date.now() })
+
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
   },
 
   placeConditionalOrder: (params: Omit<ConditionalOrder, 'id' | 'createdAt' | 'status'>) => {

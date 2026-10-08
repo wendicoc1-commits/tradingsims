@@ -64,6 +64,14 @@ export interface AIAgentState {
   autoTradingEnabled: boolean;
   discretionarySellingEnabled: boolean; // Mandat penuh: AI diizinkan jual saham & crypto kapan pun
   maxAllocationPerTradePct: number; // default 10% NAV
+  
+  // Parameter TP & SL Manual yang dapat dikonfigurasi Pengguna
+  takeProfitPct: number;         // default 10% (Saham IDX)
+  stopLossPct: number;           // default 5% (Saham IDX)
+  cryptoTakeProfitPct: number;   // default 15% (Crypto Spot)
+  cryptoStopLossPct: number;     // default 6% (Crypto Spot)
+  trailingStopPct: number;       // default 5% (Trailing Lock)
+
   activeAgentTask: string | null;
   logs: AIAgentLog[];
   dispatches: AIDispatch[];
@@ -77,6 +85,13 @@ export interface AIAgentState {
   setAutoTradingEnabled: (enabled: boolean) => void;
   setDiscretionarySellingEnabled: (enabled: boolean) => void;
   setMaxAllocationPerTradePct: (pct: number) => void;
+  setRiskTargets: (targets: {
+    takeProfitPct?: number;
+    stopLossPct?: number;
+    cryptoTakeProfitPct?: number;
+    cryptoStopLossPct?: number;
+    trailingStopPct?: number;
+  }) => void;
   setActiveAgentTask: (task: string | null) => void;
   logAction: (log: Omit<AIAgentLog, 'id' | 'timestamp'>) => void;
   publishDispatch: (dispatch: Omit<AIDispatch, 'id' | 'timestamp'>) => void;
@@ -92,6 +107,14 @@ export const useAIAgentStore = create<AIAgentState>()(
       autoTradingEnabled: true, // Default ON sesuai permintaan pengguna
       discretionarySellingEnabled: true, // Default ON: Mandat jual otonom di tangan AI
       maxAllocationPerTradePct: 10,
+      
+      // Default Target Risiko Manual Pengguna
+      takeProfitPct: 10,
+      stopLossPct: 5,
+      cryptoTakeProfitPct: 15,
+      cryptoStopLossPct: 6,
+      trailingStopPct: 5,
+
       activeAgentTask: 'AI Agent aktif mengawasi 1,000+ saham bursa & crypto...',
       logs: [
         {
@@ -140,6 +163,14 @@ export const useAIAgentStore = create<AIAgentState>()(
       setAutoTradingEnabled: (enabled) => set({ autoTradingEnabled: enabled }),
       setDiscretionarySellingEnabled: (enabled) => set({ discretionarySellingEnabled: enabled }),
       setMaxAllocationPerTradePct: (pct) => set({ maxAllocationPerTradePct: pct }),
+      setRiskTargets: (targets) =>
+        set((state) => ({
+          takeProfitPct: targets.takeProfitPct ?? state.takeProfitPct,
+          stopLossPct: targets.stopLossPct ?? state.stopLossPct,
+          cryptoTakeProfitPct: targets.cryptoTakeProfitPct ?? state.cryptoTakeProfitPct,
+          cryptoStopLossPct: targets.cryptoStopLossPct ?? state.cryptoStopLossPct,
+          trailingStopPct: targets.trailingStopPct ?? state.trailingStopPct,
+        })),
       setActiveAgentTask: (task) => set({ activeAgentTask: task }),
 
       logAction: (log) =>

@@ -18,6 +18,7 @@ import {
   type JesseStrategySignal,
 } from './jesseCryptoEngine';
 import type { BinanceTickerData } from '@/hooks/useBinanceLivePrices';
+import { formatCryptoPrice } from '@/lib/utils';
 
 export interface CryptoAlphaRanking {
   asset: CryptoAssetMeta;
@@ -375,24 +376,30 @@ export async function runAutonomousCryptoAgentCycle(
         const calculatedUnits = Number((budgetUSDT / candidate.signal.currentPrice).toFixed(6));
 
         if (calculatedUnits > 0) {
+          const userTpPct = aiStore.cryptoTakeProfitPct || 15;
+          const userSlPct = aiStore.cryptoStopLossPct || 6;
+          const curP = candidate.signal.currentPrice;
+          const calculatedTP = Number((curP * (1 + userTpPct / 100)).toFixed(curP < 1 ? 8 : 4));
+          const calculatedSL = Number((curP * (1 - userSlPct / 100)).toFixed(curP < 1 ? 8 : 4));
+
           const res = portfolioStore.placeBuyOrder({
             symbol: candidate.asset.symbol,
             displaySymbol: candidate.asset.baseAsset,
             name: `${candidate.asset.name} (Crypto)`,
-            price: candidate.signal.currentPrice,
+            price: curP,
             lots: calculatedUnits,
             orderType: 'MARKET',
             assetClass: 'CRYPTO',
             currency: 'USDT',
             exchangeRate,
-            takeProfitPrice: candidate.signal.takeProfit,
-            stopLossPrice: candidate.signal.stopLoss,
+            takeProfitPrice: calculatedTP,
+            stopLossPrice: calculatedSL,
             source: 'AI_AGENT',
           });
 
           if (res.order) {
             tradeExecuted = true;
-            actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${candidate.asset.baseAsset} @ $${candidate.signal.currentPrice.toLocaleString()} (TP: $${candidate.signal.takeProfit.toLocaleString()} / SL: $${candidate.signal.stopLoss.toLocaleString()})`;
+            actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${candidate.asset.baseAsset} @ ${formatCryptoPrice(curP)} (TP: +${userTpPct}% [${formatCryptoPrice(calculatedTP)}] / SL: -${userSlPct}% [${formatCryptoPrice(calculatedSL)}])`;
 
             aiStore.logAction({
               type: 'TRADE_BUY',
@@ -401,14 +408,14 @@ export async function runAutonomousCryptoAgentCycle(
               agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
               agentEmoji: '⚡',
               title: `Beli Crypto Otonom: ${candidate.asset.baseAsset}`,
-              details: `Strategi Jesse Adaptive Trend & SMC mengonfirmasi sinyal ${candidate.signal.signal} (Skor ${candidate.compositeScore}/100, Win Rate ${candidate.signal.backtestMetrics.winRate}%). Total pembelian Rp ${Math.round(targetTradeAmountIDR).toLocaleString('id-ID')}.`,
+              details: `Strategi Jesse Adaptive Trend mengonfirmasi sinyal ${candidate.signal.signal}. Parameter risiko manual: TP +${userTpPct}% (${formatCryptoPrice(calculatedTP)}) & SL -${userSlPct}% (${formatCryptoPrice(calculatedSL)}). Total order Rp ${Math.round(targetTradeAmountIDR).toLocaleString('id-ID')}.`,
               metadata: {
-                price: candidate.signal.currentPrice,
+                price: curP,
                 lots: calculatedUnits,
                 amount: Math.round(targetTradeAmountIDR),
                 score: candidate.compositeScore,
-                stopLoss: candidate.signal.stopLoss,
-                takeProfit: candidate.signal.takeProfit,
+                stopLoss: calculatedSL,
+                takeProfit: calculatedTP,
               },
             });
 

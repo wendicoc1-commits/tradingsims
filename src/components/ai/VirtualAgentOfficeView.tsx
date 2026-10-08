@@ -1188,6 +1188,10 @@ export default function VirtualAgentOfficeView() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
   const [lastScanAt, setLastScanAt] = useState<string>('');
+  const [showRiskSettingsModal, setShowRiskSettingsModal] = useState(false);
+  const [aiRiskTpEdit, setAiRiskTpEdit] = useState<string>('10');
+  const [aiRiskSlEdit, setAiRiskSlEdit] = useState<string>('5');
+  const [aiRiskTrailingEdit, setAiRiskTrailingEdit] = useState<string>('5');
 
   // data live
   const [quote, setQuote] = useState<LiveQuote | null>(null);
@@ -2751,6 +2755,19 @@ export default function VirtualAgentOfficeView() {
                         <span className="text-emerald-400 font-bold text-xs">+Rp {useAIAgentStore.getState().totalAiRealizedProfit.toLocaleString('id-ID')}</span>
                       </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const { takeProfitPct, stopLossPct, trailingStopPct } = useAIAgentStore.getState();
+                        setAiRiskTpEdit(String(takeProfitPct ?? 10));
+                        setAiRiskSlEdit(String(stopLossPct ?? 5));
+                        setAiRiskTrailingEdit(String(trailingStopPct ?? 5));
+                        setShowRiskSettingsModal(true);
+                      }}
+                      className="w-full mt-1 px-2 py-1 rounded text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <span>⚙️</span>
+                      <span>Risk Setting AI (TP / SL / Trailing)</span>
+                    </button>
                   </div>
 
                   {/* Riwayat Eksekusi Portofolio */}
@@ -3732,6 +3749,117 @@ export default function VirtualAgentOfficeView() {
 
       {/* Top Up Saldo Kas RDN Modal (QRIS) */}
       <TopUpModal isOpen={topUpModalOpen} onClose={() => setTopUpModalOpen(false)} />
+
+      {/* Modal: Setting Risiko Global AI Bot (TP/SL/Trailing) */}
+      {showRiskSettingsModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0d1220] border border-amber-500/40 rounded-xl max-w-sm w-full p-5 shadow-2xl shadow-amber-950/40 text-white animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div>
+                <h3 className="font-bold text-sm text-white tracking-wide flex items-center gap-2">
+                  ⚙️ Risk Setting AI — Equitas & Saham IDX
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Parameter global digunakan oleh Raditya PM & Bambang CRO saat auto-buy saham IDX.</p>
+              </div>
+              <button
+                onClick={() => setShowRiskSettingsModal(false)}
+                className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer ml-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs">
+              {/* TP % */}
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                <label className="font-bold text-emerald-400 block">🎯 Take Profit IDX (%)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  value={aiRiskTpEdit}
+                  onChange={(e) => setAiRiskTpEdit(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 font-mono text-white text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['5', '8', '10', '12', '15', '20'].map((v) => (
+                    <button key={v} type="button" onClick={() => setAiRiskTpEdit(v)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${aiRiskTpEdit === v ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+                    >+{v}%</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SL % */}
+              <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/30 space-y-2">
+                <label className="font-bold text-rose-400 block">🛡️ Stop Loss IDX (%)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  value={aiRiskSlEdit}
+                  onChange={(e) => setAiRiskSlEdit(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 font-mono text-white text-sm focus:border-rose-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['2', '3', '5', '6', '8', '10'].map((v) => (
+                    <button key={v} type="button" onClick={() => setAiRiskSlEdit(v)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${aiRiskSlEdit === v ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+                    >-{v}%</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Trailing Stop % */}
+              <div className="p-3 rounded-lg bg-cyan-950/20 border border-cyan-500/30 space-y-2">
+                <label className="font-bold text-cyan-400 block">📈 Trailing Stop (%)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  value={aiRiskTrailingEdit}
+                  onChange={(e) => setAiRiskTrailingEdit(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 font-mono text-white text-sm focus:border-cyan-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['2', '3', '5', '7', '10'].map((v) => (
+                    <button key={v} type="button" onClick={() => setAiRiskTrailingEdit(v)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${aiRiskTrailingEdit === v ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+                    >{v}%</button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-zinc-400 italic">💡 Parameter ini dipakai bot saat auto-buy saham IDX. Tidak mempengaruhi order manual maupun Crypto Desk.</p>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRiskSettingsModal(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const tp = parseFloat(aiRiskTpEdit);
+                  const sl = parseFloat(aiRiskSlEdit);
+                  const trailing = parseFloat(aiRiskTrailingEdit);
+                  if (tp > 0 && sl > 0 && trailing > 0) {
+                    useAIAgentStore.getState().setRiskTargets({ takeProfitPct: tp, stopLossPct: sl, trailingStopPct: trailing });
+                  }
+                  setShowRiskSettingsModal(false);
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 transition shadow-lg shadow-amber-500/20 cursor-pointer"
+              >
+                ✅ Simpan Setting
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

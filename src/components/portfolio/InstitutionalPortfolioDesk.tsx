@@ -19,6 +19,10 @@ import {
   Sliders,
   DollarSign,
   Maximize2,
+  Target,
+  Shield,
+  Check,
+  X,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
@@ -63,6 +67,86 @@ export default function InstitutionalPortfolioDesk() {
   const { cash, holdings } = usePortfolioStore();
   const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'FIXED' | 'CRYPTO'>('ALL');
   const { tickerMap } = useBinanceLivePrices();
+
+  // State Modal Pengaturan TP & SL Manual Pengguna
+  const [editingRiskHolding, setEditingRiskHolding] = useState<any | null>(null);
+  const [tpPercentInput, setTpPercentInput] = useState<string>('15');
+  const [slPercentInput, setSlPercentInput] = useState<string>('6');
+  const [tpPriceInput, setTpPriceInput] = useState<string>('');
+  const [slPriceInput, setSlPriceInput] = useState<string>('');
+
+  const handleOpenRiskModal = (h: any) => {
+    setEditingRiskHolding(h);
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+
+    if (h.takeProfitPrice && h.takeProfitPrice > 0) {
+      const pct = Number((((h.takeProfitPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(1));
+      setTpPercentInput(String(pct));
+      setTpPriceInput(String(h.takeProfitPrice));
+    } else {
+      const defaultTp = isCrypto ? 15 : 10;
+      setTpPercentInput(String(defaultTp));
+      const targetP = isCrypto
+        ? Number((h.avgPrice * (1 + defaultTp / 100)).toFixed(h.avgPrice < 1 ? 8 : 4))
+        : Math.round(h.avgPrice * (1 + defaultTp / 100));
+      setTpPriceInput(String(targetP));
+    }
+
+    if (h.stopLossPrice && h.stopLossPrice > 0) {
+      const pct = Number((((h.avgPrice - h.stopLossPrice) / h.avgPrice) * 100).toFixed(1));
+      setSlPercentInput(String(pct));
+      setSlPriceInput(String(h.stopLossPrice));
+    } else {
+      const defaultSl = isCrypto ? 6 : 5;
+      setSlPercentInput(String(defaultSl));
+      const cutP = isCrypto
+        ? Number((h.avgPrice * (1 - defaultSl / 100)).toFixed(h.avgPrice < 1 ? 8 : 4))
+        : Math.round(h.avgPrice * (1 - defaultSl / 100));
+      setSlPriceInput(String(cutP));
+    }
+  };
+
+  const handleTpPercentChange = (newPctStr: string) => {
+    setTpPercentInput(newPctStr);
+    if (!editingRiskHolding) return;
+    const isCrypto = editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT');
+    const pct = parseFloat(newPctStr) || 0;
+    const targetP = isCrypto
+      ? Number((editingRiskHolding.avgPrice * (1 + pct / 100)).toFixed(editingRiskHolding.avgPrice < 1 ? 8 : 4))
+      : Math.round(editingRiskHolding.avgPrice * (1 + pct / 100));
+    setTpPriceInput(String(targetP));
+  };
+
+  const handleSlPercentChange = (newPctStr: string) => {
+    setSlPercentInput(newPctStr);
+    if (!editingRiskHolding) return;
+    const isCrypto = editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT');
+    const pct = parseFloat(newPctStr) || 0;
+    const cutP = isCrypto
+      ? Number((editingRiskHolding.avgPrice * (1 - pct / 100)).toFixed(editingRiskHolding.avgPrice < 1 ? 8 : 4))
+      : Math.round(editingRiskHolding.avgPrice * (1 - pct / 100));
+    setSlPriceInput(String(cutP));
+  };
+
+  const handleSaveRiskTargets = () => {
+    if (!editingRiskHolding) return;
+    const tp = parseFloat(tpPriceInput) || undefined;
+    const sl = parseFloat(slPriceInput) || undefined;
+    usePortfolioStore.getState().setHoldingRiskTargets(editingRiskHolding.symbol, {
+      takeProfitPrice: tp,
+      stopLossPrice: sl,
+    });
+    setEditingRiskHolding(null);
+  };
+
+  const handleClearRiskTargets = () => {
+    if (!editingRiskHolding) return;
+    usePortfolioStore.getState().setHoldingRiskTargets(editingRiskHolding.symbol, {
+      takeProfitPrice: undefined,
+      stopLossPrice: undefined,
+    });
+    setEditingRiskHolding(null);
+  };
 
   // Helper resolusi harga pasar terkini (realtime Binance tick untuk kripto, fallback currentPrice)
   const getLivePrice = (h: any) => {
@@ -420,6 +504,7 @@ export default function InstitutionalPortfolioDesk() {
                   <th className="px-3 py-2">Harga Pasar</th>
                   <th className="px-3 py-2">Total Nilai (IDR)</th>
                   <th className="px-3 py-2">Floating P&L</th>
+                  <th className="px-3 py-2">Target TP / SL</th>
                   <th className="px-3 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -444,6 +529,13 @@ export default function InstitutionalPortfolioDesk() {
                       ? ((curPrice - h.avgPrice) / h.avgPrice) * 100
                       : (h.unrealizedPLPercent || 0);
                     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+
+                    const tpPct = h.takeProfitPrice && h.avgPrice > 0
+                      ? (((h.takeProfitPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(1)
+                      : null;
+                    const slPct = h.stopLossPrice && h.avgPrice > 0
+                      ? (((h.avgPrice - h.stopLossPrice) / h.avgPrice) * 100).toFixed(1)
+                      : null;
 
                     return (
                       <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/15 hover:bg-cyan-950/25' : 'hover:bg-[#18181b]/50'}>
@@ -503,6 +595,44 @@ export default function InstitutionalPortfolioDesk() {
                             {pl >= 0 ? '+' : ''}Rp {Math.round(pl).toLocaleString('id-ID')} ({plPct >= 0 ? '+' : ''}{plPct.toFixed(2)}%)
                           </span>
                         </td>
+                        <td className="px-3 py-2 font-mono">
+                          {h.takeProfitPrice || h.stopLossPrice ? (
+                            <div className="space-y-1">
+                              {h.takeProfitPrice && (
+                                <div className="flex items-center gap-1 text-[11px] text-emerald-400">
+                                  <Target className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  <span>TP: +{tpPct}%</span>
+                                  <span className="text-[10px] text-zinc-400 font-normal">
+                                    ({isCrypto ? `${formatCryptoPrice(h.takeProfitPrice)} USDT` : `Rp ${h.takeProfitPrice.toLocaleString('id-ID')}`})
+                                  </span>
+                                </div>
+                              )}
+                              {h.stopLossPrice && (
+                                <div className="flex items-center gap-1 text-[11px] text-rose-400">
+                                  <Shield className="w-3 h-3 text-rose-400 shrink-0" />
+                                  <span>SL: -{slPct}%</span>
+                                  <span className="text-[10px] text-zinc-400 font-normal">
+                                    ({isCrypto ? `${formatCryptoPrice(h.stopLossPrice)} USDT` : `Rp ${h.stopLossPrice.toLocaleString('id-ID')}`})
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                onClick={() => handleOpenRiskModal(h)}
+                                className="text-[10px] text-cyan-400 hover:text-cyan-300 underline block cursor-pointer"
+                              >
+                                Edit Target
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenRiskModal(h)}
+                              className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Target className="w-3 h-3 text-amber-400" />
+                              <span>Set TP/SL</span>
+                            </button>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           <Link
                             href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
@@ -520,6 +650,175 @@ export default function InstitutionalPortfolioDesk() {
                   })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Modal Konfigurasi Manual TP & SL */}
+        {editingRiskHolding && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#12161f] border border-cyan-500/40 rounded-xl max-w-md w-full p-5 shadow-2xl shadow-cyan-950/50 text-white animate-in fade-in duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm tracking-wide text-white">
+                      Target TP & SL Manual: {editingRiskHolding.displaySymbol || editingRiskHolding.symbol}
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      Avg Buy:{' '}
+                      <span className="font-mono text-cyan-300 font-bold">
+                        {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                          ? `${formatCryptoPrice(editingRiskHolding.avgPrice)} USDT`
+                          : `Rp ${editingRiskHolding.avgPrice.toLocaleString('id-ID')}`}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingRiskHolding(null)}
+                  className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-4 text-xs">
+                {/* Take Profit Section */}
+                <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5" />
+                      Take Profit (TP) %
+                    </label>
+                    <span className="text-[10px] text-zinc-400">
+                      Target Harga:{' '}
+                      <span className="font-mono text-emerald-300 font-bold">
+                        {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                          ? `${tpPriceInput} USDT`
+                          : `Rp ${Number(tpPriceInput || 0).toLocaleString('id-ID')}`}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        max="500"
+                        value={tpPercentInput}
+                        onChange={(e) => handleTpPercentChange(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-right font-mono text-white text-sm focus:border-emerald-500 focus:outline-none"
+                      />
+                      <span className="absolute left-2.5 top-1.5 text-zinc-500 font-bold text-xs">%</span>
+                    </div>
+                  </div>
+
+                  {/* Quick TP Chips */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {['+5', '+8', '+10', '+15', '+20', '+25', '+50'].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => handleTpPercentChange(val.replace('+', ''))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                          tpPercentInput === val.replace('+', '')
+                            ? 'bg-emerald-500 text-black'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                        }`}
+                      >
+                        {val}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stop Loss Section */}
+                <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-rose-400 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" />
+                      Stop Loss (SL) %
+                    </label>
+                    <span className="text-[10px] text-zinc-400">
+                      Cut-loss Harga:{' '}
+                      <span className="font-mono text-rose-300 font-bold">
+                        {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                          ? `${slPriceInput} USDT`
+                          : `Rp ${Number(slPriceInput || 0).toLocaleString('id-ID')}`}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        max="90"
+                        value={slPercentInput}
+                        onChange={(e) => handleSlPercentChange(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-right font-mono text-white text-sm focus:border-rose-500 focus:outline-none"
+                      />
+                      <span className="absolute left-2.5 top-1.5 text-zinc-500 font-bold text-xs">%</span>
+                    </div>
+                  </div>
+
+                  {/* Quick SL Chips */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {['-2', '-3', '-5', '-6', '-8', '-10', '-15'].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => handleSlPercentChange(val.replace('-', ''))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                          slPercentInput === val.replace('-', '')
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                        }`}
+                      >
+                        {val}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-zinc-400 italic">
+                  💡 Ketika harga pasar mencapai Take Profit atau Stop Loss yang Anda tentukan, posisi akan otomatis dijual (Liquidated) secara instan.
+                </p>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearRiskTargets}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  Hapus TP / SL
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRiskHolding(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveRiskTargets}
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-cyan-400 hover:bg-cyan-300 transition shadow-lg shadow-cyan-500/20 cursor-pointer flex items-center gap-1"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Simpan Target
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

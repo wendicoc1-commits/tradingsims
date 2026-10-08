@@ -27,6 +27,11 @@ import {
   Play,
   Pause,
   History,
+  Target,
+  Shield,
+  Settings,
+  Check,
+  X,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
@@ -59,6 +64,13 @@ export default function JesseCryptoDeskView() {
   const [coinUnits, setCoinUnits] = useState<string>('0.005');
   const [customTP, setCustomTP] = useState<string>('');
   const [customSL, setCustomSL] = useState<string>('');
+  const [tpPctInput, setTpPctInput] = useState<string>('');
+  const [slPctInput, setSlPctInput] = useState<string>('');
+  const [tpMode, setTpMode] = useState<'PRICE' | 'PCT'>('PRICE');
+  const [slMode, setSlMode] = useState<'PRICE' | 'PCT'>('PRICE');
+  const [showAIRiskSettings, setShowAIRiskSettings] = useState(false);
+  const [aiTpPctEdit, setAiTpPctEdit] = useState<string>('');
+  const [aiSlPctEdit, setAiSlPctEdit] = useState<string>('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
 
@@ -168,11 +180,47 @@ export default function JesseCryptoDeskView() {
   const handleApplyJesseRiskTargets = () => {
     setCustomTP(jesseSignal.takeProfit.toString());
     setCustomSL(jesseSignal.stopLoss.toString());
+    setTpMode('PRICE');
+    setSlMode('PRICE');
     setNotification({
       type: 'success',
       message: `Parameter risiko Jesse AI diterapkan: TP $${jesseSignal.takeProfit.toLocaleString()} & SL $${jesseSignal.stopLoss.toLocaleString()}`,
     });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Handlers TP/SL % → harga
+  const handleTpPctChip = (pct: string) => {
+    setTpPctInput(pct);
+    setTpMode('PCT');
+    const price = Number((currentPriceUSDT * (1 + parseFloat(pct) / 100)).toFixed(currentPriceUSDT < 1 ? 8 : 4));
+    setCustomTP(String(price));
+  };
+
+  const handleSlPctChip = (pct: string) => {
+    setSlPctInput(pct);
+    setSlMode('PCT');
+    const price = Number((currentPriceUSDT * (1 - parseFloat(pct) / 100)).toFixed(currentPriceUSDT < 1 ? 8 : 4));
+    setCustomSL(String(price));
+  };
+
+  // AI Risk Settings — buka dengan nilai saat ini dari store
+  const handleOpenAIRiskSettings = () => {
+    const { cryptoTakeProfitPct, cryptoStopLossPct } = useAIAgentStore.getState();
+    setAiTpPctEdit(String(cryptoTakeProfitPct ?? 15));
+    setAiSlPctEdit(String(cryptoStopLossPct ?? 6));
+    setShowAIRiskSettings(true);
+  };
+
+  const handleSaveAIRiskSettings = () => {
+    const tp = parseFloat(aiTpPctEdit);
+    const sl = parseFloat(aiSlPctEdit);
+    if (tp > 0 && sl > 0) {
+      useAIAgentStore.getState().setRiskTargets({ cryptoTakeProfitPct: tp, cryptoStopLossPct: sl });
+      setNotification({ type: 'success', message: `✅ Setting AI Risk: TP +${tp}% | SL -${sl}% disimpan. Bot akan menggunakan parameter ini.` });
+      setTimeout(() => setNotification(null), 5000);
+    }
+    setShowAIRiskSettings(false);
   };
 
   // Eksekusi Order Beli / Jual
@@ -390,6 +438,14 @@ export default function JesseCryptoDeskView() {
           >
             <History className="w-3.5 h-3.5 text-cyan-400" />
             Riwayat Trade AI
+          </button>
+
+          <button
+            onClick={handleOpenAIRiskSettings}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Setting TP/SL AI
           </button>
         </div>
       </div>
@@ -788,29 +844,128 @@ export default function JesseCryptoDeskView() {
               ))}
             </div>
 
-            {/* Take Profit & Stop Loss Inputs */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <div>
-                <label className="text-[10px] text-zinc-400 block mb-1">Target TP ($ USDT)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customTP}
-                  onChange={(e) => setCustomTP(e.target.value)}
-                  placeholder={`$${jesseSignal.takeProfit}`}
-                  className="w-full px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
-                />
+            {/* Take Profit & Stop Loss — Dual Mode: Price + % Chips */}
+            <div className="space-y-2 pt-1">
+              {/* ── Take Profit ── */}
+              <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/25">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                    <Target className="w-3 h-3" />
+                    Take Profit
+                  </label>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setTpMode('PRICE')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition ${tpMode === 'PRICE' ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                    >$ USDT</button>
+                    <button
+                      type="button"
+                      onClick={() => setTpMode('PCT')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition ${tpMode === 'PCT' ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                    >%</button>
+                  </div>
+                </div>
+                {tpMode === 'PRICE' ? (
+                  <input
+                    type="number"
+                    step="any"
+                    value={customTP}
+                    onChange={(e) => setCustomTP(e.target.value)}
+                    placeholder={`$${jesseSignal.takeProfit}`}
+                    className="w-full px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        value={tpPctInput}
+                        onChange={(e) => handleTpPctChip(e.target.value)}
+                        placeholder="15"
+                        className="flex-1 px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                        = ${customTP || '---'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {['8', '10', '12', '15', '20', '25'].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => handleTpPctChip(v)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition ${
+                            tpPctInput === v ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                          }`}
+                        >+{v}%</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-[10px] text-zinc-400 block mb-1">Batas SL ($ USDT)</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customSL}
-                  onChange={(e) => setCustomSL(e.target.value)}
-                  placeholder={`$${jesseSignal.stopLoss}`}
-                  className="w-full px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-rose-400 font-mono focus:border-rose-500 focus:outline-none"
-                />
+
+              {/* ── Stop Loss ── */}
+              <div className="p-2.5 rounded-lg bg-rose-950/20 border border-rose-500/25">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-bold text-rose-400 flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    Stop Loss
+                  </label>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSlMode('PRICE')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition ${slMode === 'PRICE' ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                    >$ USDT</button>
+                    <button
+                      type="button"
+                      onClick={() => setSlMode('PCT')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition ${slMode === 'PCT' ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                    >%</button>
+                  </div>
+                </div>
+                {slMode === 'PRICE' ? (
+                  <input
+                    type="number"
+                    step="any"
+                    value={customSL}
+                    onChange={(e) => setCustomSL(e.target.value)}
+                    placeholder={`$${jesseSignal.stopLoss}`}
+                    className="w-full px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-rose-400 font-mono focus:border-rose-500 focus:outline-none"
+                  />
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.5"
+                        value={slPctInput}
+                        onChange={(e) => handleSlPctChip(e.target.value)}
+                        placeholder="6"
+                        className="flex-1 px-2.5 py-1.5 bg-[#070a10] border border-zinc-800 rounded text-xs text-rose-400 font-mono focus:border-rose-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                        = ${customSL || '---'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {['3', '5', '6', '8', '10', '15'].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => handleSlPctChip(v)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition ${
+                            slPctInput === v ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                          }`}
+                        >-{v}%</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -926,6 +1081,113 @@ export default function JesseCryptoDeskView() {
 
       {/* Top Up Saldo Kas RDN Modal (QRIS) */}
       <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
+
+      {/* Modal: Setting TP/SL Global AI Bot */}
+      {showAIRiskSettings && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0d1220] border border-amber-500/40 rounded-xl max-w-sm w-full p-5 shadow-2xl shadow-amber-950/40 text-white animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white tracking-wide">⚙️ Setting Risiko AI Bot</h3>
+                  <p className="text-[11px] text-zinc-400">Parameter global untuk auto-buy oleh Kevin Zhang & Jesse Vance AI</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAIRiskSettings(false)}
+                className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-xs">
+              {/* AI TP % */}
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                <label className="font-bold text-emerald-400 flex items-center gap-1.5 block">
+                  <Target className="w-3.5 h-3.5" />
+                  Default Take Profit AI (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  max="500"
+                  value={aiTpPctEdit}
+                  onChange={(e) => setAiTpPctEdit(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 font-mono text-white text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['10', '12', '15', '20', '25', '30'].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAiTpPctEdit(v)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${
+                        aiTpPctEdit === v ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      }`}
+                    >+{v}%</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI SL % */}
+              <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/30 space-y-2">
+                <label className="font-bold text-rose-400 flex items-center gap-1.5 block">
+                  <Shield className="w-3.5 h-3.5" />
+                  Default Stop Loss AI (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  max="90"
+                  value={aiSlPctEdit}
+                  onChange={(e) => setAiSlPctEdit(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 font-mono text-white text-sm focus:border-rose-500 focus:outline-none"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['3', '5', '6', '8', '10', '12'].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAiSlPctEdit(v)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition ${
+                        aiSlPctEdit === v ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      }`}
+                    >-{v}%</button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-zinc-400 italic">
+                💡 Nilai ini digunakan oleh AI bot saat melakukan auto-buy. Order manual di form bawah menggunakan TP/SL terpisah.
+              </p>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAIRiskSettings(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAIRiskSettings}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 transition shadow-lg shadow-amber-500/20 cursor-pointer flex items-center gap-1"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Simpan Setting AI
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
