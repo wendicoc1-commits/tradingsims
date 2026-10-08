@@ -9,6 +9,35 @@ let isSyncingPortfolio = false;
 let needsPortfolioReSync = false;
 let activeLoadPortfolioPromise: Promise<void> | null = null;
 
+const BACKUP_STORAGE_PREFIX = 'tradingsims_user_backup_';
+
+function saveLocalUserBackup(email: string, userId: string, data: any) {
+  if (typeof window === 'undefined' || !email) return;
+  try {
+    const key = BACKUP_STORAGE_PREFIX + email.trim().toLowerCase();
+    localStorage.setItem(key, JSON.stringify({
+      email: email.trim().toLowerCase(),
+      userId,
+      portfolio: data,
+      timestamp: Date.now(),
+    }));
+  } catch {}
+}
+
+function loadLocalUserBackup(email: string): any | null {
+  if (typeof window === 'undefined' || !email) return null;
+  try {
+    const key = BACKUP_STORAGE_PREFIX + email.trim().toLowerCase();
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.portfolio || null;
+  } catch {
+    return null;
+  }
+}
+
+
 export interface AppUser {
   id: string;
   email: string;
@@ -82,8 +111,20 @@ export const useAuthStore = create<AuthState>()(
             set({ user: appUser, isLoading: false });
 
             // 2. Pulihkan data portofolio cloud KHUSUS milik akun ini yang dikembalikan oleh server
-            if (apiData.portfolio && typeof apiData.portfolio.cash === 'number') {
-              const sPort = apiData.portfolio;
+            let resolvedPortfolio = (apiData.portfolio && typeof apiData.portfolio.cash === 'number')
+              ? apiData.portfolio
+              : null;
+
+            // Jika server cloud belum membalas atau instance serverless baru restart, periksa backup lokal perangkat untuk email ini!
+            if (!resolvedPortfolio) {
+              const localBackup = loadLocalUserBackup(apiData.user.email);
+              if (localBackup && typeof localBackup.cash === 'number') {
+                resolvedPortfolio = localBackup;
+              }
+            }
+
+            if (resolvedPortfolio && typeof resolvedPortfolio.cash === 'number') {
+              const sPort = resolvedPortfolio;
               usePortfolioStore.setState({
                 cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
                 realizedPL: sPort.realizedPL || 0,
@@ -93,9 +134,12 @@ export const useAuthStore = create<AuthState>()(
                 dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
                 lastUpdated: sPort.lastUpdated || Date.now(),
               });
+              // Simpan ulang ke backup lokal dan unggah ke cloud
+              saveLocalUserBackup(apiData.user.email, apiData.user.id, sPort);
+              await get().syncPortfolioToDatabase();
             } else {
-              // Jika server belum memiliki transaksi untuk akun ini, beri modal awal bersih Rp 100 Juta
-              usePortfolioStore.setState({
+              // Jika ini akun baru pertama kali, beri modal awal bersih Rp 100 Juta
+              const initialNewPort = {
                 cash: 100_000_000,
                 realizedPL: 0,
                 holdings: [],
@@ -103,7 +147,9 @@ export const useAuthStore = create<AuthState>()(
                 conditionalOrders: [],
                 dividends: [],
                 lastUpdated: Date.now(),
-              });
+              };
+              usePortfolioStore.setState(initialNewPort);
+              saveLocalUserBackup(apiData.user.email, apiData.user.id, initialNewPort);
               await get().syncPortfolioToDatabase();
             }
 
@@ -274,6 +320,22 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        const currentUser = get().user;
+        if (currentUser && currentUser.email && currentUser.provider !== 'guest') {
+          const currentPort = usePortfolioStore.getState();
+          if (currentPort && (currentPort.cash > 0 || currentPort.holdings.length > 0)) {
+            saveLocalUserBackup(currentUser.email, currentUser.id, {
+              cash: currentPort.cash,
+              realizedPL: currentPort.realizedPL,
+              holdings: currentPort.holdings,
+              orders: currentPort.orders,
+              conditionalOrders: currentPort.conditionalOrders,
+              dividends: currentPort.dividends,
+              lastUpdated: currentPort.lastUpdated || Date.now(),
+            });
+          }
+        }
+
         if (isSupabaseConfigured) {
           try {
             const supabase = getSupabaseBrowserClient();
@@ -348,6 +410,15 @@ export const useAuthStore = create<AuthState>()(
             if (!currentUser || currentUser.provider === 'guest') break;
 
             const portStore = usePortfolioStore.getState();
+            saveLocalUserBackup(currentUser.email, currentUser.id, {
+              cash: portStore.cash,
+              realizedPL: portStore.realizedPL,
+              holdings: portStore.holdings,
+              orders: portStore.orders,
+              conditionalOrders: portStore.conditionalOrders,
+              dividends: portStore.dividends,
+              lastUpdated: portStore.lastUpdated || Date.now(),
+            });
 
             // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron antar browser apa pun!)
             try {
@@ -624,11 +695,29 @@ export const useAuthStore = create<AuthState>()(
                       dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
                       lastUpdated: cloudTime || Date.now(),
                     });
-                    return;
                   }
                 }
               } catch (cloudErr) {
                 console.warn('[SUPABASE DIRECT FETCH WARN]', cloudErr);
+              }
+            }
+
+            // 3. Fallback Cadangan: Periksa Local User Backup jika server cloud dan Supabase sedang offline/unreachable
+            const localUserBackup = loadLocalUserBackup(user.email);
+            if (localUserBackup && typeof localUserBackup.cash === 'number') {
+              const currentHoldings = usePortfolioStore.getState().holdings;
+              const currentCash = usePortfolioStore.getState().cash;
+              if (currentHoldings.length === 0 && (currentCash <= 0 || currentCash === 100_000_000)) {
+                usePortfolioStore.setState({
+                  cash: localUserBackup.cash,
+                  realizedPL: localUserBackup.realizedPL || 0,
+                  holdings: sanitizeHoldings(Array.isArray(localUserBackup.holdings) ? localUserBackup.holdings : []),
+                  orders: Array.isArray(localUserBackup.orders) ? localUserBackup.orders : [],
+                  conditionalOrders: Array.isArray(localUserBackup.conditionalOrders) ? localUserBackup.conditionalOrders : [],
+                  dividends: Array.isArray(localUserBackup.dividends) ? localUserBackup.dividends : [],
+                  lastUpdated: localUserBackup.lastUpdated || Date.now(),
+                });
+                return;
               }
             }
           } catch (err) {
