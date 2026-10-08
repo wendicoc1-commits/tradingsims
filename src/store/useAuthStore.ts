@@ -5,7 +5,8 @@ import { persist } from 'zustand/middleware';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { usePortfolioStore, waitForPortfolioHydration } from '@/store';
 
-let activeSyncPortfolioPromise: Promise<void> | null = null;
+let isSyncingPortfolio = false;
+let needsPortfolioReSync = false;
 let activeLoadPortfolioPromise: Promise<void> | null = null;
 
 export interface AppUser {
@@ -70,17 +71,28 @@ export const useAuthStore = create<AuthState>()(
             };
             set({ user: appUser, isLoading: false });
 
-            // Jika server sudah memiliki snapshot portofolio dari browser lain, langsung pulihkan ke usePortfolioStore!
+            // Jika server sudah memiliki snapshot portofolio dari browser lain, pulihkan ke usePortfolioStore
             if (apiData.portfolio && typeof apiData.portfolio.cash === 'number') {
-              usePortfolioStore.setState({
-                cash: apiData.portfolio.cash,
-                realizedPL: apiData.portfolio.realizedPL || 0,
-                holdings: Array.isArray(apiData.portfolio.holdings) ? apiData.portfolio.holdings : [],
-                orders: Array.isArray(apiData.portfolio.orders) ? apiData.portfolio.orders : [],
-                conditionalOrders: Array.isArray(apiData.portfolio.conditionalOrders) ? apiData.portfolio.conditionalOrders : [],
-                dividends: Array.isArray(apiData.portfolio.dividends) ? apiData.portfolio.dividends : [],
-                lastUpdated: apiData.portfolio.lastUpdated || Date.now(),
-              });
+              const sPort = apiData.portfolio;
+              const localStore = usePortfolioStore.getState();
+              const hasServerHoldings = Array.isArray(sPort.holdings) && sPort.holdings.length > 0;
+              const hasLocalHoldings = Array.isArray(localStore.holdings) && localStore.holdings.length > 0;
+
+              // Pulihkan jika server memiliki saham atau jika browser lokal ini belum memiliki saham
+              if (hasServerHoldings || !hasLocalHoldings) {
+                usePortfolioStore.setState({
+                  cash: sPort.cash,
+                  realizedPL: sPort.realizedPL || 0,
+                  holdings: Array.isArray(sPort.holdings) ? sPort.holdings : [],
+                  orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                  conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                  dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                  lastUpdated: sPort.lastUpdated || Date.now(),
+                });
+              } else {
+                // Browser lokal ini memiliki saham aktif tetapi server kosong: segera amankan ke server!
+                await get().syncPortfolioToDatabase();
+              }
             } else {
               // Jika server portofolio masih kosong, sinkronkan portofolio lokal saat ini ke server
               await get().syncPortfolioToDatabase();
@@ -281,13 +293,19 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user;
         if (!user || user.provider === 'guest') return;
 
-        if (activeSyncPortfolioPromise) {
-          return activeSyncPortfolioPromise;
+        if (isSyncingPortfolio) {
+          needsPortfolioReSync = true;
+          return;
         }
 
-        activeSyncPortfolioPromise = (async () => {
-          try {
+        isSyncingPortfolio = true;
+        try {
+          do {
+            needsPortfolioReSync = false;
             await waitForPortfolioHydration();
+            const currentUser = get().user;
+            if (!currentUser || currentUser.provider === 'guest') break;
+
             const portStore = usePortfolioStore.getState();
 
             // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron antar browser apa pun!)
@@ -296,8 +314,8 @@ export const useAuthStore = create<AuthState>()(
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  email: user.email,
-                  userId: user.id,
+                  email: currentUser.email,
+                  userId: currentUser.id,
                   cash: portStore.cash,
                   realizedPL: portStore.realizedPL,
                   holdings: portStore.holdings,
@@ -318,7 +336,7 @@ export const useAuthStore = create<AuthState>()(
                 const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
 
                 await supabase.from('portfolios').upsert({
-                  user_id: user.id,
+                  user_id: currentUser.id,
                   cash: portStore.cash,
                   realized_pl: portStore.realizedPL,
                   updated_at: updatedAtIso,
@@ -326,7 +344,7 @@ export const useAuthStore = create<AuthState>()(
 
                 if (portStore.holdings.length > 0) {
                   const holdingRows = portStore.holdings.map((h) => ({
-                    user_id: user.id,
+                    user_id: currentUser.id,
                     symbol: h.symbol,
                     display_symbol: h.displaySymbol,
                     name: h.name,
@@ -348,7 +366,7 @@ export const useAuthStore = create<AuthState>()(
                   const { data: currentDbHoldings } = await supabase
                     .from('holdings')
                     .select('symbol')
-                    .eq('user_id', user.id);
+                    .eq('user_id', currentUser.id);
 
                   if (currentDbHoldings && currentDbHoldings.length > 0) {
                     const obsoleteSymbols = currentDbHoldings
@@ -359,25 +377,23 @@ export const useAuthStore = create<AuthState>()(
                       await supabase
                         .from('holdings')
                         .delete()
-                        .eq('user_id', user.id)
+                        .eq('user_id', currentUser.id)
                         .in('symbol', obsoleteSymbols);
                     }
                   }
 
                   await supabase.from('holdings').upsert(holdingRows, { onConflict: 'user_id, symbol' });
                 } else {
-                  await supabase.from('holdings').delete().eq('user_id', user.id);
+                  await supabase.from('holdings').delete().eq('user_id', currentUser.id);
                 }
               } catch {}
             }
-          } catch (err) {
-            console.error('[PORTFOLIO SYNC ERROR]', err);
-          } finally {
-            activeSyncPortfolioPromise = null;
-          }
-        })();
-
-        return activeSyncPortfolioPromise;
+          } while (needsPortfolioReSync);
+        } catch (err) {
+          console.error('[PORTFOLIO SYNC ERROR]', err);
+        } finally {
+          isSyncingPortfolio = false;
+        }
       },
 
       // Hapus satu posisi holding secara instan saat posisi ditutup habis
@@ -481,6 +497,9 @@ export const useAuthStore = create<AuthState>()(
         activeLoadPortfolioPromise = (async () => {
           try {
             await waitForPortfolioHydration();
+            const localStore = usePortfolioStore.getState();
+            const hasLocalHoldings = Array.isArray(localStore.holdings) && localStore.holdings.length > 0;
+            const localTime = localStore.lastUpdated || 0;
 
             // 1. Ambil dari Server Cloud Sync API (LINTAS BROWSER)
             try {
@@ -489,39 +508,83 @@ export const useAuthStore = create<AuthState>()(
               });
               const data = await res.json();
 
-              if (data.success && data.portfolio && typeof data.portfolio.cash === 'number') {
-                const sPort = data.portfolio;
-                const localStore = usePortfolioStore.getState();
+              if (data.success) {
+                if (data.portfolio && typeof data.portfolio.cash === 'number') {
+                  const sPort = data.portfolio;
+                  const hasServerHoldings = Array.isArray(sPort.holdings) && sPort.holdings.length > 0;
+                  const serverTime = sPort.lastUpdated || 0;
 
-                const hasServerHoldings = Array.isArray(sPort.holdings) && sPort.holdings.length > 0;
-                const hasLocalHoldings = Array.isArray(localStore.holdings) && localStore.holdings.length > 0;
-                const serverTime = sPort.lastUpdated || 0;
-                const localTime = localStore.lastUpdated || 0;
+                  // KASUS 1: Server memiliki saham, sedangkan lokal masih kosong (misal login di browser baru)
+                  if (hasServerHoldings && !hasLocalHoldings) {
+                    usePortfolioStore.setState({
+                      cash: sPort.cash,
+                      realizedPL: sPort.realizedPL || 0,
+                      holdings: sPort.holdings,
+                      orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                      conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                      dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                      lastUpdated: Math.max(serverTime, Date.now()),
+                    });
+                    return;
+                  }
 
-                // Prioritaskan server jika server memiliki kepemilikan aset, atau jika timestamp server lebih baru,
-                // atau jika browser lokal masih kosong (browser baru)
-                if (hasServerHoldings || serverTime >= localTime || !hasLocalHoldings) {
-                  usePortfolioStore.setState({
-                    cash: sPort.cash,
-                    realizedPL: sPort.realizedPL || 0,
-                    holdings: Array.isArray(sPort.holdings) ? sPort.holdings : [],
-                    orders: Array.isArray(sPort.orders) ? sPort.orders : [],
-                    conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
-                    dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
-                    lastUpdated: Math.max(serverTime, Date.now()),
-                  });
-                  return;
-                } else if (hasLocalHoldings && localTime > serverTime) {
-                  // Browser lokal memiliki perubahan lebih baru: segera kirim ke server cloud!
-                  await get().syncPortfolioToDatabase();
-                  return;
+                  // KASUS 2: Browser lokal memiliki saham aktif, tetapi server kosong atau belum diperbarui
+                  // JANGAN PERNAH MENIMPA SAHAM LOKAL DENGAN DATA KOSONG!
+                  if (hasLocalHoldings && !hasServerHoldings) {
+                    // Segera amankan dan sinkronkan portofolio lokal ke cloud server
+                    await get().syncPortfolioToDatabase();
+                    return;
+                  }
+
+                  // KASUS 3: Keduanya memiliki saham
+                  if (hasServerHoldings && hasLocalHoldings) {
+                    if (serverTime > localTime) {
+                      // Data di server lebih baru (transaksi di device/tab lain)
+                      usePortfolioStore.setState({
+                        cash: sPort.cash,
+                        realizedPL: sPort.realizedPL || 0,
+                        holdings: sPort.holdings,
+                        orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                        conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                        dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                        lastUpdated: serverTime,
+                      });
+                      return;
+                    } else {
+                      // Data lokal sama atau lebih baru: unggah ke server
+                      await get().syncPortfolioToDatabase();
+                      return;
+                    }
+                  }
+
+                  // KASUS 4: Keduanya tidak memiliki saham (0 saham)
+                  if (!hasServerHoldings && !hasLocalHoldings) {
+                    if (serverTime > localTime) {
+                      usePortfolioStore.setState({
+                        cash: sPort.cash,
+                        realizedPL: sPort.realizedPL || 0,
+                        orders: Array.isArray(sPort.orders) ? sPort.orders : localStore.orders,
+                        conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : localStore.conditionalOrders,
+                        dividends: Array.isArray(sPort.dividends) ? sPort.dividends : localStore.dividends,
+                        lastUpdated: serverTime,
+                      });
+                      return;
+                    }
+                  }
+                } else {
+                  // Server belum memiliki portofolio sama sekali (portfolio === null)
+                  // Jika browser lokal sudah memiliki transaksi / saham / kas, simpan langsung ke server!
+                  if (hasLocalHoldings || localStore.cash !== 100_000_000 || localStore.orders.length > 0) {
+                    await get().syncPortfolioToDatabase();
+                    return;
+                  }
                 }
               }
             } catch (serverErr) {
               console.warn('[SERVER PORTFOLIO LOAD WARN]', serverErr);
             }
 
-            // 2. Fallback Supabase jika terkonfigurasi
+            // 2. Fallback Supabase jika terkonfigurasi (HANYA JIKA TIDAK MENGHAPUS HOLDING LOKAL)
             if (isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
@@ -562,13 +625,20 @@ export const useAuthStore = create<AuthState>()(
                       }))
                     : [];
 
-                  usePortfolioStore.setState({
-                    holdings: mappedHoldings,
-                    cash: dbCash,
-                    realizedPL: dbRealizedPL,
-                    lastUpdated: Date.now(),
-                  });
-                  return;
+                  const currentHoldings = usePortfolioStore.getState().holdings;
+                  // JANGAN PERNAH menimpa saham lokal aktif jika Supabase kosong!
+                  if (mappedHoldings.length > 0 && currentHoldings.length === 0) {
+                    usePortfolioStore.setState({
+                      holdings: mappedHoldings,
+                      cash: dbCash,
+                      realizedPL: dbRealizedPL,
+                      lastUpdated: Date.now(),
+                    });
+                    return;
+                  } else if (currentHoldings.length > 0 && mappedHoldings.length === 0) {
+                    await get().syncPortfolioToDatabase();
+                    return;
+                  }
                 }
               } catch {}
             }

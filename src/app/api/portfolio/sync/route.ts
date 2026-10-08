@@ -15,15 +15,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      portfolio: portfolio || {
-        cash: 100_000_000,
-        realizedPL: 0,
-        holdings: [],
-        orders: [],
-        conditionalOrders: [],
-        dividends: [],
-        lastUpdated: Date.now(),
-      },
+      portfolio: portfolio || null,
+      isNew: !portfolio,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

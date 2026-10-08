@@ -533,7 +533,7 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     setMounted(true);
-    if (user && user.provider !== 'guest' && isConfigured) {
+    if (user && user.provider !== 'guest') {
       loadPortfolioFromDatabase();
     }
 
