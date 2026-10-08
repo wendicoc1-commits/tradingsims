@@ -6,6 +6,8 @@
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
 import { getGroundedStockIntelligence } from '@/lib/agents/groundedStockIntelligence';
 
+import { roundToRegulatoryTick } from '@/lib/agents/agentContextCompactor';
+
 export interface DebateArgument {
   speaker: 'BULL' | 'BEAR' | 'JUDGE';
   round: 1 | 2 | 3;
@@ -75,10 +77,19 @@ export function generateBullBearDebate(ticker: string): DebateResult {
 
   const convictionPct = Math.round((Math.max(bullScore, bearScore) / (bullScore + bearScore)) * 100);
 
-  const priceMult = currency === 'IDR' ? 1 : 1;
-  const suggestedEntry = Math.round(currentPrice * (winner === 'BULL' ? 0.99 : 0.96));
-  const suggestedStopLoss = Math.round(currentPrice * (winner === 'BULL' ? 0.94 : 0.90));
-  const suggestedTakeProfit = Math.round(currentPrice * (winner === 'BULL' ? 1.15 : 1.08));
+  const isForeign = currency === 'USD';
+  const suggestedEntry = roundToRegulatoryTick(
+    currentPrice * (winner === 'BULL' ? 0.99 : 0.96),
+    isForeign
+  );
+  const suggestedStopLoss = roundToRegulatoryTick(
+    currentPrice * (winner === 'BULL' ? 0.94 : 0.90),
+    isForeign
+  );
+  const suggestedTakeProfit = roundToRegulatoryTick(
+    currentPrice * (winner === 'BULL' ? 1.15 : 1.08),
+    isForeign
+  );
   const riskRewardRatio = Number(
     ((suggestedTakeProfit - suggestedEntry) / Math.max(1, suggestedEntry - suggestedStopLoss)).toFixed(2)
   );

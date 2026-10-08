@@ -16,7 +16,7 @@ export const IDX_TICK_RULES: TickRule[] = [
   { min: 200, max: 500, tick: 2 },
   { min: 500, max: 2000, tick: 5 },
   { min: 2000, max: 5000, tick: 10 },
-  { min: 500, max: Infinity, tick: 25 },
+  { min: 5000, max: Infinity, tick: 25 },
 ];
 
 /**
