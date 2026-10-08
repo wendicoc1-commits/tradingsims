@@ -14,6 +14,15 @@ export async function POST(req: NextRequest) {
     }
 
     const normEmail = email.trim().toLowerCase();
+    const { getUserByEmail } = await import('@/lib/server/portfolioStorage');
+    const existing = getUserByEmail(normEmail);
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: 'Email ini sudah terdaftar sebagai Member. Silakan masuk (login) menggunakan password Anda.' },
+        { status: 409 }
+      );
+    }
+
     const user = registerOrUpdateUser(normEmail, password, fullName);
     const portfolio = getUserPortfolio({ userId: user.id, email: normEmail });
 

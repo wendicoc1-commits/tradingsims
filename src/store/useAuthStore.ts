@@ -52,7 +52,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, authError: null });
 
         try {
-          // 1. Coba login melalui backend API server (yang menyimpan portofolio lintas browser)
           const apiRes = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,6 +60,17 @@ export const useAuthStore = create<AuthState>()(
           const apiData = await apiRes.json();
 
           if (apiData.success && apiData.user) {
+            // 1. ISOLASI TOTAL: Bersihkan portofolio lokal lama agar sisa data akun sebelumnya tidak bocor!
+            usePortfolioStore.setState({
+              cash: 0,
+              realizedPL: 0,
+              holdings: [],
+              orders: [],
+              conditionalOrders: [],
+              dividends: [],
+              lastUpdated: Date.now(),
+            });
+
             const appUser: AppUser = {
               id: apiData.user.id,
               email: apiData.user.email,
@@ -71,39 +81,29 @@ export const useAuthStore = create<AuthState>()(
             };
             set({ user: appUser, isLoading: false });
 
-            // Jika server sudah memiliki snapshot portofolio dari device lain, pulihkan ke usePortfolioStore
+            // 2. Pulihkan data portofolio cloud KHUSUS milik akun ini yang dikembalikan oleh server
             if (apiData.portfolio && typeof apiData.portfolio.cash === 'number') {
               const sPort = apiData.portfolio;
-              const localStore = usePortfolioStore.getState();
-              const hasServerHoldings = Array.isArray(sPort.holdings) && sPort.holdings.length > 0;
-              const hasLocalHoldings = Array.isArray(localStore.holdings) && localStore.holdings.length > 0;
-              const hasLocalOrders = Array.isArray(localStore.orders) && localStore.orders.length > 0;
-
-              // Pulihkan jika:
-              // 1. Server memiliki kepemilikan saham, ATAU
-              // 2. Browser lokal ini belum memiliki kepemilikan saham (misal baru buka di device/browser lain), ATAU
-              // 3. Waktu snapshot server lebih baru atau sama dengan waktu lokal
-              if (hasServerHoldings || !hasLocalHoldings || (!hasLocalOrders && localStore.cash <= 0)) {
-                usePortfolioStore.setState({
-                  cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
-                  realizedPL: sPort.realizedPL || 0,
-                  holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
-                  orders: Array.isArray(sPort.orders) ? sPort.orders : [],
-                  conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
-                  dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
-                  lastUpdated: sPort.lastUpdated || Date.now(),
-                });
-              } else if (hasLocalHoldings && !hasServerHoldings) {
-                // Browser lokal ini memiliki saham aktif tetapi server kosong: segera amankan ke server!
-                await get().syncPortfolioToDatabase();
-              }
+              usePortfolioStore.setState({
+                cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
+                realizedPL: sPort.realizedPL || 0,
+                holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
+                orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                lastUpdated: sPort.lastUpdated || Date.now(),
+              });
             } else {
-              // Jika server portofolio masih kosong, sinkronkan portofolio lokal saat ini ke server
-              const localStore = usePortfolioStore.getState();
-              if (localStore.cash === 0 && localStore.holdings.length === 0) {
-                // Beri modal awal 100jt jika lokal masih nol
-                usePortfolioStore.setState({ cash: 100_000_000, lastUpdated: Date.now() });
-              }
+              // Jika server belum memiliki transaksi untuk akun ini, beri modal awal bersih Rp 100 Juta
+              usePortfolioStore.setState({
+                cash: 100_000_000,
+                realizedPL: 0,
+                holdings: [],
+                orders: [],
+                conditionalOrders: [],
+                dividends: [],
+                lastUpdated: Date.now(),
+              });
               await get().syncPortfolioToDatabase();
             }
 
@@ -116,26 +116,18 @@ export const useAuthStore = create<AuthState>()(
             }
 
             return { success: true };
-          } else if (apiRes.status === 401) {
-            set({ authError: apiData.error || 'Email atau password salah.', isLoading: false });
-            return { success: false, error: apiData.error || 'Email atau password salah.' };
+          } else {
+            // LOGIN DITOLAK (password salah atau akun tidak ditemukan)
+            const errorMsg = apiData.error || 'Email atau password salah.';
+            set({ authError: errorMsg, isLoading: false });
+            return { success: false, error: errorMsg };
           }
-        } catch (serverErr) {
-          console.warn('[SERVER AUTH FALLBACK]', serverErr);
+        } catch (serverErr: any) {
+          console.error('[LOGIN NETWORK ERROR]', serverErr);
+          const errorMsg = 'Gagal terhubung ke server login. Silakan periksa koneksi Anda.';
+          set({ authError: errorMsg, isLoading: false });
+          return { success: false, error: errorMsg };
         }
-
-        // Fallback jika API route offline
-        const mockUser: AppUser = {
-          id: `usr-${Date.now()}`,
-          email: email.trim(),
-          fullName: email.split('@')[0],
-          provider: 'email',
-          role: 'member',
-          createdAt: new Date().toISOString(),
-        };
-        set({ user: mockUser, isLoading: false });
-        await get().loadPortfolioFromDatabase();
-        return { success: true };
       },
 
       registerWithEmail: async (email: string, pass: string, fullName: string) => {
@@ -150,6 +142,17 @@ export const useAuthStore = create<AuthState>()(
           const apiData = await apiRes.json();
 
           if (apiData.success && apiData.user) {
+            // Bersihkan portofolio lokal lama dan berikan modal awal murni Rp 100 Juta untuk member baru
+            usePortfolioStore.setState({
+              cash: 100_000_000,
+              realizedPL: 0,
+              holdings: [],
+              orders: [],
+              conditionalOrders: [],
+              dividends: [],
+              lastUpdated: Date.now(),
+            });
+
             const appUser: AppUser = {
               id: apiData.user.id,
               email: apiData.user.email,
@@ -160,13 +163,7 @@ export const useAuthStore = create<AuthState>()(
             };
             set({ user: appUser, isLoading: false });
 
-            // Pastikan jika modal kas lokal masih 0, set ke Rp 100 Juta untuk member baru
-            const localStore = usePortfolioStore.getState();
-            if (localStore.cash <= 0 && localStore.holdings.length === 0) {
-              usePortfolioStore.setState({ cash: 100_000_000, lastUpdated: Date.now() });
-            }
-
-            // Simpan portofolio yang ada ke server untuk akun baru ini
+            // Simpan portofolio modal awal ke server cloud untuk akun baru ini
             await get().syncPortfolioToDatabase();
 
             // Background Supabase signup jika terkonfigurasi
@@ -182,43 +179,47 @@ export const useAuthStore = create<AuthState>()(
             }
 
             return { success: true };
+          } else {
+            // REGISTRASI DITOLAK (misal email sudah terdaftar)
+            const errorMsg = apiData.error || 'Pendaftaran gagal.';
+            set({ authError: errorMsg, isLoading: false });
+            return { success: false, error: errorMsg };
           }
-        } catch (serverErr) {
-          console.warn('[SERVER REGISTER FALLBACK]', serverErr);
+        } catch (serverErr: any) {
+          console.error('[REGISTER NETWORK ERROR]', serverErr);
+          const errorMsg = 'Gagal terhubung ke server pendaftaran. Silakan periksa koneksi Anda.';
+          set({ authError: errorMsg, isLoading: false });
+          return { success: false, error: errorMsg };
         }
-
-        const mockUser: AppUser = {
-          id: `usr-${Date.now()}`,
-          email: email.trim(),
-          fullName: fullName.trim() || email.split('@')[0],
-          provider: 'email',
-          role: 'member',
-          createdAt: new Date().toISOString(),
-        };
-        set({ user: mockUser, isLoading: false });
-        const localStore = usePortfolioStore.getState();
-        if (localStore.cash <= 0 && localStore.holdings.length === 0) {
-          usePortfolioStore.setState({ cash: 100_000_000, lastUpdated: Date.now() });
-        }
-        await get().syncPortfolioToDatabase();
-        return { success: true };
       },
 
       loginWithOAuth: async (provider: 'apple' | 'facebook' | 'google') => {
         set({ isLoading: true, authError: null });
 
         if (!isSupabaseConfigured) {
-          // Demo fallback
+          // Demo fallback dengan ID & email stabil per provider
           const providerName = provider === 'apple' ? 'Apple Member' : provider === 'facebook' ? 'Facebook Member' : 'Google Member';
+          const oauthEmail = `oauth-${provider}@tradingsims.my.id`;
           const mockUser: AppUser = {
-            id: `usr-${provider}-${Date.now()}`,
-            email: `member-${provider}@tradingsims.my.id`,
+            id: `usr-oauth-${provider}`,
+            email: oauthEmail,
             fullName: providerName,
             provider,
             role: 'member',
-            createdAt: new Date().toISOString(),
+            createdAt: '2026-01-01T00:00:00.000Z',
           };
+          // Bersihkan portofolio lama sebelum beralih
+          usePortfolioStore.setState({
+            cash: 0,
+            realizedPL: 0,
+            holdings: [],
+            orders: [],
+            conditionalOrders: [],
+            dividends: [],
+            lastUpdated: Date.now(),
+          });
           set({ user: mockUser, isLoading: false });
+          await get().loadPortfolioFromDatabase();
           return { success: true };
         }
 
@@ -247,6 +248,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       loginAsGuest: (guestName = 'Tamu Demo') => {
+        // Reset portofolio saat masuk mode tamu
+        usePortfolioStore.setState({
+          cash: 100_000_000,
+          realizedPL: 0,
+          holdings: [],
+          orders: [],
+          conditionalOrders: [],
+          dividends: [],
+          lastUpdated: Date.now(),
+        });
         const guestUser: AppUser = {
           id: `guest-${Date.now()}`,
           email: 'demo@tradingsims.my.id',
@@ -271,6 +282,16 @@ export const useAuthStore = create<AuthState>()(
             // Ignore
           }
         }
+        // RESET BERSIH PORTOFOLIO DI MEMORI AGAR TIDAK BOCOR KE AKUN BERIKUTNYA
+        usePortfolioStore.setState({
+          cash: 0,
+          realizedPL: 0,
+          holdings: [],
+          orders: [],
+          conditionalOrders: [],
+          dividends: [],
+          lastUpdated: Date.now(),
+        });
         set({ user: null });
       },
 

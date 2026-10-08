@@ -16,18 +16,22 @@ export async function POST(req: NextRequest) {
     const normEmail = email.trim().toLowerCase();
     const existing = getUserByEmail(normEmail);
 
-    let authUser = null;
-
-    if (existing) {
-      const verify = verifyUserPassword(normEmail, password);
-      if (!verify.valid) {
-        return NextResponse.json({ success: false, error: 'Email atau password salah.' }, { status: 401 });
-      }
-      authUser = verify.user;
-    } else {
-      // Jika user belum ada di database lokal server (misal akun baru atau migrasi), daftarkan langsung
-      authUser = registerOrUpdateUser(normEmail, password, normEmail.split('@')[0]);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Akun dengan email ini belum terdaftar. Silakan pilih tab "Daftar Akun Baru" terlebih dahulu.' },
+        { status: 404 }
+      );
     }
+
+    const verify = verifyUserPassword(normEmail, password);
+    if (!verify.valid || !verify.user) {
+      return NextResponse.json(
+        { success: false, error: 'Password yang Anda masukkan salah. Silakan coba lagi.' },
+        { status: 401 }
+      );
+    }
+
+    authUser = verify.user;
 
     // Ambil portofolio tersimpan di server
     const portfolio = getUserPortfolio({ userId: authUser?.id, email: normEmail });
