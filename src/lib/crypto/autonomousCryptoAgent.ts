@@ -37,7 +37,7 @@ export function scanCryptoUniverse(
 } {
   const fallbackMap: Record<string, number> = {
     BTCUSDT: 68450, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
-    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.85, NEARUSDT: 4.80,
+    XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.14, NEARUSDT: 4.80,
     LINKUSDT: 11.5, PEPEUSDT: 0.0000095,
   };
 

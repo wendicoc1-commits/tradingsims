@@ -182,7 +182,7 @@ export function getGroundedStockIntelligence(
     DOGE: { name: 'Dogecoin', price: 0.12, upside: 55.0, target: 0.18, thesis: 'Likuiditas ritel raksasa & adopsi kultural pembayaran peer-to-peer.' },
     ADA: { name: 'Cardano', price: 0.35, upside: 32.0, target: 0.46, thesis: 'Arsitektur UTXO diperluas & protokol riset peer-reviewed akademik.' },
     AVAX: { name: 'Avalanche', price: 26.5, upside: 38.0, target: 36.5, thesis: 'Subnet konsensus multi-chain untuk institusi keuangan global.' },
-    SUI: { name: 'Sui Network', price: 1.85, upside: 45.0, target: 2.68, thesis: 'Bahasa pemrograman Move & eksekusi transaksi paralel berbasis objek.' },
+    SUI: { name: 'Sui Network', price: 1.14, upside: 45.0, target: 1.65, thesis: 'Bahasa pemrograman Move & eksekusi transaksi paralel berbasis objek.' },
     NEAR: { name: 'NEAR Protocol', price: 4.80, upside: 40.0, target: 6.72, thesis: 'Infrastruktur User-Owned AI & sharding Nightshade tanpa batas.' },
     LINK: { name: 'Chainlink', price: 11.5, upside: 35.0, target: 15.5, thesis: 'Monopoli standar industri oracle terdesentralisasi & CCIP interop.' },
     PEPE: { name: 'Pepe Token', price: 0.0000095, upside: 60.0, target: 0.000015, thesis: 'Meme deflasioner terpopuler di Ethereum dengan momentum sosial kuat.' },

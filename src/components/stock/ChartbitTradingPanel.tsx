@@ -19,7 +19,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
-import { getIDXTickSize, isValidIDXTick, calculateShares } from '@/lib/stockRules';
+import { getIDXTickSize, isValidIDXTick, calculateShares, getForeignTick } from '@/lib/stockRules';
 import type { StockQuote } from '@/types';
 import PositionSizingModal from './PositionSizingModal';
 
@@ -120,22 +120,33 @@ export default function ChartbitTradingPanel({
     }
   }, [quote.price, orderType]);
 
-  // Realisme Mekanisme Pasar: Bid/Ask Spread
-  const currentTick = getIDXTickSize(currentPrice);
-  const bestBidPrice = quote.low && quote.low < currentPrice ? Math.max(currentTick, currentPrice - currentTick) : Math.max(currentTick, currentPrice - currentTick);
-  const bestAskPrice = currentPrice + currentTick;
-  const spreadPoints = bestAskPrice - bestBidPrice;
-  const spreadPercent = ((spreadPoints / bestBidPrice) * 100).toFixed(2);
+  // Share & Asset Info
+  const lotsNum = parseFloat(lotsInput) || 0;
+  const shareInfo = calculateShares(cleanSymbol, lotsNum);
+  const isForeign = shareInfo.isCrypto || shareInfo.isUS;
+
+  // Realisme Mekanisme Pasar: Bid/Ask Spread (Gunakan fraksi harga sesuai kelas aset)
+  const currentTick = isForeign ? getForeignTick(currentPrice) : getIDXTickSize(currentPrice);
+  const bestBidPrice = isForeign
+    ? Number(Math.max(currentTick, currentPrice - currentTick).toFixed(currentPrice < 1 ? 6 : 4))
+    : quote.low && quote.low < currentPrice
+    ? Math.max(currentTick, currentPrice - currentTick)
+    : Math.max(currentTick, currentPrice - currentTick);
+  const bestAskPrice = isForeign
+    ? Number((currentPrice + currentTick).toFixed(currentPrice < 1 ? 6 : 4))
+    : currentPrice + currentTick;
+  const spreadPoints = Number((bestAskPrice - bestBidPrice).toFixed(currentPrice < 1 ? 6 : 4));
+  const spreadPercent = ((spreadPoints / (bestBidPrice || 1)) * 100).toFixed(2);
 
   // Jika MARKET order: Pembeli beli di harga ASK, Penjual jual di harga BID
   const executedMarketPrice = orderSide === 'BUY' ? bestAskPrice : bestBidPrice;
   const priceNum = orderType === 'MARKET' ? executedMarketPrice : parseFloat(priceInput) || currentPrice;
-  const lotsNum = parseFloat(lotsInput) || 0;
 
-  const tick = getIDXTickSize(priceNum);
-  const tickValidation = isValidIDXTick(priceNum);
+  const tick = isForeign ? getForeignTick(priceNum) : getIDXTickSize(priceNum);
+  const tickValidation = isForeign
+    ? { valid: true, tick, nearest: priceNum }
+    : isValidIDXTick(priceNum);
 
-  const shareInfo = calculateShares(cleanSymbol, lotsNum);
   // Untuk IDX: priceNum (IDR) * (lots * 100). Untuk Crypto: priceNum (USDT) * units * 16.000. Untuk US: priceNum (USD) * shares * 16.000
   const grossTradeValue = Math.round(priceNum * shareInfo.shares * shareInfo.exchangeRate);
 
@@ -145,32 +156,26 @@ export default function ChartbitTradingPanel({
   const totalFee = brokerFee + taxFee;
   const estimatedTotal = orderSide === 'BUY' ? grossTradeValue + totalFee : Math.max(0, grossTradeValue - totalFee);
 
-  // Perhitungan batas Auto Rejection BEI (Simulasi)
+  // Perhitungan batas Auto Rejection BEI (Simulasi hanya untuk emiten saham BEI)
   const araPrice = useMemo(() => {
+    if (isForeign) return Math.round(currentPrice * 1.5);
     let pct = 0.25;
     if (currentPrice > 5000) pct = 0.20;
     else if (currentPrice < 200) pct = 0.35;
     const raw = Math.round(currentPrice * (1 + pct));
     const t = getIDXTickSize(raw);
     return Math.floor(raw / t) * t;
-  }, [currentPrice]);
+  }, [currentPrice, isForeign]);
 
   const arbPrice = useMemo(() => {
+    if (isForeign) return Number((currentPrice * 0.5).toFixed(currentPrice < 1 ? 6 : 2));
     let pct = 0.25;
     if (currentPrice > 5000) pct = 0.20;
     else if (currentPrice < 200) pct = 0.35;
     const raw = Math.round(currentPrice * (1 - pct));
     const t = getIDXTickSize(raw);
     return Math.max(t, Math.ceil(raw / t) * t);
-  }, [currentPrice]);
-
-  const getForeignTick = (val: number) => {
-    if (val < 0.01) return 0.0001;
-    if (val < 1) return 0.001;
-    if (val < 10) return 0.01;
-    if (val < 100) return 0.05;
-    return 0.1;
-  };
+  }, [currentPrice, isForeign]);
 
   // Adjust harga dengan tick
   const handlePriceStep = (direction: 'UP' | 'DOWN') => {
@@ -319,7 +324,7 @@ export default function ChartbitTradingPanel({
       return;
     }
 
-    if (orderType === 'LIMIT' && !tickValidation.valid) {
+    if (orderType === 'LIMIT' && !isForeign && !tickValidation.valid) {
       setNotification({
         type: 'error',
         message: `Harga Rp ${priceNum.toLocaleString('id-ID')} tidak sesuai fraksi BEI. Rekomendasi: Rp ${tickValidation.nearest.toLocaleString('id-ID')}.`,

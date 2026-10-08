@@ -35,7 +35,7 @@ const CRYPTO_MASTER: UnifiedAsset[] = [
   { symbol: 'XRP', name: 'XRP (Ripple Settlement)', category: 'CRYPTO', sector: 'Cross-Border Payments', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.42, flag: '⚡', isPopular: true },
   { symbol: 'ADA', name: 'Cardano (PoS Blockchain)', category: 'CRYPTO', sector: 'Layer-1 UTXO', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.35, flag: '⚡' },
   { symbol: 'AVAX', name: 'Avalanche (Subnet Consensus)', category: 'CRYPTO', sector: 'Layer-1 Multi-Chain', currency: 'USD', market: 'CRYPTO', defaultPrice: 26.5, flag: '⚡' },
-  { symbol: 'SUI', name: 'Sui Network (Move VM)', category: 'CRYPTO', sector: 'Layer-1 Move Language', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.85, flag: '⚡' },
+  { symbol: 'SUI', name: 'Sui Network (Move VM)', category: 'CRYPTO', sector: 'Layer-1 Move Language', currency: 'USD', market: 'CRYPTO', defaultPrice: 1.14, flag: '⚡' },
   { symbol: 'NEAR', name: 'NEAR Protocol (AI Chain)', category: 'CRYPTO', sector: 'Layer-1 Sharded / AI', currency: 'USD', market: 'CRYPTO', defaultPrice: 4.80, flag: '⚡' },
   { symbol: 'LINK', name: 'Chainlink (Oracle Network)', category: 'CRYPTO', sector: 'Decentralized Oracle', currency: 'USD', market: 'CRYPTO', defaultPrice: 11.5, flag: '⚡' },
   { symbol: 'PEPE', name: 'Pepe Token (Deflationary Meme)', category: 'CRYPTO', sector: 'Meme Momentum', currency: 'USD', market: 'CRYPTO', defaultPrice: 0.0000095, flag: '⚡' },

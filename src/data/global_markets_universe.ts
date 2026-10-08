@@ -173,7 +173,7 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   { rank: 3, symbol: 'SOLUSDT', name: 'Solana', category: 'L1', price: 158.40, change24h: 5.18, high24h: 162.00, low24h: 148.50, volume24h: '$4.12B', marketCap: '$74B' },
   { rank: 4, symbol: 'BNBUSDT', name: 'BNB (Binance)', category: 'L1', price: 582.10, change24h: 2.18, high24h: 589.00, low24h: 568.00, volume24h: '$1.08B', marketCap: '$84B' },
   { rank: 5, symbol: 'XRPUSDT', name: 'Ripple XRP', category: 'L1', price: 0.5340, change24h: -1.48, high24h: 0.5520, low24h: 0.5310, volume24h: '$1.45B', marketCap: '$30B' },
-  { rank: 6, symbol: 'SUIUSDT', name: 'Sui Network', category: 'L1', price: 1.985, change24h: 8.42, high24h: 2.05, low24h: 1.82, volume24h: '$820M', marketCap: '$5.6B' },
+  { rank: 6, symbol: 'SUIUSDT', name: 'Sui Network', category: 'L1', price: 1.14, change24h: 3.42, high24h: 1.19, low24h: 1.11, volume24h: '$820M', marketCap: '$5.6B' },
   { rank: 7, symbol: 'AVAXUSDT', name: 'Avalanche', category: 'L1', price: 28.15, change24h: 5.43, high24h: 29.20, low24h: 26.50, volume24h: '$410M', marketCap: '$11.4B' },
   { rank: 8, symbol: 'TONUSDT', name: 'Toncoin (Telegram)', category: 'L1', price: 5.24, change24h: 1.85, high24h: 5.38, low24h: 5.12, volume24h: '$295M', marketCap: '$13.2B' },
   { rank: 9, symbol: 'NEARUSDT', name: 'NEAR Protocol', category: 'L1', price: 4.88, change24h: 4.25, high24h: 5.02, low24h: 4.65, volume24h: '$480M', marketCap: '$5.9B' },

@@ -27,6 +27,19 @@ export function getIDXTickSize(price: number): number {
 }
 
 /**
+ * Mengambil fraksi harga yang wajar untuk aset Crypto (USDT) & US Equities (USD)
+ */
+export function getForeignTick(val: number): number {
+  if (val <= 0) return 0.0001;
+  if (val < 0.01) return 0.00001;
+  if (val < 1) return 0.0001;
+  if (val < 10) return 0.001;
+  if (val < 100) return 0.01;
+  if (val < 1000) return 0.05;
+  return 0.1;
+}
+
+/**
  * Validasi apakah harga mematuhi fraksi harga resmi BEI
  */
 export function isValidIDXTick(price: number): { valid: boolean; tick: number; nearest: number } {

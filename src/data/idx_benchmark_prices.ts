@@ -86,7 +86,7 @@ export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: stri
   XRP: { price: 1.42, name: 'XRP (Ripple)' },
   ADA: { price: 0.35, name: 'Cardano (ADA)' },
   AVAX: { price: 26.5, name: 'Avalanche (AVAX)' },
-  SUI: { price: 1.85, name: 'Sui Network (SUI)' },
+  SUI: { price: 1.14, name: 'Sui Network (SUI)' },
   NEAR: { price: 4.80, name: 'NEAR Protocol (NEAR)' },
   LINK: { price: 11.5, name: 'Chainlink (LINK)' },
   PEPE: { price: 0.0000095, name: 'Pepe Token (PEPE)' },

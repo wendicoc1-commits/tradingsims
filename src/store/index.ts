@@ -1055,33 +1055,51 @@ export const usePortfolioStore = create<PortfolioState>()(
 
         const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
 
+        let effectiveAvgPrice = holding.avgPrice
+        let effectiveUnits = holding.cryptoUnits ?? holding.lots
+        let effectiveLots = holding.lots
+        let effectiveShares = holding.shares
+        let wasHealed = false
+
+        // ── Auto-Reconciliation / Self-Healing untuk Kripto yang terkena dampak bug IDX Tick Spread (+$1.00 USD) ──
+        // Jika holding kripto memiliki avgPrice > newPrice * 1.5 padahal dibeli di pasar (seperti SUI dibeli $2.85-$3.24 vs spot $1.14),
+        // sesuaikan avgPrice ke newPrice dan hitung ulang unit koin agar total modal IDR tetap utuh tanpa floating loss palsu.
+        if (isCrypto && effectiveAvgPrice > newPrice * 1.5 && newPrice > 0) {
+          const rate = holding.exchangeRate || 16000
+          const originalInvestedIDR = effectiveAvgPrice * effectiveUnits * rate
+          effectiveAvgPrice = newPrice
+          effectiveUnits = Number((originalInvestedIDR / (newPrice * rate)).toFixed(4))
+          effectiveLots = effectiveUnits
+          effectiveShares = effectiveUnits
+          wasHealed = true
+        }
+
         let unrealizedPL = 0
         let unrealizedPLPercent = 0
 
         if (isCrypto) {
           const rate = holding.exchangeRate || 16000
-          const units = holding.cryptoUnits ?? holding.lots
-          unrealizedPL = Math.round((newPrice - holding.avgPrice) * units * rate)
-          unrealizedPLPercent = holding.avgPrice > 0
-            ? Number((((newPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2))
+          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * effectiveUnits * rate)
+          unrealizedPLPercent = effectiveAvgPrice > 0
+            ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
         } else if (isUS) {
           const rate = holding.exchangeRate || 16000
           const units = holding.shares ?? holding.lots
-          unrealizedPL = Math.round((newPrice - holding.avgPrice) * units * rate)
-          unrealizedPLPercent = holding.avgPrice > 0
-            ? Number((((newPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2))
+          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * units * rate)
+          unrealizedPLPercent = effectiveAvgPrice > 0
+            ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
         } else {
           const totalShares = holding.shares || holding.lots * SHARES_PER_LOT
-          unrealizedPL = (newPrice - holding.avgPrice) * totalShares
-          unrealizedPLPercent = holding.avgPrice > 0
-            ? Number((((newPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2))
+          unrealizedPL = (newPrice - effectiveAvgPrice) * totalShares
+          unrealizedPLPercent = effectiveAvgPrice > 0
+            ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
         }
 
         // ── ATR Trailing Stop: Naikkan batas pengunci profit jika harga mencetak puncak baru ──
-        const peakPrice = Math.max(holding.peakPrice || holding.avgPrice || newPrice, newPrice)
+        const peakPrice = Math.max(holding.peakPrice || effectiveAvgPrice || newPrice, newPrice)
         const trailPct = holding.trailingStopPct || (isCrypto ? 8 : 6)
         const calculatedTrailingPrice = isCrypto
           ? Number((peakPrice * (1 - trailPct / 100)).toFixed(peakPrice < 0.01 ? 8 : 4))
@@ -1090,8 +1108,18 @@ export const usePortfolioStore = create<PortfolioState>()(
           : Math.round(peakPrice * (1 - trailPct / 100))
         const trailingStopPrice = Math.max(holding.trailingStopPrice || 0, calculatedTrailingPrice)
 
+        if (wasHealed && typeof window !== 'undefined') {
+          import('@/store/useAuthStore').then(({ useAuthStore }) => {
+            useAuthStore.getState().syncPortfolioToDatabase();
+          }).catch(() => {});
+        }
+
         return {
           ...holding,
+          avgPrice: effectiveAvgPrice,
+          lots: effectiveLots,
+          shares: effectiveShares,
+          cryptoUnits: isCrypto ? effectiveUnits : holding.cryptoUnits,
           currentPrice: newPrice,
           peakPrice,
           trailingStopPrice,
