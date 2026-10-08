@@ -34,6 +34,7 @@ import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPort
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
 import AuthModal from '@/components/auth/AuthModal';
 import CompanyLogo from '@/components/common/CompanyLogo';
+import EmptyState from '@/components/common/EmptyState';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
@@ -170,7 +171,7 @@ function OrderForm() {
   };
 
   return (
-    <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+    <div id="order-execution-desk" className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <ShoppingCart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
@@ -1160,11 +1161,22 @@ export default function PortfolioPage() {
               </div>
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
               {holdings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-2 text-center" style={{ color: 'var(--text-muted)' }}>
-                  <Briefcase className="w-10 h-10 mb-2 opacity-30" />
-                  <div className="text-sm font-bold text-gray-300">Portofolio Saham Masih Kosong</div>
-                  <div className="text-xs max-w-xs">Beli saham IDX melalui form di samping kanan untuk mulai mengumpulkan dividen.</div>
-                </div>
+                <EmptyState
+                  icon={Briefcase}
+                  title="Portofolio Saham Masih Kosong"
+                  description="Belum ada posisi aktif. Beli saham IDX, kripto, atau saham US melalui form Order di samping untuk mulai membangun portofolio dan mengumpulkan dividen."
+                  cta={{
+                    label: '🛒 Mulai Beli Saham Pertama',
+                    onClick: () => {
+                      const orderEl = document.getElementById('order-execution-desk');
+                      orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    },
+                  }}
+                  secondaryCta={{
+                    label: 'Lihat Screener Saham',
+                    href: '/screener',
+                  }}
+                />
               ) : (
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="data-table min-w-[760px] w-full">
@@ -1428,11 +1440,18 @@ export default function PortfolioPage() {
               </div>
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
               {orders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-2 text-center" style={{ color: 'var(--text-muted)' }}>
-                  <History className="w-10 h-10 mb-2 opacity-30" />
-                  <div className="text-sm font-bold text-gray-300">Belum Ada Transaksi</div>
-                  <div className="text-xs">Semua eksekusi order akan tercatat di log audit ini.</div>
-                </div>
+                <EmptyState
+                  icon={History}
+                  title="Belum Ada Riwayat Transaksi"
+                  description="Semua eksekusi order BUY dan SELL akan tercatat di sini lengkap dengan Realized P/L, fee broker, dan status order."
+                  cta={{
+                    label: '📈 Eksekusi Order Pertama',
+                    onClick: () => {
+                      const orderEl = document.getElementById('order-execution-desk');
+                      orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    },
+                  }}
+                />
               ) : (
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="data-table min-w-[760px] w-full">

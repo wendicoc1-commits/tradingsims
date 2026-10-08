@@ -8,6 +8,7 @@ import StatusBar from '@/components/layout/StatusBar';
 import FinceptRightDock from '@/components/layout/FinceptRightDock';
 import TradeSimAuthGate from '@/components/auth/TradeSimAuthGate';
 import GlobalAutonomousAgentRunner from '@/components/ai/GlobalAutonomousAgentRunner';
+import SkipToContent from '@/components/common/SkipToContent';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
@@ -21,6 +22,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <TradeSimAuthGate>
+      {/* Skip link — keyboard a11y: skip nav to main content */}
+      <SkipToContent />
       <GlobalAutonomousAgentRunner />
       <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
         {/* Left Sidebar */}
@@ -29,11 +32,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Main Column */}
         <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
           {/* TradeSim Pro Header */}
-          <TradeSimHeader />
+          <header role="banner">
+            <TradeSimHeader />
+          </header>
 
           {/* Full-Width Content */}
           <div className="flex flex-1 min-h-0 overflow-hidden">
-            <main className="flex-1 min-w-0 overflow-y-auto p-3 lg:p-4">
+            <main id="main-content" className="flex-1 min-w-0 overflow-y-auto p-3 lg:p-4" aria-label="Konten Utama TradeSim Pro">
               {children}
             </main>
           </div>

@@ -80,9 +80,17 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#09090b] text-zinc-100 font-sans select-none">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#09090b] text-zinc-100 font-sans select-none" role="main">
+      {/* Skip to main content – a11y keyboard shortcut */}
+      <a
+        href="#auth-form"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:bg-emerald-500 focus:text-black focus:rounded focus:text-xs focus:font-bold"
+      >
+        Langsung ke Form Login
+      </a>
+
       {/* Background Subtle Modern FinTech Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#27272a15_1px,transparent_1px),linear-gradient(to_bottom,#27272a15_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#27272a15_1px,transparent_1px),linear-gradient(to_bottom,#27272a15_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" aria-hidden="true" />
 
       {/* Main Container */}
       <div className="relative z-10 flex flex-col w-full h-full justify-between p-4 sm:p-6 lg:p-8 overflow-y-auto">
@@ -126,6 +134,8 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
             {/* Notification Banner */}
             {(localMsg || authError) && (
               <div
+                role="alert"
+                aria-live="assertive"
                 className={`mb-5 p-3 rounded-lg text-xs flex items-start gap-2.5 border ${
                   localMsg?.type === 'success'
                     ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
@@ -133,18 +143,21 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
                 }`}
               >
                 {localMsg?.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" aria-hidden="true" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" aria-hidden="true" />
                 )}
                 <span>{localMsg?.text || authError}</span>
               </div>
             )}
 
             {/* Mode Switch Tabs */}
-            <div className="flex border border-zinc-800 rounded-lg p-1 bg-zinc-900/60 mb-5">
+            <div className="flex border border-zinc-800 rounded-lg p-1 bg-zinc-900/60 mb-5" role="tablist" aria-label="Mode autentikasi">
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'login'}
+                aria-controls="auth-form"
                 onClick={() => {
                   setMode('login');
                   setLocalMsg(null);
@@ -159,6 +172,9 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'register'}
+                aria-controls="auth-form"
                 onClick={() => {
                   setMode('register');
                   setLocalMsg(null);
@@ -174,20 +190,22 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
             </div>
 
             {/* Auth Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="auth-form" onSubmit={handleSubmit} className="space-y-4" aria-label={mode === 'login' ? 'Form Login' : 'Form Pendaftaran'}>
               {mode === 'register' && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
+                  <label htmlFor="fullName" className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
                     Nama Lengkap
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
+                    <User className="absolute left-3 top-3 w-4 h-4 text-zinc-500" aria-hidden="true" />
                     <input
+                      id="fullName"
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Contoh: Raden Trader"
-                      className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                      autoComplete="name"
+                      className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                       required
                     />
                   </div>
@@ -195,34 +213,38 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
               )}
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
+                <label htmlFor="email" className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
                   Alamat Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
+                  <Mail className="absolute left-3 top-3 w-4 h-4 text-zinc-500" aria-hidden="true" />
                   <input
+                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="nama@email.com"
-                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                    autoComplete="email"
+                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
+                <label htmlFor="password" className="block text-[11px] font-semibold text-zinc-400 mb-1.5 uppercase">
                   Kata Sandi (Password)
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
+                  <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-500" aria-hidden="true" />
                   <input
+                    id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimal 6 karakter"
-                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                     required
                   />
                 </div>
@@ -231,25 +253,27 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
               <button
                 type="submit"
                 disabled={isLoading}
+                aria-disabled={isLoading}
+                aria-label={mode === 'login' ? 'Masuk ke workstation TradeSim Pro' : 'Buat akun baru dan terima Rp 100 juta modal virtual'}
                 className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50 mt-2"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                     <span>MEMPROSES...</span>
                   </>
                 ) : (
                   <>
                     <span>{mode === 'login' ? 'MASUK KE WORKSTATION' : 'BUAT AKUN & TERIMA RP 100 JUTA'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </>
                 )}
               </button>
             </form>
 
             {/* Quick Guest Mode Divider */}
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
+            <div className="relative my-5" role="separator" aria-label="atau">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
                 <div className="w-full border-t border-zinc-800" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase">
@@ -260,9 +284,10 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
             <button
               type="button"
               onClick={() => enterGuestMode()}
+              aria-label="Masuk sebagai tamu untuk demo gratis tanpa registrasi"
               className="w-full py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
               <span>Coba Demo Instan (Mode Tamu)</span>
             </button>
           </div>

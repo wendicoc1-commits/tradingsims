@@ -69,7 +69,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Desks */}
-      <nav className="flex-1 py-2 px-1.5 space-y-3 overflow-y-auto">
+      <nav aria-label="Navigasi Samping Workstation" className="flex-1 py-2 px-1.5 space-y-3 overflow-y-auto">
         {/* Core Desks Group */}
         <div>
           {!collapsed && (
@@ -77,13 +77,14 @@ export default function Sidebar() {
               Navigasi Utama
             </div>
           )}
-          <div className="space-y-0.5">
+          <div className="space-y-0.5" role="list">
             {coreDesks.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs transition-all',
                     collapsed && 'justify-center px-0'
@@ -96,7 +97,7 @@ export default function Sidebar() {
                   }}
                   title={collapsed ? item.label : undefined}
                 >
-                  <item.icon className="w-4 h-4 shrink-0" />
+                  <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               );
@@ -111,13 +112,14 @@ export default function Sidebar() {
               Riset &amp; Pasar
             </div>
           )}
-          <div className="space-y-0.5">
+          <div className="space-y-0.5" role="list">
             {researchDesks.map((item) => {
               const isActive = pathname === item.href || (item.href.startsWith('/stock') && pathname.startsWith('/stock'));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs transition-all',
                     collapsed && 'justify-center px-0'
@@ -130,7 +132,7 @@ export default function Sidebar() {
                   }}
                   title={collapsed ? item.label : undefined}
                 >
-                  <item.icon className="w-4 h-4 shrink-0" />
+                  <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               );
@@ -147,10 +149,11 @@ export default function Sidebar() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
-          aria-label="Toggle Sidebar"
+          aria-label={collapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar'}
+          aria-expanded={!collapsed}
           title={collapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar'}
         >
-          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+          {collapsed ? <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" /> : <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />}
         </button>
       </div>
     </aside>

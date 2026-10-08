@@ -226,11 +226,13 @@ export default function TradeSimHeader() {
         {/* Center: Command Palette / Search */}
         <div className="relative flex-1 max-w-md mx-2">
           <div className="relative flex items-center">
-            <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+            <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-500 pointer-events-none" aria-hidden="true" />
             <input
+              id="header-cli-search"
               ref={cliInputRef}
               type="text"
               value={cliInput}
+              aria-label="Pencarian simbol saham, kripto, atau perintah terminal"
               onChange={(e) => {
                 setCliInput(e.target.value);
                 setShowSuggestions(true);
@@ -240,7 +242,7 @@ export default function TradeSimHeader() {
               placeholder="Ketik simbol (BBCA, BTC, NVDA) atau perintah..."
               className="w-full bg-[#121215] border border-[#27272a] rounded pl-8 pr-16 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono transition-colors"
             />
-            <span className="absolute right-2 text-[9px] text-zinc-500 font-mono pointer-events-none">
+            <span className="absolute right-2 text-[9px] text-zinc-500 font-mono pointer-events-none" aria-hidden="true">
               ENTER ↵
             </span>
           </div>
@@ -311,12 +313,13 @@ export default function TradeSimHeader() {
             <button
               type="button"
               onClick={handleToggleSound}
-              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+              aria-label={isSoundEnabled ? 'Nonaktifkan efek audio pasar' : 'Aktifkan efek audio pasar'}
+              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer ${
                 isSoundEnabled ? 'text-emerald-400' : 'text-zinc-500'
               }`}
               title={isSoundEnabled ? 'Audio Efek: Aktif' : 'Audio Efek: Senyap'}
             >
-              {isSoundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              {isSoundEnabled ? <Volume2 className="w-3.5 h-3.5" aria-hidden="true" /> : <VolumeX className="w-3.5 h-3.5" aria-hidden="true" />}
             </button>
 
             {user ? (
@@ -332,36 +335,39 @@ export default function TradeSimHeader() {
                       setTimeout(() => setIsManualSyncing(false), 600);
                     }
                   }}
-                  className={`p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors ${
+                  aria-label="Sinkronkan portofolio ke cloud Supabase"
+                  className={`p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer ${
                     isManualSyncing ? 'animate-spin text-emerald-400' : ''
                   }`}
                   title="Sinkronkan Portofolio ke Cloud Sekarang (Lintas Perangkat)"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
                 <div
                   className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 font-mono"
                   title={`Akun Member: ${user.email}`}
                 >
-                  <Cloud className="w-3 h-3 text-emerald-400" />
+                  <Cloud className="w-3 h-3 text-emerald-400" aria-hidden="true" />
                   <span className="max-w-[110px] truncate">{user.email.split('@')[0]}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => logout()}
-                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
+                  aria-label={`Keluar dari akun ${user.email}`}
+                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
                   title={`Keluar (${user.email})`}
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
+                aria-label="Buka form masuk akun member"
                 className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
               >
-                <User className="w-3 h-3" />
+                <User className="w-3 h-3" aria-hidden="true" />
                 <span>Masuk</span>
               </button>
             )}
@@ -370,9 +376,10 @@ export default function TradeSimHeader() {
       </div>
 
       {/* ── Navigation Tabs ── */}
-      <nav className="flex items-center px-3 bg-[#0c0c0e] text-xs h-9 border-b border-[#1f1f23] overflow-x-auto no-scrollbar gap-1">
+      <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-3 bg-[#0c0c0e] text-xs h-9 border-b border-[#1f1f23] overflow-x-auto no-scrollbar gap-1">
         <Link
           href="/"
+          aria-current={pathname === '/' ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
             pathname === '/'
               ? 'bg-zinc-800 text-white'
@@ -383,17 +390,19 @@ export default function TradeSimHeader() {
         </Link>
         <Link
           href="/ai"
+          aria-current={pathname.startsWith('/ai') ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
             pathname.startsWith('/ai')
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
               : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
           <span>🤖 AI Trading Floor</span>
         </Link>
         <Link
           href="/portfolio"
+          aria-current={pathname.startsWith('/portfolio') ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
             pathname.startsWith('/portfolio')
               ? 'bg-zinc-800 text-emerald-400 font-bold'
