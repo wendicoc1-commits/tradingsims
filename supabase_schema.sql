@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- TradeSim Pro Workstation - Production Database Schema (Supabase PostgreSQL)
--- Jalankan skrip ini di Supabase SQL Editor jika tabel belum dibuat.
+-- Skrip ini IDEMPOTENT: Aman dijalankan berkali-kali tanpa error.
 -- ==============================================================================
 
 -- 1. Tabel Akun Pengguna Terdaftar
@@ -14,10 +14,9 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Indeks pencarian cepat email
 CREATE INDEX IF NOT EXISTS idx_app_users_email ON public.app_users (LOWER(email));
 
--- 2. Tabel Portofolio Pengguna (Single Source of Truth Multi-Device Sync)
+-- 2. Tabel Portofolio Pengguna (Multi-Device Sync)
 CREATE TABLE IF NOT EXISTS public.user_portfolios (
   user_id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
@@ -31,10 +30,9 @@ CREATE TABLE IF NOT EXISTS public.user_portfolios (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Indeks pencarian portofolio berdasarkan email
 CREATE INDEX IF NOT EXISTS idx_user_portfolios_email ON public.user_portfolios (LOWER(email));
 
--- 3. Tabel Riwayat Order Individual (Audit Trail)
+-- 3. Tabel Riwayat Order Individual
 CREATE TABLE IF NOT EXISTS public.orders (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -63,17 +61,20 @@ CREATE TABLE IF NOT EXISTS public.orders (
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON public.orders (user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_symbol ON public.orders (symbol);
 
--- 4. Enable Row Level Security (RLS) dengan Public Service Bypass
+-- 4. Aktifkan Row Level Security (RLS)
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_portfolios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
--- Kebijakan akses anon key untuk TradeSim server API
+-- 5. Kebijakan Akses (Drop dahulu jika sudah ada, agar tidak bentrok)
+DROP POLICY IF EXISTS "Allow public anon access for app_users" ON public.app_users;
 CREATE POLICY "Allow public anon access for app_users"
   ON public.app_users FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public anon access for user_portfolios" ON public.user_portfolios;
 CREATE POLICY "Allow public anon access for user_portfolios"
   ON public.user_portfolios FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public anon access for orders" ON public.orders;
 CREATE POLICY "Allow public anon access for orders"
   ON public.orders FOR ALL USING (true) WITH CHECK (true);
