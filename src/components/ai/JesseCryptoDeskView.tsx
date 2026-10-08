@@ -45,6 +45,7 @@ import {
 } from '@/lib/crypto/autonomousCryptoAgent';
 import { bloombergAudio } from '@/lib/bloombergAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
+import { formatCryptoPrice } from '@/lib/utils';
 
 export default function JesseCryptoDeskView() {
   const { cash, holdings, orders, placeBuyOrder, placeSellOrder } = usePortfolioStore();
@@ -509,7 +510,7 @@ export default function JesseCryptoDeskView() {
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] font-mono">
                     <span className="font-bold text-white">
-                      ${p < 1 ? p.toFixed(4) : p.toLocaleString()}
+                      {formatCryptoPrice(p)}
                     </span>
                     <span
                       className={`text-[10px] font-bold ${
@@ -892,7 +893,7 @@ export default function JesseCryptoDeskView() {
                           </span>
                         </div>
                         <span className="text-[10px] text-zinc-500 font-mono">
-                          Avg: ${h.avgPrice.toLocaleString()} · Now: ${liveP.toLocaleString()}
+                          Avg: {formatCryptoPrice(h.avgPrice)} · Now: {formatCryptoPrice(liveP)}
                         </span>
                       </div>
 

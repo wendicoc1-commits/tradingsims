@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Briefcase,
@@ -21,6 +21,8 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
+import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
+import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 
 interface CorrelationStock {
   ticker: string;
@@ -60,16 +62,61 @@ function getCorrelationBg(value: number) {
 export default function InstitutionalPortfolioDesk() {
   const { cash, holdings } = usePortfolioStore();
   const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'FIXED' | 'CRYPTO'>('ALL');
+  const { tickerMap } = useBinanceLivePrices();
 
-  // Compute portfolio valuation (supporting both Equities & Crypto Spot)
+  // Helper resolusi harga pasar terkini (realtime Binance tick untuk kripto, fallback currentPrice)
+  const getLivePrice = (h: any) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    if (!isCrypto) return h.currentPrice;
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const liveTicker = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
+    return (liveTicker?.price && liveTicker.price > 0) ? liveTicker.price : h.currentPrice;
+  };
+
+  // Sinkronisasi realtime live harga Binance ke Zustand Store secara halus (debounced 2.5s)
+  useEffect(() => {
+    if (!tickerMap || Object.keys(tickerMap).length === 0 || holdings.length === 0) return;
+    const timer = setTimeout(() => {
+      const updateMap: Record<string, number> = {};
+      holdings.forEach((h) => {
+        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+        if (isCrypto) {
+          const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+          const live = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
+          if (live && live.price > 0 && Math.abs(live.price - h.currentPrice) > 0.000000001) {
+            updateMap[h.symbol] = live.price;
+            updateMap[cleanSym] = live.price;
+            updateMap[`${cleanSym}USDT`] = live.price;
+          }
+        }
+      });
+      if (Object.keys(updateMap).length > 0) {
+        usePortfolioStore.getState().updateHoldingPrices(updateMap);
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [tickerMap, holdings]);
+
+  // Compute portfolio valuation (supporting both Equities & Crypto Spot with live quotes)
   const holdingsValue = holdings.reduce((acc, h) => {
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
-    return acc + (isCrypto ? h.currentPrice * units * rate : h.currentPrice * units);
+    const curPrice = getLivePrice(h);
+    return acc + (isCrypto ? curPrice * units * rate : curPrice * units);
   }, 0);
   const totalNav = cash + holdingsValue;
-  const unrealizedPl = holdings.reduce((acc, h) => acc + (h.unrealizedPL || 0), 0);
+
+  const unrealizedPl = holdings.reduce((acc, h) => {
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
+    const curPrice = getLivePrice(h);
+    if (isCrypto) {
+      return acc + (curPrice - h.avgPrice) * units * rate;
+    }
+    return acc + (h.unrealizedPL || (curPrice - h.avgPrice) * units);
+  }, 0);
   const totalReturnPct = totalNav > 0 ? (unrealizedPl / (totalNav - unrealizedPl || 1)) * 100 : 0;
 
   // Real asset allocation weights
@@ -78,7 +125,8 @@ export default function InstitutionalPortfolioDesk() {
     .reduce((acc, h) => {
       const rate = h.exchangeRate || 16000;
       const units = h.cryptoUnits ?? h.lots;
-      return acc + h.currentPrice * units * rate;
+      const curPrice = getLivePrice(h);
+      return acc + curPrice * units * rate;
     }, 0);
   const equityHoldingsVal = holdingsValue - cryptoHoldingsVal;
 
@@ -387,9 +435,14 @@ export default function InstitutionalPortfolioDesk() {
                     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
                     const rate = h.exchangeRate || 16000;
                     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
-                    const val = isCrypto ? h.currentPrice * units * rate : h.currentPrice * units;
-                    const pl = h.unrealizedPL || 0;
-                    const plPct = h.unrealizedPLPercent || 0;
+                    const curPrice = getLivePrice(h);
+                    const val = isCrypto ? curPrice * units * rate : curPrice * units;
+                    const pl = isCrypto
+                      ? (curPrice - h.avgPrice) * units * rate
+                      : (h.unrealizedPL || (curPrice - h.avgPrice) * units);
+                    const plPct = h.avgPrice > 0
+                      ? ((curPrice - h.avgPrice) / h.avgPrice) * 100
+                      : (h.unrealizedPLPercent || 0);
                     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
 
                     return (
@@ -425,15 +478,22 @@ export default function InstitutionalPortfolioDesk() {
                         <td className="px-3 py-2 font-mono text-[#d4d4d8]">
                           {isCrypto ? (
                             <div>
-                              <span>${h.avgPrice.toLocaleString()} USDT</span>
-                              <span className="text-[9px] block text-zinc-500">(≈ Rp {Math.round(h.avgPrice * rate).toLocaleString('id-ID')})</span>
+                              <span>{formatCryptoPrice(h.avgPrice)} USDT</span>
+                              <span className="text-[9px] block text-zinc-500">(≈ {formatIDREquivalent(h.avgPrice * rate)})</span>
                             </div>
                           ) : (
                             `Rp ${h.avgPrice.toLocaleString('id-ID')}`
                           )}
                         </td>
                         <td className="px-3 py-2 font-mono text-white font-bold">
-                          {isCrypto ? `$${h.currentPrice.toLocaleString()}` : `Rp ${h.currentPrice.toLocaleString('id-ID')}`}
+                          {isCrypto ? (
+                            <div className="flex items-center gap-1">
+                              <span>{formatCryptoPrice(curPrice)}</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live Binance Streaming Tick" />
+                            </div>
+                          ) : (
+                            `Rp ${curPrice.toLocaleString('id-ID')}`
+                          )}
                         </td>
                         <td className="px-3 py-2 font-mono text-[#f59e0b] font-bold">
                           Rp {Math.round(val).toLocaleString('id-ID')}

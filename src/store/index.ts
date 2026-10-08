@@ -1061,12 +1061,10 @@ export const usePortfolioStore = create<PortfolioState>()(
         let effectiveShares = holding.shares
         let wasHealed = false
 
-        // ── Auto-Reconciliation / Self-Healing untuk Kripto yang terkena dampak bug IDX Tick Spread (+$1.00 USD) ──
-        // Jika holding kripto memiliki avgPrice > newPrice * 1.5 padahal dibeli di pasar (seperti SUI dibeli $2.85-$3.24 vs spot $1.14),
-        // sesuaikan avgPrice ke newPrice dan hitung ulang unit koin agar total modal IDR tetap utuh tanpa floating loss palsu.
-        if (isCrypto && effectiveAvgPrice > newPrice * 1.5 && newPrice > 0) {
+        // Proteksi jika terjadi anomali ekstrem akibat kekeliruan input mata uang IDR ke USD (rasio > 200x)
+        if (isCrypto && effectiveAvgPrice > newPrice * 200 && newPrice > 0) {
           const rate = holding.exchangeRate || 16000
-          const originalInvestedIDR = effectiveAvgPrice * effectiveUnits * rate
+          const originalInvestedIDR = effectiveAvgPrice * effectiveUnits
           effectiveAvgPrice = newPrice
           effectiveUnits = Number((originalInvestedIDR / (newPrice * rate)).toFixed(4))
           effectiveLots = effectiveUnits

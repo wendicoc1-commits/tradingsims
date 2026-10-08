@@ -33,8 +33,9 @@ import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTest
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
 import TopUpModal from '@/components/portfolio/TopUpModal';
-import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
+import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
@@ -442,6 +443,7 @@ export default function PortfolioPage() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const { tickerMap } = useBinanceLivePrices();
 
   // Sync to database if user is logged in
   const handleCloudSync = async () => {
@@ -531,6 +533,31 @@ export default function PortfolioPage() {
     const interval = setInterval(syncPrices, 30000); // Sinkronisasi otomatis tiap 30 detik
     return () => clearInterval(interval);
   }, [holdings.length, updateHoldingPrices]);
+
+  // Realtime streaming crypto synchronization via Binance WebSocket
+  useEffect(() => {
+    if (!tickerMap || Object.keys(tickerMap).length === 0 || holdings.length === 0) return;
+    const cryptoMap: Record<string, number> = {};
+    holdings.forEach((h) => {
+      const isCrypto =
+        h.assetClass === 'CRYPTO' ||
+        h.currency === 'USDT' ||
+        h.symbol.endsWith('USDT') ||
+        ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(h.displaySymbol.toUpperCase());
+      if (isCrypto) {
+        const clean = h.displaySymbol.toUpperCase().replace(/USDT$/, '');
+        const item = tickerMap[clean] || tickerMap[`${clean}USDT`];
+        if (item && item.price > 0 && Math.abs(item.price - h.currentPrice) > 0.000000001) {
+          cryptoMap[h.symbol] = item.price;
+          cryptoMap[clean] = item.price;
+          cryptoMap[`${clean}USDT`] = item.price;
+        }
+      }
+    });
+    if (Object.keys(cryptoMap).length > 0) {
+      updateHoldingPrices(cryptoMap);
+    }
+  }, [tickerMap, holdings, updateHoldingPrices]);
 
   const totalHoldingsValue = holdings.reduce((sum, h) => {
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
@@ -1064,11 +1091,15 @@ export default function PortfolioPage() {
                               </div>
                             </td>
                             <td className="text-right font-mono-num text-xs font-semibold">
-                              {isCrypto ? `$${h.avgPrice.toLocaleString()} USDT` : `Rp ${formatPrice(h.avgPrice)}`}
-                              {isCrypto && (
-                                <span className="text-[10px] block text-zinc-500">
-                                  (≈ Rp {formatPrice(Math.round(h.avgPrice * rate))})
-                                </span>
+                              {isCrypto ? (
+                                <div>
+                                  <span>{formatCryptoPrice(h.avgPrice)} USDT</span>
+                                  <span className="text-[10px] block text-zinc-500">
+                                    (≈ {formatIDREquivalent(h.avgPrice * rate)})
+                                  </span>
+                                </div>
+                              ) : (
+                                `Rp ${formatPrice(h.avgPrice)}`
                               )}
                             </td>
                             <td className="text-right font-mono-num text-xs">
@@ -1083,7 +1114,7 @@ export default function PortfolioPage() {
                             </td>
                             <td className="text-right font-mono-num text-xs font-semibold">
                               {isCrypto ? (
-                                <span className="text-white">${h.currentPrice.toLocaleString()}</span>
+                                <span className="text-white font-bold">{formatCryptoPrice(h.currentPrice)}</span>
                               ) : (
                                 `Rp ${formatPrice(h.currentPrice)}`
                               )}
