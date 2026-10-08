@@ -42,10 +42,10 @@ function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
 }
 
-/* ─── Order Form (Paper Trading Engine - Saham IDX & Crypto Spot) ─── */
+/* ─── Order Form (Paper Trading Engine - Saham IDX, Saham US, & Crypto Spot) ─── */
 function OrderForm() {
   const { cash, placeBuyOrder, placeSellOrder } = usePortfolioStore();
-  const [assetClass, setAssetClass] = useState<'EQUITY' | 'CRYPTO'>('EQUITY');
+  const [assetClass, setAssetClass] = useState<'EQUITY' | 'CRYPTO' | 'US'>('EQUITY');
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
   const [symbol, setSymbol] = useState('');
   const [price, setPrice] = useState('');
@@ -59,14 +59,15 @@ function OrderForm() {
 
   const rate = 16000; // Kurs acuan USDT/USD to IDR
   const shareInfo = calculateShares(rawSym, lotsNum);
-  const isForeign = isCrypto || shareInfo.isUS;
+  const isUS = assetClass === 'US' || shareInfo.isUS;
+  const isForeign = isCrypto || isUS;
   const tradeValue = isForeign
     ? Math.round(priceNum * lotsNum * rate)
     : priceNum * (shareInfo.shares || Math.round(lotsNum * 100));
   
   // Rincian fee broker & PPh bursa / crypto
   const brokerFee = isCrypto ? Math.round(tradeValue * 0.0010) : Math.round(tradeValue * 0.0015);
-  const taxFee = orderType === 'SELL' ? (isCrypto ? Math.round(tradeValue * 0.0010) : shareInfo.isUS ? 0 : Math.round(tradeValue * 0.0010)) : 0;
+  const taxFee = orderType === 'SELL' ? (isCrypto ? Math.round(tradeValue * 0.0010) : isUS ? 0 : Math.round(tradeValue * 0.0010)) : 0;
   const totalFee = brokerFee + taxFee;
   const grandTotal = orderType === 'BUY' ? tradeValue + totalFee : tradeValue - totalFee;
 
@@ -77,6 +78,13 @@ function OrderForm() {
     setAssetClass('CRYPTO');
     setSymbol(coin);
     setPrice(seedPrice.toString());
+  };
+
+  const handleSelectQuickUS = (ticker: string, seedPrice: number) => {
+    setAssetClass('US');
+    setSymbol(ticker);
+    setPrice(seedPrice.toString());
+    setLots('1');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -101,9 +109,9 @@ function OrderForm() {
         displaySymbol: cleanSym,
         price: priceNum,
         lots: lotsNum,
-        name: isCrypto ? `${cleanSym} (Crypto Spot)` : shareInfo.isUS ? `${cleanSym} (US Stock)` : rawSym,
-        assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : shareInfo.isUS ? 'USD' : 'IDR',
+        name: isCrypto ? `${cleanSym} (Crypto Spot)` : isUS ? `${cleanSym} (US Stock)` : rawSym,
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
         exchangeRate: isForeign ? rate : undefined,
         orderType: isForeign ? 'MARKET' : 'LIMIT',
       });
@@ -112,8 +120,8 @@ function OrderForm() {
           type: 'success',
           message: isCrypto
             ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
-            : shareInfo.isUS
-            ? `⚡ BERHASIL BELI: ${lotsNum} lembar ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+            : isUS
+            ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
             : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
         });
         setSymbol('');
@@ -180,8 +188,8 @@ function OrderForm() {
         </div>
       )}
 
-      {/* Asset Class Selector: Saham IDX vs Crypto Spot */}
-      <div className="grid grid-cols-2 gap-1 mb-2.5 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-bold font-mono">
+      {/* Asset Class Selector: Saham IDX vs Saham US vs Crypto Spot */}
+      <div className="grid grid-cols-3 gap-1 mb-2.5 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-bold font-mono">
         <button
           type="button"
           onClick={() => {
@@ -190,7 +198,7 @@ function OrderForm() {
             setPrice('');
             setLots('');
           }}
-          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
             assetClass === 'EQUITY'
               ? 'bg-[#f59e0b] text-black shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -202,21 +210,71 @@ function OrderForm() {
         <button
           type="button"
           onClick={() => {
+            setAssetClass('US');
+            setSymbol('GOOGL');
+            setPrice('168.20');
+            setLots('1');
+          }}
+          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
+            assetClass === 'US'
+              ? 'bg-blue-500 text-white shadow-sm'
+              : 'text-blue-400 hover:text-white'
+          }`}
+        >
+          <span>🇺🇸</span>
+          <span>SAHAM US (USD)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             setAssetClass('CRYPTO');
             setSymbol('BTC');
             setPrice('68450');
             setLots('0.05');
           }}
-          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
             assetClass === 'CRYPTO'
               ? 'bg-cyan-500 text-black shadow-sm'
               : 'text-cyan-400 hover:text-white'
           }`}
         >
           <span>⚡</span>
-          <span>CRYPTO SPOT (24/7)</span>
+          <span>CRYPTO (24/7)</span>
         </button>
       </div>
+
+      {/* Quick US Tickers */}
+      {assetClass === 'US' && (
+        <div className="mb-3 p-2 rounded-lg bg-blue-950/20 border border-blue-500/25">
+          <div className="text-[10px] text-blue-300 font-bold mb-1.5 flex items-center justify-between">
+            <span>PILIH CEPAT SAHAM GLOBAL / US:</span>
+            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000 (1 lot = 1 share)</span>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {[
+              { ticker: 'GOOGL', price: 168.20 },
+              { ticker: 'AAPL', price: 228.50 },
+              { ticker: 'NVDA', price: 125.40 },
+              { ticker: 'MSFT', price: 420.10 },
+              { ticker: 'TSLA', price: 240.80 },
+              { ticker: 'AMZN', price: 185.30 },
+            ].map((st) => (
+              <button
+                key={st.ticker}
+                type="button"
+                onClick={() => handleSelectQuickUS(st.ticker, st.price)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                  symbol === st.ticker
+                    ? 'bg-blue-400 text-black'
+                    : 'bg-zinc-800 text-blue-300 hover:bg-zinc-700'
+                }`}
+              >
+                {st.ticker} (${st.price})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Crypto Tickers */}
       {assetClass === 'CRYPTO' && (
@@ -281,13 +339,23 @@ function OrderForm() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
-            {assetClass === 'CRYPTO' ? 'Kode Kripto (contoh: BTC, ETH, SOL, DOGE)' : 'Kode Saham IDX (contoh: BBCA, BBRI, BMRI, TLKM)'}
+            {assetClass === 'CRYPTO'
+              ? 'Kode Kripto (contoh: BTC, ETH, SOL, DOGE)'
+              : assetClass === 'US'
+              ? 'Kode Saham US (contoh: GOOGL, AAPL, NVDA, MSFT, TSLA)'
+              : 'Kode Saham IDX (contoh: BBCA, BBRI, BMRI, TLKM)'}
           </label>
           <input
             type="text"
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            placeholder={assetClass === 'CRYPTO' ? 'e.g. BTC, ETH, SOL, DOGE' : 'e.g. BBCA, BBRI, BMRI, TLKM'}
+            placeholder={
+              assetClass === 'CRYPTO'
+                ? 'e.g. BTC, ETH, SOL, DOGE'
+                : assetClass === 'US'
+                ? 'e.g. GOOGL, AAPL, NVDA, TSLA'
+                : 'e.g. BBCA, BBRI, BMRI, TLKM'
+            }
             className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-transparent outline-none uppercase"
             style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
@@ -297,9 +365,9 @@ function OrderForm() {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                {assetClass === 'CRYPTO' ? 'Harga ($ USDT)' : 'Harga (Rp)'}
+                {isCrypto ? 'Harga ($ USDT)' : isUS ? 'Harga ($ USD)' : 'Harga (Rp)'}
               </label>
-              {!isCrypto && priceNum > 0 && !shareInfo.isUS && (
+              {!isForeign && priceNum > 0 && (
                 <span className="text-[10px] font-mono" style={{ color: tickValidation.valid ? 'var(--positive)' : 'var(--negative)' }}>
                   Tick: {tickValidation.tick}
                 </span>
@@ -310,19 +378,19 @@ function OrderForm() {
               step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder={assetClass === 'CRYPTO' ? '68450' : '9850'}
+              placeholder={assetClass === 'CRYPTO' ? '68450' : assetClass === 'US' ? '168.20' : '9850'}
               className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
               style={{
                 borderColor: !tickValidation.valid ? 'var(--negative)' : 'var(--border)',
                 color: 'var(--text-primary)',
               }}
             />
-            {!isCrypto && !tickValidation.valid && (
+            {!isForeign && !tickValidation.valid && (
               <span className="text-[10px] block mt-0.5 text-red-400">
                 Gunakan Rp {tickValidation.nearest}
               </span>
             )}
-            {isCrypto && priceNum > 0 && (
+            {isForeign && priceNum > 0 && (
               <span className="text-[9px] block mt-0.5 text-zinc-400 font-mono">
                 ≈ Rp {(priceNum * rate).toLocaleString('id-ID')}
               </span>
@@ -331,20 +399,20 @@ function OrderForm() {
 
           <div>
             <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
-              {assetClass === 'CRYPTO' ? 'Jumlah Koin (Unit)' : `Jumlah ${shareInfo.unitLabel}`}
+              {isCrypto ? 'Jumlah Koin (Unit)' : isUS ? 'Jumlah Shares (Lembar)' : 'Jumlah Lot'}
             </label>
             <input
               type="number"
               step="any"
               value={lots}
               onChange={(e) => setLots(e.target.value)}
-              placeholder={assetClass === 'CRYPTO' ? '0.05' : '10'}
+              placeholder={isCrypto ? '0.05' : isUS ? '1' : '10'}
               className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
               style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
             {!isCrypto && lotsNum > 0 && (
               <span className="text-[10px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                = {shareInfo.shares.toLocaleString()} lembar
+                = {isUS ? `${lotsNum.toLocaleString()} lembar` : `${(lotsNum * 100).toLocaleString()} lembar`}
               </span>
             )}
           </div>
@@ -560,11 +628,14 @@ export default function PortfolioPage() {
   }, [tickerMap, holdings, updateHoldingPrices]);
 
   const totalHoldingsValue = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
-    if (isCrypto) {
-      const rate = h.exchangeRate || 16000;
-      const units = h.cryptoUnits ?? h.lots;
-      return sum + h.currentPrice * units * rate;
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    if (isCrypto || isUS) {
+      return sum + Math.round(h.currentPrice * units * rate);
     }
     return sum + (h.currentPrice * (h.shares || h.lots * 100));
   }, 0);
@@ -1033,21 +1104,28 @@ export default function PortfolioPage() {
                     </thead>
                     <tbody>
                       {holdings.map((h) => {
-                        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
-                        const rate = h.exchangeRate || 16000;
-                        const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
-                        const val = isCrypto ? h.currentPrice * units * rate : h.currentPrice * units;
-                        const isPositive = (h.unrealizedPL || 0) >= 0;
+                        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
                         const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                        const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
+                        const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
+                        const rate = h.exchangeRate || 16000;
+                        const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+                        const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
+                        const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - h.avgPrice) * units * rate) : (h.unrealizedPL || Math.round((h.currentPrice - h.avgPrice) * units));
+                        const isPositive = (pl || 0) >= 0;
                         const divInfo = KNOWN_DIVIDENDS[cleanSym];
                         const totalDividend = divInfo && divInfo.dps > 0 ? divInfo.dps * units : 0;
                         return (
-                          <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : ''}>
+                          <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : isUS ? 'bg-blue-950/10' : ''}>
                             <td>
                               <div className="flex items-center gap-2">
                                 {isCrypto ? (
                                   <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-black shrink-0">
                                     ⚡
+                                  </div>
+                                ) : isUS ? (
+                                  <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                    🇺🇸
                                   </div>
                                 ) : (
                                   <CompanyLogo symbol={h.displaySymbol} name={h.name} size={24} rounded="md" />
@@ -1057,15 +1135,19 @@ export default function PortfolioPage() {
                                     <Link
                                       href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
                                       className="font-bold text-xs font-mono hover:underline"
-                                      style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}
+                                      style={{ color: isCrypto ? '#06b6d4' : isUS ? '#60a5fa' : 'var(--accent)' }}
                                     >
                                       {cleanSym}
                                     </Link>
-                                    {isCrypto && (
+                                    {isCrypto ? (
                                       <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                                         CRYPTO
                                       </span>
-                                    )}
+                                    ) : isUS ? (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                        US STOCK
+                                      </span>
+                                    ) : null}
                                   </div>
                                   <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{h.name}</div>
                                 </div>
@@ -1079,6 +1161,13 @@ export default function PortfolioPage() {
                                     (≈ {formatIDREquivalent(h.avgPrice * rate)})
                                   </span>
                                 </div>
+                              ) : isUS ? (
+                                <div>
+                                  <span className="text-white">${h.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
+                                  <span className="text-[10px] block text-zinc-400">
+                                    (≈ Rp {Math.round(h.avgPrice * rate).toLocaleString('id-ID')})
+                                  </span>
+                                </div>
                               ) : (
                                 `Rp ${formatPrice(h.avgPrice)}`
                               )}
@@ -1086,6 +1175,11 @@ export default function PortfolioPage() {
                             <td className="text-right font-mono-num text-xs">
                               {isCrypto ? (
                                 <span className="font-semibold text-cyan-300">{units.toFixed(4)} koin</span>
+                              ) : isUS ? (
+                                <>
+                                  <span className="font-semibold text-blue-300">{h.lots} shares</span>
+                                  <span className="text-[10px] block text-gray-400">({units.toLocaleString()} lbr)</span>
+                                </>
                               ) : (
                                 <>
                                   <span className="font-semibold">{h.lots} lot</span>
@@ -1095,7 +1189,9 @@ export default function PortfolioPage() {
                             </td>
                             <td className="text-right font-mono-num text-xs font-semibold">
                               {isCrypto ? (
-                                <span className="text-white font-bold">{formatCryptoPrice(h.currentPrice)}</span>
+                                <span className="text-white font-bold">{formatCryptoPrice(h.currentPrice)} USDT</span>
+                              ) : isUS ? (
+                                <span className="text-white font-bold">${h.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
                               ) : (
                                 `Rp ${formatPrice(h.currentPrice)}`
                               )}
@@ -1107,7 +1203,7 @@ export default function PortfolioPage() {
                               className="text-right font-mono-num text-xs font-semibold"
                               style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}
                             >
-                              {isPositive ? '+' : ''}Rp {formatPrice(Math.round(h.unrealizedPL || 0))} ({h.unrealizedPLPercent || 0}%)
+                              {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({h.unrealizedPLPercent || 0}%)
                             </td>
                             <td className="text-center">
                               {isCrypto ? (

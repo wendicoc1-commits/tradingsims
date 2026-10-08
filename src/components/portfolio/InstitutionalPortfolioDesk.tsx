@@ -181,25 +181,30 @@ export default function InstitutionalPortfolioDesk() {
     return () => clearTimeout(timer);
   }, [tickerMap, holdings]);
 
-  // Compute portfolio valuation (supporting both Equities & Crypto Spot with live quotes)
+  // Compute portfolio valuation (supporting Equities, US Stocks, & Crypto Spot with live quotes)
+  const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const holdingsValue = holdings.reduce((acc, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
-    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
-    return acc + (isCrypto ? curPrice * units * rate : curPrice * units);
+    return acc + ((isCrypto || isUS) ? Math.round(curPrice * units * rate) : curPrice * units);
   }, 0);
   const totalNav = cash + holdingsValue;
 
   const unrealizedPl = holdings.reduce((acc, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
-    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
-    if (isCrypto) {
-      return acc + (curPrice - h.avgPrice) * units * rate;
+    if (isCrypto || isUS) {
+      return acc + Math.round((curPrice - h.avgPrice) * units * rate);
     }
-    return acc + (h.unrealizedPL || (curPrice - h.avgPrice) * units);
+    return acc + (h.unrealizedPL || Math.round((curPrice - h.avgPrice) * units));
   }, 0);
   const totalReturnPct = totalNav > 0 ? (unrealizedPl / (totalNav - unrealizedPl || 1)) * 100 : 0;
 
@@ -517,18 +522,19 @@ export default function InstitutionalPortfolioDesk() {
                     return true;
                   })
                   .map((h) => {
-                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+                    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+                    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanSym));
                     const rate = h.exchangeRate || 16000;
-                    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
+                    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                     const curPrice = getLivePrice(h);
-                    const val = isCrypto ? curPrice * units * rate : curPrice * units;
-                    const pl = isCrypto
+                    const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
+                    const pl = (isCrypto || isUS)
                       ? (curPrice - h.avgPrice) * units * rate
                       : (h.unrealizedPL || (curPrice - h.avgPrice) * units);
                     const plPct = h.avgPrice > 0
                       ? ((curPrice - h.avgPrice) / h.avgPrice) * 100
                       : (h.unrealizedPLPercent || 0);
-                    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
 
                     const tpPct = h.takeProfitPrice && h.avgPrice > 0
                       ? (((h.takeProfitPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(1)
@@ -538,19 +544,23 @@ export default function InstitutionalPortfolioDesk() {
                       : null;
 
                     return (
-                      <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/15 hover:bg-cyan-950/25' : 'hover:bg-[#18181b]/50'}>
+                      <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/15 hover:bg-cyan-950/25' : isUS ? 'bg-blue-950/15 hover:bg-blue-950/25' : 'hover:bg-[#18181b]/50'}>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1.5">
                             <Link
                               href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
                               className="font-bold text-white hover:text-[#f59e0b]"
-                              style={{ color: isCrypto ? '#06b6d4' : undefined }}
+                              style={{ color: isCrypto ? '#06b6d4' : isUS ? '#60a5fa' : undefined }}
                             >
                               {cleanSym}
                             </Link>
                             {isCrypto ? (
                               <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                                 CRYPTO SPOT
+                              </span>
+                            ) : isUS ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                US STOCK
                               </span>
                             ) : (
                               <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-zinc-800 text-zinc-400">
@@ -563,6 +573,8 @@ export default function InstitutionalPortfolioDesk() {
                         <td className="px-3 py-2 font-mono text-white">
                           {isCrypto ? (
                             <span className="text-cyan-300 font-bold">{units.toFixed(4)} koin</span>
+                          ) : isUS ? (
+                            <span className="text-blue-300 font-bold">{h.lots} shares <span className="text-[10px] text-zinc-500">({units.toLocaleString()} lbr)</span></span>
                           ) : (
                             <span>{h.lots} lot <span className="text-[10px] text-zinc-500">({units.toLocaleString()} lbr)</span></span>
                           )}
@@ -572,6 +584,11 @@ export default function InstitutionalPortfolioDesk() {
                             <div>
                               <span>{formatCryptoPrice(h.avgPrice)} USDT</span>
                               <span className="text-[9px] block text-zinc-500">(≈ {formatIDREquivalent(h.avgPrice * rate)})</span>
+                            </div>
+                          ) : isUS ? (
+                            <div>
+                              <span className="text-white">${h.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
+                              <span className="text-[9px] block text-zinc-400">(≈ Rp {Math.round(h.avgPrice * rate).toLocaleString('id-ID')})</span>
                             </div>
                           ) : (
                             `Rp ${h.avgPrice.toLocaleString('id-ID')}`
@@ -583,6 +600,8 @@ export default function InstitutionalPortfolioDesk() {
                               <span>{formatCryptoPrice(curPrice)}</span>
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live Binance Streaming Tick" />
                             </div>
+                          ) : isUS ? (
+                            <span>${curPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
                           ) : (
                             `Rp ${curPrice.toLocaleString('id-ID')}`
                           )}

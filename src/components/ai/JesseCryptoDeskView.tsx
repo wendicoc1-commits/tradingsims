@@ -127,12 +127,13 @@ export default function JesseCryptoDeskView() {
     }
   }, [inputMode, idrVal, coinVal, currentPriceUSDT, exchangeRate]);
 
-  // Auto-sync form nilai saat switch mode
+  // Auto-sync form nilai saat switch mode (Mendukung pembelian manual 100% penuh saldo kas)
   const handleQuickPercent = (pct: number) => {
     if (orderSide === 'BUY') {
-      const budget = Math.floor(cash * pct);
+      // Jika 100% (pct >= 1), perhitungkan fee 0.1% (dibagi 1.0011) agar total potong pas 100% kas
+      const budget = pct >= 1 ? Math.floor(cash / 1.0011) : Math.floor(cash * pct);
       setInputMode('IDR');
-      setAmountIDR(budget.toString());
+      setAmountIDR(budget > 0 ? budget.toString() : '0');
     } else {
       const sellUnits = Number((availableCoinBalance * pct).toFixed(6));
       setInputMode('COIN');
@@ -232,21 +233,6 @@ export default function JesseCryptoDeskView() {
     }
 
     if (orderSide === 'BUY') {
-      const MIN_BOT_CASH_RESERVE = 1_000_000;
-      if (cash < MIN_BOT_CASH_RESERVE) {
-        setNotification({
-          type: 'error',
-          message: `⛔ Proteksi Likuiditas: Saldo kas (Rp ${Math.round(cash).toLocaleString('id-ID')}) di bawah batas minimum Rp 1.000.000. Bot crypto dinonaktifkan dari pembelian baru.`,
-        });
-        return;
-      }
-      if (cash - orderCalculation.grandTotalIDR < MIN_BOT_CASH_RESERVE) {
-        setNotification({
-          type: 'error',
-          message: `⛔ Proteksi Cadangan Kas: Pembelian ini akan menyisakan kas Rp ${Math.round(cash - orderCalculation.grandTotalIDR).toLocaleString('id-ID')} (di bawah cadangan minimum Rp 1 Juta). Order dibatalkan.`,
-        });
-        return;
-      }
       if (cash < orderCalculation.grandTotalIDR) {
         setNotification({
           type: 'error',

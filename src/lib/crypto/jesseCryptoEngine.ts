@@ -140,6 +140,36 @@ export const SUPPORTED_CRYPTO_PAIRS: CryptoAssetMeta[] = [
     stepSize: 100000,
     description: 'Meme coin deflasioner terpopuler di Ethereum dengan momentum sosial tinggi.',
   },
+  {
+    symbol: 'RENDERUSDT',
+    baseAsset: 'RENDER',
+    name: 'Render Network',
+    category: 'AI',
+    logo: 'https://assets.coingecko.com/coins/images/11636/small/rndr.png',
+    minNotional: 5,
+    stepSize: 0.1,
+    description: 'Jaringan komputasi GPU terdesentralisasi untuk rendering 3D & AI inference.',
+  },
+  {
+    symbol: 'ARBUSDT',
+    baseAsset: 'ARB',
+    name: 'Arbitrum',
+    category: 'L2',
+    logo: 'https://assets.coingecko.com/coins/images/16547/small/arbitrum_logo.png',
+    minNotional: 5,
+    stepSize: 1,
+    description: 'Solusi scaling Layer 2 Optimistic Rollup terdepan di ekosistem Ethereum.',
+  },
+  {
+    symbol: 'APTUSDT',
+    baseAsset: 'APT',
+    name: 'Aptos',
+    category: 'L1',
+    logo: 'https://assets.coingecko.com/coins/images/26455/small/aptos_round.png',
+    minNotional: 5,
+    stepSize: 0.1,
+    description: 'Layer 1 berkecepatan tinggi dengan bahasa pemrograman Move yang aman.',
+  },
 ];
 
 export interface JesseStrategySignal {
@@ -183,15 +213,17 @@ export function evaluateJesseStrategy(
   const meta = SUPPORTED_CRYPTO_PAIRS.find((p) => p.symbol === pair) || SUPPORTED_CRYPTO_PAIRS[0];
   const p = currentPrice > 0 ? currentPrice : 68000;
 
-  // Algoritma deterministik simulasi indikator berdasarkan harga & perubahan 24h
-  const seed = (p * 137 + Math.abs(change24h) * 43) % 1000;
+  // Algoritma rotasi momentum dinamis (berotasi tiap siklus waktu dan pergerakan 24h)
+  const symHash = pair.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0);
+  const timeBucket = Math.floor(Date.now() / (1000 * 60 * 20)); // Rotasi momentum setiap 20 menit
+  const seed = Math.abs((symHash * 41 + timeBucket * 23 + Math.abs(change24h) * 37)) % 1000;
   const isUp = change24h > 0;
 
   // Indikator Teknis
-  const rsi = Math.round(Math.max(24, Math.min(78, 50 + change24h * 3.2 + (seed % 10) - 5)));
-  const superTrend: 'BULL' | 'BEAR' = change24h >= -1.5 ? 'BULL' : 'BEAR';
+  const rsi = Math.round(Math.max(24, Math.min(78, 50 + change24h * 2.8 + (seed % 14) - 7)));
+  const superTrend: 'BULL' | 'BEAR' = change24h >= -2.0 ? 'BULL' : 'BEAR';
   const emaTrend: 'BULLISH' | 'BEARISH' | 'CHOPPY' =
-    change24h > 2 ? 'BULLISH' : change24h < -2 ? 'BEARISH' : 'CHOPPY';
+    change24h > 1.8 ? 'BULLISH' : change24h < -2.2 ? 'BEARISH' : 'CHOPPY';
   const bollingerBandPosition = rsi <= 35 ? 'OVERSOLD' : rsi >= 68 ? 'OVERBOUGHT' : 'NORMAL';
 
   // Logika Sinyal Jesse AI

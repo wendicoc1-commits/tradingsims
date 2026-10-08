@@ -58,14 +58,14 @@ const CRYPTO_TICKERS = new Set([
 ]);
 
 const US_TICKERS = new Set([
-  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'
 ]);
 
 /**
  * Menghitung jumlah lembar saham / unit koin dan informasi mata uang:
  * - Saham IDX (misal BBCA, BBCA.JK, PTBA): 1 lot = 100 lembar (IDR)
  * - Crypto Spot (misal BTC, BTCUSDT, ETH): satuan koin unit/desimal (USDT @ Rp 16.000)
- * - Saham US (misal NVDA, AAPL): 1 lembar shares (USD @ Rp 16.000)
+ * - Saham US (misal NVDA, AAPL, GOOGL): 1 lembar shares (USD @ Rp 16.000)
  */
 export function calculateShares(symbol: string, lots: number): {
   isCrypto: boolean;
@@ -120,7 +120,8 @@ export function calculateShares(symbol: string, lots: number): {
  * Normalisasi ticker agar konsisten
  */
 export function normalizeSymbol(sym: string): { fullSymbol: string; displaySymbol: string } {
-  const clean = sym.trim().toUpperCase().replace('.JK', '').replace(/USDT$/i, '');
+  let clean = sym.trim().toUpperCase().replace('.JK', '').replace(/USDT$/i, '');
+  if (clean === 'GOOGLE') clean = 'GOOGL';
   if (CRYPTO_TICKERS.has(clean) || sym.toUpperCase().endsWith('USDT')) {
     return { fullSymbol: `${clean}USDT`, displaySymbol: clean };
   }

@@ -2630,24 +2630,29 @@ export function PortfolioHoldingsWidget({
 }) {
   const { cash, holdings } = usePortfolioStore();
 
+  const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const totalHoldingsValue = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
-    if (isCrypto) {
-      const rate = h.exchangeRate || 16000;
-      const units = h.cryptoUnits ?? h.lots;
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    if (isCrypto || isUS) {
       return sum + Math.round((h.currentPrice || h.avgPrice) * units * rate);
     }
-    return sum + (h.lots * 100 * (h.currentPrice || h.avgPrice));
+    return sum + (units * (h.currentPrice || h.avgPrice));
   }, 0);
 
   const totalCost = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
-    if (isCrypto) {
-      const rate = h.exchangeRate || 16000;
-      const units = h.cryptoUnits ?? h.lots;
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    if (isCrypto || isUS) {
       return sum + Math.round(h.avgPrice * units * rate);
     }
-    return sum + (h.lots * 100 * h.avgPrice);
+    return sum + (units * h.avgPrice);
   }, 0);
 
   const totalEquity = cash + totalHoldingsValue;
@@ -2725,14 +2730,15 @@ export function PortfolioHoldingsWidget({
           </div>
         ) : (
           holdings.map((h) => {
-            const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+            const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+            const cleanTicker = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '');
+            const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanTicker.toUpperCase()));
             const rate = h.exchangeRate || 16000;
-            const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || h.lots * 100);
-            const holdingValue = isCrypto
+            const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+            const holdingValue = (isCrypto || isUS)
               ? Math.round((h.currentPrice || h.avgPrice) * units * rate)
               : Math.round(units * (h.currentPrice || h.avgPrice));
             const isProfit = (h.unrealizedPL || 0) >= 0;
-            const cleanTicker = h.displaySymbol || h.symbol.replace('.JK', '');
 
             return (
               <div
@@ -2748,21 +2754,25 @@ export function PortfolioHoldingsWidget({
                       {cleanTicker}
                     </span>
                     <span className="text-[9px] bg-[#27272a] text-[#a1a1aa] px-1.5 py-0.2 rounded font-bold">
-                      {isCrypto ? `${units} Koin` : `${h.lots} Lot`}
+                      {isCrypto ? `${units} Koin` : isUS ? `${units} Shares` : `${h.lots} Lot`}
                     </span>
-                    {!isCrypto && (
+                    {!isCrypto && !isUS && (
                       <span className="text-[9px] text-[#71717a]">
                         ({(h.lots * 100).toLocaleString('id-ID')} lbr)
                       </span>
                     )}
                   </div>
                   <div className="text-[10px] text-[#71717a] truncate mt-0.5">
-                    {h.name || `${cleanTicker} Tbk`}
+                    {h.name || (isUS ? `${cleanTicker} Inc.` : `${cleanTicker} Tbk`)}
                   </div>
                   <div className="text-[9px] text-[#a1a1aa] mt-0.5 flex items-center gap-2">
-                    <span>Avg: Rp {h.avgPrice.toLocaleString('id-ID')}</span>
+                    <span>
+                      Avg: {isUS ? `$${h.avgPrice.toFixed(2)}` : isCrypto ? `$${h.avgPrice < 1 ? h.avgPrice.toFixed(4) : h.avgPrice.toFixed(2)}` : `Rp ${h.avgPrice.toLocaleString('id-ID')}`}
+                    </span>
                     <span>•</span>
-                    <span>Now: Rp {(h.currentPrice || h.avgPrice).toLocaleString('id-ID')}</span>
+                    <span>
+                      Now: {isUS ? `$${(h.currentPrice || h.avgPrice).toFixed(2)}` : isCrypto ? `$${(h.currentPrice || h.avgPrice) < 1 ? (h.currentPrice || h.avgPrice).toFixed(4) : (h.currentPrice || h.avgPrice).toFixed(2)}` : `Rp ${(h.currentPrice || h.avgPrice).toLocaleString('id-ID')}`}
+                    </span>
                   </div>
                 </div>
 
@@ -2798,10 +2808,10 @@ export function PortfolioHoldingsWidget({
                         }
                       }}
                       className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-[#ef4444]/20 hover:bg-[#ef4444] text-[#ef4444] hover:text-white border border-[#ef4444]/30 transition-all cursor-pointer shadow-xs flex items-center gap-0.5 active:scale-95"
-                      title={`Fast Exit: Buka slip jual seluruh ${h.lots} lot ${cleanTicker}`}
+                      title={`Fast Exit: Buka slip jual seluruh ${units} ${isCrypto ? 'koin' : isUS ? 'shares' : 'lot'} ${cleanTicker}`}
                     >
                       <span>⚡</span>
-                      <span>Exit ({h.lots}L)</span>
+                      <span>Exit ({isCrypto ? `${units}K` : isUS ? `${units}Sh` : `${h.lots}L`})</span>
                     </button>
 
                     <button

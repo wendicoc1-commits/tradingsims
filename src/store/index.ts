@@ -406,9 +406,10 @@ export const usePortfolioStore = create<PortfolioState>()(
       )
 
     // Normalisasi simbol konsisten
-    const cleanSym = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-    const isUS = !isCrypto && (params.currency === 'USD' || KNOWN_US.includes(cleanSym))
+    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : isUS
@@ -897,9 +898,10 @@ export const usePortfolioStore = create<PortfolioState>()(
         (displaySymbol || symbol).replace(/USDT$/i, '').toUpperCase()
       )
 
-    const cleanSym = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-    const isUS = !isCrypto && (params.currency === 'USD' || KNOWN_US.includes(cleanSym))
+    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : isUS
@@ -1065,7 +1067,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       holdings: state.holdings.map((holding) => {
         const clean = holding.displaySymbol.toUpperCase()
         const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT')
-        const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+        const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
         const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(clean))
         const candidatePrice =
           priceMap[holding.symbol] ??

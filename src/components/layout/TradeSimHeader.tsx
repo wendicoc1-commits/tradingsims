@@ -23,7 +23,7 @@ import {
   LogOut,
   Wallet,
 } from 'lucide-react';
-import { useMarketStore } from '@/store';
+import { useMarketStore, usePortfolioStore } from '@/store';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { tradeSimAudio } from '@/lib/tradeSimAudio';
@@ -63,6 +63,7 @@ export default function TradeSimHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme, setSelectedSymbol } = useMarketStore();
+  const { cash } = usePortfolioStore();
   const { user, logout, checkSession } = useAuthStore();
   const { autoTradingEnabled, setAutoTradingEnabled } = useAIAgentStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -258,6 +259,17 @@ export default function TradeSimHeader() {
 
           {/* User Status / Top-up Action */}
           <div className="flex items-center gap-1.5 border-l border-[#27272a] pl-2.5">
+            {/* Saldo Kas Virtual (Tampil di setiap tab di pojok kanan atas) */}
+            <button
+              type="button"
+              onClick={() => setIsTopUpOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-mono font-bold text-[11px] transition-all cursor-pointer group shadow-sm"
+              title="Saldo Kas Virtual RDN - Klik untuk Top Up Saldo"
+            >
+              <Wallet className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span>Rp {Math.round(cash).toLocaleString('id-ID')}</span>
+            </button>
+
             {/* AI Auto-Pilot Global Toggle */}
             <button
               type="button"

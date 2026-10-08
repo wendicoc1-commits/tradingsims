@@ -39,7 +39,7 @@ export function scanCryptoUniverse(
   const fallbackMap: Record<string, number> = {
     BTCUSDT: 68450, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
     XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.14, NEARUSDT: 4.80,
-    LINKUSDT: 11.5, PEPEUSDT: 0.0000095,
+    LINKUSDT: 11.5, PEPEUSDT: 0.0000095, RENDERUSDT: 5.8, ARBUSDT: 0.58, APTUSDT: 8.5,
   };
 
   const ranked: CryptoAlphaRanking[] = SUPPORTED_CRYPTO_PAIRS.map((asset) => {
@@ -74,6 +74,77 @@ export function scanCryptoUniverse(
     topPick,
     timestamp: new Date().toLocaleTimeString('id-ID'),
   };
+}
+
+/**
+ * Memilih koin kripto terbaik dengan rotasi diversifikasi multi-kategori (L1, L2, DeFi, AI, Meme, Infrastructure):
+ * - Hindari over-konsentrasi pada koin yang sama (misal PEPE / SUI saja).
+ * - Berikan prioritas tinggi pada koin dan kategori yang belum dimiliki di portofolio.
+ */
+export function selectDiversifiedCryptoCandidate(
+  candidates: CryptoAlphaRanking[],
+  currentHoldings: any[] = []
+): CryptoAlphaRanking | null {
+  const eligible = candidates.filter(
+    (c) => (c.signal.signal === 'STRONG_BUY' || c.signal.signal === 'BUY') && c.compositeScore >= 72
+  );
+  if (eligible.length === 0) return null;
+
+  // Analisis portofolio koin yang sudah dimiliki
+  const ownedCrypto = currentHoldings.filter(
+    (h) => h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT')
+  );
+  const ownedSymbols = new Set(
+    ownedCrypto.map((h) => (h.displaySymbol || h.symbol).replace(/USDT$/i, '').toUpperCase())
+  );
+
+  const categoryCounts: Record<string, number> = {};
+  ownedCrypto.forEach((h) => {
+    const sym = (h.displaySymbol || h.symbol).replace(/USDT$/i, '').toUpperCase();
+    const meta = SUPPORTED_CRYPTO_PAIRS.find((p) => p.baseAsset === sym || p.symbol === h.symbol);
+    if (meta) {
+      categoryCounts[meta.category] = (categoryCounts[meta.category] || 0) + 1;
+    }
+  });
+
+  const scored = eligible.map((c) => {
+    const base = c.asset.baseAsset.toUpperCase();
+    const isOwned = ownedSymbols.has(base);
+    const catCount = categoryCounts[c.asset.category] || 0;
+
+    let priority = c.compositeScore;
+
+    // 1. Prioritas Koin Baru (+25 Poin jika belum dimiliki)
+    if (!isOwned) {
+      priority += 25;
+    } else {
+      priority -= 35; // Penalti berat jika sudah punya koin ini agar tidak beli koin yang sama terus
+    }
+
+    // 2. Rotasi Kategori (+15 Poin jika kategori belum ada di portofolio)
+    if (catCount === 0) {
+      priority += 15;
+    } else {
+      priority -= (catCount * 12); // Penalti jika kategori sudah ramai
+    }
+
+    // 3. Batasi Meme Coin (PEPE/DOGE):
+    // Jika portofolio sudah memegang koin Meme, penalti berat (-25 Poin) agar beralih ke L1/AI/L2
+    if (c.asset.category === 'Meme' && (categoryCounts['Meme'] || 0) > 0) {
+      priority -= 25;
+    }
+
+    // 4. Bonus Kategori Prioritas Fondasi (L1 Bluechip & AI):
+    if (c.asset.category === 'L1' || c.asset.category === 'AI') {
+      priority += 5;
+    }
+
+    return { candidate: c, priority };
+  });
+
+  scored.sort((a, b) => b.priority - a.priority);
+
+  return scored[0]?.candidate || eligible[0] || null;
 }
 
 /**
@@ -349,12 +420,16 @@ export async function runAutonomousCryptoAgentCycle(
 
     const availableCashAfterReserve = Math.max(0, portfolioStore.cash - MIN_BOT_CASH_RESERVE);
 
-    // Cari kandidat koin terbaik dari seluruh leaderboard yang sinyalnya BUY / STRONG_BUY dan belum over-allocated
+    // Cari kandidat koin terbaik dengan rotasi multi-kategori dan pencegahan duplikasi (hindari PEPE/SUI berulang)
+    const diversifiedPick = selectDiversifiedCryptoCandidate(scanResult.leaderboard, portfolioStore.holdings);
     const eligibleCandidates = scanResult.leaderboard.filter(
-      (c) => (c.signal.signal === 'STRONG_BUY' || c.signal.signal === 'BUY') && c.compositeScore >= 74
+      (c) => (c.signal.signal === 'STRONG_BUY' || c.signal.signal === 'BUY') && c.compositeScore >= 72
     );
+    const candidateList = diversifiedPick
+      ? [diversifiedPick, ...eligibleCandidates.filter((c) => c.asset.symbol !== diversifiedPick.asset.symbol)]
+      : eligibleCandidates;
 
-    for (const candidate of eligibleCandidates) {
+    for (const candidate of candidateList) {
       const cleanSym = candidate.asset.baseAsset;
       const existingHolding = portfolioStore.holdings.find(
         (h) =>
@@ -408,7 +483,7 @@ export async function runAutonomousCryptoAgentCycle(
 
           if (res.order) {
             tradeExecuted = true;
-            actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${candidate.asset.baseAsset} @ ${formatCryptoPrice(curP)} (TP: +${userTpPct}% [${formatCryptoPrice(calculatedTP)}] / SL: -${userSlPct}% [${formatCryptoPrice(calculatedSL)}])`;
+            actionTaken = `⚡ JESSE AI AUTO-BUY: ${calculatedUnits} ${candidate.asset.baseAsset} [${candidate.asset.category}] @ ${formatCryptoPrice(curP)} (TP: +${userTpPct}% [${formatCryptoPrice(calculatedTP)}] / SL: -${userSlPct}% [${formatCryptoPrice(calculatedSL)}])`;
 
             aiStore.logAction({
               type: 'TRADE_BUY',
@@ -416,8 +491,8 @@ export async function runAutonomousCryptoAgentCycle(
               agentId: 'trader_crypto',
               agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
               agentEmoji: '⚡',
-              title: `Beli Crypto Otonom: ${candidate.asset.baseAsset}`,
-              details: `Strategi Jesse Adaptive Trend mengonfirmasi sinyal ${candidate.signal.signal}. Parameter risiko manual: TP +${userTpPct}% (${formatCryptoPrice(calculatedTP)}) & SL -${userSlPct}% (${formatCryptoPrice(calculatedSL)}). Total order Rp ${Math.round(targetTradeAmountIDR).toLocaleString('id-ID')}.`,
+              title: `Beli Crypto Otonom: ${candidate.asset.baseAsset} [${candidate.asset.category}]`,
+              details: `Strategi Jesse Adaptive Trend (${candidate.signal.strategyName}) mengonfirmasi sinyal ${candidate.signal.signal} pada sektor ${candidate.asset.category}. Parameter risiko: TP +${userTpPct}% (${formatCryptoPrice(calculatedTP)}) & SL -${userSlPct}% (${formatCryptoPrice(calculatedSL)}). Total order Rp ${Math.round(targetTradeAmountIDR).toLocaleString('id-ID')}.`,
               metadata: {
                 price: curP,
                 lots: calculatedUnits,
