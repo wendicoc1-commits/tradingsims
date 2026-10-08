@@ -39,6 +39,15 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // Sinkronkan mode saat defaultMode atau modal dibuka ulang
+  React.useEffect(() => {
+    if (isOpen) {
+      setMode(defaultMode);
+      setSuccessMsg(null);
+      setLocalError(null);
+    }
+  }, [isOpen, defaultMode]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,9 +130,35 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
           )}
 
           {(authError || localError) && (
-            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{localError || authError}</span>
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex flex-col gap-1.5 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{localError || authError}</span>
+              </div>
+              {(localError || authError)?.includes('belum terdaftar') && mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalError(null);
+                    setMode('register');
+                  }}
+                  className="text-amber-400 hover:underline text-left font-bold text-[11px] ml-6 cursor-pointer"
+                >
+                  👉 Klik di sini untuk mendaftar akun &quot;{email}&quot; sekarang &rarr;
+                </button>
+              )}
+              {(localError || authError)?.includes('sudah terdaftar') && mode === 'register' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalError(null);
+                    setMode('login');
+                  }}
+                  className="text-amber-400 hover:underline text-left font-bold text-[11px] ml-6 cursor-pointer"
+                >
+                  👉 Klik di sini untuk langsung Masuk (Login) &rarr;
+                </button>
+              )}
             </div>
           )}
 

@@ -1,4 +1,135 @@
 {
-  "users": {},
-  "portfolios": {}
+  "users": {
+    "wendicoc1@gmail.com": {
+      "id": "usr-1791483797981-99jb7",
+      "email": "wendicoc1@gmail.com",
+      "passwordHash": "3756146ce64c945a77b5c316b816ba2d252021da9fe870b6bcc71ddf24c94b01",
+      "fullName": "wendicoc1",
+      "createdAt": "2026-10-08T18:23:17.981Z"
+    }
+  },
+  "portfolios": {
+    "wendicoc1@gmail.com": {
+      "cash": 80179619,
+      "realizedPL": 0,
+      "holdings": [
+        {
+          "symbol": "BTCUSDT",
+          "displaySymbol": "BTC",
+          "name": "Bitcoin Network (Crypto Spot)",
+          "avgPrice": 81379.38,
+          "lots": 0.015207,
+          "shares": 0.015207,
+          "currentPrice": 81408.04,
+          "unrealizedPL": 6973,
+          "unrealizedPLPercent": 0.04,
+          "takeProfitPrice": 93586.29,
+          "stopLossPrice": 76089.72,
+          "peakPrice": 81409.35,
+          "trailingStopPct": 8,
+          "trailingStopPrice": 74896.602,
+          "validityType": "DAY",
+          "assetClass": "CRYPTO",
+          "currency": "USDT",
+          "cryptoUnits": 0.015207,
+          "exchangeRate": 16000,
+          "totalDividendEarned": 0,
+          "realizedPL": 0,
+          "source": "AI_AGENT",
+          "createdAt": "2026-10-08T18:26:06.984Z",
+          "lastBoughtAt": 1791483966984
+        }
+      ],
+      "orders": [
+        {
+          "id": "order-1791483966984-hv05y",
+          "symbol": "BTCUSDT",
+          "displaySymbol": "BTC",
+          "type": "BUY",
+          "orderType": "LIMIT",
+          "price": 81379.38,
+          "lots": 0.015207,
+          "shares": 0.015207,
+          "total": 19800580,
+          "fee": 19801,
+          "brokerFee": 19801,
+          "taxFee": 0,
+          "takeProfitPrice": 93586.29,
+          "stopLossPrice": 76089.72,
+          "validityType": "DAY",
+          "assetClass": "CRYPTO",
+          "currency": "USDT",
+          "cryptoUnits": 0.015207,
+          "exchangeRate": 16000,
+          "status": "FILLED",
+          "createdAt": "2026-10-08T18:26:06.984Z",
+          "filledAt": "2026-10-08T18:26:06.984Z"
+        }
+      ],
+      "conditionalOrders": [],
+      "dividends": [],
+      "lastUpdated": 1791483977327
+    },
+    "usr-1791483797981-99jb7": {
+      "cash": 80179619,
+      "realizedPL": 0,
+      "holdings": [
+        {
+          "symbol": "BTCUSDT",
+          "displaySymbol": "BTC",
+          "name": "Bitcoin Network (Crypto Spot)",
+          "avgPrice": 81379.38,
+          "lots": 0.015207,
+          "shares": 0.015207,
+          "currentPrice": 81408.04,
+          "unrealizedPL": 6973,
+          "unrealizedPLPercent": 0.04,
+          "takeProfitPrice": 93586.29,
+          "stopLossPrice": 76089.72,
+          "peakPrice": 81409.35,
+          "trailingStopPct": 8,
+          "trailingStopPrice": 74896.602,
+          "validityType": "DAY",
+          "assetClass": "CRYPTO",
+          "currency": "USDT",
+          "cryptoUnits": 0.015207,
+          "exchangeRate": 16000,
+          "totalDividendEarned": 0,
+          "realizedPL": 0,
+          "source": "AI_AGENT",
+          "createdAt": "2026-10-08T18:26:06.984Z",
+          "lastBoughtAt": 1791483966984
+        }
+      ],
+      "orders": [
+        {
+          "id": "order-1791483966984-hv05y",
+          "symbol": "BTCUSDT",
+          "displaySymbol": "BTC",
+          "type": "BUY",
+          "orderType": "LIMIT",
+          "price": 81379.38,
+          "lots": 0.015207,
+          "shares": 0.015207,
+          "total": 19800580,
+          "fee": 19801,
+          "brokerFee": 19801,
+          "taxFee": 0,
+          "takeProfitPrice": 93586.29,
+          "stopLossPrice": 76089.72,
+          "validityType": "DAY",
+          "assetClass": "CRYPTO",
+          "currency": "USDT",
+          "cryptoUnits": 0.015207,
+          "exchangeRate": 16000,
+          "status": "FILLED",
+          "createdAt": "2026-10-08T18:26:06.984Z",
+          "filledAt": "2026-10-08T18:26:06.984Z"
+        }
+      ],
+      "conditionalOrders": [],
+      "dividends": [],
+      "lastUpdated": 1791483977327
+    }
+  }
 }
