@@ -53,6 +53,7 @@ function OrderForm() {
   const [symbol, setSymbol] = useState('');
   const [price, setPrice] = useState('');
   const [lots, setLots] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const priceNum = parseFloat(price) || 0;
@@ -93,6 +94,8 @@ function OrderForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Mencegah double-click / multi-submit race condition
+
     if (!rawSym || priceNum <= 0 || lotsNum <= 0) {
       setNotification({ type: 'error', message: 'Silakan isi kode aset, harga, dan jumlah dengan benar.' });
       return;
@@ -106,68 +109,72 @@ function OrderForm() {
       return;
     }
 
-    if (orderType === 'BUY') {
-      const cleanSym = rawSym.replace(/USDT$/i, '');
-      const liveMarketPrice = tickerMap[cleanSym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price;
-      // Gunakan harga live pasar jika harga form terpaut > 5% dari live Binance atau jika harga default
-      const finalPrice = (isCrypto && liveMarketPrice && liveMarketPrice > 0 && Math.abs(priceNum - liveMarketPrice) / liveMarketPrice > 0.05)
-        ? liveMarketPrice
-        : priceNum;
+    setIsSubmitting(true);
+    try {
+      if (orderType === 'BUY') {
+        const cleanSym = rawSym.replace(/USDT$/i, '');
+        const liveMarketPrice = tickerMap[cleanSym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price;
+        // Gunakan harga live pasar jika harga form terpaut > 5% dari live Binance atau jika harga default
+        const finalPrice = (isCrypto && liveMarketPrice && liveMarketPrice > 0 && Math.abs(priceNum - liveMarketPrice) / liveMarketPrice > 0.05)
+          ? liveMarketPrice
+          : priceNum;
 
-      const res = placeBuyOrder({
-        symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
-        displaySymbol: cleanSym,
-        price: finalPrice,
-        lots: lotsNum,
-        name: isCrypto ? `${cleanSym} (Crypto Spot)` : isUS ? `${cleanSym} (US Stock)` : rawSym,
-        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
-        exchangeRate: isForeign ? rate : undefined,
-        orderType: isForeign ? 'MARKET' : 'LIMIT',
-      });
-      if (res.order) {
-        setNotification({
-          type: 'success',
-          message: isCrypto
-            ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
-            : isUS
-            ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
-            : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
+        const res = placeBuyOrder({
+          symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
+          displaySymbol: cleanSym,
+          price: finalPrice,
+          lots: lotsNum,
+          name: isCrypto ? `${cleanSym} (Crypto Spot)` : isUS ? `${cleanSym} (US Stock)` : rawSym,
+          assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+          currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
+          exchangeRate: isForeign ? rate : undefined,
+          orderType: isForeign ? 'MARKET' : 'LIMIT',
         });
-        setSymbol('');
-        setPrice('');
-        setLots('');
+        if (res.order) {
+          setNotification({
+            type: 'success',
+            message: isCrypto
+              ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+              : isUS
+              ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+              : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
+          });
+          setSymbol('');
+          setPrice('');
+          setLots('');
+        } else {
+          setNotification({ type: 'error', message: res.error || 'Gagal melakukan pembelian.' });
+        }
       } else {
-        setNotification({ type: 'error', message: res.error || 'Gagal melakukan pembelian.' });
-      }
-    } else {
-      const cleanSym = rawSym.replace(/USDT$/i, '');
-      const res = placeSellOrder({
-        symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
-        displaySymbol: cleanSym,
-        price: priceNum,
-        lots: lotsNum,
-        assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
-        currency: isCrypto ? 'USDT' : shareInfo.isUS ? 'USD' : 'IDR',
-        exchangeRate: isForeign ? rate : undefined,
-        orderType: isForeign ? 'MARKET' : 'LIMIT',
-      });
-      if (res.order) {
-        const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
-        const unitLabel = isCrypto ? 'koin' : shareInfo.isUS ? 'lembar' : 'lot';
-        setNotification({
-          type: 'success',
-          message: `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
+        const cleanSym = rawSym.replace(/USDT$/i, '');
+        const res = placeSellOrder({
+          symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
+          displaySymbol: cleanSym,
+          price: priceNum,
+          lots: lotsNum,
+          assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
+          currency: isCrypto ? 'USDT' : shareInfo.isUS ? 'USD' : 'IDR',
+          exchangeRate: isForeign ? rate : undefined,
+          orderType: isForeign ? 'MARKET' : 'LIMIT',
         });
-        setSymbol('');
-        setPrice('');
-        setLots('');
-      } else {
-        setNotification({ type: 'error', message: res.error || 'Gagal memproses penjualan.' });
+        if (res.order) {
+          const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
+          const unitLabel = isCrypto ? 'koin' : shareInfo.isUS ? 'lembar' : 'lot';
+          setNotification({
+            type: 'success',
+            message: `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
+          });
+          setSymbol('');
+          setPrice('');
+          setLots('');
+        } else {
+          setNotification({ type: 'error', message: res.error || 'Gagal memproses penjualan.' });
+        }
       }
+    } finally {
+      setTimeout(() => setIsSubmitting(false), 500); // 500ms safety mutex guard
+      setTimeout(() => setNotification(null), 5000);
     }
-
-    setTimeout(() => setNotification(null), 5000);
   };
 
   return (
@@ -495,13 +502,18 @@ function OrderForm() {
 
         <button
           type="submit"
-          className="w-full py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          disabled={isSubmitting}
+          className="w-full py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           style={{
             backgroundColor: orderType === 'BUY' ? (isCrypto ? '#06b6d4' : 'var(--positive)') : 'var(--negative)',
             color: orderType === 'BUY' ? '#000' : '#fff',
           }}
         >
-          {orderType === 'BUY' ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang` : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`}
+          {isSubmitting
+            ? 'Memproses Order...'
+            : orderType === 'BUY'
+            ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`
+            : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`}
         </button>
 
         <div className="pt-2 border-t border-zinc-800">

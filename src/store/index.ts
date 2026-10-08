@@ -1041,7 +1041,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       taxFee = Math.round(tradeValue * 0.001) // 0.1% PPh Final Bappebti
       totalFee = brokerFee + taxFee
       netProceeds = tradeValue - totalFee
-      costBasisSold = existing.avgPrice * lots * rate
+      costBasisSold = Math.round(existing.avgPrice * lots * rate)
     } else if (isUS) {
       sharesSold = lots
       const tradeValueUSD = execPrice * lots
@@ -1050,7 +1050,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       taxFee = 0
       totalFee = brokerFee + taxFee
       netProceeds = tradeValue - totalFee
-      costBasisSold = existing.avgPrice * lots * rate
+      costBasisSold = Math.round(existing.avgPrice * lots * rate)
     } else {
       sharesSold = lots * sharesMultiplier
       tradeValue = execPrice * sharesSold
@@ -1058,10 +1058,10 @@ export const usePortfolioStore = create<PortfolioState>()(
       taxFee = Math.round(tradeValue * 0.0010) // 0.1% PPh Final bursa
       totalFee = brokerFee + taxFee
       netProceeds = tradeValue - totalFee
-      costBasisSold = existing.avgPrice * sharesSold
+      costBasisSold = Math.round(existing.avgPrice * sharesSold)
     }
 
-    const orderRealizedPL = netProceeds - costBasisSold
+    const orderRealizedPL = Math.round(netProceeds - costBasisSold)
     const orderRealizedPLPercent = costBasisSold > 0 ? Number(((orderRealizedPL / costBasisSold) * 100).toFixed(2)) : 0
 
     const orderId = `order-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`

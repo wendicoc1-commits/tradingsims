@@ -44,21 +44,37 @@ export interface MarketStatusCheck {
 
 /**
  * Menghitung waktu saat ini dalam zona waktu WIB (UTC+7 / Asia/Jakarta)
+ * Menggunakan Intl.DateTimeFormat resmi untuk menjamin akurasi 100% di semua zona waktu (WITA, WIT, UTC, US, dsb).
  */
 export function getNowInWIB(baseDate = new Date()): Date {
-  const utc = baseDate.getTime() + baseDate.getTimezoneOffset() * 60000;
-  return new Date(utc + 3600000 * 7);
+  const wibString = baseDate.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
+  return new Date(wibString);
 }
 
 /**
  * Memvalidasi apakah Bursa Efek Indonesia (BEI) saat ini sedang buka untuk transaksi
  */
 export function checkIDXMarketStatus(customDate = new Date()): MarketStatusCheck {
-  const wib = getNowInWIB(customDate);
-  const day = wib.getDay(); // 0 = Minggu, 1 = Senin, ..., 5 = Jumat, 6 = Sabtu
-  const hours = wib.getHours();
-  const minutes = wib.getMinutes();
-  const seconds = wib.getSeconds();
+  // Format waktu secara presisi langsung dalam zona waktu Asia/Jakarta
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    hour12: false,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const parts = formatter.formatToParts(customDate);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+
+  const weekdayStr = getPart('weekday');
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const day = dayMap[weekdayStr] ?? 1;
+
+  const hours = parseInt(getPart('hour'), 10);
+  const minutes = parseInt(getPart('minute'), 10);
+  const seconds = parseInt(getPart('second'), 10);
   const totalMinutes = hours * 60 + minutes;
 
   const hh = String(hours).padStart(2, '0');

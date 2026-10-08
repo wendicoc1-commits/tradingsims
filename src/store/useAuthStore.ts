@@ -545,7 +545,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Simpan riwayat transaksi order individual ke tabel orders Supabase
+      // Simpan riwayat transaksi order individual ke tabel orders Supabase dengan antrean offline otomatis
       recordOrderToDatabase: async (order: any) => {
         const user = get().user;
         if (!user || user.provider === 'guest') return;
@@ -553,30 +553,56 @@ export const useAuthStore = create<AuthState>()(
         // Sinkronkan ke cloud
         await get().syncPortfolioToDatabase();
 
+        const orderPayload = {
+          id: order.id,
+          user_id: user.id,
+          symbol: order.symbol,
+          display_symbol: order.displaySymbol,
+          type: order.type,
+          order_type: order.orderType,
+          price: order.price,
+          lots: order.assetClass === 'CRYPTO' ? (order.cryptoUnits ?? order.lots) : Math.max(1, Math.round(order.lots || 1)),
+          shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
+          total: order.total,
+          fee: order.fee || 0,
+          broker_fee: order.brokerFee || 0,
+          tax_fee: order.taxFee || 0,
+          status: order.status || 'FILLED',
+          realized_pl: order.realizedPL ?? null,
+          created_at: order.createdAt || new Date().toISOString(),
+          filled_at: order.filledAt || new Date().toISOString(),
+        };
+
         if (isSupabaseConfigured) {
           try {
             const supabase = getSupabaseBrowserClient();
-            await supabase.from('orders').insert({
-              id: order.id,
-              user_id: user.id,
-              symbol: order.symbol,
-              display_symbol: order.displaySymbol,
-              type: order.type,
-              order_type: order.orderType,
-              price: order.price,
-              lots: order.assetClass === 'CRYPTO' ? (order.cryptoUnits ?? order.lots) : Math.max(1, Math.round(order.lots || 1)),
-              shares: order.shares || (order.assetClass === 'CRYPTO' ? order.lots : order.lots * 100),
-              total: order.total,
-              fee: order.fee || 0,
-              broker_fee: order.brokerFee || 0,
-              tax_fee: order.taxFee || 0,
-              status: order.status || 'FILLED',
-              realized_pl: order.realizedPL ?? null,
-              created_at: order.createdAt || new Date().toISOString(),
-              filled_at: order.filledAt || new Date().toISOString(),
-            });
+            const { error: insertErr } = await supabase.from('orders').insert(orderPayload);
+            if (insertErr) throw insertErr;
+
+            // Jika ada antrean order tertunda sebelumnya, coba kirim ulang sekarang
+            if (typeof window !== 'undefined') {
+              try {
+                const pending = JSON.parse(localStorage.getItem('tradesim_failed_orders') || '[]');
+                if (Array.isArray(pending) && pending.length > 0) {
+                  const remaining: any[] = [];
+                  for (const p of pending) {
+                    const { error } = await supabase.from('orders').insert(p);
+                    if (error) remaining.push(p);
+                  }
+                  localStorage.setItem('tradesim_failed_orders', JSON.stringify(remaining));
+                }
+              } catch {}
+            }
           } catch (err) {
-            console.error('[SUPABASE ORDER LOG ERROR]', err);
+            console.warn('[SUPABASE ORDER LOG OFFLINE QUEUED]', err);
+            // Simpan ke offline queue di browser agar tidak hilang saat jaringan offline
+            if (typeof window !== 'undefined') {
+              try {
+                const pending = JSON.parse(localStorage.getItem('tradesim_failed_orders') || '[]');
+                pending.push(orderPayload);
+                localStorage.setItem('tradesim_failed_orders', JSON.stringify(pending.slice(-100)));
+              } catch {}
+            }
           }
         }
       },

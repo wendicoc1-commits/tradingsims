@@ -61,20 +61,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Format email tidak valid' }, { status: 400 });
     }
 
-    // Validasi & Sanitasi Batas Finansial
+    // Ambil data portofolio eksisting untuk mempertahankan saldo & posisi jika payload tidak lengkap
+    const currentPortfolio = await getUserPortfolioAsync({ email, userId });
+
+    // Validasi & Sanitasi Batas Finansial:
+    // Jika cash tidak valid / tidak disertakan, pertahankan saldo eksisting agar tidak ter-reset ke 100M!
     const sanitizedCash = typeof cash === 'number' && Number.isFinite(cash)
       ? Math.max(0, Math.min(cash, MAX_ALLOWED_CASH))
-      : 100_000_000;
+      : (typeof currentPortfolio?.cash === 'number' ? currentPortfolio.cash : 100_000_000);
 
     const sanitizedRealizedPL = typeof realizedPL === 'number' && Number.isFinite(realizedPL)
       ? realizedPL
-      : 0;
+      : (typeof currentPortfolio?.realizedPL === 'number' ? currentPortfolio.realizedPL : 0);
 
     // Batasi ukuran array untuk mencegah serangan Denial of Service (Payload Bloat)
-    const sanitizedHoldings = Array.isArray(holdings) ? holdings.slice(0, 300) : [];
-    const sanitizedOrders = Array.isArray(orders) ? orders.slice(0, 500) : [];
-    const sanitizedConditional = Array.isArray(conditionalOrders) ? conditionalOrders.slice(0, 100) : [];
-    const sanitizedDividends = Array.isArray(dividends) ? dividends.slice(0, 200) : [];
+    const sanitizedHoldings = Array.isArray(holdings)
+      ? holdings.slice(0, 300)
+      : (Array.isArray(currentPortfolio?.holdings) ? currentPortfolio.holdings : []);
+    const sanitizedOrders = Array.isArray(orders)
+      ? orders.slice(0, 500)
+      : (Array.isArray(currentPortfolio?.orders) ? currentPortfolio.orders : []);
+    const sanitizedConditional = Array.isArray(conditionalOrders)
+      ? conditionalOrders.slice(0, 100)
+      : (Array.isArray(currentPortfolio?.conditionalOrders) ? currentPortfolio.conditionalOrders : []);
+    const sanitizedDividends = Array.isArray(dividends)
+      ? dividends.slice(0, 200)
+      : (Array.isArray(currentPortfolio?.dividends) ? currentPortfolio.dividends : []);
 
     if (email) {
       const existing = await getUserByEmailAsync(email);
