@@ -229,7 +229,7 @@ function OrderForm() {
           onClick={() => {
             setAssetClass('CRYPTO');
             setSymbol('BTC');
-            setPrice('68450');
+            setPrice('82500');
             setLots('0.05');
           }}
           className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
@@ -285,7 +285,7 @@ function OrderForm() {
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {[
-              { coin: 'BTC', price: 68450 },
+              { coin: 'BTC', price: 82500 },
               { coin: 'ETH', price: 2450 },
               { coin: 'SOL', price: 154 },
               { coin: 'DOGE', price: 0.125 },
@@ -378,7 +378,7 @@ function OrderForm() {
               step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder={assetClass === 'CRYPTO' ? '68450' : assetClass === 'US' ? '168.20' : '9850'}
+              placeholder={assetClass === 'CRYPTO' ? '82500' : assetClass === 'US' ? '168.20' : '9850'}
               className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
               style={{
                 borderColor: !tickValidation.valid ? 'var(--negative)' : 'var(--border)',

@@ -15,7 +15,7 @@ export interface BinanceTickerData {
 }
 
 const INITIAL_CRYPTO_SEEDS: Record<string, { price: number; change24h: number; high: number; low: number; vol: string; qVol: number }> = {
-  BTC: { price: 68450, change24h: 1.85, high: 69200, low: 67300, vol: '$32.4B', qVol: 32400000000 },
+  BTC: { price: 82500, change24h: 1.85, high: 84200, low: 81500, vol: '$42.4B', qVol: 42400000000 },
   ETH: { price: 2450, change24h: 2.15, high: 2490, low: 2380, vol: '$14.2B', qVol: 14200000000 },
   SOL: { price: 154, change24h: 3.40, high: 158, low: 149, vol: '$4.8B', qVol: 4800000000 },
   BNB: { price: 585, change24h: 0.95, high: 592, low: 578, vol: '$1.2B', qVol: 1200000000 },

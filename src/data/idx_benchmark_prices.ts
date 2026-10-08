@@ -78,7 +78,7 @@ export const IDX_BENCHMARK_PRICES: Record<string, IDXStockBenchmark> = {
 };
 
 export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: string }> = {
-  BTC: { price: 68450, name: 'Bitcoin (BTC)' },
+  BTC: { price: 82500, name: 'Bitcoin (BTC)' },
   ETH: { price: 2450, name: 'Ethereum (ETH)' },
   SOL: { price: 154, name: 'Solana (SOL)' },
   BNB: { price: 585, name: 'BNB (Binance)' },

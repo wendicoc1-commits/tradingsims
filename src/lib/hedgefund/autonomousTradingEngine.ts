@@ -66,6 +66,13 @@ export async function runAutonomousAgentCycle(
   // ─────────────────────────────────────────────────────────────────────────────
   const currentHoldings = portfolioStore.holdings;
   for (const holding of currentHoldings) {
+    // 0. Proteksi Transaksi Manual Pengguna:
+    // Jika holding berasal dari pembelian manual pengguna (source === 'USER'),
+    // bot AI dilarang menjualnya secara sepihak. Pengguna memiliki kendali penuh atas aset manual.
+    if (holding.source === 'USER') {
+      continue;
+    }
+
     const sym = holding.displaySymbol.replace('.JK', '').toUpperCase();
     const liveQ = liveQuotesMap[sym];
     const rawPrice = liveQ?.price ?? holding.currentPrice;
@@ -81,10 +88,17 @@ export async function runAutonomousAgentCycle(
 
     if (sellPrice <= 0) continue;
 
-    // A. Cek Take Profit (Hanya terpicu jika target TP benar-benar di atas modal)
+    // Proteksi Cooldown: Posisi yang baru dibuka (< 3 menit) dilarang dijual seketika oleh bot
+    const isHoldingFresh = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 3 * 60 * 1000) : false;
+    if (isHoldingFresh && sellPrice < holding.avgPrice * 1.03) {
+      continue;
+    }
+
+    // A. Cek Take Profit (Hanya terpicu jika target TP benar-benar di atas modal dan posisi tidak dalam cooldown)
     if (
+      !isHoldingFresh &&
       holding.takeProfitPrice &&
-      holding.takeProfitPrice > holding.avgPrice &&
+      holding.takeProfitPrice >= holding.avgPrice * 1.01 &&
       sellPrice >= holding.takeProfitPrice &&
       holding.lots > 0
     ) {
@@ -162,6 +176,7 @@ export async function runAutonomousAgentCycle(
     const isLiveValid = liveQ ? (liveQ.live !== false) : true;
 
     if (
+      !isHoldingFresh &&
       isLiveValid &&
       !isGlitchDrop &&
       holding.trailingStopPrice &&
@@ -228,10 +243,11 @@ export async function runAutonomousAgentCycle(
 
     // C. Cek Hard Stop Loss (CRO Risk Gate Veto - hanya terpicu jika stop loss benar di bawah modal)
     if (
+      !isHoldingFresh &&
       isLiveValid &&
       !isGlitchDrop &&
       holding.stopLossPrice &&
-      holding.stopLossPrice < holding.avgPrice &&
+      holding.stopLossPrice <= holding.avgPrice * 0.99 &&
       sellPrice <= holding.stopLossPrice &&
       holding.lots > 0
     ) {

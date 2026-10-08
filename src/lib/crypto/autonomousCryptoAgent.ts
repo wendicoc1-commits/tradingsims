@@ -37,7 +37,7 @@ export function scanCryptoUniverse(
   timestamp: string;
 } {
   const fallbackMap: Record<string, number> = {
-    BTCUSDT: 68450, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
+    BTCUSDT: 82500, ETHUSDT: 2450, SOLUSDT: 154, BNBUSDT: 585, DOGEUSDT: 0.125,
     XRPUSDT: 1.42, ADAUSDT: 0.35, AVAXUSDT: 26.5, SUIUSDT: 1.14, NEARUSDT: 4.80,
     LINKUSDT: 11.5, PEPEUSDT: 0.0000095, RENDERUSDT: 5.8, ARBUSDT: 0.58, APTUSDT: 8.5,
   };
@@ -189,6 +189,9 @@ export async function runAutonomousCryptoAgentCycle(
   );
 
   for (const holding of cryptoHoldings) {
+    // 0. Jangan sentuh koin yang dibeli manual oleh pengguna (source === 'USER')
+    if (holding.source === 'USER') continue;
+
     const sym = holding.symbol.toUpperCase();
     const cleanSym = holding.displaySymbol.replace(/USDT$/i, '').toUpperCase();
     const livePrice = tickerMap[sym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price ?? holding.currentPrice;
@@ -196,8 +199,14 @@ export async function runAutonomousCryptoAgentCycle(
 
     if (units <= 0 || livePrice <= 0) continue;
 
-    // A. Cek Take Profit Otomatis Kripto (Hanya jika TP benar-benar di atas modal)
-    if (holding.takeProfitPrice && holding.takeProfitPrice > holding.avgPrice && livePrice >= holding.takeProfitPrice) {
+    // Proteksi Cooldown: Koin yang baru dibeli kurang dari 3 menit dilarang dilikuidasi seketika
+    const isHoldingFresh = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 3 * 60 * 1000) : false;
+    if (isHoldingFresh && livePrice < holding.avgPrice * 1.03) {
+      continue;
+    }
+
+    // A. Cek Take Profit Otomatis Kripto (Hanya jika TP benar-benar di atas modal dan tidak dalam cooldown)
+    if (!isHoldingFresh && holding.takeProfitPrice && holding.takeProfitPrice >= holding.avgPrice * 1.01 && livePrice >= holding.takeProfitPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
         displaySymbol: cleanSym,
@@ -235,10 +244,10 @@ export async function runAutonomousCryptoAgentCycle(
       }
     }
 
-    // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate - hanya jika SL di bawah modal)
+    // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate - hanya jika SL di bawah modal dan tidak dalam cooldown)
     // Proteksi: Tidak boleh terpicu akibat glitch feed anomali (>35% dalam 1 tick)
     const isGlitchDrop = holding.peakPrice ? livePrice < holding.peakPrice * 0.65 : false;
-    if (!isGlitchDrop && holding.stopLossPrice && holding.stopLossPrice < holding.avgPrice && livePrice <= holding.stopLossPrice) {
+    if (!isHoldingFresh && !isGlitchDrop && holding.stopLossPrice && holding.stopLossPrice <= holding.avgPrice * 0.99 && livePrice <= holding.stopLossPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
         displaySymbol: cleanSym,

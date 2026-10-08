@@ -174,7 +174,7 @@ export function getGroundedStockIntelligence(
   const idxBenchmark = IDX_BENCHMARK_PRICES[cleanSym] || getVerifiedBenchmarkPrice(cleanSym);
 
   const CRYPTO_PROFILES: Record<string, { name: string; price: number; upside: number; target: number; thesis: string }> = {
-    BTC: { name: 'Bitcoin Network', price: 68500, upside: 28.5, target: 88000, thesis: 'Aset cadangan nilai terdesentralisasi global & ETF institutional inflows.' },
+    BTC: { name: 'Bitcoin Network', price: 82500, upside: 22.5, target: 98000, thesis: 'Aset cadangan nilai terdesentralisasi global & ETF institutional inflows.' },
     ETH: { name: 'Ethereum Network', price: 2450, upside: 34.0, target: 3280, thesis: 'Pusat likuiditas smart contract L1 & dominasi ekosistem Layer-2 rollups.' },
     SOL: { name: 'Solana High-Speed L1', price: 152, upside: 42.0, target: 215, thesis: 'Throughput ultra-cepat 65k TPS & pertumbuhan masif volume DEX.' },
     BNB: { name: 'BNB Smart Chain', price: 580, upside: 25.0, target: 725, thesis: 'Utilitas ekosistem Binance exchange & burn kuartalan deflasioner.' },

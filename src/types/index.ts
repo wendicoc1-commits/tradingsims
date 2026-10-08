@@ -137,6 +137,7 @@ export interface PortfolioHolding {
   realizedPL?: number // Akumulasi profit/loss terealisasi dari penjualan emiten ini
   createdAt?: string
   lastBoughtAt?: number
+  source?: 'USER' | 'AI_AGENT'
 }
 
 export interface DividendRecord {

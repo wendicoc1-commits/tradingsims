@@ -1847,8 +1847,11 @@ export default function VirtualAgentOfficeView() {
     };
 
     const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(selectedStock.toUpperCase());
+    const liveCryptoPrice = isCrypto
+      ? (liveCryptoTicker?.price ?? tickerMap[selectedStock]?.price ?? tickerMap[`${selectedStock}USDT`]?.price)
+      : undefined;
     const validEntry = isCrypto
-      ? (sizing.entry || intel.currentPrice || 1)
+      ? (liveCryptoPrice && liveCryptoPrice > 0 ? liveCryptoPrice : (sizing.entry || intel.currentPrice || 1))
       : roundTick(sizing.entry || intel.currentPrice || 500);
     const validStop = isCrypto
       ? (sizing.stop || Math.round(validEntry * 0.95))
@@ -2017,9 +2020,12 @@ export default function VirtualAgentOfficeView() {
       }
     }
 
-    const entryPrice = isIDR
-      ? roundTick(sz.entry || intel.currentPrice || 500)
-      : (sz.entry || intel.currentPrice || 1);
+    const liveCryptoPrice = isCrypto
+      ? (liveCryptoTicker?.price ?? tickerMap[cleanSym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price)
+      : undefined;
+    const entryPrice = isCrypto
+      ? (liveCryptoPrice && liveCryptoPrice > 0 ? liveCryptoPrice : (sz.entry || intel.currentPrice || 1))
+      : (isIDR ? roundTick(quote?.price || sz.entry || intel.currentPrice || 500) : (quote?.price || sz.entry || intel.currentPrice || 1));
 
     const store = usePortfolioStore.getState();
     const rate = 16000;
@@ -2067,13 +2073,13 @@ export default function VirtualAgentOfficeView() {
     const stopPrice = isCrypto
       ? Number((entryPrice * 0.935).toFixed(entryPrice < 1 ? 6 : (entryPrice < 50 ? 4 : 2)))
       : isIDR
-      ? roundTick(sz.stop || Math.round(entryPrice * 0.94))
-      : Number((sz.stop || entryPrice * 0.94).toFixed(2));
+      ? roundTick(sz.stop && sz.stop < entryPrice ? sz.stop : Math.round(entryPrice * 0.94))
+      : Number((sz.stop && sz.stop < entryPrice ? sz.stop : entryPrice * 0.94).toFixed(2));
     const tpPrice = isCrypto
       ? Number((entryPrice * 1.15).toFixed(entryPrice < 1 ? 6 : (entryPrice < 50 ? 4 : 2)))
       : isIDR
-      ? roundTick(sz.takeProfit || Math.round(entryPrice * 1.10))
-      : Number((sz.takeProfit || entryPrice * 1.10).toFixed(2));
+      ? roundTick(sz.takeProfit && sz.takeProfit > entryPrice ? sz.takeProfit : Math.round(entryPrice * 1.10))
+      : Number((sz.takeProfit && sz.takeProfit > entryPrice ? sz.takeProfit : entryPrice * 1.10).toFixed(2));
 
     const tradeValue = isCrypto
       ? Math.round(entryPrice * orderLots * rate)

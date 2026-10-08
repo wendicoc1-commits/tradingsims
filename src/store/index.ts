@@ -567,13 +567,14 @@ export const usePortfolioStore = create<PortfolioState>()(
         currentPrice: execPrice,
         unrealizedPL,
         unrealizedPLPercent,
-        takeProfitPrice: (params.takeProfitPrice && params.takeProfitPrice > execPrice) ? params.takeProfitPrice : existing.takeProfitPrice,
-        stopLossPrice: (params.stopLossPrice && params.stopLossPrice < execPrice) ? params.stopLossPrice : existing.stopLossPrice,
+        takeProfitPrice: (params.takeProfitPrice && params.takeProfitPrice >= execPrice * 1.01) ? params.takeProfitPrice : existing.takeProfitPrice,
+        stopLossPrice: (params.stopLossPrice && params.stopLossPrice <= execPrice * 0.99) ? params.stopLossPrice : existing.stopLossPrice,
         validityType: params.validityType || existing.validityType || 'GTC',
         assetClass: isCrypto ? 'CRYPTO' : existing.assetClass || 'EQUITY',
         currency: isCrypto ? 'USDT' : isUS ? 'USD' : existing.currency || 'IDR',
         cryptoUnits: isCrypto ? newTotalShares : undefined,
         exchangeRate: isForeign ? rate : undefined,
+        source: params.source || existing.source || 'USER',
         lastBoughtAt: Date.now(),
       }
     } else {
@@ -583,8 +584,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         : (execPrice - initialAvgPrice) * totalShares
       const unrealizedPLPercent = Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
 
-      const safeTakeProfit = (params.takeProfitPrice && params.takeProfitPrice > execPrice) ? params.takeProfitPrice : undefined
-      const safeStopLoss = (params.stopLossPrice && params.stopLossPrice < execPrice) ? params.stopLossPrice : undefined
+      const safeTakeProfit = (params.takeProfitPrice && params.takeProfitPrice >= execPrice * 1.01) ? params.takeProfitPrice : undefined
+      const safeStopLoss = (params.stopLossPrice && params.stopLossPrice <= execPrice * 0.99) ? params.stopLossPrice : undefined
 
       const newHolding: PortfolioHolding = {
         symbol: resolvedSym,
@@ -612,6 +613,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         exchangeRate: isForeign ? rate : undefined,
         totalDividendEarned: 0,
         realizedPL: 0,
+        source: params.source || 'USER',
         createdAt: new Date().toISOString(),
         lastBoughtAt: Date.now(),
       }
@@ -690,9 +692,11 @@ export const usePortfolioStore = create<PortfolioState>()(
 
     // 1. Cek Target TP/SL Direct Holding (Hanya terpicu jika target TP benar-benar di atas modal dan target SL di bawah modal)
     if (targetHolding && targetHolding.lots > 0) {
+      const isHoldingFresh = targetHolding.lastBoughtAt ? (Date.now() - targetHolding.lastBoughtAt < 3 * 60 * 1000) : false
       if (
+        !isHoldingFresh &&
         targetHolding.takeProfitPrice &&
-        targetHolding.takeProfitPrice > targetHolding.avgPrice &&
+        targetHolding.takeProfitPrice >= targetHolding.avgPrice * 1.01 &&
         currentPrice >= targetHolding.takeProfitPrice
       ) {
         const res = placeSellOrder({
@@ -714,8 +718,9 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
 
       if (
+        !isHoldingFresh &&
         targetHolding.stopLossPrice &&
-        targetHolding.stopLossPrice < targetHolding.avgPrice &&
+        targetHolding.stopLossPrice <= targetHolding.avgPrice * 0.99 &&
         currentPrice <= targetHolding.stopLossPrice
       ) {
         const res = placeSellOrder({

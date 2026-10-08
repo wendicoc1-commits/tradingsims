@@ -27,7 +27,7 @@ export interface UnifiedAsset {
 
 // 1. Top Cryptocurrencies
 const CRYPTO_MASTER: UnifiedAsset[] = [
-  { symbol: 'BTC', name: 'Bitcoin (Spot / Satoshi)', category: 'CRYPTO', sector: 'Digital Gold / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 68450, flag: '⚡', isPopular: true },
+  { symbol: 'BTC', name: 'Bitcoin (Spot / Satoshi)', category: 'CRYPTO', sector: 'Digital Gold / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 82500, flag: '⚡', isPopular: true },
   { symbol: 'ETH', name: 'Ethereum (Smart Contracts)', category: 'CRYPTO', sector: 'Layer-1 Smart Contracts', currency: 'USD', market: 'CRYPTO', defaultPrice: 2450, flag: '⚡', isPopular: true },
   { symbol: 'SOL', name: 'Solana (High Throughput L1)', category: 'CRYPTO', sector: 'Layer-1 High Speed', currency: 'USD', market: 'CRYPTO', defaultPrice: 154, flag: '⚡', isPopular: true },
   { symbol: 'BNB', name: 'BNB (Binance Ecosystem)', category: 'CRYPTO', sector: 'Exchange Token / L1', currency: 'USD', market: 'CRYPTO', defaultPrice: 585, flag: '⚡', isPopular: true },
