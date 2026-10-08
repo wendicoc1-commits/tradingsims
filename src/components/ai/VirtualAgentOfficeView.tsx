@@ -1181,7 +1181,7 @@ export default function VirtualAgentOfficeView() {
   const [catalogPage, setCatalogPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSector, setSelectedSector] = useState('SEMUA');
-  const [autoPilot, setAutoPilot] = useState(true);
+  const { autoTradingEnabled: autoPilot, setAutoTradingEnabled: setAutoPilot } = useAIAgentStore();
   const [scanResult, setScanResult] = useState<UniverseScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);

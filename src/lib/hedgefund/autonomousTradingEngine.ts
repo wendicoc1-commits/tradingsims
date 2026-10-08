@@ -475,15 +475,24 @@ export async function runAutonomousAgentCycle(
     const isBEIOpen = idxCheck.isOpen;
 
     // AI memilih sendiri: jika bursa BEI buka, saham IDX berskor tertinggi yang belum dialokasikan.
-    // Jika bursa BEI TUTUP (malam/weekend): HANYA pilih aset non-Indonesia (Kripto 24/7 & Global Luar Negeri)!
-    const target =
+    // Jika bursa BEI TUTUP (malam/weekend/sebelum jam 9): HANYA pilih aset non-Indonesia (Kripto 24/7 & Global Luar Negeri)!
+    const nonIndoTarget =
       scanResult.rankedLeaderboard.find(
         (c) =>
-          (isBEIOpen || !isIndonesianStock(c.symbol)) &&
+          !isIndonesianStock(c.symbol) &&
           c.suggestedAction.action === 'BUY' &&
-          c.score >= 82 &&
+          c.score >= 75 &&
           !isAllocated(c.symbol.toUpperCase())
-      ) ?? topPick;
+      ) || scanResult.rankedLeaderboard.find((c) => !isIndonesianStock(c.symbol));
+
+    const target = isBEIOpen
+      ? (scanResult.rankedLeaderboard.find(
+          (c) =>
+            c.suggestedAction.action === 'BUY' &&
+            c.score >= 80 &&
+            !isAllocated(c.symbol.toUpperCase())
+        ) ?? topPick)
+      : (nonIndoTarget ?? topPick);
 
     const cleanSym = target.symbol.toUpperCase();
     const existingHolding = findHolding(cleanSym);
@@ -509,7 +518,7 @@ export async function runAutonomousAgentCycle(
         });
       }
       // Bursa BEI tutup, eksekusi saham dilewati namun Crypto Desk 24/7 tetap berjalan
-    } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 82 && target.suggestedAction.action === 'BUY') {
+    } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 75 && target.suggestedAction.action === 'BUY') {
       const MIN_BOT_CASH_RESERVE = 1_000_000;
 
       // Proteksi Kas Minimum: Kas di bawah Rp 1.000.000 dilarang membeli saham baru
@@ -574,18 +583,18 @@ export async function runAutonomousAgentCycle(
             });
 
             if (sellRes.order) {
-              const releasedCash = weakPrice * weakest.lots * 100 * 0.9975;
+              const releasedCash = rotPrice * rotCandidate.lots * 100 * 0.9975;
               aiStore.logAction({
                 type: 'TRADE_ROTATE',
-                symbol: weakSym,
+                symbol: rotSym,
                 agentId: 'cio',
                 agentName: 'Gita Wirjawan (Chief Investment Officer)',
                 agentEmoji: '🏛️',
-                title: `Rotasi Portofolio: Likuidasi ${weakSym} → Beli ${cleanSym}`,
-                details: `Kas dilikuidasi dari ${weakSym} (+Rp ${Math.round(releasedCash).toLocaleString('id-ID')}) untuk merotasi modal ke ${cleanSym} yang memiliki konveksitas Alpha jauh lebih tinggi (Skor ${target.score}/100).`,
+                title: `Rotasi Portofolio: Likuidasi ${rotSym} → Beli ${cleanSym}`,
+                details: `Kas dilikuidasi dari ${rotSym} (+Rp ${Math.round(releasedCash).toLocaleString('id-ID')}) untuk merotasi modal ke ${cleanSym} yang memiliki konveksitas Alpha jauh lebih tinggi (Skor ${target.score}/100).`,
                 metadata: {
-                  price: weakPrice,
-                  lots: weakest.lots,
+                  price: rotPrice,
+                  lots: rotCandidate.lots,
                   amount: releasedCash,
                 },
               });
