@@ -836,25 +836,7 @@ export default function PortfolioPage() {
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Stress Test & Monte Carlo</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setIsTopUpModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold border transition-all cursor-pointer text-amber-300 border-amber-500/50 bg-amber-500/15 hover:bg-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-            title="Top Up Saldo Kas RDN via QRIS (Rp 10.000 = Rp 1.000.000 Saldo Kas)"
-          >
-            <span>💳</span>
-            <span>Top Up Kas (QRIS)</span>
-            <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-black">10k = 1 Juta</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleResetCashOnly()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
-            title="Atur atau sesuaikan nominal Saldo Kas RDN Anda tanpa menghapus kepemilikan saham"
-          >
-            <Coins className="w-3.5 h-3.5" />
-            Atur Saldo Kas
-          </button>
+
           <button
             type="button"
             onClick={handleResetTotal}
@@ -889,26 +871,6 @@ export default function PortfolioPage() {
         <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
           <div className="flex items-center justify-between text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>
             <span>Kas Tersedia (RDN)</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsTopUpModalOpen(true)}
-                className="text-[10px] text-amber-400 hover:text-amber-300 font-extrabold flex items-center gap-0.5 cursor-pointer transition-colors bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30"
-                title="Top Up via QRIS Resmi (Rp 10.000 = Rp 1.000.000 Kas)"
-              >
-                <span>💳</span>
-                <span>+ Top Up QRIS</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleResetCashOnly()}
-                className="text-[10px] text-zinc-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition-colors"
-                title="Atur Saldo Kas RDN (Saham Anda tetap aman)"
-              >
-                <Coins className="w-3 h-3 text-amber-500" />
-                <span>Atur Kas</span>
-              </button>
-            </div>
           </div>
           <div className="text-lg font-bold font-mono-num" style={{ color: 'var(--accent)' }}>
             Rp {formatPrice(Math.round(cash))}

@@ -759,23 +759,11 @@ export default function JesseCryptoDeskView() {
               <span className="text-zinc-400">
                 {orderSide === 'BUY' ? 'Kas RDN Siap Beli:' : `Saldo ${currentAsset.baseAsset}:`}
               </span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold font-mono text-white">
-                  {orderSide === 'BUY'
-                    ? `Rp ${cash.toLocaleString('id-ID')}`
-                    : `${availableCoinBalance.toFixed(4)} ${currentAsset.baseAsset}`}
-                </span>
-                {orderSide === 'BUY' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsTopUpOpen(true)}
-                    className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-extrabold text-[10px] border border-amber-500/40 cursor-pointer transition-all"
-                    title="Top Up Saldo Kas RDN via QRIS (Rp 10.000 = Rp 1.000.000 Kas)"
-                  >
-                    + Top Up
-                  </button>
-                )}
-              </div>
+              <span className="font-bold font-mono text-white">
+                {orderSide === 'BUY'
+                  ? `Rp ${cash.toLocaleString('id-ID')}`
+                  : `${availableCoinBalance.toFixed(4)} ${currentAsset.baseAsset}`}
+              </span>
             </div>
 
             {/* Mode Input: IDR vs Coin Units */}

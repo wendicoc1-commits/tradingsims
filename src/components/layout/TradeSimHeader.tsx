@@ -274,15 +274,7 @@ export default function TradeSimHeader() {
               <span className="hidden lg:inline">{autoTradingEnabled ? 'AI Pilot: ON' : 'AI Pilot: OFF'}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setIsTopUpOpen(true)}
-              className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-              title="Top Up Modal Virtual"
-            >
-              <Wallet className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Top Up Kas</span>
-            </button>
+
 
             <button
               type="button"
