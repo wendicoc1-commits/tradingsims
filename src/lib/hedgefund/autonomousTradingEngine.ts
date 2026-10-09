@@ -16,7 +16,7 @@ import { runAutonomousCryptoAgentCycle } from '../crypto/autonomousCryptoAgent';
 import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
 import { normalizeSymbol, calculateShares } from '../stockRules';
 import { isCryptoSymbol } from '../universe/masterAssetUniverse';
-import { sanitizeUntrustedIntel } from '../agents/agentContextCompactor';
+import { sanitizeUntrustedIntel, formatUntrustedNewsContext, detectMarketRegime } from '../agents/agentContextCompactor';
 
 /**
  * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities)
@@ -39,6 +39,37 @@ function dispatchToQuantBridge(payload: {
   }
 }
 
+// ── CONCURRENCY & CROSS-TAB LEASE LOCK (Anti-Double Execution) ──
+const CROSS_TAB_LOCK_KEY = 'TRADEMIND_EXECUTION_LOCK_TIMESTAMP';
+const CROSS_TAB_LOCK_TTL_MS = 12_000; // 12 detik lease lock
+const ORDER_DEDUPLICATION_CACHE: Record<string, number> = {}; // ticker -> timestamp ms
+
+function acquireCrossTabLock(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const now = Date.now();
+    const rawLock = localStorage.getItem(CROSS_TAB_LOCK_KEY);
+    if (rawLock) {
+      const lockTime = parseInt(rawLock, 10);
+      if (now - lockTime < CROSS_TAB_LOCK_TTL_MS) {
+        return false; // Concurrency conflict: cycle dipegang tab lain!
+      }
+    }
+    localStorage.setItem(CROSS_TAB_LOCK_KEY, String(now));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function releaseCrossTabLock(): void {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(CROSS_TAB_LOCK_KEY);
+    } catch {}
+  }
+}
+
 /**
  * Menjalankan satu siklus penuh otonom:
  * - Sinkronisasi harga pasar portofolio dengan live quotes
@@ -57,7 +88,7 @@ export async function runAutonomousAgentCycle(
   tradeExecuted: boolean;
   topPick: StockAlphaEvaluation | null;
 }> {
-  if (isCycleCurrentlyExecuting) {
+  if (isCycleCurrentlyExecuting || !acquireCrossTabLock()) {
     return { actionTaken: null, tradeExecuted: false, topPick: null };
   }
   isCycleCurrentlyExecuting = true;
@@ -785,13 +816,42 @@ export async function runAutonomousAgentCycle(
             finalTakeProfit = Number((sizing.entry * 1.15).toFixed(2));
             finalStopLoss = Number((sizing.entry * 0.94).toFixed(2));
           } else {
-            finalTakeProfit = (oodaDecision?.target_price && oodaDecision.target_price > sizing.entry)
-              ? roundTick(oodaDecision.target_price)
-              : sizing.takeProfit;
-            finalStopLoss = (oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry)
-              ? roundTick(oodaDecision.stop_loss)
+            // 🛡️ DETERMINISTIC HARD CLAMP (Anti-Self-Deception RRR):
+            // Batasi stop loss maksimal -5% dan take profit realistis (min 1:1.8 RRR, max +15%)
+            const minAllowedStop = roundTick(sizing.entry * 0.95);
+            const rawSl = oodaDecision?.stop_loss && oodaDecision.stop_loss < sizing.entry
+              ? roundTick(Math.max(minAllowedStop, oodaDecision.stop_loss))
               : sizing.stop;
+            finalStopLoss = rawSl;
+
+            const maxAllowedTp = roundTick(sizing.entry * 1.15);
+            let rawTp = oodaDecision?.target_price && oodaDecision.target_price > sizing.entry
+              ? roundTick(Math.min(maxAllowedTp, oodaDecision.target_price))
+              : sizing.takeProfit;
+            
+            // Jamin Risk-Reward Ratio matematis tidak diakali (Wajib >= 1.8x)
+            const riskPoints = Math.max(1, sizing.entry - finalStopLoss);
+            if (rawTp - sizing.entry < riskPoints * 1.8) {
+              rawTp = roundTick(sizing.entry + Math.round(riskPoints * 2.0));
+            }
+            finalTakeProfit = rawTp;
           }
+
+          // 🛡️ DEDUPLIKASI ORDER (Cegah double execution pada saham yang sama dalam 60 detik)
+          const lastOrderTime = ORDER_DEDUPLICATION_CACHE[target.symbol];
+          if (lastOrderTime && Date.now() - lastOrderTime < 60_000) {
+            aiStore.logAction({
+              type: 'RISK_GATE',
+              symbol: target.symbol,
+              agentId: 'cro',
+              agentName: 'Bambang Suroso (Chief Risk Officer)',
+              agentEmoji: '🛡️',
+              title: `Deduplikasi Order: ${target.symbol}`,
+              details: `Order untuk ${target.symbol} baru saja dieksekusi kurang dari 60 detik lalu. Mencegah order ganda.`,
+            });
+            break;
+          }
+          ORDER_DEDUPLICATION_CACHE[target.symbol] = Date.now();
 
           const res = portfolioStore.placeBuyOrder({
             symbol: fullSymbol,
@@ -913,5 +973,6 @@ export async function runAutonomousAgentCycle(
     return { actionTaken, tradeExecuted, topPick };
   } finally {
     isCycleCurrentlyExecuting = false;
+    releaseCrossTabLock();
   }
 }
