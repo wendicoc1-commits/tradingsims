@@ -142,7 +142,7 @@ export function calculateRiskRewardPlan(
 ): { entry: number; takeProfit: number; stopLoss: number; riskPct: number; rewardPct: number; rrRatio: number } {
   const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
   const isCrypto =
-    ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(cleanSym) ||
+    ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON', 'SEI'].includes(cleanSym) ||
     symbol.toUpperCase().endsWith('USDT') ||
     currentPrice < 50;
 

@@ -27,6 +27,18 @@ export function getTelegramConfig(): TelegramConfig {
     // Default enabled jika token & chatId terisi dan tidak eksplisit disetel 'false'
     const enabled = rawEnabled !== 'false' && Boolean(botToken && chatId);
 
+    if (botToken && chatId && typeof window !== 'undefined') {
+      const win = window as any;
+      if (!win.__telegramConfigSynced) {
+        win.__telegramConfigSynced = true;
+        fetch('/api/telegram/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botToken, chatId, enabled }),
+        }).catch(() => {});
+      }
+    }
+
     return {
       botToken,
       chatId,

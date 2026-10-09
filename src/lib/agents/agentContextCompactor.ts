@@ -110,8 +110,8 @@ export function compressMarketContext(ticker: string, livePrice?: number): Compr
   const price = livePrice && livePrice > 0 ? livePrice : intel.currentPrice;
 
   // Dapatkan level Support & Resistance terdekat
-  const s1 = intel.smcLevels?.support1 || Math.round(price * 0.96);
-  const r1 = intel.smcLevels?.resistance1 || Math.round(price * 1.05);
+  const s1 = intel.smcLevels?.support1 || (isForeign ? Number((price * 0.96).toFixed(price < 1 ? 4 : 2)) : Math.round(price * 0.96));
+  const r1 = intel.smcLevels?.resistance1 || (isForeign ? Number((price * 1.05).toFixed(price < 1 ? 4 : 2)) : Math.round(price * 1.05));
 
   let bandarVerdict: 'AKUMULASI' | 'DISTRIBUSI' | 'NETRAL' = 'NETRAL';
   if (intel.bandarmologi) {
@@ -134,7 +134,7 @@ export function compressMarketContext(ticker: string, livePrice?: number): Compr
     peRatio: Number((intel.financials?.peRatio || 0).toFixed(1)),
     pbRatio: Number((intel.financials?.pbRatio || 0).toFixed(1)),
     consensusRating: intel.institutionalConsensus?.consensusRating || 'HOLD',
-    targetPriceConsensus: intel.institutionalConsensus?.targetPriceConsensus || Math.round(price * 1.08),
+    targetPriceConsensus: intel.institutionalConsensus?.targetPriceConsensus || (isForeign ? Number((price * 1.08).toFixed(price < 1 ? 4 : 2)) : Math.round(price * 1.08)),
   };
 }
 

@@ -31,7 +31,7 @@ export const UNIVERSE_TICKERS = [
   // Consumer Staples & Retail
   'ICBP', 'UNVR', 'MYOR', 'CPIN', 'INDF', 'KLBF', 'ACES', 'MAPI',
   // Top Liquid Crypto (Spot Jesse Desk)
-  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT',
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'ARB', 'RENDER', 'TAO', 'FET', 'OP', 'APT', 'PEPE', 'SHIB', 'DOT',
   // Mega Cap Global Tech
   'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL',
 ] as const;
@@ -140,7 +140,7 @@ function evaluateNewsSentiment(symbol: string, name: string, news: NewsItem[]): 
 }
 
 function evaluateFundamentalScore(intel: GroundedStockIntelligence): { score: number; drivers: string[] } {
-  const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(intel.symbol.toUpperCase());
+  const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'ARB', 'RENDER', 'TAO', 'FET', 'OP', 'APT', 'PEPE', 'SHIB', 'DOT'].includes(intel.symbol.toUpperCase());
   if (isCrypto) {
     let score = 0;
     const drivers: string[] = [];
@@ -517,6 +517,9 @@ export function scanUniverseForTopAlpha(
  * - Mengutamakan rotasi ke sektor-sektor unggulan lain: Energi, Tambang/Komoditas, Consumer Goods, Telekomunikasi, Otomotif, dsb.
  * - Menerapkan rotasi strategi multi-faktor (Bandarmologi, Deep Value, Momentum Breakout, Dividen).
  */
+// Memory riwayat rotasi kandidat untuk mencegah ping-pong loop bolak-balik antara 2 aset (misal ARB - LINK)
+const recentVisitedRing: string[] = [];
+
 export function selectDiversifiedCandidate(
   leaderboard: StockAlphaEvaluation[],
   holdings: { displaySymbol: string; symbol: string; lots?: number; assetClass?: string; currency?: string }[],
@@ -587,9 +590,18 @@ export function selectDiversifiedCandidate(
       priority += 4;
     }
 
-    // D. Penalti jika saham ini adalah saham yang sedang ditampilkan saat ini dan sudah dipertimbangkan
-    if (currentStock && cleanSym === currentStock.toUpperCase() && isAlreadyOwned) {
-      priority -= 8;
+    // D. Penalti Kuat Saham yang Sedang Ditampilkan Saat Ini (-28 Poin)
+    // Mencegah AI terus-menerus memilih kembali saham yang baru saja diulas
+    if (currentStock && cleanSym === currentStock.toUpperCase()) {
+      priority -= 28;
+    }
+
+    // E. Penalti Cooldown Riwayat Rotasi Terakhir (-22 s/d -6 Poin)
+    // Menghentikan fenomena ping-pong osilasi antara 2 aset teratas (misal ARB bolak-balik LINK)
+    const recentIndex = recentVisitedRing.indexOf(cleanSym);
+    if (recentIndex !== -1) {
+      const recencyWeight = (recentIndex + 1) / recentVisitedRing.length;
+      priority -= Math.round(recencyWeight * 22);
     }
 
     return { candidate: c, priority };
@@ -598,5 +610,19 @@ export function selectDiversifiedCandidate(
   // Urutkan berdasarkan prioritas diversifikasi tertinggi
   scoredCandidates.sort((a, b) => b.priority - a.priority);
 
-  return scoredCandidates[0]?.candidate || validCandidates[0] || null;
+  const winner = scoredCandidates[0]?.candidate || validCandidates[0] || null;
+
+  if (winner) {
+    const sym = winner.symbol.toUpperCase();
+    const existingIdx = recentVisitedRing.indexOf(sym);
+    if (existingIdx !== -1) {
+      recentVisitedRing.splice(existingIdx, 1);
+    }
+    recentVisitedRing.push(sym);
+    if (recentVisitedRing.length > 8) {
+      recentVisitedRing.shift();
+    }
+  }
+
+  return winner;
 }

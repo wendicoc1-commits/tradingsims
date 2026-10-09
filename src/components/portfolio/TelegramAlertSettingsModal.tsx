@@ -28,9 +28,28 @@ export default function TelegramAlertSettingsModal({ isOpen, onClose }: Telegram
       const savedToken = localStorage.getItem('TRADEMIND_TELEGRAM_BOT_TOKEN') || '';
       const savedChatId = localStorage.getItem('TRADEMIND_TELEGRAM_CHAT_ID') || '';
       const savedEnabled = localStorage.getItem('TRADEMIND_TELEGRAM_ENABLED') !== 'false';
-      setBotToken(savedToken);
-      setChatId(savedChatId);
-      setEnabled(savedEnabled);
+      if (savedToken && savedChatId) {
+        setBotToken(savedToken);
+        setChatId(savedChatId);
+        setEnabled(savedEnabled);
+        fetch('/api/telegram/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botToken: savedToken, chatId: savedChatId, enabled: savedEnabled }),
+        }).catch(() => {});
+      } else {
+        // Ambil dari backend daemon jika localStorage masih kosong
+        fetch('/api/telegram/config')
+          .then((r) => r.json())
+          .then((d) => {
+            if (d?.config?.botToken) {
+              setBotToken(d.config.botToken);
+              setChatId(d.config.chatId);
+              setEnabled(d.config.enabled);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [isOpen]);
 
@@ -39,6 +58,17 @@ export default function TelegramAlertSettingsModal({ isOpen, onClose }: Telegram
       localStorage.setItem('TRADEMIND_TELEGRAM_BOT_TOKEN', botToken.trim());
       localStorage.setItem('TRADEMIND_TELEGRAM_CHAT_ID', chatId.trim());
       localStorage.setItem('TRADEMIND_TELEGRAM_ENABLED', String(enabled));
+
+      // Simpan ke file konfigurasi backend 24/7
+      fetch('/api/telegram/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          botToken: botToken.trim(),
+          chatId: chatId.trim(),
+          enabled,
+        }),
+      }).catch(() => {});
     }
     setTestStatus({ success: true, message: '✅ Pengaturan notifikasi Telegram berhasil disimpan!' });
     setTimeout(() => {
@@ -79,9 +109,19 @@ export default function TelegramAlertSettingsModal({ isOpen, onClose }: Telegram
         localStorage.setItem('TRADEMIND_TELEGRAM_ENABLED', 'true');
         setEnabled(true);
 
+        fetch('/api/telegram/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            botToken: botToken.trim(),
+            chatId: chatId.trim(),
+            enabled: true,
+          }),
+        }).catch(() => {});
+
         setTestStatus({
           success: true,
-          message: '🎉 Notifikasi tes berhasil terkirim dan disimpan otomatis!',
+          message: '🎉 Notifikasi tes berhasil terkirim dan tersimpan di daemon 24/7!',
         });
       } else {
         setTestStatus({
