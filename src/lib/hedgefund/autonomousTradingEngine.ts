@@ -19,6 +19,27 @@ import { isCryptoSymbol } from '../universe/masterAssetUniverse';
 import { sanitizeUntrustedIntel } from '../agents/agentContextCompactor';
 
 /**
+ * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities)
+ */
+function dispatchToQuantBridge(payload: {
+  engine: 'freqtrade' | 'lumibot';
+  action: 'BUY' | 'SELL';
+  ticker: string;
+  price: number;
+  stopLoss?: number;
+  targetPrice?: number;
+  reason?: string;
+}) {
+  if (typeof window !== 'undefined') {
+    fetch('/api/quant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
+}
+
+/**
  * Menjalankan satu siklus penuh otonom:
  * - Sinkronisasi harga pasar portofolio dengan live quotes
  * - Pantau & eksekusi TP/SL pada portofolio saat ini (dengan kepatuhan fraksi BEI)
@@ -255,6 +276,14 @@ export async function runAutonomousAgentCycle(
 
         aiStore.recordTradeStat(false, estProfit);
 
+        dispatchToQuantBridge({
+          engine: isCrypto ? 'freqtrade' : 'lumibot',
+          action: 'SELL',
+          ticker: sym,
+          price: sellPrice,
+          reason: 'Trailing Stop Chandelier Profit Secured',
+        });
+
         if (typeof window !== 'undefined') {
           fetch('/api/ai/agent?action=reflect', {
             method: 'POST',
@@ -319,6 +348,15 @@ export async function runAutonomousAgentCycle(
         });
 
         aiStore.recordTradeStat(false, -lossVal);
+
+        dispatchToQuantBridge({
+          engine: isCrypto ? 'freqtrade' : 'lumibot',
+          action: 'SELL',
+          ticker: sym,
+          price: sellPrice,
+          stopLoss: holding.stopLossPrice,
+          reason: 'CRO Veto Hard Stop Loss',
+        });
 
         if (typeof window !== 'undefined') {
           fetch('/api/ai/agent?action=reflect', {
@@ -802,6 +840,17 @@ export async function runAutonomousAgentCycle(
             });
 
             aiStore.recordTradeStat(true);
+
+            // Dispatch ke Quant Bridge (Freqtrade untuk Crypto / Lumibot untuk Equities)
+            dispatchToQuantBridge({
+              engine: shareInfo.isCrypto ? 'freqtrade' : 'lumibot',
+              action: 'BUY',
+              ticker: target.symbol,
+              price: sizing.entry,
+              stopLoss: finalStopLoss,
+              targetPrice: finalTakeProfit,
+              reason: oodaDecision?.alasan_eksekusi || `Autonomous Alpha Scanner Rank #${target.rank}`,
+            });
           } else if (res.error) {
             aiStore.logAction({
               type: 'RISK_GATE',

@@ -23,7 +23,8 @@ import BullBearDebateArena from '@/components/ai/BullBearDebateArena';
 import AutonomousPaperTradingDesk from '@/components/ai/AutonomousPaperTradingDesk';
 import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
-import { Swords, Briefcase, Activity, Building2, Coins, Flame } from 'lucide-react';
+import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
+import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -62,7 +63,7 @@ const PRESET_PROMPTS = [
 
 export default function FinceptAiCopilotPage() {
   const [mainAiTab, setMainAiTab] = useState<
-    'VIRTUAL_OFFICE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
+    'VIRTUAL_OFFICE' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
   >('VIRTUAL_OFFICE');
 
   useEffect(() => {
@@ -71,6 +72,8 @@ export default function FinceptAiCopilotPage() {
       const tabParam = params.get('tab');
       if (tabParam === 'chat' || tabParam === 'copilot') {
         setMainAiTab('COPILOT_CHAT');
+      } else if (tabParam === 'quant' || tabParam === 'bridge' || tabParam === 'freqtrade' || tabParam === 'lumibot') {
+        setMainAiTab('QUANT_BRIDGE');
       } else if (tabParam === 'crypto' || tabParam === 'jesse' || tabParam === 'desk') {
         setMainAiTab('CRYPTO_DESK');
       } else if (tabParam === 'debate' || tabParam === 'arena' || tabParam === 'bull-bear') {
@@ -277,6 +280,18 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
           </button>
 
           <button
+            onClick={() => setMainAiTab('QUANT_BRIDGE')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+              mainAiTab === 'QUANT_BRIDGE'
+                ? 'bg-emerald-400 text-black shadow-md shadow-emerald-400/30 font-extrabold'
+                : 'text-emerald-400 border border-emerald-800/50 bg-emerald-950/20 hover:text-white hover:bg-emerald-900/40'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5 text-emerald-300" />
+            <span>⚡ Quant Desk (Freqtrade &amp; Lumibot)</span>
+          </button>
+
+          <button
             onClick={() => setMainAiTab('CRYPTO_DESK')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'CRYPTO_DESK'
@@ -346,6 +361,8 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
       {/* ── Tab Content Rendering ── */}
       {mainAiTab === 'VIRTUAL_OFFICE' ? (
         <VirtualAgentOfficeView />
+      ) : mainAiTab === 'QUANT_BRIDGE' ? (
+        <QuantBridgeDeskView />
       ) : mainAiTab === 'CRYPTO_DESK' ? (
         <JesseCryptoDeskView />
       ) : mainAiTab === 'HEDGE_FUND' ? (
