@@ -214,7 +214,7 @@ export const KNOWN_CRYPTO_SYMBOLS = [
   'S', 'SEI', 'INJ', 'UNI', 'LTC', 'BCH', 'AAVE', 'ICP', 'POL', 'MATIC',
 ]
 
-export const INITIAL_CASH = 0 // Rp 0 murni (bersih kosong)
+export const INITIAL_CASH = 100000000 // Rp 100 Juta modal awal simulasi standar
 
 export const INITIAL_HOLDINGS: PortfolioHolding[] = []
 

@@ -95,13 +95,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Proteksi Integritas Aset & Anti-Tamper:
-    // 1. Lindungi user terproteksi (wendicoc1@gmail.com) agar posisinya tidak ter-wipe secara tidak sengaja
-    const isProtectedAccount = email === 'wendicoc1@gmail.com';
     let finalHoldings = sanitizedHoldings;
-    if (isProtectedAccount && currentPortfolio?.holdings?.length && sanitizedHoldings.length === 0) {
-      finalHoldings = currentPortfolio.holdings;
-    }
 
     // 2. Proteksi Saldo Arbitrer:
     // Jika ada portofolio eksisting dan selisih cash melompat naik drastis (> Rp 1 Miliar) tanpa adanya order jual baru,

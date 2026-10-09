@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 import {
   Maximize2,
   Minimize2,
@@ -65,7 +66,22 @@ export default function TradeSimHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme, setSelectedSymbol } = useMarketStore();
-  const { cash } = usePortfolioStore();
+  const { cash, holdings } = usePortfolioStore();
+
+  const totalHoldingsValue = useMemo(() => {
+    return (holdings || []).reduce((sum, h) => {
+      const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
+      const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean));
+      const rate = h.exchangeRate || 16000;
+      const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+      if (isCrypto || isUS) {
+        return sum + Math.round((h.currentPrice || 0) * (units || 0) * rate);
+      }
+      return sum + ((h.currentPrice || 0) * (units || 0));
+    }, 0);
+  }, [holdings]);
+  const totalNav = cash + totalHoldingsValue;
   const { user, logout, checkSession } = useAuthStore();
   const { autoTradingEnabled, setAutoTradingEnabled } = useAIAgentStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -281,15 +297,20 @@ export default function TradeSimHeader() {
 
           {/* User Status / Top-up Action */}
           <div className="flex items-center gap-1.5 border-l border-[#27272a] pl-2.5">
-            {/* Saldo Kas Virtual (Tampil di setiap tab di pojok kanan atas) */}
+            {/* Saldo Kas & Total Aset Virtual (Tampil di setiap tab di pojok kanan atas) */}
             <button
               type="button"
               onClick={() => setIsTopUpOpen(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-mono font-bold text-[11px] transition-all cursor-pointer group shadow-sm"
-              title="Saldo Kas Virtual RDN - Klik untuk Top Up Saldo"
+              title={`Kas Tersedia (RDN): Rp ${Math.round(cash).toLocaleString('id-ID')} · Total Nilai Portofolio: Rp ${Math.round(totalNav).toLocaleString('id-ID')} (Klik untuk Top Up)`}
             >
               <Wallet className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
               <span>Rp {Math.round(cash).toLocaleString('id-ID')}</span>
+              {totalHoldingsValue > 0 && (
+                <span className="hidden sm:inline text-[10px] text-zinc-400 font-normal">
+                  (Aset: Rp {Math.round(totalNav).toLocaleString('id-ID')})
+                </span>
+              )}
             </button>
 
             {/* AI Auto-Pilot Global Toggle */}
