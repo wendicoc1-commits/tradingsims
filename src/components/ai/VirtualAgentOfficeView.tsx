@@ -130,7 +130,6 @@ import { globalMeritocracy } from '@/lib/office/MeritocracyPromotionEngine';
 import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
 import QuantDeskJessePanel from './QuantDeskJessePanel';
 import FloatingAgentInspector from './FloatingAgentInspector';
-import AiOsAgenticCyberdeckView from './AiOsAgenticCyberdeckView';
 import type { AgentProfile } from '@/types/simulation.types';
 
 // ───────────────────────── konstanta ─────────────────────────
@@ -1263,7 +1262,6 @@ export default function VirtualAgentOfficeView() {
   const [tick, setTick] = useState(0);
   const [assetsReady, setAssetsReady] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [officeViewMode, setOfficeViewMode] = useState<'2D_OFFICE' | '3D_CYBERDECK'>('2D_OFFICE');
 
   // ── Auto-Pilot & Autonomous Stock Selection ──
   const { tickerMap } = useBinanceLivePrices();
@@ -2768,19 +2766,6 @@ export default function VirtualAgentOfficeView() {
     return <div className="min-h-screen bg-[#07090e]" />;
   }
 
-  if (officeViewMode === '3D_CYBERDECK') {
-    return (
-      <AiOsAgenticCyberdeckView
-        onSwitchTo2DOffice={() => setOfficeViewMode('2D_OFFICE')}
-        onOpenWarRoom={(sym) => {
-          setSelectedStock(sym);
-          setOfficeViewMode('2D_OFFICE');
-          setTimeout(() => startDebate(), 150);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-[#07090e] text-zinc-100 select-none pb-10">
       {/* ── Header ── */}
@@ -2807,31 +2792,6 @@ export default function VirtualAgentOfficeView() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Mode Switcher: 2D Floor vs 3D AI-OS Cyberdeck */}
-            <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-700">
-              <button
-                onClick={() => setOfficeViewMode('2D_OFFICE')}
-                className={`px-2.5 py-1.5 rounded text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  officeViewMode === '2D_OFFICE'
-                    ? 'bg-amber-500 text-black shadow-sm font-extrabold'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <span>🏢 2D Floor</span>
-              </button>
-              <button
-                onClick={() => setOfficeViewMode('3D_CYBERDECK')}
-                className={`px-2.5 py-1.5 rounded text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  officeViewMode === '3D_CYBERDECK'
-                    ? 'bg-cyan-400 text-black shadow-md shadow-cyan-400/30 font-extrabold'
-                    : 'text-cyan-400 hover:text-cyan-200'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                <span>🌐 3D AI-OS Globe</span>
-              </button>
-            </div>
-
             <div className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 ${health.newsOk ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
               <Radio className="w-3 h-3" />
               Berita {health.newsOk ? `LIVE · ${news.length}` : 'OFFLINE'}

@@ -24,7 +24,6 @@ import AutonomousPaperTradingDesk from '@/components/ai/AutonomousPaperTradingDe
 import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
 import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
-import AiOsAgenticCyberdeckView from '@/components/ai/AiOsAgenticCyberdeckView';
 import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain } from 'lucide-react';
 
 interface ChatMessage {
@@ -64,8 +63,8 @@ const PRESET_PROMPTS = [
 
 export default function FinceptAiCopilotPage() {
   const [mainAiTab, setMainAiTab] = useState<
-    'VIRTUAL_OFFICE' | 'AI_OS_CYBERDECK' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
-  >('AI_OS_CYBERDECK');
+    'VIRTUAL_OFFICE' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
+  >('VIRTUAL_OFFICE');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -74,7 +73,7 @@ export default function FinceptAiCopilotPage() {
       if (tabParam === 'chat' || tabParam === 'copilot') {
         setMainAiTab('COPILOT_CHAT');
       } else if (tabParam === 'cyberdeck' || tabParam === 'ai-os' || tabParam === 'globe' || tabParam === 'hud') {
-        setMainAiTab('AI_OS_CYBERDECK');
+        setMainAiTab('VIRTUAL_OFFICE');
       } else if (tabParam === 'quant' || tabParam === 'bridge' || tabParam === 'freqtrade' || tabParam === 'lumibot') {
         setMainAiTab('QUANT_BRIDGE');
       } else if (tabParam === 'crypto' || tabParam === 'jesse' || tabParam === 'desk') {
@@ -271,22 +270,10 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-sm text-xs">
         <div className="flex flex-wrap items-center gap-1.5 p-0.5 bg-[#121215] border border-[#27272a] rounded">
           <button
-            onClick={() => setMainAiTab('AI_OS_CYBERDECK')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
-              mainAiTab === 'AI_OS_CYBERDECK'
-                ? 'bg-cyan-400 text-black shadow-md shadow-cyan-400/30 font-extrabold'
-                : 'text-cyan-400 border border-cyan-800/50 bg-cyan-950/20 hover:text-white hover:bg-cyan-900/40'
-            }`}
-          >
-            <Brain className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
-            <span>🧠 AI·OS 3D Neural Brain (Synaptic WebGL)</span>
-          </button>
-
-          <button
             onClick={() => setMainAiTab('VIRTUAL_OFFICE')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'VIRTUAL_OFFICE'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
+                ? 'bg-[#f59e0b] text-black shadow-sm font-extrabold'
                 : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
             }`}
           >
@@ -374,12 +361,7 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
       </div>
 
       {/* ── Tab Content Rendering ── */}
-      {mainAiTab === 'AI_OS_CYBERDECK' ? (
-        <AiOsAgenticCyberdeckView
-          onSwitchTo2DOffice={() => setMainAiTab('VIRTUAL_OFFICE')}
-          onOpenWarRoom={(sym) => setMainAiTab('VIRTUAL_OFFICE')}
-        />
-      ) : mainAiTab === 'VIRTUAL_OFFICE' ? (
+      {mainAiTab === 'VIRTUAL_OFFICE' ? (
         <VirtualAgentOfficeView />
       ) : mainAiTab === 'QUANT_BRIDGE' ? (
         <QuantBridgeDeskView />
