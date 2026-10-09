@@ -153,11 +153,19 @@ export default function QuantDeskJessePanel({
         // 3. Catat aksi di AI Agent Store
         useAIAgentStore.getState().logAction({
           type: 'TRADE_BUY',
-          symbol: pairSym,
-          shares: targetLots,
-          price: curPrice,
-          thesis: `Eksekusi Taktikal Jesse AI (${jesseSignal.strategyName}) disetujui QuantDesk. SL: $${jesseSignal.stopLoss.toLocaleString()}, TP: $${jesseSignal.takeProfit.toLocaleString()}.`,
+          symbol: activePair,
+          agentId: 'trader_crypto',
           agentName: 'Kevin Zhang (Jesse Crypto PM)',
+          agentEmoji: '⚡',
+          title: `Eksekusi Taktikal: ${activePair}`,
+          details: `Eksekusi Taktikal Jesse AI (${jesseSignal.strategyName}) disetujui QuantDesk. SL: $${jesseSignal.stopLoss.toLocaleString()}, TP: $${jesseSignal.takeProfit.toLocaleString()}.`,
+          metadata: {
+            price: curPrice,
+            lots: targetLots,
+            stopLoss: jesseSignal.stopLoss,
+            takeProfit: jesseSignal.takeProfit,
+            source: 'Jesse AI Quantitative Engine',
+          },
         });
 
         setExecutionResult({
