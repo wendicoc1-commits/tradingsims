@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const QUANT_BRIDGE_URL = process.env.QUANT_BRIDGE_URL || 'http://localhost:8002';
+const QUANT_BRIDGE_SECRET = process.env.QUANT_BRIDGE_SECRET || 'tradesim_quant_sec_7f9e1d82ab';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +12,9 @@ export async function GET(req: NextRequest) {
     try {
       const res = await fetch(`${QUANT_BRIDGE_URL}/api/quant/status`, {
         signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${QUANT_BRIDGE_SECRET}`,
+        },
       });
       clearTimeout(timeout);
       if (res.ok) {
@@ -93,7 +97,10 @@ export async function POST(req: NextRequest) {
       const endpoint = engine === 'lumibot' ? '/api/quant/lumibot/backtest' : '/api/quant/freqtrade/signal';
       const bridgeRes = await fetch(`${QUANT_BRIDGE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${QUANT_BRIDGE_SECRET}`,
+        },
         body: JSON.stringify(body),
       });
       if (bridgeRes.ok) {
