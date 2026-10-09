@@ -113,10 +113,37 @@ export function roundTick(p: number): number {
   return Math.max(tick, Math.round(p / tick) * tick);
 }
 
-export function portfolioNav(p: PortfolioSnapshot): number {
-  if (!p) return 0;
+export function portfolioNav(pOrCash: PortfolioSnapshot | number, maybeHoldings?: any[]): number {
+  if (typeof pOrCash === 'number') {
+    const cash = pOrCash;
+    const holdingsList = Array.isArray(maybeHoldings) ? maybeHoldings : [];
+    const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
+    const hv = holdingsList.reduce((sum, h: any) => {
+      const sym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const isCrypto =
+        h.assetClass === 'CRYPTO' ||
+        h.currency === 'USDT' ||
+        h.displaySymbol?.toUpperCase().endsWith('USDT') ||
+        h.symbol?.toUpperCase().endsWith('USDT') ||
+        ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(sym);
+      const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US.includes(sym));
+      const rate = h.exchangeRate || 16000;
+      if (isCrypto) {
+        const units = h.cryptoUnits ?? h.lots;
+        return sum + Math.round(units * (h.currentPrice || 0) * rate);
+      }
+      if (isUS) {
+        const units = h.shares ?? h.lots;
+        return sum + Math.round(units * (h.currentPrice || 0) * rate);
+      }
+      return sum + (h.shares ?? h.lots * 100) * (h.currentPrice || 0);
+    }, 0);
+    return cash + hv;
+  }
+
+  if (!pOrCash) return 0;
   const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
-  const holdingsList = Array.isArray(p.holdings) ? p.holdings : [];
+  const holdingsList = Array.isArray(pOrCash.holdings) ? pOrCash.holdings : [];
   const hv = holdingsList.reduce((sum, h: any) => {
     const sym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isCrypto =
@@ -129,15 +156,15 @@ export function portfolioNav(p: PortfolioSnapshot): number {
     const rate = h.exchangeRate || 16000;
     if (isCrypto) {
       const units = h.cryptoUnits ?? h.lots;
-      return sum + Math.round(units * h.currentPrice * rate);
+      return sum + Math.round(units * (h.currentPrice || 0) * rate);
     }
     if (isUS) {
       const units = h.shares ?? h.lots;
-      return sum + Math.round(units * h.currentPrice * rate);
+      return sum + Math.round(units * (h.currentPrice || 0) * rate);
     }
-    return sum + (h.shares ?? h.lots * 100) * h.currentPrice;
+    return sum + (h.shares ?? h.lots * 100) * (h.currentPrice || 0);
   }, 0);
-  return p.cash + hv;
+  return (pOrCash.cash || 0) + hv;
 }
 
 function symbolNews(ctx: DeskContext): NewsItem[] {
