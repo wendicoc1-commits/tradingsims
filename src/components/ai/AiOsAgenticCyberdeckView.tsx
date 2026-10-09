@@ -42,8 +42,8 @@ import { checkIDXMarketStatus } from '@/lib/market/marketHours';
 import { notifyTelegramTradeBuy } from '@/lib/telegram/telegramNotificationEngine';
 import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
 
-// ── Types & Interfaces ──
-export type CyberdeckViewMode = '3D ORBIT' | 'RINGS' | 'CIRCLE' | 'AREAS' | 'LINKS' | 'TIMELINE';
+// ── View Modes ──
+export type CyberdeckViewMode = 'SOLAR SYSTEM' | '3D ORBIT' | 'RINGS' | 'CIRCLE' | 'AREAS' | 'LINKS' | 'TIMELINE';
 
 export interface GraphNode {
   id: string;
@@ -51,29 +51,54 @@ export interface GraphNode {
   category: 'CORE' | 'AGENT' | 'ROUTINE' | 'CRYPTO_L2' | 'CRYPTO_L1' | 'IDX' | 'GLOBAL';
   sub: string;
   desc: string;
+  planetType: 'SUN' | 'MERCURY' | 'VENUS' | 'EARTH' | 'MARS' | 'JUPITER' | 'SATURN' | 'URANUS' | 'NEPTUNE' | 'MOON' | 'COMET';
   price?: string;
   change?: string;
   color: string;
+  secondaryColor?: string;
   glow: string;
   r: number;
-  ringLevel: number; // 0: core, 1: agent, 2: routine, 3: asset
-  // Spherical coords for 3D Orbit
-  sphereTheta: number; // azimuth [0, 2pi]
-  spherePhi: number;   // elevation [-pi/2, pi/2]
-  // 2D Target Coords
+  ringLevel: number; // 0: core, 1: inner planet, 2: outer planet, 3: kuiper asset
+  // Spherical & Solar Coords
+  solarDistance: number;
+  orbitSpeed: number;
+  orbitTilt: number;
+  sphereTheta: number;
+  spherePhi: number;
+  // 2D Coords
   ringsAngle: number;
   circleAngle: number;
   clusterCenterX: number;
   clusterCenterY: number;
   timelineLane: number;
   timelineTimePct: number;
-  // Current animated coordinates
+  // Animated coordinates
   currX: number;
   currY: number;
   currZ: number;
   targetX: number;
   targetY: number;
   targetZ: number;
+}
+
+// ── Starfield Particle Interface ──
+interface CosmicStar {
+  x: number;
+  y: number;
+  z: number;
+  size: number;
+  baseAlpha: number;
+  twinkleSpeed: number;
+}
+
+// ── Procedural Asteroid Interface ──
+interface AsteroidParticle {
+  angle: number;
+  radius: number;
+  speed: number;
+  size: number;
+  yOffset: number;
+  color: string;
 }
 
 export default function AiOsAgenticCyberdeckView({
@@ -88,52 +113,87 @@ export default function AiOsAgenticCyberdeckView({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Active View Mode (Matches the 6 tabs seen in Pavrus AI-OS screenshots)
-  const [viewMode, setViewMode] = useState<CyberdeckViewMode>('3D ORBIT');
+  // Active View Mode (Default: Solar System 3D inspired by Karol Fryc)
+  const [viewMode, setViewMode] = useState<CyberdeckViewMode>('SOLAR SYSTEM');
   const [selectedNodeId, setSelectedNodeId] = useState<string>('core');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  // Time Clocks
+  // Clocks
   const [timeWIB, setTimeWIB] = useState('09:00:00');
   const [timeUTC, setTimeUTC] = useState('02:00:00');
 
-  // Interactive Canvas State
+  // Canvas View Controls
   const [zoom, setZoom] = useState(1.0);
   const [autoRotate, setAutoRotate] = useState(true);
-  const [rotAngleX, setRotAngleX] = useState(0.2); // pitch
-  const [rotAngleY, setRotAngleY] = useState(0.0); // yaw
+  const [rotAngleX, setRotAngleX] = useState(0.35); // Initial pitch angle for solar perspective
+  const [rotAngleY, setRotAngleY] = useState(0.0);
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
 
-  // Skills Deck Execution Log
+  // Skills Deck Feedback
   const [skillFeedback, setSkillFeedback] = useState<string | null>(null);
   const [scanCountdown, setScanCountdown] = useState(18);
   const [fps, setFps] = useState(60);
-
-  // Sound toggle
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // Filter category
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  // High-frequency data burst trigger for pulse animation
+  const dataBurstRef = useRef<number>(0);
 
-  // Compute live IDX market status
+  // Live market status
   const idxStatus = useMemo(() => checkIDXMarketStatus(), []);
 
-  // ── Construct Graph Nodes ──
+  // ── Procedural Stars Background (Deep Space Starfield) ──
+  const starfield = useMemo<CosmicStar[]>(() => {
+    const list: CosmicStar[] = [];
+    for (let i = 0; i < 180; i++) {
+      list.push({
+        x: (Math.random() - 0.5) * 2000,
+        y: (Math.random() - 0.5) * 2000,
+        z: Math.random() * 800 + 200,
+        size: Math.random() * 1.6 + 0.5,
+        baseAlpha: Math.random() * 0.7 + 0.3,
+        twinkleSpeed: Math.random() * 0.003 + 0.001,
+      });
+    }
+    return list;
+  }, []);
+
+  // ── Procedural Asteroid Belt (Micro Market Ticks) ──
+  const asteroidBelt = useMemo<AsteroidParticle[]>(() => {
+    const list: AsteroidParticle[] = [];
+    for (let i = 0; i < 90; i++) {
+      list.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: 200 + (Math.random() - 0.5) * 45,
+        speed: (Math.random() * 0.0004 + 0.0002) * (Math.random() > 0.5 ? 1 : 1),
+        size: Math.random() * 1.8 + 0.8,
+        yOffset: (Math.random() - 0.5) * 18,
+        color: Math.random() > 0.4 ? 'rgba(148, 163, 184, 0.6)' : 'rgba(6, 182, 212, 0.4)',
+      });
+    }
+    return list;
+  }, []);
+
+  // ── Nodes Setup (Solar System Material Hierarchy) ──
   const nodes = useMemo<GraphNode[]>(() => {
     const list: GraphNode[] = [];
 
-    // 1. Core Hub (Root Claude.MD / AI-OS Core)
+    // 1. Central Core: THE SUN (Fincept AI Alpha Core)
     list.push({
       id: 'core',
-      name: 'FINCEPT AI ALPHA CORE',
+      name: 'FINCEPT ALPHA CORE',
       category: 'CORE',
-      sub: 'Root Executive Multi-Agent Brain',
-      desc: 'Pusat komando otonom yang mengorkestrasi 12 pimpinan divisi, menyelaraskan konsensus War Room, dan mendistribusikan sinyal eksekusi ke Linux VPS 24/7.',
-      color: '#06b6d4',
-      glow: '#0891b2',
-      r: 20,
+      planetType: 'SUN',
+      sub: 'Root Executive Solar Brain',
+      desc: 'Matahari pusat konsensus multi-agent yang memancarkan sinyal likuiditas, menyelaraskan 12 agen eksekutif, dan mendistribusikan berkas data eksekusi ke VPS 24/7.',
+      color: '#f59e0b',
+      secondaryColor: '#fbbf24',
+      glow: '#06b6d4',
+      r: 24,
       ringLevel: 0,
+      solarDistance: 0,
+      orbitSpeed: 0,
+      orbitTilt: 0,
       sphereTheta: 0,
       spherePhi: 0,
       ringsAngle: 0,
@@ -141,7 +201,7 @@ export default function AiOsAgenticCyberdeckView({
       clusterCenterX: 0,
       clusterCenterY: 0,
       timelineLane: 0,
-      timelineTimePct: 0.1,
+      timelineTimePct: 0.08,
       currX: 0,
       currY: 0,
       currZ: 0,
@@ -150,82 +210,54 @@ export default function AiOsAgenticCyberdeckView({
       targetZ: 0,
     });
 
-    // 2. 12 Firm Agents (from firmRoster)
-    const agentRoles: Record<string, string> = {
-      dewi: 'Quant Alpha Lead · Sharpe 2.45',
-      kevin: 'Jesse Crypto Desk · Spot 24/7',
-      raditya: 'L/S Equity PM · Konsensus BEI',
-      sri: 'Chief Risk Officer · VaR 99%',
-      budi: 'Macro Strategist · BI Rate & FED',
-      hadi: 'Chief Legal Officer · Regulasi OJK',
-      anita: 'Chief Investment Officer · Alokasi Kas',
-      bagas: 'Trading Desk Executioner · Algoritma TWAP',
-      ratna: 'News & Sentiment Lead · Bloomberg Wire',
-      maya: 'Data Intelligence Engineer · Alternative Feeds',
-      dimas: 'Arbitrage & Derivatives · Cross-Pair Spread',
-      citra: 'Compliance & Audit · Realized P&L Ledger',
-    };
-
-    FIRM_AGENTS.forEach((a, idx) => {
-      const angle = (idx / FIRM_AGENTS.length) * Math.PI * 2;
-      const spherePhi = (Math.PI / 6) * ((idx % 3) - 1);
-      list.push({
-        id: a.id,
-        name: a.name,
-        category: 'AGENT',
-        sub: agentRoles[a.id] || a.role,
-        desc: `Agen otonom ${a.name} bertanggung jawab atas ${a.deptId} dengan bobot voting konsensus institusional.`,
-        color: idx % 2 === 0 ? '#38bdf8' : '#818cf8',
-        glow: '#0284c7',
-        r: 10,
-        ringLevel: 1,
-        sphereTheta: angle,
-        spherePhi: spherePhi,
-        ringsAngle: angle,
-        circleAngle: (idx / 40) * Math.PI * 2,
-        clusterCenterX: -120 + (idx % 3) * 40,
-        clusterCenterY: -100 + Math.floor(idx / 3) * 50,
-        timelineLane: 1,
-        timelineTimePct: 0.15 + (idx / FIRM_AGENTS.length) * 0.7,
-        currX: 0,
-        currY: 0,
-        currZ: 0,
-        targetX: 0,
-        targetY: 0,
-        targetZ: 0,
-      });
-    });
-
-    // 3. Autonomous Routines & Engines (Freqtrade, Lumibot, Jesse, Telegram, Trailing Stop)
-    const routines = [
-      { id: 'jesse', name: 'Jesse Spot Engine', sub: 'Framework Spot Kripto', desc: 'Framework trading kuantitatif kripto spot berkecepatan tinggi.', color: '#06b6d4', lane: 2 },
-      { id: 'freqtrade', name: 'Freqtrade Linux VPS', sub: 'Daemon 24/7 Cloud', desc: 'Daemon server Linux di VPS cloud yang menjaga bot aktif saat browser ditutup.', color: '#10b981', lane: 2 },
-      { id: 'lumibot', name: 'Lumibot Equity Bridge', sub: 'Jembatan Order Saham', desc: 'Jembatan order saham otomatis dengan simulasi slippage Almgren-Chriss.', color: '#3b82f6', lane: 2 },
-      { id: 'telegram', name: 'Telegram Bot Notifier', sub: 'Push Alert Instan', desc: 'Pengirim sinyal live buy/sell ke smartphone pengguna secara instan.', color: '#0ea5e9', lane: 3 },
-      { id: 'trailing', name: 'ATR Trailing Stop', sub: 'Risk Guard 1.5x ATR', desc: 'Pengunci profit otomatis saat harga menyentuh target puncak baru.', color: '#f59e0b', lane: 3 },
-      { id: 'bandarmologi', name: 'Bandarmologi Radar', sub: 'Smart Money Net Flow', desc: 'Deteksi akumulasi broker asing & whale wallet on-chain.', color: '#a855f7', lane: 3 },
+    // 2. Agents as Inner & Middle Planets
+    const planetaryAgents: Array<{
+      id: string;
+      name: string;
+      type: GraphNode['planetType'];
+      sub: string;
+      desc: string;
+      color: string;
+      secColor?: string;
+      dist: number;
+      speed: number;
+      r: number;
+    }> = [
+      { id: 'dewi', name: 'Dewi Sartika', type: 'MERCURY', sub: 'Quant Alpha Lead · Sharpe 2.45', desc: 'Planet Merkurius: Orbit tercepat terdekat ke Sun, regresi momentum kuantitatif berkecepatan tinggi.', color: '#94a3b8', secColor: '#cbd5e1', dist: 75, speed: 0.0018, r: 8 },
+      { id: 'citra', name: 'Citra Kirana', type: 'VENUS', sub: 'Compliance & Audit Lead', desc: 'Planet Venus: Atmosfer padat pelindung neraca, validasi batas risiko OJK dan ledger transaksi.', color: '#eab308', secColor: '#fef08a', dist: 110, speed: 0.0014, r: 10 },
+      { id: 'kevin', name: 'Kevin Zhang', type: 'EARTH', sub: 'Jesse Crypto Desk · Spot 24/7', desc: 'Planet Bumi: Pusat kehidupan trading kripto spot Binance, biosfer aktif penggerak likuiditas.', color: '#0284c7', secColor: '#38bdf8', dist: 155, speed: 0.0011, r: 12 },
+      { id: 'raditya', name: 'Raditya Pratama', type: 'MARS', sub: 'L/S Equity PM · Konsensus BEI', desc: 'Planet Mars: Medan tempur saham BEI, bandarmologi institusional, dan rotasi sektor.', color: '#ef4444', secColor: '#f87171', dist: 200, speed: 0.0009, r: 9 },
+      { id: 'sri', name: 'Sri Mulyani', type: 'JUPITER', sub: 'Chief Risk Officer · VaR 99%', desc: 'Planet Jupiter: Raksasa gas gravitasi terbesar yang menelan badai pasar, penjaga batas drawdown 1.5x ATR.', color: '#d97706', secColor: '#f59e0b', dist: 270, speed: 0.0006, r: 17 },
+      { id: 'freqtrade', name: 'Freqtrade Linux VPS', type: 'SATURN', sub: 'Daemon 24/7 Cloud Engine', desc: 'Planet Saturnus: Dilengkapi cincin orbit kosmik ganda, server cloud yang menjaga bot aktif saat browser mati.', color: '#f59e0b', secColor: '#06b6d4', dist: 340, speed: 0.00045, r: 15 },
+      { id: 'lumibot', name: 'Lumibot Bridge', type: 'URANUS', sub: 'Broker Execution Gateway', desc: 'Planet Uranus: Raksasa es biru kehijauan, perute order saham otomatis dengan simulasi Almgren-Chriss.', color: '#06b6d4', secColor: '#67e8f9', dist: 400, speed: 0.00035, r: 11 },
+      { id: 'budi', name: 'Budi Santoso', type: 'NEPTUNE', sub: 'Chief Macro Strategist', desc: 'Planet Neptunus: Di batas terluar tata surya, mengamati arus makro BI Rate, M2, dan Fed Funds Rate.', color: '#3b82f6', secColor: '#60a5fa', dist: 455, speed: 0.00028, r: 11 },
     ];
 
-    routines.forEach((r, idx) => {
-      const angle = (idx / routines.length) * Math.PI * 2 + 0.3;
+    planetaryAgents.forEach((p, idx) => {
+      const angle = (idx / planetaryAgents.length) * Math.PI * 2;
       list.push({
-        id: r.id,
-        name: r.name,
-        category: 'ROUTINE',
-        sub: r.sub,
-        desc: r.desc,
-        color: r.color,
-        glow: r.color,
-        r: 8,
-        ringLevel: 2,
+        id: p.id,
+        name: p.name,
+        category: p.id === 'freqtrade' || p.id === 'lumibot' ? 'ROUTINE' : 'AGENT',
+        planetType: p.type,
+        sub: p.sub,
+        desc: p.desc,
+        color: p.color,
+        secondaryColor: p.secColor,
+        glow: p.color,
+        r: p.r,
+        ringLevel: 1,
+        solarDistance: p.dist,
+        orbitSpeed: p.speed,
+        orbitTilt: ((idx % 3) - 1) * 0.08,
         sphereTheta: angle,
-        spherePhi: (Math.PI / 4) * ((idx % 2 === 0 ? 1 : -1) * 0.7),
+        spherePhi: (Math.PI / 6) * ((idx % 3) - 1),
         ringsAngle: angle,
-        circleAngle: ((12 + idx) / 40) * Math.PI * 2,
-        clusterCenterX: 120 + (idx % 2) * 50,
-        clusterCenterY: -80 + Math.floor(idx / 2) * 60,
-        timelineLane: r.lane,
-        timelineTimePct: 0.2 + idx * 0.12,
+        circleAngle: (idx / 24) * Math.PI * 2,
+        clusterCenterX: -120 + (idx % 3) * 60,
+        clusterCenterY: -90 + Math.floor(idx / 3) * 60,
+        timelineLane: 1,
+        timelineTimePct: 0.15 + (idx / planetaryAgents.length) * 0.65,
         currX: 0,
         currY: 0,
         currZ: 0,
@@ -235,52 +267,63 @@ export default function AiOsAgenticCyberdeckView({
       });
     });
 
-    // 4. Tradable Assets Universe (Crypto L2, L1, IDX, Global)
-    const assetsData: Array<{ id: string; name: string; cat: GraphNode['category']; price: string; change: string; color: string; desc: string }> = [
+    // 3. Tradable Assets Universe (Moons, Comets & Kuiper Asteroids)
+    const assetsData: Array<{
+      id: string;
+      name: string;
+      cat: GraphNode['category'];
+      type: GraphNode['planetType'];
+      price: string;
+      change: string;
+      color: string;
+      secColor: string;
+      dist: number;
+      speed: number;
+      desc: string;
+    }> = [
       // Crypto Layer 2 (Focus from user inquiry)
-      { id: 'ARB', name: 'Arbitrum (ARB)', cat: 'CRYPTO_L2', price: '$0.1672', change: '+3.92%', color: '#38bdf8', desc: 'Rollup L2 TVL tertinggi di Ethereum, gas efisien.' },
-      { id: 'OP', name: 'Optimism (OP)', cat: 'CRYPTO_L2', price: '$1.625', change: '+4.60%', color: '#f43f5e', desc: 'Superchain OP Stack Layer 2 open-source.' },
+      { id: 'ARB', name: 'Arbitrum (ARB)', cat: 'CRYPTO_L2', type: 'MOON', price: '$0.1672', change: '+3.92%', color: '#38bdf8', secColor: '#0284c7', dist: 180, speed: 0.0016, desc: 'Satelit Rollup L2 TVL tertinggi di ekosistem Ethereum.' },
+      { id: 'OP', name: 'Optimism (OP)', cat: 'CRYPTO_L2', type: 'MOON', price: '$1.625', change: '+4.60%', color: '#f43f5e', secColor: '#fb7185', dist: 215, speed: 0.0013, desc: 'Satelit Superchain OP Stack Layer 2 open-source.' },
       // Crypto L1 & DeFi
-      { id: 'BTC', name: 'Bitcoin (BTC)', cat: 'CRYPTO_L1', price: '$81,379', change: '+1.80%', color: '#f59e0b', desc: 'Aset cadangan nilai kripto utama dunia.' },
-      { id: 'ETH', name: 'Ethereum (ETH)', cat: 'CRYPTO_L1', price: '$2,840', change: '+2.40%', color: '#818cf8', desc: 'Pondasi smart contract global & ekosistem L2.' },
-      { id: 'SOL', name: 'Solana (SOL)', cat: 'CRYPTO_L1', price: '$148.5', change: '+5.20%', color: '#10b981', desc: 'High-speed throughput blockchain L1.' },
-      { id: 'LINK', name: 'Chainlink (LINK)', cat: 'CRYPTO_L1', price: '$12.78', change: '+0.80%', color: '#2563eb', desc: 'Oracle terdesentralisasi industri keuangan.' },
-      { id: 'RENDER', name: 'Render (RENDER)', cat: 'CRYPTO_L1', price: '$1.82', change: '+6.10%', color: '#f97316', desc: 'Jaringan komputasi GPU AI terdesentralisasi.' },
-      { id: 'TAO', name: 'Bittensor (TAO)', cat: 'CRYPTO_L1', price: '$540.0', change: '+7.40%', color: '#eab308', desc: 'Subnet kecerdasan buatan terdesentralisasi.' },
-      // IDX Banking & Energy
-      { id: 'BBCA', name: 'Bank Central Asia (BBCA)', cat: 'IDX', price: 'Rp 9.850', change: '+0.51%', color: '#60a5fa', desc: 'Pilar utama perbankan swasta dengan CASA > 80%.' },
-      { id: 'BBRI', name: 'Bank Rakyat Indonesia (BBRI)', cat: 'IDX', price: 'Rp 4.620', change: '+1.10%', color: '#3b82f6', desc: 'Pemimpin pembiayaan mikro dan UMKM nasional.' },
-      { id: 'BMRI', name: 'Bank Mandiri (BMRI)', cat: 'IDX', price: 'Rp 7.050', change: '+1.45%', color: '#2563eb', desc: 'Ekspansi kredit korporasi terkuat dan Livin digital.' },
-      { id: 'ADRO', name: 'Adaro Energy (ADRO)', cat: 'IDX', price: 'Rp 3.650', change: '+2.82%', color: '#eab308', desc: 'Produsen energi dan pembagi dividen jumbo konsisten.' },
-      { id: 'TLKM', name: 'Telkom Indonesia (TLKM)', cat: 'IDX', price: 'Rp 2.850', change: '-0.35%', color: '#ef4444', desc: 'Raksasa infrastruktur telekomunikasi digital.' },
+      { id: 'BTC', name: 'Bitcoin (BTC)', cat: 'CRYPTO_L1', type: 'COMET', price: '$81,379', change: '+1.80%', color: '#f59e0b', secColor: '#fbbf24', dist: 310, speed: 0.0008, desc: 'Komet emas utama: cadangan nilai moneter global.' },
+      { id: 'ETH', name: 'Ethereum (ETH)', cat: 'CRYPTO_L1', type: 'COMET', price: '$2,840', change: '+2.40%', color: '#818cf8', secColor: '#a5b4fc', dist: 350, speed: 0.0007, desc: 'Komet pintar platform smart contract desentralisasi.' },
+      { id: 'SOL', name: 'Solana (SOL)', cat: 'CRYPTO_L1', type: 'COMET', price: '$148.5', change: '+5.20%', color: '#10b981', secColor: '#34d399', dist: 380, speed: 0.00065, desc: 'Komet kecepatan tinggi L1 throughput ultra.' },
+      { id: 'LINK', name: 'Chainlink (LINK)', cat: 'CRYPTO_L1', type: 'COMET', price: '$12.78', change: '+0.80%', color: '#2563eb', secColor: '#60a5fa', dist: 420, speed: 0.0005, desc: 'Standar oracle industri penghubung data on-chain.' },
+      // IDX Bluechips
+      { id: 'BBCA', name: 'Bank Central Asia (BBCA)', cat: 'IDX', type: 'COMET', price: 'Rp 9.850', change: '+0.51%', color: '#60a5fa', secColor: '#93c5fd', dist: 460, speed: 0.0004, desc: 'Pilar utama perbankan swasta nasional berbobot terbesar di BEI.' },
+      { id: 'BBRI', name: 'Bank Rakyat Indonesia (BBRI)', cat: 'IDX', type: 'COMET', price: 'Rp 4.620', change: '+1.10%', color: '#3b82f6', secColor: '#60a5fa', dist: 480, speed: 0.00038, desc: 'Raksasa kredit mikro UMKM dividen yield tinggi.' },
+      { id: 'ADRO', name: 'Adaro Energy (ADRO)', cat: 'IDX', type: 'COMET', price: 'Rp 3.650', change: '+2.82%', color: '#eab308', secColor: '#facc15', dist: 510, speed: 0.00032, desc: 'Energi dan dividen jumbo pasca spin-off AADI.' },
       // Global Tech
-      { id: 'NVDA', name: 'Nvidia Corp (NVDA)', cat: 'GLOBAL', price: '$118.2', change: '+3.40%', color: '#84cc16', desc: 'Monopoli semikonduktor akselerator AI global.' },
-      { id: 'PLTR', name: 'Palantir (PLTR)', cat: 'GLOBAL', price: '$38.4', change: '+4.80%', color: '#06b6d4', desc: 'Platform analitik AI institusional enterprise.' },
+      { id: 'NVDA', name: 'Nvidia Corp (NVDA)', cat: 'GLOBAL', type: 'COMET', price: '$118.2', change: '+3.40%', color: '#84cc16', secColor: '#a3e635', dist: 535, speed: 0.00028, desc: 'Monopoli akselerator komputasi AI global.' },
     ];
 
     assetsData.forEach((ast, idx) => {
-      const angle = (idx / assetsData.length) * Math.PI * 2 + 0.6;
-      const spherePhi = (Math.PI / 3) * ((idx % 5) / 2.5 - 1);
+      const angle = (idx / assetsData.length) * Math.PI * 2 + 0.4;
       list.push({
         id: ast.id,
         name: ast.name,
         category: ast.cat,
+        planetType: ast.type,
         sub: `${ast.price} · ${ast.change}`,
         desc: ast.desc,
         price: ast.price,
         change: ast.change,
         color: ast.color,
+        secondaryColor: ast.secColor,
         glow: ast.color,
-        r: 7,
+        r: 6.5,
         ringLevel: 3,
+        solarDistance: ast.dist,
+        orbitSpeed: ast.speed,
+        orbitTilt: ((idx % 4) - 1.5) * 0.12,
         sphereTheta: angle,
-        spherePhi: spherePhi,
+        spherePhi: (Math.PI / 3) * ((idx % 5) / 2.5 - 1),
         ringsAngle: angle,
-        circleAngle: ((18 + idx) / 40) * Math.PI * 2,
-        clusterCenterX: ast.cat === 'CRYPTO_L2' ? -100 : ast.cat === 'CRYPTO_L1' ? 80 : ast.cat === 'IDX' ? 140 : 0,
-        clusterCenterY: ast.cat === 'CRYPTO_L2' ? 120 : ast.cat === 'CRYPTO_L1' ? 130 : ast.cat === 'IDX' ? 30 : -140,
-        timelineLane: 4,
-        timelineTimePct: 0.1 + (idx / assetsData.length) * 0.8,
+        circleAngle: ((8 + idx) / 24) * Math.PI * 2,
+        clusterCenterX: ast.cat === 'CRYPTO_L2' ? -130 : ast.cat === 'CRYPTO_L1' ? 90 : 130,
+        clusterCenterY: ast.cat === 'CRYPTO_L2' ? 110 : ast.cat === 'CRYPTO_L1' ? 120 : -100,
+        timelineLane: 3,
+        timelineTimePct: 0.2 + (idx / assetsData.length) * 0.7,
         currX: 0,
         currY: 0,
         currZ: 0,
@@ -293,12 +336,11 @@ export default function AiOsAgenticCyberdeckView({
     return list;
   }, []);
 
-  // Selected Node Object
   const selectedNode = useMemo(() => {
     return nodes.find((n) => n.id === selectedNodeId) || nodes[0];
   }, [nodes, selectedNodeId]);
 
-  // Clock Update Effect
+  // Clocks
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -310,7 +352,7 @@ export default function AiOsAgenticCyberdeckView({
     return () => clearInterval(interval);
   }, []);
 
-  // Scan Countdown Effect
+  // Scan Countdown
   useEffect(() => {
     const interval = setInterval(() => {
       setScanCountdown((prev) => (prev <= 1 ? 20 : prev - 1));
@@ -318,21 +360,24 @@ export default function AiOsAgenticCyberdeckView({
     return () => clearInterval(interval);
   }, []);
 
-  // ── Trigger Skill Actions ──
+  // Skills Deck Trigger (triggers data packet surge)
   const handleTriggerSkill = useCallback(
     async (skillName: string) => {
+      // Trigger burst surge of data transfer packets
+      dataBurstRef.current = 1.0;
+
       if (soundEnabled) {
         executiveVoice.speak(`Executing skill: ${skillName}`);
       }
 
       if (skillName === 'SCAN_UNIVERSE') {
-        setSkillFeedback('📡 Memindai 72 instrumen pasar (BEI + Crypto Binance)... Selesai! Menemukan 3 kandidat optimal.');
+        setSkillFeedback('📡 Memindai 72 instrumen tata surya pasar (BEI + Crypto Binance)... Selesai!');
         const scan = scanUniverseForTopAlpha();
         if (scan.topAlphaCandidate) {
           setSelectedNodeId(scan.topAlphaCandidate.symbol);
         }
       } else if (skillName === 'WAR_ROOM') {
-        setSkillFeedback('🚨 Memanggil Dewan Eksekutif Hedge Fund ke ruang War Room...');
+        setSkillFeedback('🚨 Memanggil Dewan Eksekutif ke ruang War Room...');
         if (onOpenWarRoom) {
           onOpenWarRoom(selectedNode.id === 'core' ? 'ARB' : selectedNode.id);
         }
@@ -352,7 +397,7 @@ export default function AiOsAgenticCyberdeckView({
     [soundEnabled, onOpenWarRoom, selectedNode.id]
   );
 
-  // ── CANVAS RENDERING & MORPHING ANIMATION ENGINE ──
+  // ── MAIN CANVAS RENDERING ENGINE (Solar System & Animated Data Packets) ──
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -361,9 +406,9 @@ export default function AiOsAgenticCyberdeckView({
 
     let animFrameId: number;
     let lastTimestamp = performance.now();
-    let pulseSweep = 0;
+    let globalTime = 0;
 
-    // Handle mouse drag for 3D rotation or 2D panning
+    // Mouse handlers
     const onMouseDown = (e: MouseEvent) => {
       isDraggingRef.current = true;
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -380,9 +425,8 @@ export default function AiOsAgenticCyberdeckView({
         lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
         setRotAngleY((prev) => prev + dx * 0.008);
-        setRotAngleX((prev) => Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, prev + dy * 0.008)));
+        setRotAngleX((prev) => Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, prev + dy * 0.008)));
       } else {
-        // Hit-test for hover
         const w = rect.width;
         const h = rect.height;
         let foundHover: string | null = null;
@@ -390,7 +434,7 @@ export default function AiOsAgenticCyberdeckView({
           const screenX = w / 2 + n.currX * zoom;
           const screenY = h / 2 + n.currY * zoom;
           const dist = Math.hypot(mouseX - screenX, mouseY - screenY);
-          if (dist < (n.r + 6) * zoom) {
+          if (dist < (n.r + 8) * zoom) {
             foundHover = n.id;
             break;
           }
@@ -414,8 +458,9 @@ export default function AiOsAgenticCyberdeckView({
         const screenX = w / 2 + n.currX * zoom;
         const screenY = h / 2 + n.currY * zoom;
         const dist = Math.hypot(mouseX - screenX, mouseY - screenY);
-        if (dist < (n.r + 8) * zoom) {
+        if (dist < (n.r + 10) * zoom) {
           setSelectedNodeId(n.id);
+          dataBurstRef.current = 0.8; // Trigger packet burst on node select!
           break;
         }
       }
@@ -424,7 +469,7 @@ export default function AiOsAgenticCyberdeckView({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.08 : 0.92;
-      setZoom((prev) => Math.max(0.4, Math.min(2.8, prev * factor)));
+      setZoom((prev) => Math.max(0.4, Math.min(3.2, prev * factor)));
     };
 
     canvas.addEventListener('mousedown', onMouseDown);
@@ -437,7 +482,13 @@ export default function AiOsAgenticCyberdeckView({
     const render = (time: number) => {
       const dt = time - lastTimestamp;
       lastTimestamp = time;
+      globalTime = time;
       if (dt > 0) setFps(Math.round(1000 / dt));
+
+      // Fade data burst wave
+      if (dataBurstRef.current > 0) {
+        dataBurstRef.current = Math.max(0, dataBurstRef.current - 0.015);
+      }
 
       const rect = canvas.getBoundingClientRect();
       const width = rect.width;
@@ -452,19 +503,26 @@ export default function AiOsAgenticCyberdeckView({
       ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
       ctx.clearRect(0, 0, width, height);
 
-      // Auto rotation in 3D Orbit mode
-      if (autoRotate && viewMode === '3D ORBIT' && !isDraggingRef.current) {
-        setRotAngleY((prev) => prev + 0.003);
+      // Auto-rotation in 3D views
+      if (autoRotate && (viewMode === 'SOLAR SYSTEM' || viewMode === '3D ORBIT') && !isDraggingRef.current) {
+        setRotAngleY((prev) => prev + 0.002);
       }
 
       const cx = width / 2;
       const cy = height / 2;
       const minDim = Math.min(width, height);
-      const sphereRadius = minDim * 0.38;
 
-      pulseSweep += 0.015;
+      // ── 1. Draw Starfield Background (Deep Space Atmosphere) ──
+      starfield.forEach((star) => {
+        const twinkle = Math.sin(time * star.twinkleSpeed + star.x) * 0.3;
+        const alpha = Math.max(0.1, Math.min(1.0, star.baseAlpha + twinkle));
+        ctx.fillStyle = `rgba(226, 232, 240, ${alpha})`;
+        const sx = cx + ((star.x + rotAngleY * 200) % width);
+        const sy = cy + ((star.y + rotAngleX * 150) % height);
+        ctx.fillRect(sx >= 0 ? sx % width : width + (sx % width), sy >= 0 ? sy % height : height + (sy % height), star.size, star.size);
+      });
 
-      // ── 1. Calculate Target Positions According to View Mode ──
+      // ── 2. Calculate Node Target Positions (Solar System / Morphing) ──
       nodes.forEach((n) => {
         if (n.id === 'core') {
           n.targetX = 0;
@@ -473,21 +531,38 @@ export default function AiOsAgenticCyberdeckView({
           return;
         }
 
-        if (viewMode === '3D ORBIT') {
-          // Spherical math with pitch & yaw 3D rotation
+        if (viewMode === 'SOLAR SYSTEM') {
+          // Keplerian Planetary Elliptic Orbit around the Sun
+          const orbitAngle = (n.sphereTheta + time * n.orbitSpeed) + rotAngleY;
+          const dist = n.solarDistance * (minDim / 550);
+
+          const x3d = Math.cos(orbitAngle) * dist;
+          const z3d = Math.sin(orbitAngle) * dist;
+          const y3d = Math.sin(orbitAngle * 2) * (dist * n.orbitTilt);
+
+          // 3D Pitch rotation
+          const yRot = y3d * Math.cos(rotAngleX) - z3d * Math.sin(rotAngleX);
+          const zRot = y3d * Math.sin(rotAngleX) + z3d * Math.cos(rotAngleX);
+
+          // Perspective depth scaling
+          const fov = 750;
+          const scale = fov / (fov + zRot);
+
+          n.targetX = x3d * scale;
+          n.targetY = yRot * scale;
+          n.targetZ = zRot;
+        } else if (viewMode === '3D ORBIT') {
+          const sphereRadius = minDim * 0.38;
           const theta = n.sphereTheta + rotAngleY;
           const phi = n.spherePhi;
 
-          // 3D sphere coordinate
           const x3d = sphereRadius * Math.cos(theta) * Math.cos(phi);
           const y3d = sphereRadius * Math.sin(phi);
           const z3d = sphereRadius * Math.sin(theta) * Math.cos(phi);
 
-          // Pitch rotation (around X-axis)
           const yRot = y3d * Math.cos(rotAngleX) - z3d * Math.sin(rotAngleX);
           const zRot = y3d * Math.sin(rotAngleX) + z3d * Math.cos(rotAngleX);
 
-          // Perspective depth projection
           const fov = 600;
           const scale = fov / (fov + zRot);
 
@@ -495,7 +570,6 @@ export default function AiOsAgenticCyberdeckView({
           n.targetY = yRot * scale;
           n.targetZ = zRot;
         } else if (viewMode === 'RINGS') {
-          // Concentric circles: 0: core, 1: agent, 2: routine, 3: asset
           let rRing = 0;
           if (n.ringLevel === 1) rRing = minDim * 0.16;
           else if (n.ringLevel === 2) rRing = minDim * 0.28;
@@ -506,179 +580,289 @@ export default function AiOsAgenticCyberdeckView({
           n.targetY = Math.sin(angle) * rRing;
           n.targetZ = 0;
         } else if (viewMode === 'CIRCLE') {
-          // All nodes uniformly spread on the outer boundary circle
           const rCircle = minDim * 0.42;
           n.targetX = Math.cos(n.circleAngle) * rCircle;
           n.targetY = Math.sin(n.circleAngle) * rCircle;
           n.targetZ = 0;
         } else if (viewMode === 'AREAS') {
-          // Cluster bubbles grouped by division/category
           n.targetX = n.clusterCenterX;
           n.targetY = n.clusterCenterY;
           n.targetZ = 0;
         } else if (viewMode === 'LINKS') {
-          // Dynamic force-network layout
-          const rForce = (n.ringLevel === 1 ? minDim * 0.18 : minDim * 0.35) * (0.8 + (n.spherePhi + 1) * 0.2);
+          const rForce = (n.ringLevel === 1 ? minDim * 0.18 : minDim * 0.35);
           n.targetX = Math.cos(n.sphereTheta) * rForce;
           n.targetY = Math.sin(n.sphereTheta) * rForce;
           n.targetZ = 0;
         } else if (viewMode === 'TIMELINE') {
-          // Gantt matrix dot grid
           const laneHeight = (height - 80) / 5;
           n.targetX = (n.timelineTimePct - 0.5) * (width * 0.85);
           n.targetY = (n.timelineLane - 2) * laneHeight;
           n.targetZ = 0;
         }
 
-        // Smooth Lerp Interpolation (Morphing)
+        // Smooth Lerp
         n.currX += (n.targetX - n.currX) * 0.12;
         n.currY += (n.targetY - n.currY) * 0.12;
         n.currZ += (n.targetZ - n.currZ) * 0.12;
       });
 
-      // ── 2. Draw Background Grids & Orbit Wireframes ──
+      // ── 3. Draw Transformed World ──
       ctx.save();
       ctx.translate(cx, cy);
       ctx.scale(zoom, zoom);
 
-      if (viewMode === '3D ORBIT') {
-        // Draw 3D wireframe latitudes & longitudes of the celestial sphere
-        const latSteps = [-Math.PI / 4, 0, Math.PI / 4];
-        latSteps.forEach((phi) => {
-          const latRadius = sphereRadius * Math.cos(phi);
-          const yCenter = sphereRadius * Math.sin(phi);
-
-          const yRotCenter = yCenter * Math.cos(rotAngleX);
-          const zRotCenter = yCenter * Math.sin(rotAngleX);
-
+      // Draw Solar System Orbits & Asteroid Belt
+      if (viewMode === 'SOLAR SYSTEM') {
+        // Draw Planetary Orbit Tracks (Elliptic Paths)
+        const uniqueDistances = Array.from(new Set(nodes.map((n) => n.solarDistance))).filter((d) => d > 0);
+        uniqueDistances.forEach((d) => {
+          const dist = d * (minDim / 550);
           ctx.beginPath();
-          ctx.ellipse(0, yRotCenter, latRadius, latRadius * Math.sin(rotAngleX + Math.PI / 2), 0, 0, Math.PI * 2);
-          ctx.strokeStyle = phi === 0 ? 'rgba(6, 182, 212, 0.25)' : 'rgba(30, 41, 59, 0.4)';
-          ctx.lineWidth = phi === 0 ? 1.5 : 1;
-          ctx.stroke();
-        });
-
-        // Longitude meridian circles
-        for (let m = 0; m < 4; m++) {
-          const angle = rotAngleY + (m / 4) * Math.PI;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, sphereRadius * Math.abs(Math.cos(angle)), sphereRadius, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, dist, dist * Math.cos(rotAngleX), 0, 0, Math.PI * 2);
           ctx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
           ctx.lineWidth = 1;
           ctx.stroke();
-        }
-      } else if (viewMode === 'RINGS') {
-        // 3 Concentric rings
-        const r1 = minDim * 0.16;
-        const r2 = minDim * 0.28;
-        const r3 = minDim * 0.40;
-        [r1, r2, r3].forEach((r, idx) => {
-          ctx.beginPath();
-          ctx.arc(0, 0, r, 0, Math.PI * 2);
-          ctx.strokeStyle = idx === 0 ? 'rgba(6, 182, 212, 0.3)' : idx === 1 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.45)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash(idx === 1 ? [4, 6] : []);
-          ctx.stroke();
-          ctx.setLineDash([]);
         });
-      } else if (viewMode === 'CIRCLE') {
-        // Outer boundary chord ring
-        const rCircle = minDim * 0.42;
-        ctx.beginPath();
-        ctx.arc(0, 0, rCircle, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      } else if (viewMode === 'TIMELINE') {
-        // Horizontal lanes
-        const laneHeight = (height - 80) / 5;
-        for (let l = -2; l <= 2; l++) {
+
+        // Draw Asteroid Belt Particles (Market Micro-Ticks)
+        asteroidBelt.forEach((ast) => {
+          const currentAngle = ast.angle + time * ast.speed + rotAngleY;
+          const rScaled = ast.radius * (minDim / 550);
+          const ax = Math.cos(currentAngle) * rScaled;
+          const az = Math.sin(currentAngle) * rScaled;
+          const ay = ast.yOffset * Math.cos(rotAngleX) - az * Math.sin(rotAngleX);
+          const azRot = ast.yOffset * Math.sin(rotAngleX) + az * Math.cos(rotAngleX);
+
+          const scale = 750 / (750 + azRot);
+          const screenX = ax * scale;
+          const screenY = ay * scale;
+
           ctx.beginPath();
-          ctx.moveTo(-width * 0.45, l * laneHeight);
-          ctx.lineTo(width * 0.45, l * laneHeight);
-          ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([2, 4]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
+          ctx.arc(screenX, screenY, ast.size * scale, 0, Math.PI * 2);
+          ctx.fillStyle = ast.color;
+          ctx.fill();
+        });
       }
 
-      // ── 3. Draw Laser Links / Radial Chords ──
+      // ── 4. DRAW CONNECTED LINES & ANIMATED DATA PACKETS TRANSFER ──
       const selNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
+      const speedMultiplier = 1.0 + dataBurstRef.current * 2.5;
+
       nodes.forEach((n) => {
         if (n.id === selNode.id) return;
 
         const isRelated =
           selNode.id === 'core'
-            ? n.ringLevel === 1 || n.id === 'ARB' || n.id === 'OP' || n.id === 'jesse'
+            ? n.ringLevel === 1 || n.id === 'ARB' || n.id === 'OP' || n.id === 'kevin' || n.id === 'freqtrade'
             : selNode.id === 'kevin' || selNode.id === 'jesse'
             ? n.id === 'ARB' || n.id === 'OP' || n.id === 'BTC' || n.id === 'core'
             : selNode.id === 'ARB' || selNode.id === 'OP'
-            ? n.id === 'kevin' || n.id === 'jesse' || n.id === 'core'
+            ? n.id === 'kevin' || n.id === 'freqtrade' || n.id === 'core'
             : n.ringLevel === selNode.ringLevel;
 
         if (isRelated || viewMode === 'LINKS' || viewMode === 'CIRCLE') {
+          // A. Draw Fiber Optic Connection Line
           ctx.beginPath();
           ctx.moveTo(selNode.currX, selNode.currY);
           ctx.lineTo(n.currX, n.currY);
-
-          // Depth attenuation for 3D Orbit
-          const avgZ = (selNode.currZ + n.currZ) / 2;
-          const alpha = viewMode === '3D ORBIT' ? Math.max(0.08, Math.min(0.6, (avgZ + sphereRadius) / (sphereRadius * 2))) : 0.35;
-
-          ctx.strokeStyle = isRelated ? `rgba(6, 182, 212, ${alpha})` : `rgba(30, 41, 59, ${alpha * 0.5})`;
+          ctx.strokeStyle = isRelated ? 'rgba(6, 182, 212, 0.28)' : 'rgba(30, 41, 59, 0.2)';
           ctx.lineWidth = isRelated ? 1.5 : 0.75;
           ctx.stroke();
+
+          // B. ANIMATED DATA TRANSFER PACKETS (Photon Stream)
+          // As requested by user: "saya mau line yang terlink ada animasi kayak transfer data"
+          const packetCount = isRelated ? 3 : 1;
+          for (let p = 0; p < packetCount; p++) {
+            // Compute animated packet progress [0, 1]
+            const packetOffset = p / packetCount;
+            const progress = ((time * 0.0006 * speedMultiplier + packetOffset) % 1.0);
+
+            // Interpolate position along the line from source to target
+            const px = selNode.currX + (n.currX - selNode.currX) * progress;
+            const py = selNode.currY + (n.currY - selNode.currY) * progress;
+
+            // Packet Comet Trail (trailing sub-photons)
+            const trailSteps = 4;
+            for (let t = trailSteps; t >= 1; t--) {
+              const trailProgress = Math.max(0, progress - t * 0.025);
+              const tx = selNode.currX + (n.currX - selNode.currX) * trailProgress;
+              const ty = selNode.currY + (n.currY - selNode.currY) * trailProgress;
+              const trailAlpha = (1.0 - t / trailSteps) * 0.6;
+
+              ctx.beginPath();
+              ctx.arc(tx, ty, (2.2 - t * 0.35), 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(56, 189, 248, ${trailAlpha})`;
+              ctx.fill();
+            }
+
+            // Glowing Data Packet Head
+            ctx.beginPath();
+            ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+            ctx.fillStyle = isRelated ? '#38bdf8' : '#34d399';
+            ctx.shadowColor = '#06b6d4';
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+          }
+
+          // Bidirectional upstream packet (Telemetry feed returning to core)
+          if (isRelated && n.id !== 'core') {
+            const revProgress = (1.0 - ((time * 0.00045 * speedMultiplier) % 1.0));
+            const rpx = selNode.currX + (n.currX - selNode.currX) * revProgress;
+            const rpy = selNode.currY + (n.currY - selNode.currY) * revProgress;
+
+            ctx.beginPath();
+            ctx.arc(rpx, rpy, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#f59e0b';
+            ctx.shadowColor = '#f59e0b';
+            ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
         }
       });
 
-      // ── 4. Sort Nodes by Z (for proper 3D rendering) ──
+      // ── 5. Sort Nodes by Z for 3D Depth Sorting ──
       const sortedNodes = [...nodes].sort((a, b) => a.currZ - b.currZ);
 
-      // ── 5. Draw Nodes & Labels ──
+      // ── 6. Render Celestial Bodies (Planetary Materials from Solar-System-3D) ──
       sortedNodes.forEach((n) => {
         const isSel = n.id === selectedNodeId;
         const isHov = n.id === hoveredNodeId;
 
-        // Size & opacity modulation based on Z-depth in 3D ORBIT
+        // Depth perspective scale & alpha
         let scaleDepth = 1.0;
         let alphaDepth = 1.0;
-        if (viewMode === '3D ORBIT') {
-          scaleDepth = Math.max(0.6, Math.min(1.4, (n.currZ + sphereRadius * 1.5) / (sphereRadius * 2)));
-          alphaDepth = Math.max(0.25, Math.min(1.0, (n.currZ + sphereRadius * 1.2) / (sphereRadius * 2)));
+        if (viewMode === 'SOLAR SYSTEM' || viewMode === '3D ORBIT') {
+          scaleDepth = Math.max(0.65, Math.min(1.4, (n.currZ + 600) / 600));
+          alphaDepth = Math.max(0.3, Math.min(1.0, (n.currZ + 550) / 600));
         }
 
-        const radius = n.r * scaleDepth * (isSel ? 1.3 : isHov ? 1.2 : 1.0);
+        const radius = n.r * scaleDepth * (isSel ? 1.35 : isHov ? 1.2 : 1.0);
 
-        // Node Glow Halo
-        if (isSel || isHov || n.id === 'core') {
+        // ── A. THE SUN MATERIAL (Core Hub with Multi-Layer Corona & BloomPass) ──
+        if (n.planetType === 'SUN') {
+          // 1. Pulsating corona bloom
+          const pulse = Math.sin(time * 0.004) * 4;
+          const sunGrad = ctx.createRadialGradient(n.currX, n.currY, radius * 0.3, n.currX, n.currY, (radius + 20 + pulse));
+          sunGrad.addColorStop(0, '#ffffff');
+          sunGrad.addColorStop(0.3, '#fef08a');
+          sunGrad.addColorStop(0.6, '#f59e0b');
+          sunGrad.addColorStop(0.85, 'rgba(6, 182, 212, 0.35)');
+          sunGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
           ctx.beginPath();
-          ctx.arc(n.currX, n.currY, radius * 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = isSel ? 'rgba(6, 182, 212, 0.25)' : 'rgba(56, 189, 248, 0.15)';
+          ctx.arc(n.currX, n.currY, radius + 22 + pulse, 0, Math.PI * 2);
+          ctx.fillStyle = sunGrad;
+          ctx.fill();
+
+          // 2. Solar Prominence Flares (Rotating rays)
+          ctx.save();
+          ctx.translate(n.currX, n.currY);
+          ctx.rotate(time * 0.0008);
+          for (let f = 0; f < 8; f++) {
+            ctx.rotate(Math.PI / 4);
+            ctx.beginPath();
+            ctx.moveTo(0, -radius * 0.8);
+            ctx.lineTo(radius * 0.25, -radius * 1.5 - pulse);
+            ctx.lineTo(0, -radius * 1.7 - pulse * 1.5);
+            ctx.lineTo(-radius * 0.25, -radius * 1.5 - pulse);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+            ctx.fill();
+          }
+          ctx.restore();
+
+          // 3. Incandescent Sun Core
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#fef08a';
           ctx.fill();
         }
 
-        // Node Circle Body
-        ctx.beginPath();
-        ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
-        ctx.fillStyle = n.color;
-        ctx.globalAlpha = alphaDepth;
-        ctx.fill();
+        // ── B. SATURN MATERIAL (Concentric Planetary Rings with Tilt & Transparency) ──
+        else if (n.planetType === 'SATURN') {
+          // Draw Saturn Planet Body
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = n.color;
+          ctx.fill();
 
-        // Node Border Ring
-        ctx.beginPath();
-        ctx.arc(n.currX, n.currY, radius + (isSel ? 3 : 1), 0, Math.PI * 2);
-        ctx.strokeStyle = isSel ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = isSel ? 2 : 1;
-        ctx.stroke();
+          // Draw Tilted Planetary Rings (Saturn Rings)
+          ctx.save();
+          ctx.translate(n.currX, n.currY);
+          ctx.rotate(-0.4); // 24 deg planetary axial tilt
 
-        // Node Label Text (Always facing camera)
+          // Inner Ring
+          ctx.beginPath();
+          ctx.ellipse(0, 0, radius * 2.2, radius * 0.65, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+          ctx.lineWidth = 3.5;
+          ctx.stroke();
+
+          // Cassini Gap & Outer Ring
+          ctx.beginPath();
+          ctx.ellipse(0, 0, radius * 2.65, radius * 0.8, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // ── C. JUPITER MATERIAL (Gas Giant with Atmospheric Bands) ──
+        else if (n.planetType === 'JUPITER') {
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#d97706';
+          ctx.fill();
+
+          // Equatorial Cloud Bands
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.5)';
+          ctx.fillRect(n.currX - radius, n.currY - radius * 0.3, radius * 2, radius * 0.25);
+          ctx.fillStyle = 'rgba(180, 83, 9, 0.6)';
+          ctx.fillRect(n.currX - radius, n.currY + radius * 0.1, radius * 2, radius * 0.25);
+          ctx.restore();
+        }
+
+        // ── D. EARTH / CRIME / OTHER PLANET MATERIALS ──
+        else {
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = n.color;
+          ctx.globalAlpha = alphaDepth;
+          ctx.fill();
+
+          // Atmospheric rim Fresnel halo for Earth/L2
+          if (n.planetType === 'EARTH' || n.category === 'CRYPTO_L2') {
+            ctx.beginPath();
+            ctx.arc(n.currX, n.currY, radius + 2, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+
+        // ── OutlinePass Selection Glow (Hover & Select) ──
+        if (isSel || isHov) {
+          ctx.beginPath();
+          ctx.arc(n.currX, n.currY, radius + 5, 0, Math.PI * 2);
+          ctx.strokeStyle = isSel ? '#ffffff' : 'rgba(56, 189, 248, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // ── Labels & Real-Time Price Telemetry ──
         if (isSel || isHov || n.ringLevel <= 1 || radius > 8) {
           ctx.font = `${isSel ? 'bold 11px' : '9px'} 'JetBrains Mono', monospace`;
           ctx.fillStyle = isSel ? '#ffffff' : `rgba(226, 232, 240, ${alphaDepth})`;
           ctx.textAlign = 'center';
-          ctx.fillText(n.id === 'core' ? 'AI·OS CORE' : n.name.split(' ')[0], n.currX, n.currY + radius + 11);
+          ctx.fillText(n.id === 'core' ? 'AI·OS SUN' : n.name.split(' ')[0], n.currX, n.currY + radius + 11);
 
           if (n.price) {
             ctx.font = "8px 'JetBrains Mono', monospace";
@@ -691,7 +875,6 @@ export default function AiOsAgenticCyberdeckView({
       });
 
       ctx.restore();
-
       animFrameId = requestAnimationFrame(render);
     };
 
@@ -705,10 +888,17 @@ export default function AiOsAgenticCyberdeckView({
       canvas.removeEventListener('click', onClick);
       canvas.removeEventListener('wheel', onWheel);
     };
-  }, [viewMode, nodes, selectedNodeId, hoveredNodeId, zoom, autoRotate, rotAngleX, rotAngleY]);
+  }, [viewMode, nodes, selectedNodeId, hoveredNodeId, zoom, autoRotate, rotAngleX, rotAngleY, starfield, asteroidBelt]);
 
-  // View modes array
-  const viewModesList: CyberdeckViewMode[] = ['3D ORBIT', 'RINGS', 'CIRCLE', 'AREAS', 'LINKS', 'TIMELINE'];
+  const viewModesList: CyberdeckViewMode[] = [
+    'SOLAR SYSTEM',
+    '3D ORBIT',
+    'RINGS',
+    'CIRCLE',
+    'AREAS',
+    'LINKS',
+    'TIMELINE',
+  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-[#05070b] text-slate-300 font-mono select-none p-2 sm:p-4 gap-3">
@@ -717,7 +907,7 @@ export default function AiOsAgenticCyberdeckView({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 font-bold tracking-wider text-slate-100">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-cyan-400 font-extrabold">● CORE</span>
+            <span className="text-cyan-400 font-extrabold">● SOLAR CORE</span>
             <span className="text-slate-400">· ACTIVE AUTONOMOUS</span>
           </div>
 
@@ -726,7 +916,7 @@ export default function AiOsAgenticCyberdeckView({
               <strong className="text-emerald-400">RUNNER:</strong> VPS 24/7 OK
             </span>
             <span>
-              <strong className="text-cyan-400">SYNC:</strong> FREQTRADE + LUMIBOT
+              <strong className="text-cyan-400">PHOTON PULSE:</strong> ACTIVE STREAM
             </span>
             <span>
               <strong className="text-amber-400">TELEGRAM:</strong> BOT ONLINE
@@ -737,9 +927,9 @@ export default function AiOsAgenticCyberdeckView({
         {/* Center Title / Branding */}
         <div className="flex items-center gap-2 text-center font-bold tracking-widest text-slate-100">
           <Globe className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '24s' }} />
-          <span>AI·OS AGENTIC CYBERDECK HUD</span>
+          <span>SOLAR-SYSTEM-3D AGENTIC CYBERDECK</span>
           <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
-            FINCEPT V4.2
+            N3RSON MATERIAL ENGINE
           </span>
         </div>
 
@@ -758,10 +948,10 @@ export default function AiOsAgenticCyberdeckView({
           <button
             onClick={() => {
               setZoom(1.0);
-              setRotAngleX(0.2);
+              setRotAngleX(0.35);
               setRotAngleY(0.0);
             }}
-            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition-colors"
+            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             RESET
           </button>
@@ -771,16 +961,16 @@ export default function AiOsAgenticCyberdeckView({
         </div>
       </header>
 
-      {/* ── Subnav Modes & Asset Filters Bar (The 6 Pavrus AI-OS Modes) ── */}
+      {/* ── Subnav Modes & Asset Filters Bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#070b14] border border-slate-800/80 text-[11px]">
-        {/* The 6 Modes Tabs */}
+        {/* The 7 View Modes */}
         <div className="flex items-center gap-1 overflow-x-auto py-1">
-          <span className="text-slate-500 mr-1 uppercase text-[10px] font-bold">VIEWS:</span>
+          <span className="text-slate-500 mr-1 uppercase text-[10px] font-bold">VIEW:</span>
           {viewModesList.map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === mode
                   ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20'
                   : 'bg-slate-900/60 text-slate-400 border border-slate-800/60 hover:text-slate-200 hover:bg-slate-800'
@@ -791,14 +981,15 @@ export default function AiOsAgenticCyberdeckView({
           ))}
         </div>
 
-        {/* Counters */}
+        {/* Counters & Pulse Indicator */}
         <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px]">
-          <span>
-            <strong className="text-white">72</strong> ASSETS
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <strong className="text-cyan-300">DATA PACKETS:</strong> STREAMING
           </span>
           <span>·</span>
           <span>
-            <strong className="text-cyan-400">12</strong> AI AGENTS
+            <strong className="text-white">72</strong> CELESTIAL ASSETS
           </span>
           <span>·</span>
           <span>
@@ -806,12 +997,12 @@ export default function AiOsAgenticCyberdeckView({
           </span>
         </div>
 
-        {/* 3D Orbit Rotate Toggle */}
+        {/* 3D Rotate & Zoom */}
         <div className="flex items-center gap-2">
-          {viewMode === '3D ORBIT' && (
+          {(viewMode === 'SOLAR SYSTEM' || viewMode === '3D ORBIT') && (
             <button
               onClick={() => setAutoRotate(!autoRotate)}
-              className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all ${
+              className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
                 autoRotate
                   ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
                   : 'bg-slate-900 border-slate-800 text-slate-400'
@@ -823,14 +1014,14 @@ export default function AiOsAgenticCyberdeckView({
 
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setZoom((z) => Math.min(2.8, z * 1.15))}
-              className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white"
+              onClick={() => setZoom((z) => Math.min(3.2, z * 1.15))}
+              className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white cursor-pointer"
             >
               +
             </button>
             <button
               onClick={() => setZoom((z) => Math.max(0.4, z * 0.85))}
-              className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white"
+              className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white cursor-pointer"
             >
               -
             </button>
@@ -949,18 +1140,18 @@ export default function AiOsAgenticCyberdeckView({
           {/* Live Node Inspector Card */}
           <div className="p-3.5 rounded-xl bg-[#080c14] border border-cyan-800/40 space-y-2.5 shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-              <span className="text-slate-400 uppercase text-[10px] font-bold">SELECTED NODE INSPECTOR</span>
+              <span className="text-slate-400 uppercase text-[10px] font-bold">SELECTED CELESTIAL BODY</span>
               <span className="text-cyan-400 text-[10px] font-mono font-bold">
-                [{selectedNode.category}]
+                [{selectedNode.planetType}]
               </span>
             </div>
 
             <div className="flex items-center gap-2.5">
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shadow-md"
+                className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shadow-md"
                 style={{ backgroundColor: `${selectedNode.color}25`, borderColor: selectedNode.color, color: selectedNode.color }}
               >
-                {selectedNode.category === 'CORE' ? '◈' : selectedNode.id.substring(0, 3)}
+                {selectedNode.planetType === 'SUN' ? '☀️' : selectedNode.planetType === 'SATURN' ? '🪐' : selectedNode.id.substring(0, 3)}
               </div>
               <div>
                 <div className="font-bold text-white text-sm">{selectedNode.name}</div>
@@ -996,19 +1187,21 @@ export default function AiOsAgenticCyberdeckView({
           </div>
         </aside>
 
-        {/* ── CENTER RADAR CONSTELLATION CANVAS (The Morphing 3D/2D Heart) ── */}
-        <section className="lg:col-span-6 flex flex-col justify-between rounded-xl bg-[#04060a] border border-slate-800/80 relative overflow-hidden min-h-[540px] shadow-2xl">
+        {/* ── CENTER RADAR CONSTELLATION CANVAS (Solar System 3D & Data Packets) ── */}
+        <section className="lg:col-span-6 flex flex-col justify-between rounded-xl bg-[#020408] border border-slate-800/80 relative overflow-hidden min-h-[560px] shadow-2xl">
           {/* Top Canvas Controls & Breadcrumbs */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-            <div className="pointer-events-auto px-3 py-1.5 rounded-lg bg-[#090d16]/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-2 shadow-lg backdrop-blur">
+            <div className="pointer-events-auto px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-2 shadow-lg backdrop-blur">
               <span className="text-cyan-400 font-bold">MODE AKTIF:</span>
               <span className="text-white font-bold">{viewMode}</span>
               <span className="text-slate-500">·</span>
-              <span className="text-slate-400">{nodes.length} TOTAL SIMPUL</span>
+              <span className="text-slate-400">{nodes.length} CELESTIAL BODIES</span>
+              <span className="text-slate-500">·</span>
+              <span className="text-emerald-400 font-bold">STREAM OK</span>
             </div>
 
-            <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#090d16]/90 border border-slate-800 text-[10px] text-slate-400 shadow-lg backdrop-blur">
-              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(2.8, z * 1.15))}>
+            <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 shadow-lg backdrop-blur">
+              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(3.2, z * 1.15))}>
                 [+] ZOOM
               </span>
               <span>·</span>
@@ -1020,7 +1213,7 @@ export default function AiOsAgenticCyberdeckView({
                 className="hover:text-cyan-300 cursor-pointer"
                 onClick={() => {
                   setZoom(1.0);
-                  setRotAngleX(0.2);
+                  setRotAngleX(0.35);
                   setRotAngleY(0.0);
                 }}
               >
@@ -1029,24 +1222,24 @@ export default function AiOsAgenticCyberdeckView({
             </div>
           </div>
 
-          {/* High-Performance Canvas */}
+          {/* High-Performance 3D Solar Canvas */}
           <canvas ref={canvasRef} className="w-full h-full flex-1 cursor-grab active:cursor-grabbing block" />
 
           {/* Bottom Hint Bar */}
-          <div className="px-3 py-2 bg-[#070a12]/95 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
+          <div className="px-3 py-2 bg-[#050810]/95 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
             <div className="flex items-center gap-3">
               <span>
-                ● <strong className="text-slate-300">KLIK DOT</strong> = INSPEKSI
+                ● <strong className="text-slate-300">KLIK PLANET</strong> = INSPEKSI
               </span>
               <span>
-                ● <strong className="text-slate-300">DRAG MOUSE</strong> = ROTASI 3D BOLA
+                ● <strong className="text-slate-300">DRAG MOUSE</strong> = ROTASI 3D
               </span>
               <span>
-                ● <strong className="text-slate-300">WHEEL</strong> = ZOOM MORPHING
+                ● <strong className="text-cyan-300">PHOTON PULSES</strong> = ANIMASI TRANSFER DATA
               </span>
             </div>
             <div className="text-cyan-400/80 font-mono">
-              ENGINE: <span className="text-white font-bold">3D SPHERICAL PROJECTION</span>
+              ENGINE: <span className="text-white font-bold">SOLAR-SYSTEM-3D + THREE PROTOCOL</span>
             </div>
           </div>
         </section>
@@ -1159,7 +1352,7 @@ export default function AiOsAgenticCyberdeckView({
             )}
           </div>
 
-          {/* Autonomous Routines Table (Like in Pavrus AI-OS design) */}
+          {/* Autonomous Routines Table */}
           <div className="p-3.5 rounded-xl bg-[#080c14] border border-slate-800/80 space-y-2.5 text-xs shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="text-slate-400 uppercase text-[10px] font-bold">ROUTINES TABLE</span>
