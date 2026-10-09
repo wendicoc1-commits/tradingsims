@@ -149,3 +149,66 @@ export function normalizeSymbol(sym: string): { fullSymbol: string; displaySymbo
   }
   return { fullSymbol: sym.includes('.') || sym.startsWith('^') ? sym : `${clean}.JK`, displaySymbol: clean };
 }
+
+/**
+ * Almgren-Chriss Market Impact & Realistic Slippage Model
+ * Mensimulasikan dampak pasar nyata pada MARKET order:
+ * Semakin besar ukuran lot dibanding likuiditas normal, semakin besar slippage.
+ */
+export function calculateRealisticExecutionPrice(
+  quotedPrice: number,
+  lots: number,
+  symbol: string,
+  orderType: 'LIMIT' | 'MARKET',
+  isSell: boolean = false
+): {
+  executedPrice: number;
+  slippagePct: number;
+  slippageNominal: number;
+} {
+  // Order LIMIT dieksekusi tepat pada limit price (zero unexpected slippage)
+  if (orderType === 'LIMIT' || lots <= 0 || quotedPrice <= 0) {
+    return {
+      executedPrice: quotedPrice,
+      slippagePct: 0,
+      slippageNominal: 0,
+    };
+  }
+
+  const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+  const isLargeCap = ['BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM', 'AMMN', 'AAPL', 'MSFT', 'NVDA', 'BTC', 'ETH'].includes(cleanSym);
+  
+  // Baseline participation threshold
+  // Saham Bluechip likuid: dampak kecil (~0.05% - 0.2%)
+  // Saham Smallcap/kripto volatil: dampak lebih nyata (~0.2% - 1.8%)
+  const baseImpactFactor = isLargeCap ? 0.00008 : 0.00045;
+  const sqrtLots = Math.sqrt(lots);
+  
+  // Square-Root Law of Market Impact
+  let slippagePct = Math.min(0.035, baseImpactFactor * sqrtLots); // Max 3.5% slippage cap
+  if (lots <= 5) slippagePct = 0; // Order retail mikro tanpa slippage
+
+  const isForeign = isCryptoSymbol(cleanSym) || isUSSymbol(cleanSym);
+  const factor = isSell ? (1 - slippagePct) : (1 + slippagePct);
+  const rawExecuted = quotedPrice * factor;
+
+  // Round executed price to valid exchange tick
+  let executedPrice = rawExecuted;
+  if (!isForeign) {
+    const tick = getIDXTickSize(quotedPrice);
+    executedPrice = isSell
+      ? Math.floor(rawExecuted / tick) * tick
+      : Math.ceil(rawExecuted / tick) * tick;
+  } else {
+    const precision = quotedPrice < 1 ? 4 : 2;
+    executedPrice = Number(rawExecuted.toFixed(precision));
+  }
+
+  const slippageNominal = Math.abs(executedPrice - quotedPrice);
+
+  return {
+    executedPrice,
+    slippagePct: Number((slippagePct * 100).toFixed(3)),
+    slippageNominal,
+  };
+}

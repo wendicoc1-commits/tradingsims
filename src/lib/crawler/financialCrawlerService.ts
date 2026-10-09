@@ -105,23 +105,74 @@ function extractCashtags(text: string): string[] {
   return Array.from(detected).slice(0, 5);
 }
 
-// Detect market sentiment
+const NEGATION_TRIGGERS = [
+  'tidak', 'bukan', 'gagal', 'belum', 'tanpa', 'not', 'no', 'failed',
+  'never', 'despite', 'batal', 'mustahil', 'nihil', 'hindari', 'waspada'
+];
+
+const SARCASM_BEARISH_COLLOCATIONS = [
+  'terbang ke jurang', 'terjun bebas', 'rekor terburuk', 'cuan halu',
+  'bull trap', 'fake pump', 'rug pull', 'pom-pom', 'cuci gudang', 'pembodohan'
+];
+
+// Detect market sentiment dengan Negation-Awareness & Sarcasm Resistance (Pilar 6)
 function detectSentiment(title: string, summary: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
   const combined = `${title} ${summary}`.toLowerCase();
+  const words = combined.split(/\s+/);
+
+  // 1. Cek kolokasi sarkasme atau istilah jebakan pasar
+  for (const phrase of SARCASM_BEARISH_COLLOCATIONS) {
+    if (combined.includes(phrase)) {
+      return 'BEARISH';
+    }
+  }
 
   let bullScore = 0;
   let bearScore = 0;
 
+  // 2. Evaluasi kata kunci dengan Negation Window (3 kata sebelum kata kunci)
   BULLISH_KEYWORDS.forEach((kw) => {
-    if (combined.includes(kw)) bullScore++;
+    const kwWords = kw.split(' ');
+    const kwFirstWord = kwWords[0];
+    
+    let index = -1;
+    while ((index = words.indexOf(kwFirstWord, index + 1)) !== -1) {
+      // Cek 3 kata sebelumnya apakah ada kata sanggahan/negasi
+      const start = Math.max(0, index - 3);
+      const precedingWords = words.slice(start, index);
+      const hasNegation = precedingWords.some((w) => NEGATION_TRIGGERS.includes(w));
+
+      if (hasNegation) {
+        // "Tidak laba", "Gagal rekor" => Dibalik menjadi sentimen BEARISH
+        bearScore += 1.5;
+      } else {
+        bullScore += 1.0;
+      }
+    }
   });
 
   BEARISH_KEYWORDS.forEach((kw) => {
-    if (combined.includes(kw)) bearScore++;
+    const kwWords = kw.split(' ');
+    const kwFirstWord = kwWords[0];
+
+    let index = -1;
+    while ((index = words.indexOf(kwFirstWord, index + 1)) !== -1) {
+      const start = Math.max(0, index - 3);
+      const precedingWords = words.slice(start, index);
+      const hasNegation = precedingWords.some((w) => NEGATION_TRIGGERS.includes(w));
+
+      if (hasNegation) {
+        // "Tidak anjlok", "Bukan rugi" => Dibalik menjadi sentimen BULLISH
+        bullScore += 1.0;
+      } else {
+        bearScore += 1.0;
+      }
+    }
   });
 
-  if (bullScore > bearScore) return 'BULLISH';
-  if (bearScore > bullScore) return 'BEARISH';
+  // 3. Ambang batas selisih skor
+  if (bullScore >= bearScore + 1.0) return 'BULLISH';
+  if (bearScore >= bullScore + 1.0) return 'BEARISH';
   return 'NEUTRAL';
 }
 

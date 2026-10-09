@@ -276,3 +276,58 @@ export function getRecentReflectionContext(symbol: string): string {
   const timeDiffMin = Math.round((Date.now() - previous.timestamp) / 60000);
   return `Siklus ${timeDiffMin} menit lalu: Status ${previous.keputusan} di Entry Rp ${previous.entry_price.toLocaleString('id-ID')} (SL: Rp ${previous.stop_loss.toLocaleString('id-ID')}). Mempertahankan kedisiplinan eksekusi.`;
 }
+
+export interface ValidatedToolOrderParams {
+  symbol: string;
+  lots: number;
+  price: number;
+  orderType: 'LIMIT' | 'MARKET';
+  stopLossPrice?: number;
+  takeProfitPrice?: number;
+}
+
+/**
+ * 6. Multi-Agent Tool Calling Runtime Validation (Pilar 4)
+ * Memverifikasi argumen JSON yang diekstrak dari LLM Tool Call sebelum dieksekusi ke bursa/simulator
+ */
+export function validateAgentOrderToolCall(rawArgs: any): {
+  valid: boolean;
+  params?: ValidatedToolOrderParams;
+  error?: string;
+} {
+  if (!rawArgs || typeof rawArgs !== 'object') {
+    return { valid: false, error: 'Payload argumen tool call kosong atau bukan objek' };
+  }
+
+  const rawSymbol = typeof rawArgs.symbol === 'string' ? rawArgs.symbol.trim().toUpperCase() : '';
+  if (!rawSymbol || rawSymbol.length < 2 || rawSymbol.length > 15) {
+    return { valid: false, error: `Simbol instrumen tidak valid: "${rawSymbol}"` };
+  }
+
+  const lots = typeof rawArgs.lots === 'number' ? Math.floor(rawArgs.lots) : parseInt(rawArgs.lots, 10);
+  if (!Number.isFinite(lots) || lots <= 0 || lots > 10000) {
+    return { valid: false, error: `Ukuran lot tidak valid (harus 1 - 10.000): ${rawArgs.lots}` };
+  }
+
+  const price = typeof rawArgs.price === 'number' ? rawArgs.price : parseFloat(rawArgs.price);
+  if (!Number.isFinite(price) || price <= 0) {
+    return { valid: false, error: `Harga eksekusi tidak valid: ${rawArgs.price}` };
+  }
+
+  const orderType: 'LIMIT' | 'MARKET' = rawArgs.orderType === 'LIMIT' ? 'LIMIT' : 'MARKET';
+
+  const stopLossPrice = rawArgs.stopLoss ? parseFloat(rawArgs.stopLoss) : undefined;
+  const takeProfitPrice = rawArgs.targetPrice || rawArgs.takeProfit ? parseFloat(rawArgs.targetPrice || rawArgs.takeProfit) : undefined;
+
+  return {
+    valid: true,
+    params: {
+      symbol: rawSymbol,
+      lots,
+      price,
+      orderType,
+      stopLossPrice,
+      takeProfitPrice,
+    },
+  };
+}

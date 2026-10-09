@@ -5,6 +5,7 @@ import ALL_DIVIDEND_DATA from '@/data/idx_dividend_all.json'
 import { DIVIDEND_PAYING_STOCKS } from '@/data/dividend_stocks'
 import { checkIDXMarketStatus } from '@/lib/market/marketHours'
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse'
+import { calculateRealisticExecutionPrice } from '@/lib/stockRules'
 
 // ==========================================
 // Market Store
@@ -508,8 +509,11 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
 
     let execPrice = price
-    // Validasi & sinkronisasi fraksi harga resmi BEI jika saham Indonesia (tidak memblokir jam di mode simulator agar latihan & AI agent bisa berjalan 24/7)
-    if (isIDX) {
+    // Validasi & sinkronisasi slippage nyata jika order MARKET (Pilar 5 Almgren-Chriss Impact)
+    if (orderType === 'MARKET') {
+      const impact = calculateRealisticExecutionPrice(price, lots, cleanSym, 'MARKET', false)
+      execPrice = impact.executedPrice
+    } else if (isIDX) {
       const tick = execPrice > 5000 ? 25 : execPrice > 2000 ? 10 : execPrice > 500 ? 5 : execPrice > 200 ? 2 : 1
       const remainder = execPrice % tick
       if (remainder !== 0) {
@@ -993,8 +997,11 @@ export const usePortfolioStore = create<PortfolioState>()(
     const isIDX = !isCrypto && !isUS && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
 
     let execPrice = price
-    // Validasi & sinkronisasi fraksi harga BEI HANYA jika saham Indonesia
-    if (isIDX) {
+    // Validasi & sinkronisasi slippage nyata jika order MARKET (Pilar 5 Almgren-Chriss Impact)
+    if (orderType === 'MARKET') {
+      const impact = calculateRealisticExecutionPrice(price, lots, cleanSym, 'MARKET', true)
+      execPrice = impact.executedPrice
+    } else if (isIDX) {
       const tick = execPrice > 5000 ? 25 : execPrice > 2000 ? 10 : execPrice > 500 ? 5 : execPrice > 200 ? 2 : 1
       const remainder = execPrice % tick
       if (remainder !== 0) {

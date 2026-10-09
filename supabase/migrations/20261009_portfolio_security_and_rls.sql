@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS portfolio_transactions (
 CREATE INDEX IF NOT EXISTS idx_trans_user_id ON portfolio_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_trans_email ON portfolio_transactions(email);
 CREATE INDEX IF NOT EXISTS idx_trans_created_at ON portfolio_transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trans_created_at_brin ON portfolio_transactions USING BRIN (created_at);
 
 -- 5. Tabel Persistent Episodic Memory untuk AI Trading Agent
 -- Mencegah Context Amnesia pada Cold Starts Serverless
