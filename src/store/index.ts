@@ -207,6 +207,13 @@ const SHARES_PER_LOT = 100
 const BUY_FEE_RATE = 0.0015 // 0.15% fee
 const SELL_FEE_RATE = 0.0025 // 0.25% fee
 
+export const KNOWN_CRYPTO_SYMBOLS = [
+  'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR',
+  'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP',
+  'APT', 'KAS', 'TON', 'CRV', 'MKR', 'WIF', 'TIA', 'ENA', 'AKT', 'PYTH', 'HBAR',
+  'S', 'SEI', 'INJ', 'UNI', 'LTC', 'BCH', 'AAVE', 'ICP', 'POL', 'MATIC',
+]
+
 export const INITIAL_CASH = 0 // Rp 0 murni (bersih kosong)
 
 export const INITIAL_HOLDINGS: PortfolioHolding[] = []
@@ -220,77 +227,57 @@ export const INITIAL_DIVIDENDS: DividendRecord[] = []
  */
 export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHolding[] {
   if (!Array.isArray(rawHoldings)) return []
-  return rawHoldings.map((h) => {
-    const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
-    if (!isCrypto) return h
+  return rawHoldings
+    .filter((h) => {
+      const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+      const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
+      const units = isCrypto ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0))
+      return units > 0.000001
+    })
+    .map((h) => {
+      const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+      const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
+      if (!isCrypto) return h
 
-    const curPrice = h.currentPrice || 0
-    let effectiveAvg = h.avgPrice
+      const curPrice = h.currentPrice || 0
+      let effectiveAvg = h.avgPrice
 
-    // Kalibrasi anomali seed harga statis historis (APT, RENDER, PEPE, ARB, TON, NEAR, TIA, FET, WIF)
-    let effectiveUnits = h.cryptoUnits ?? h.lots
-    let effectiveLots = h.lots
-    let effectiveShares = h.shares
+      // Pulihkan units nyata (jangan biarkan 0 mengesampingkan lots)
+      const effectiveUnits = (h.cryptoUnits && h.cryptoUnits > 0) ? h.cryptoUnits : (h.lots || 0)
+      const effectiveLots = effectiveUnits
+      const effectiveShares = effectiveUnits
 
-    if (curPrice > 0) {
-      const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false
-      const recentDisparity = isRecentlyBought && effectiveAvg > 0 && Math.abs(effectiveAvg - curPrice) / effectiveAvg > 0.05
-
-      if (
-        recentDisparity ||
-        (clean === 'APT' && effectiveAvg >= 2.0 && curPrice < 1.5) ||
-        (clean === 'RENDER' && effectiveAvg >= 2.5 && curPrice < 2.2) ||
-        (clean === 'PEPE' && effectiveAvg >= 0.000006 && curPrice < 0.000005) ||
-        (clean === 'ARB' && effectiveAvg < 0.01 && curPrice > 0.08) ||
-        (clean === 'TON' && effectiveAvg >= 4.0 && curPrice < 3.5) ||
-        (clean === 'NEAR' && effectiveAvg >= 3.8 && curPrice < 3.0) ||
-        (clean === 'TIA' && effectiveAvg >= 4.5 && curPrice < 3.8) ||
-        (clean === 'FET' && effectiveAvg >= 0.9 && curPrice < 0.8) ||
-        (clean === 'WIF' && effectiveAvg >= 2.0 && curPrice < 1.8) ||
-        (effectiveAvg > curPrice * 1.30) ||
-        (effectiveAvg < curPrice * 0.70)
-      ) {
-        const investedUSD = effectiveAvg * effectiveUnits
-        effectiveAvg = curPrice
-        if (investedUSD > 0 && curPrice > 0) {
-          effectiveUnits = Number((investedUSD / curPrice).toFixed(effectiveUnits < 0.01 ? 8 : 4))
-          effectiveLots = effectiveUnits
-          effectiveShares = effectiveUnits
+      // Kalibrasi target TP / SL yang anomali jika ada
+      let effectiveTP = h.takeProfitPrice
+      let effectiveSL = h.stopLossPrice
+      if (curPrice > 0) {
+        if (effectiveTP && (effectiveTP > effectiveAvg * 2.5 || (effectiveAvg < 100 && effectiveTP >= 500))) {
+          effectiveTP = Number((effectiveAvg * 1.15).toFixed(effectiveAvg < 1 ? 8 : 4))
+        }
+        if (effectiveSL && (effectiveSL < effectiveAvg * 0.5 || effectiveSL > effectiveAvg)) {
+          effectiveSL = Number((effectiveAvg * 0.94).toFixed(effectiveAvg < 1 ? 8 : 4))
         }
       }
-    }
 
-    let effectiveTP = h.takeProfitPrice
-    let effectiveSL = h.stopLossPrice
-    if (curPrice > 0) {
-      if (effectiveTP && (effectiveTP > effectiveAvg * 2.5 || (effectiveAvg < 100 && effectiveTP >= 500))) {
-        effectiveTP = Number((effectiveAvg * 1.15).toFixed(effectiveAvg < 1 ? 8 : 4))
+      const rate = h.exchangeRate || 16000
+      const units = effectiveUnits
+      const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
+      const unrealizedPLPercent = effectiveAvg > 0
+        ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
+        : 0
+
+      return {
+        ...h,
+        avgPrice: effectiveAvg,
+        lots: effectiveLots,
+        shares: effectiveShares,
+        cryptoUnits: effectiveUnits,
+        takeProfitPrice: effectiveTP,
+        stopLossPrice: effectiveSL,
+        unrealizedPL,
+        unrealizedPLPercent,
       }
-      if (effectiveSL && (effectiveSL < effectiveAvg * 0.5 || effectiveSL > effectiveAvg)) {
-        effectiveSL = Number((effectiveAvg * 0.94).toFixed(effectiveAvg < 1 ? 8 : 4))
-      }
-    }
-
-    const rate = h.exchangeRate || 16000
-    const units = effectiveUnits
-    const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
-    const unrealizedPLPercent = effectiveAvg > 0
-      ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
-      : 0
-
-    return {
-      ...h,
-      avgPrice: effectiveAvg,
-      lots: effectiveLots,
-      shares: effectiveShares,
-      cryptoUnits: effectiveUnits,
-      takeProfitPrice: effectiveTP,
-      stopLossPrice: effectiveSL,
-      unrealizedPL,
-      unrealizedPLPercent,
-    }
-  })
+    })
 }
 
 export interface DividendItemInfo {
@@ -485,7 +472,8 @@ export const usePortfolioStore = create<PortfolioState>()(
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
       isCryptoSymbol(cleanSym) ||
-      isCryptoSymbol(symbol)
+      isCryptoSymbol(symbol) ||
+      KNOWN_CRYPTO_SYMBOLS.includes(cleanSym)
 
     const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
     const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US.includes(cleanSym))
@@ -996,10 +984,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
       isCryptoSymbol(cleanSym) ||
-      isCryptoSymbol(symbol) ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON', 'CRV', 'MKR'].includes(
-        cleanSym
-      )
+      KNOWN_CRYPTO_SYMBOLS.includes(cleanSym)
 
     const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
     const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US.includes(cleanSym))
@@ -1124,8 +1109,8 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
 
     let updatedHoldings: PortfolioHolding[]
-    const remainingLots = isCrypto
-      ? (Math.abs(availableLots - lots) < 0.000001 ? 0 : Math.max(0, availableLots - lots))
+    const remainingLots = effectiveIsCrypto
+      ? (Math.abs(availableLots - finalLots) < 0.000001 ? 0 : Math.max(0, availableLots - finalLots))
       : availableLots - lots
 
     if (remainingLots <= 0.000001) {
@@ -1133,7 +1118,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       updatedHoldings = holdings.filter((_, idx) => idx !== existingHoldingIndex)
     } else {
       // Jika penjualan sebagian
-      const isForeign = isCrypto || isUS
+      const isForeign = effectiveIsCrypto || isUS
       const remainingShares = isForeign ? remainingLots : remainingLots * sharesMultiplier
       const remainingUnrealizedPL = isForeign
         ? Math.round((execPrice - existing.avgPrice) * remainingLots * rate)
@@ -1147,7 +1132,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         ...existing,
         lots: remainingLots,
         shares: remainingShares,
-        cryptoUnits: isCrypto ? remainingLots : undefined,
+        cryptoUnits: effectiveIsCrypto ? remainingLots : undefined,
         currentPrice: execPrice,
         unrealizedPL: remainingUnrealizedPL,
         unrealizedPLPercent: remainingUnrealizedPercent,
@@ -1169,6 +1154,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         useAuthStore.getState().recordOrderToDatabase(newOrder);
         if (remainingLots <= 0.000001) {
           useAuthStore.getState().deleteHoldingFromDatabase(resolvedSym);
+          useAuthStore.getState().deleteHoldingFromDatabase(cleanSym);
         }
         useAuthStore.getState().syncPortfolioToDatabase();
       }).catch(() => {});
@@ -1200,85 +1186,54 @@ export const usePortfolioStore = create<PortfolioState>()(
 
   updateHoldingPrices: (priceMap: Record<string, number>) => {
     set((state) => ({
-      holdings: state.holdings.map((holding) => {
-        const clean = (holding.displaySymbol || holding.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-        const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || isCryptoSymbol(clean)
-        const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-        const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || isUSSymbol(clean) || KNOWN_US.includes(clean))
-        const candidatePrice =
-          priceMap[holding.symbol] ??
-          priceMap[clean] ??
-          priceMap[`${clean}USDT`] ??
-          holding.currentPrice
+      holdings: state.holdings
+        .filter((h) => {
+          const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+          const isC = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
+          const units = isC ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0))
+          return units > 0.000001
+        })
+        .map((holding) => {
+          const clean = (holding.displaySymbol || holding.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+          const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || isCryptoSymbol(clean)
+          const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
+          const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || isUSSymbol(clean) || KNOWN_US.includes(clean))
+          const candidatePrice =
+            priceMap[holding.symbol] ??
+            priceMap[clean] ??
+            priceMap[`${clean}USDT`] ??
+            holding.currentPrice
 
-        const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
+          const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
 
-        let effectiveAvgPrice = holding.avgPrice
-        let effectiveUnits = holding.cryptoUnits ?? holding.lots
-        let effectiveLots = holding.lots
-        let effectiveShares = holding.shares
-        let effectiveTakeProfit = holding.takeProfitPrice
-        let effectiveStopLoss = holding.stopLossPrice
-        let wasHealed = false
+          let effectiveAvgPrice = holding.avgPrice
+          const effectiveUnits = isCrypto ? ((holding.cryptoUnits && holding.cryptoUnits > 0) ? holding.cryptoUnits : (holding.lots || 0)) : (holding.shares ?? holding.lots)
+          const effectiveLots = isCrypto ? effectiveUnits : holding.lots
+          const effectiveShares = isCrypto ? effectiveUnits : holding.shares
+          let effectiveTakeProfit = holding.takeProfitPrice
+          let effectiveStopLoss = holding.stopLossPrice
+          let wasHealed = false
 
-        // Proteksi jika terjadi anomali ekstrem akibat kekeliruan input mata uang IDR ke USD (rasio > 200x)
-        if (isCrypto && effectiveAvgPrice > newPrice * 200 && newPrice > 0) {
-          const rate = holding.exchangeRate || 16000
-          const originalInvestedIDR = effectiveAvgPrice * effectiveUnits
-          effectiveAvgPrice = newPrice
-          effectiveUnits = Number((originalInvestedIDR / (newPrice * rate)).toFixed(4))
-          effectiveLots = effectiveUnits
-          effectiveShares = effectiveUnits
-          wasHealed = true
-        }
-
-        // Deteksi & kalibrasi otomatis anomali seed harga kripto (koin terbeli dengan harga fallback statis lama):
-        // 1. Kasus APT, RENDER, PEPE, ARB, TON, NEAR, TIA, FET, WIF yang terpaut jauh dari pasar live
-        // 2. Transaksi baru (< 48 jam) dengan disparitas harga beli vs live ticker > 5%
-        // 3. Batas umum: jika avgPrice > newPrice * 1.30 (langsung minus > 23%) atau < newPrice * 0.70
-        const isRecentlyBought = holding.lastBoughtAt ? (Date.now() - holding.lastBoughtAt < 48 * 3600 * 1000) : false
-        const recentDisparity = isRecentlyBought && effectiveAvgPrice > 0 && Math.abs(effectiveAvgPrice - newPrice) / effectiveAvgPrice > 0.05
-
-        const isSeedAnomaly =
-          isCrypto &&
-          newPrice > 0 &&
-          (
-            recentDisparity ||
-            (clean === 'APT' && effectiveAvgPrice >= 2.0 && newPrice < 1.5) ||
-            (clean === 'RENDER' && effectiveAvgPrice >= 2.5 && newPrice < 2.2) ||
-            (clean === 'PEPE' && effectiveAvgPrice >= 0.000006 && newPrice < 0.000005) ||
-            (clean === 'ARB' && effectiveAvgPrice < 0.01 && newPrice > 0.08) ||
-            (clean === 'TON' && effectiveAvgPrice >= 4.0 && newPrice < 3.5) ||
-            (clean === 'NEAR' && effectiveAvgPrice >= 3.8 && newPrice < 3.0) ||
-            (clean === 'TIA' && effectiveAvgPrice >= 4.5 && newPrice < 3.8) ||
-            (clean === 'FET' && effectiveAvgPrice >= 0.9 && newPrice < 0.8) ||
-            (clean === 'WIF' && effectiveAvgPrice >= 2.0 && newPrice < 1.8) ||
-            (effectiveAvgPrice > newPrice * 1.30) ||
-            (effectiveAvgPrice < newPrice * 0.70)
-          )
-
-        if (isSeedAnomaly) {
-          const investedUSD = effectiveAvgPrice * effectiveUnits
-          effectiveAvgPrice = newPrice
-          if (investedUSD > 0 && newPrice > 0) {
-            effectiveUnits = Number((investedUSD / newPrice).toFixed(effectiveUnits < 0.01 ? 8 : 4))
-            effectiveLots = effectiveUnits
-            effectiveShares = effectiveUnits
-          }
-          wasHealed = true
-        }
-
-        // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
-        if (isCrypto && newPrice > 0) {
-          if (effectiveTakeProfit && (effectiveTakeProfit > newPrice * 2.5 || (newPrice < 100 && effectiveTakeProfit >= 500))) {
-            effectiveTakeProfit = Number((newPrice * 1.15).toFixed(newPrice < 1 ? 8 : 4))
+          // Proteksi jika terjadi anomali ekstrem akibat kekeliruan input mata uang IDR ke USD (rasio > 200x)
+          if (isCrypto && effectiveAvgPrice > newPrice * 200 && newPrice > 0) {
+            effectiveAvgPrice = newPrice
+            wasHealed = true
+          } else if (isCrypto && effectiveAvgPrice <= 0 && newPrice > 0) {
+            effectiveAvgPrice = newPrice
             wasHealed = true
           }
-          if (effectiveStopLoss && (effectiveStopLoss < newPrice * 0.5 || effectiveStopLoss > newPrice)) {
-            effectiveStopLoss = Number((newPrice * 0.94).toFixed(newPrice < 1 ? 8 : 4))
-            wasHealed = true
+
+          // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
+          if (isCrypto && newPrice > 0) {
+            if (effectiveTakeProfit && (effectiveTakeProfit > newPrice * 2.5 || (newPrice < 100 && effectiveTakeProfit >= 500))) {
+              effectiveTakeProfit = Number((newPrice * 1.15).toFixed(newPrice < 1 ? 8 : 4))
+              wasHealed = true
+            }
+            if (effectiveStopLoss && (effectiveStopLoss < newPrice * 0.5 || effectiveStopLoss > newPrice)) {
+              effectiveStopLoss = Number((newPrice * 0.94).toFixed(newPrice < 1 ? 8 : 4))
+              wasHealed = true
+            }
           }
-        }
 
         let unrealizedPL = 0
         let unrealizedPLPercent = 0

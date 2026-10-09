@@ -52,6 +52,7 @@ import { bloombergAudio } from '@/lib/bloombergAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
 import { formatCryptoPrice } from '@/lib/utils';
 import { CRYPTO_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
+import { isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
 
 export default function JesseCryptoDeskView() {
   const { cash, holdings, orders, placeBuyOrder, placeSellOrder } = usePortfolioStore();
@@ -305,13 +306,16 @@ export default function JesseCryptoDeskView() {
   };
 
   // Filter holdings crypto aktif
-  const cryptoHoldings = holdings.filter(
-    (h) => h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT')
-  );
+  const cryptoHoldings = holdings.filter((h) => {
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const units = isCrypto ? (h.cryptoUnits || h.lots || 0) : 0;
+    return isCrypto && units > 0.000001;
+  });
 
   const totalCryptoValueIDR = cryptoHoldings.reduce((sum, h) => {
     const liveP = tickerMap[h.symbol]?.price ?? h.currentPrice;
-    const units = h.cryptoUnits ?? h.lots;
+    const units = h.cryptoUnits || h.lots;
     return sum + units * liveP * (h.exchangeRate || exchangeRate);
   }, 0);
 
@@ -1008,7 +1012,7 @@ export default function JesseCryptoDeskView() {
                 {cryptoHoldings.map((h) => {
                   const sym = h.displaySymbol.toUpperCase();
                   const liveP = tickerMap[`${sym}USDT`]?.price ?? h.currentPrice;
-                  const units = h.cryptoUnits ?? h.lots;
+                  const units = h.cryptoUnits || h.lots;
                   const pl = (liveP - h.avgPrice) * units * (h.exchangeRate || exchangeRate);
                   const plPct = h.avgPrice > 0 ? ((liveP - h.avgPrice) / h.avgPrice) * 100 : 0;
 

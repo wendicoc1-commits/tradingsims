@@ -218,7 +218,7 @@ export default function InstitutionalPortfolioDesk() {
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
-    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
     return acc + ((isCrypto || isUS) ? Math.round(curPrice * units * rate) : curPrice * units);
   }, 0);
@@ -229,7 +229,7 @@ export default function InstitutionalPortfolioDesk() {
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
-    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     const curPrice = getLivePrice(h);
 
     let effectiveAvgPrice = h.avgPrice;
@@ -600,6 +600,8 @@ export default function InstitutionalPortfolioDesk() {
                   .filter((h) => {
                     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
                     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+                    const units = isCrypto ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0));
+                    if (units <= 0.000001) return false;
                     if (selectedAssetView === 'EQUITY') return !isCrypto;
                     if (selectedAssetView === 'CRYPTO') return isCrypto;
                     return true;
@@ -609,7 +611,7 @@ export default function InstitutionalPortfolioDesk() {
                     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
                     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
                     const rate = h.exchangeRate || 16000;
-                    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+                    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                     const curPrice = getLivePrice(h);
 
                     // Kalibrasi real-time harga beli jika holding membawa seed anomali lama

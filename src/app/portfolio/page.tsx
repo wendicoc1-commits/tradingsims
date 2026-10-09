@@ -727,7 +727,7 @@ export default function PortfolioPage() {
     const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean));
     const rate = h.exchangeRate || 16000;
-    const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
     if (isCrypto || isUS) {
       return sum + Math.round(h.currentPrice * units * rate);
     }
@@ -1238,12 +1238,18 @@ export default function PortfolioPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {holdings.map((h) => {
-                        const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
-                        const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                        const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym));
-                        const rate = h.exchangeRate || 16000;
-                        const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+                      {holdings
+                        .filter((h) => {
+                          const isC = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
+                          const u = isC ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0));
+                          return u > 0.000001;
+                        })
+                        .map((h) => {
+                          const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
+                          const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                          const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym));
+                          const rate = h.exchangeRate || 16000;
+                          const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                         const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
                         const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - h.avgPrice) * units * rate) : (h.unrealizedPL || Math.round((h.currentPrice - h.avgPrice) * units));
                         const isPositive = (pl || 0) >= 0;
