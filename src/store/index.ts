@@ -715,6 +715,21 @@ export const usePortfolioStore = create<PortfolioState>()(
         useAuthStore.getState().recordOrderToDatabase(newOrder);
         useAuthStore.getState().syncPortfolioToDatabase();
       }).catch(() => {});
+      if (params.source !== 'AI_AGENT') {
+        import('@/lib/telegram/telegramNotificationEngine').then(({ notifyTelegramTradeBuy }) => {
+          notifyTelegramTradeBuy({
+            symbol: cleanSym,
+            name: name,
+            price: execPrice,
+            lots: lots,
+            notional: totalCost,
+            stopLoss: params.stopLossPrice,
+            takeProfit: params.takeProfitPrice,
+            tier: 'MANUAL_PORTFOLIO_ORDER',
+            engine: isCrypto ? 'FREQTRADE' : 'LUMIBOT',
+          }).catch(() => {});
+        }).catch(() => {});
+      }
     }
 
     return { order: newOrder }

@@ -18,6 +18,12 @@ import { normalizeSymbol, calculateShares } from '../stockRules';
 import { isCryptoSymbol } from '../universe/masterAssetUniverse';
 import { sanitizeUntrustedIntel, formatUntrustedNewsContext, detectMarketRegime } from '../agents/agentContextCompactor';
 import { globalTieredEngine } from '../cognitive/TieredCognitivePipeline';
+import {
+  notifyTelegramTradeBuy,
+  notifyTelegramTradeTakeProfit,
+  notifyTelegramTradeStopLoss,
+  notifyTelegramRiskVeto,
+} from '../telegram/telegramNotificationEngine';
 
 /**
  * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities di VPS 24/7)
@@ -253,6 +259,14 @@ export async function runAutonomousAgentCycle(
 
         aiStore.recordTradeStat(false, estProfit);
 
+        notifyTelegramTradeTakeProfit({
+          symbol: sym,
+          price: sellPrice,
+          lots: sellLots,
+          realizedProfit: estProfit,
+          pnlPct: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : undefined,
+        }).catch(() => {});
+
         if (typeof window !== 'undefined') {
           fetch('/api/ai/agent?action=reflect', {
             method: 'POST',
@@ -464,6 +478,15 @@ export async function runAutonomousAgentCycle(
           marketRegime: 'BEAR_DRAWDOWN',
           rationale: `Stop loss cut by CRO. Rugi: -Rp ${lossVal.toLocaleString('id-ID')}`,
           engineUsed: isCrypto ? 'freqtrade' : 'lumibot',
+        }).catch(() => {});
+
+        notifyTelegramTradeStopLoss({
+          symbol: sym,
+          price: sellPrice,
+          lots: sellLots,
+          realizedLoss: lossVal,
+          pnlPct: postPnlPct,
+          reason: isConfirmedBlackSwan ? 'Flash crash terkonfirmasi >35%' : 'Batas proteksi modal Stop Loss tersentuh',
         }).catch(() => {});
 
         if (typeof window !== 'undefined') {
@@ -968,6 +991,13 @@ export async function runAutonomousAgentCycle(
               pastMistakes: tieredEval.pastMistakesConsidered.length,
             },
           });
+
+          notifyTelegramRiskVeto({
+            symbol: target.symbol,
+            reason: tieredEval.reason,
+            tier: tieredEval.tier,
+          }).catch(() => {});
+
           return; // 🛡️ CRO & CRITIC VETO: Hentikan order jika gagal di Tier 1/2
         }
 
@@ -1081,6 +1111,20 @@ export async function runAutonomousAgentCycle(
               targetPrice: finalTakeProfit,
               reason: `[${tieredEval.tier}] ${tieredEval.reason}`,
             });
+
+            // ── TELEGRAM 24/7 INSTANT ALERT ──
+            notifyTelegramTradeBuy({
+              symbol: target.symbol,
+              name: target.name,
+              price: sizing.entry,
+              lots: sizing.lots,
+              notional: sizing.notional,
+              stopLoss: finalStopLoss,
+              takeProfit: finalTakeProfit,
+              tier: tieredEval.tier,
+              strategy: target.strategyLabel,
+              engine: tieredEval.targetEngine,
+            }).catch(() => {});
           } else if (res.error) {
             aiStore.logAction({
               type: 'RISK_GATE',
