@@ -981,14 +981,14 @@ export const usePortfolioStore = create<PortfolioState>()(
       params.currency === 'USDT' ||
       symbol.toUpperCase().endsWith('USDT') ||
       !!displaySymbol?.toUpperCase().endsWith('USDT') ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON'].includes(
-        (displaySymbol || symbol).replace(/USDT$/i, '').toUpperCase()
+      isCryptoSymbol(cleanSym) ||
+      isCryptoSymbol(symbol) ||
+      ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON', 'CRV', 'MKR'].includes(
+        cleanSym
       )
 
-    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
     const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
-    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || KNOWN_US.includes(cleanSym))
+    const isUS = !isCrypto && (params.currency === 'USD' || params.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US.includes(cleanSym))
     const resolvedSym = isCrypto
       ? `${cleanSym}USDT`
       : isUS
@@ -1021,12 +1021,23 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
 
     const existing = holdings[existingHoldingIndex]
-    const availableLots = isCrypto ? (existing.cryptoUnits ?? existing.lots) : existing.lots
-    const isInsufficient = isCrypto ? (availableLots + 0.0000001 < lots) : (availableLots < lots)
+    const effectiveIsCrypto = isCrypto || existing.assetClass === 'CRYPTO' || existing.currency === 'USDT' || Boolean(existing.cryptoUnits)
+    const availableLots = effectiveIsCrypto ? (existing.cryptoUnits ?? existing.lots) : existing.lots
+
+    // Toleransi desimal & auto-clamp untuk eksekusi likuidasi total (mencegah kegagalan fraksi floating point)
+    let finalLots = lots
+    if (effectiveIsCrypto && finalLots > availableLots) {
+      const diff = finalLots - availableLots
+      if (diff <= 0.05 || (availableLots > 0 && diff / availableLots < 0.02)) {
+        finalLots = availableLots
+      }
+    }
+
+    const isInsufficient = effectiveIsCrypto ? (availableLots + 0.0000001 < finalLots) : (availableLots < finalLots)
     if (isInsufficient) {
       return {
         order: null,
-        error: `Jumlah saldo tidak mencukupi. Anda hanya memiliki ${availableLots} ${isCrypto ? 'koin' : 'lot'} ${cleanSym}.`,
+        error: `Jumlah saldo tidak mencukupi. Anda hanya memiliki ${availableLots} ${effectiveIsCrypto ? 'koin' : 'lot'} ${cleanSym}.`,
       }
     }
 
@@ -1040,18 +1051,18 @@ export const usePortfolioStore = create<PortfolioState>()(
     let sharesSold: number
     const sharesMultiplier = isIDX ? SHARES_PER_LOT : 1
 
-    if (isCrypto) {
-      sharesSold = lots
-      const tradeValueUSD = execPrice * lots
+    if (effectiveIsCrypto) {
+      sharesSold = finalLots
+      const tradeValueUSD = execPrice * finalLots
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.001) // 0.1% spot fee
       taxFee = Math.round(tradeValue * 0.001) // 0.1% PPh Final Bappebti
       totalFee = brokerFee + taxFee
       netProceeds = tradeValue - totalFee
-      costBasisSold = Math.round(existing.avgPrice * lots * rate)
+      costBasisSold = Math.round(existing.avgPrice * finalLots * rate)
     } else if (isUS) {
-      sharesSold = lots
-      const tradeValueUSD = execPrice * lots
+      sharesSold = finalLots
+      const tradeValueUSD = execPrice * finalLots
       tradeValue = Math.round(tradeValueUSD * rate)
       brokerFee = Math.round(tradeValue * 0.0015)
       taxFee = 0

@@ -188,7 +188,9 @@ export async function runAutonomousAgentCycle(
     const isCrypto =
       holding.assetClass === 'CRYPTO' ||
       holding.symbol.endsWith('USDT') ||
-      ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(sym);
+      holding.currency === 'USDT' ||
+      isCryptoSymbol(sym) ||
+      ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'CRV', 'MKR'].includes(sym);
     const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
     const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || KNOWN_US.includes(sym));
     const isForeign = isCrypto || isUS;
@@ -209,9 +211,9 @@ export async function runAutonomousAgentCycle(
       holding.takeProfitPrice &&
       holding.takeProfitPrice >= holding.avgPrice * 1.01 &&
       sellPrice >= holding.takeProfitPrice &&
-      holding.lots > 0
+      (holding.lots > 0 || (holding.cryptoUnits || 0) > 0)
     ) {
-      const sellLots = holding.lots;
+      const sellLots = isCrypto ? (holding.cryptoUnits ?? holding.lots) : holding.lots;
       const res = portfolioStore.placeSellOrder({
         symbol: holding.symbol,
         displaySymbol: holding.displaySymbol,
@@ -219,6 +221,8 @@ export async function runAutonomousAgentCycle(
         price: sellPrice,
         lots: sellLots,
         orderType: 'MARKET',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
       });
 
       if (res.order) {
@@ -315,9 +319,9 @@ export async function runAutonomousAgentCycle(
       holding.peakPrice &&
       holding.peakPrice > holding.avgPrice * 1.02 &&
       sellPrice > holding.avgPrice &&
-      holding.lots > 0
+      (holding.lots > 0 || (holding.cryptoUnits || 0) > 0)
     ) {
-      const sellLots = holding.lots;
+      const sellLots = isCrypto ? (holding.cryptoUnits ?? holding.lots) : holding.lots;
       const res = portfolioStore.placeSellOrder({
         symbol: holding.symbol,
         displaySymbol: holding.displaySymbol,
@@ -325,6 +329,8 @@ export async function runAutonomousAgentCycle(
         price: sellPrice,
         lots: sellLots,
         orderType: 'MARKET',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
       });
 
       if (res.order) {
@@ -386,9 +392,9 @@ export async function runAutonomousAgentCycle(
       isLiveValid &&
       (!isGlitchDrop || isConfirmedBlackSwan) &&
       (isConfirmedBlackSwan || (holding.stopLossPrice && holding.stopLossPrice <= holding.avgPrice * 0.99 && sellPrice <= holding.stopLossPrice)) &&
-      holding.lots > 0
+      (holding.lots > 0 || (holding.cryptoUnits || 0) > 0)
     ) {
-      const sellLots = holding.lots;
+      const sellLots = isCrypto ? (holding.cryptoUnits ?? holding.lots) : holding.lots;
       const res = portfolioStore.placeSellOrder({
         symbol: holding.symbol,
         displaySymbol: holding.displaySymbol,
@@ -396,6 +402,8 @@ export async function runAutonomousAgentCycle(
         price: sellPrice,
         lots: sellLots,
         orderType: 'MARKET',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+        currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
       });
 
       if (res.order) {
@@ -493,7 +501,7 @@ export async function runAutonomousAgentCycle(
       const isSupplyResistance = profitPct >= 8.0 && sellPrice >= supplyZone;
 
       if (isTrendBroken || isSupplyResistance) {
-        const sellLots = holding.lots;
+        const sellLots = isCrypto ? (holding.cryptoUnits ?? holding.lots) : holding.lots;
         const res = portfolioStore.placeSellOrder({
           symbol: holding.symbol,
           displaySymbol: holding.displaySymbol,
@@ -501,6 +509,8 @@ export async function runAutonomousAgentCycle(
           price: sellPrice,
           lots: sellLots,
           orderType: 'MARKET',
+          assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
+          currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
         });
 
         if (res.order) {
