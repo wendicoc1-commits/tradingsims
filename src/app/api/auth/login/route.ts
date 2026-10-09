@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       const verify = await verifyUserPasswordAsync(normEmail, password);
       if (!verify.valid || !verify.user) {
         return NextResponse.json(
-          { success: false, error: 'Password yang Anda masukkan salah. Silakan coba lagi.' },
+          { success: false, error: 'Password yang Anda masukkan salah. Jika lupa password, silakan gunakan tab "Ubah Password" untuk membuat kata sandi baru.' },
           { status: 401 }
         );
       }

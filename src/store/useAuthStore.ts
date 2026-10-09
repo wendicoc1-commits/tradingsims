@@ -69,6 +69,7 @@ interface AuthState {
   // Actions
   loginWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   registerWithEmail: (email: string, pass: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (email: string, newPassword: string, confirmPassword?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   loginWithOAuth: (provider: 'apple' | 'facebook' | 'google') => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: (guestName?: string) => void;
   enterGuestMode: (guestName?: string) => void;
@@ -252,6 +253,32 @@ export const useAuthStore = create<AuthState>()(
         } catch (serverErr: any) {
           console.error('[REGISTER NETWORK ERROR]', serverErr);
           const errorMsg = 'Gagal terhubung ke server pendaftaran. Silakan periksa koneksi Anda.';
+          set({ authError: errorMsg, isLoading: false });
+          return { success: false, error: errorMsg };
+        }
+      },
+
+      changePassword: async (email: string, newPassword: string, confirmPassword?: string) => {
+        set({ isLoading: true, authError: null });
+
+        try {
+          const apiRes = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim(), newPassword, confirmPassword }),
+          });
+          const apiData = await apiRes.json();
+
+          if (apiData.success) {
+            set({ isLoading: false });
+            return { success: true, message: apiData.message };
+          }
+
+          set({ authError: apiData.error || 'Gagal mengubah password', isLoading: false });
+          return { success: false, error: apiData.error || 'Gagal mengubah password' };
+        } catch (serverErr: any) {
+          console.error('[CHANGE PASSWORD NETWORK ERROR]', serverErr);
+          const errorMsg = 'Gagal terhubung ke server saat mengubah password.';
           set({ authError: errorMsg, isLoading: false });
           return { success: false, error: errorMsg };
         }

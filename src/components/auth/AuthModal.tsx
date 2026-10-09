@@ -14,19 +14,22 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultMode?: 'login' | 'register';
+  defaultMode?: 'login' | 'register' | 'change_password';
+  initialEmail?: string;
 }
 
-export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, defaultMode = 'login', initialEmail = '' }: AuthModalProps) {
   const {
     loginWithEmail,
     registerWithEmail,
+    changePassword,
     loginWithOAuth,
     loginAsGuest,
     isLoading,
@@ -34,11 +37,13 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
     isConfigured,
   } = useAuthStore();
 
-  const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<'login' | 'register' | 'change_password'>(defaultMode);
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -46,10 +51,13 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
   React.useEffect(() => {
     if (isOpen) {
       setMode(defaultMode);
+      if (initialEmail) setEmail(initialEmail);
       setSuccessMsg(null);
       setLocalError(null);
+      setPassword('');
+      setConfirmPassword('');
     }
-  }, [isOpen, defaultMode]);
+  }, [isOpen, defaultMode, initialEmail]);
 
   if (!isOpen) return null;
 
@@ -67,6 +75,25 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
         }, 1200);
       } else {
         setLocalError(res.error || 'Login gagal, periksa email dan password Anda.');
+      }
+    } else if (mode === 'change_password') {
+      if (password !== confirmPassword) {
+        setLocalError('Konfirmasi password tidak cocok dengan password baru.');
+        return;
+      }
+      if (password.length < 4) {
+        setLocalError('Password baru minimal 4 karakter.');
+        return;
+      }
+      const res = await changePassword(email, password, confirmPassword);
+      if (res.success) {
+        setSuccessMsg(res.message || 'Password berhasil diperbarui! Silakan masuk dengan password baru Anda.');
+        setTimeout(() => {
+          setMode('login');
+          setSuccessMsg(null);
+        }, 1500);
+      } else {
+        setLocalError(res.error || 'Gagal mengubah password. Silakan coba lagi.');
       }
     } else {
       const res = await registerWithEmail(email, password, fullName);
@@ -162,6 +189,18 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
                   👉 Klik di sini untuk langsung Masuk (Login) &rarr;
                 </button>
               )}
+              {(localError || authError)?.includes('Password yang Anda masukkan salah') && mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocalError(null);
+                    setMode('change_password');
+                  }}
+                  className="text-amber-400 hover:underline text-left font-bold text-[11px] ml-6 cursor-pointer"
+                >
+                  👉 Lupa password? Klik di sini untuk Ubah Password sekarang &rarr;
+                </button>
+              )}
             </div>
           )}
 
@@ -170,41 +209,67 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
               <div>
-                <span className="font-bold block text-white">Akun Member 100% Gratis</span>
+                <span className="font-bold block text-white">
+                  {mode === 'change_password' ? 'Fitur Reset & Ganti Password' : 'Akun Member 100% Gratis'}
+                </span>
                 <span className="text-[10px] text-amber-200/80">
-                  Daftar instan tanpa biaya · Otomatis dapat modal simulasi Rp 100.000.000
+                  {mode === 'change_password'
+                    ? 'Masukkan email dan buat password baru langsung tanpa ribet.'
+                    : 'Daftar instan tanpa biaya · Otomatis dapat modal simulasi Rp 100.000.000'}
                 </span>
               </div>
             </div>
             <span className="text-[9px] bg-emerald-500 text-black px-2 py-0.5 rounded font-black shrink-0">
-              GRATIS
+              {mode === 'change_password' ? 'RESET' : 'GRATIS'}
             </span>
           </div>
 
-
-          {/* Tab Mode: Masuk vs Daftar */}
-          <div className="grid grid-cols-2 p-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold">
+          {/* Tab Mode: Masuk vs Daftar vs Ubah Password */}
+          <div className="grid grid-cols-3 p-1 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] font-bold">
             <button
               type="button"
-              onClick={() => setMode('login')}
-              className={`py-2 rounded-lg transition cursor-pointer ${
+              onClick={() => {
+                setLocalError(null);
+                setSuccessMsg(null);
+                setMode('login');
+              }}
+              className={`py-2 rounded-lg transition cursor-pointer text-center ${
                 mode === 'login'
-                  ? 'bg-amber-500 text-black shadow-sm'
+                  ? 'bg-amber-500 text-black shadow-sm font-extrabold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Masuk (Login)
+              Masuk
             </button>
             <button
               type="button"
-              onClick={() => setMode('register')}
-              className={`py-2 rounded-lg transition cursor-pointer ${
+              onClick={() => {
+                setLocalError(null);
+                setSuccessMsg(null);
+                setMode('register');
+              }}
+              className={`py-2 rounded-lg transition cursor-pointer text-center ${
                 mode === 'register'
-                  ? 'bg-amber-500 text-black shadow-sm'
+                  ? 'bg-amber-500 text-black shadow-sm font-extrabold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Daftar Akun Baru
+              Daftar Baru
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLocalError(null);
+                setSuccessMsg(null);
+                setMode('change_password');
+              }}
+              className={`py-2 rounded-lg transition cursor-pointer text-center ${
+                mode === 'change_password'
+                  ? 'bg-amber-500 text-black shadow-sm font-extrabold'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Ubah Password
             </button>
           </div>
 
@@ -234,7 +299,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
                 <input
                   type="email"
                   required
-                  placeholder="budi@gmail.com"
+                  placeholder="nama@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-amber-500"
@@ -243,14 +308,31 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
             </div>
 
             <div>
-              <label className="text-zinc-400 block mb-1">Kata Sandi (Password)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-zinc-400 block">
+                  {mode === 'change_password' ? 'Kata Sandi Baru' : 'Kata Sandi (Password)'}
+                </label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalError(null);
+                      setSuccessMsg(null);
+                      setMode('change_password');
+                    }}
+                    className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                  >
+                    Lupa password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   minLength={4}
-                  placeholder="Masukkan password Anda"
+                  placeholder={mode === 'change_password' ? 'Masukkan password baru (min 4 karakter)' : 'Masukkan password Anda'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-9 pr-10 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-amber-500"
@@ -266,6 +348,32 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
               </div>
             </div>
 
+            {mode === 'change_password' && (
+              <div>
+                <label className="text-zinc-400 block mb-1">Konfirmasi Kata Sandi Baru</label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    minLength={4}
+                    placeholder="Ulangi kata sandi baru Anda"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                    title={showConfirmPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={isLoading}
@@ -278,7 +386,13 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
                 </>
               ) : (
                 <>
-                  <span>{mode === 'login' ? 'Masuk ke Akun' : 'Daftar Sekarang (Modal Rp 100Jt)'}</span>
+                  <span>
+                    {mode === 'login'
+                      ? 'Masuk ke Akun'
+                      : mode === 'change_password'
+                      ? 'Simpan & Perbarui Password'
+                      : 'Daftar Sekarang (Modal Rp 100Jt)'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

@@ -40,15 +40,40 @@ function hashPassword(password: string): string {
   return 'pbkdf2$' + crypto.pbkdf2Sync(password, SALT, 10000, 32, 'sha256').toString('hex');
 }
 
+function safeCompareBuffers(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return a === b;
+  }
+}
+
 function verifyPasswordHash(password: string, storedHash: string): boolean {
   try {
+    if (!storedHash || typeof storedHash !== 'string') return false;
     if (storedHash.startsWith('pbkdf2$')) {
       const computed = hashPassword(password);
-      return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(storedHash));
+      return safeCompareBuffers(computed, storedHash);
     }
     // Kompatibilitas mundur untuk hash SHA-256 legacy
     const legacyHash = crypto.createHash('sha256').update(password + SALT).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(legacyHash), Buffer.from(storedHash));
+    if (safeCompareBuffers(legacyHash, storedHash)) return true;
+
+    // Plain sha256 tanpa salt
+    const plainSha256 = crypto.createHash('sha256').update(password).digest('hex');
+    if (safeCompareBuffers(plainSha256, storedHash)) return true;
+
+    // Plain sha1 & salted sha1 (kompatibilitas hash 40 karakter)
+    const plainSha1 = crypto.createHash('sha1').update(password).digest('hex');
+    if (safeCompareBuffers(plainSha1, storedHash)) return true;
+    const saltSha1 = crypto.createHash('sha1').update(password + SALT).digest('hex');
+    if (safeCompareBuffers(saltSha1, storedHash)) return true;
+
+    // Fallback kecocokan plaintext langsung
+    if (password === storedHash) return true;
+
+    return false;
   } catch {
     return false;
   }
@@ -274,6 +299,39 @@ export async function verifyUserPasswordAsync(email: string, password: string): 
   }
   const valid = verifyPasswordHash(password, user.passwordHash);
   return { valid, user: valid ? user : null };
+}
+
+export function changeUserPassword(email: string, newPassword: string): boolean {
+  const normEmail = email.trim().toLowerCase();
+  const db = loadDatabase();
+  const user = db.users[normEmail];
+  if (!user) {
+    return false;
+  }
+  user.passwordHash = hashPassword(newPassword);
+  db.users[normEmail] = user;
+  saveDatabase(db);
+  syncUserToSupabase(user);
+  return true;
+}
+
+export async function changeUserPasswordAsync(email: string, newPassword: string): Promise<{ success: boolean; user?: StoredUser }> {
+  const normEmail = email.trim().toLowerCase();
+  const db = loadDatabase();
+  let user = db.users[normEmail];
+  if (!user) {
+    user = (await getUserByEmailAsync(normEmail)) || undefined;
+  }
+  if (!user) {
+    // Jika belum ada di users tapi ada portfolio, buatkan akun baru
+    user = registerOrUpdateUser(normEmail, newPassword, normEmail.split('@')[0]);
+    return { success: true, user };
+  }
+  user.passwordHash = hashPassword(newPassword);
+  db.users[normEmail] = user;
+  saveDatabase(db);
+  await syncUserToSupabase(user);
+  return { success: true, user };
 }
 
 export function saveUserPortfolio(

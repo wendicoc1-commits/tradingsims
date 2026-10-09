@@ -25,6 +25,7 @@ import {
   Wallet,
   RefreshCw,
   Cloud,
+  KeyRound,
 } from 'lucide-react';
 import { useMarketStore, usePortfolioStore } from '@/store';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
@@ -96,6 +97,7 @@ export default function TradeSimHeader() {
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
 
@@ -373,6 +375,18 @@ export default function TradeSimHeader() {
                 </div>
                 <button
                   type="button"
+                  onClick={() => {
+                    setAuthModalMode('change_password');
+                    setIsAuthModalOpen(true);
+                  }}
+                  aria-label="Ubah kata sandi akun"
+                  className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer"
+                  title="Ubah Kata Sandi (Password)"
+                >
+                  <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => logout()}
                   aria-label={`Keluar dari akun ${user.email}`}
                   className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
@@ -384,7 +398,10 @@ export default function TradeSimHeader() {
             ) : (
               <button
                 type="button"
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={() => {
+                  setAuthModalMode('login');
+                  setIsAuthModalOpen(true);
+                }}
                 aria-label="Buka form masuk akun member"
                 className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
               >
@@ -497,7 +514,12 @@ export default function TradeSimHeader() {
       {/* Modals */}
       <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
       <AdminTopUpApprovalModal isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        defaultMode={authModalMode}
+        initialEmail={user?.email || ''}
+      />
     </header>
   );
 }
