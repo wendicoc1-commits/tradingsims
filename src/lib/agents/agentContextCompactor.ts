@@ -264,22 +264,6 @@ export function validateAndClampDecision(
 
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-/**
- * 5. Reflection Journal Storage & Context Retrieval
- */
-export function recordReflection(entry: ReflectionEntry) {
-  MEMORY_REFLECTION_STORE.unshift(entry);
-  if (MEMORY_REFLECTION_STORE.length > 50) {
-    MEMORY_REFLECTION_STORE.pop();
-  }
-
-  // Persistensi ke Client-side LocalStorage untuk kebal amnesia antar refresh browser
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('TRADEMIND_EPISODIC_JOURNAL', JSON.stringify(MEMORY_REFLECTION_STORE.slice(0, 30)));
-    } catch {}
-  }
-
 // ── CHAOS RESILIENCE: TRANSACTIONAL OFFLINE OUTBOX QUEUE (Anti-Split-Brain) ──
 const OUTBOX_STORAGE_KEY = 'TRADEMIND_OFFLINE_OUTBOX_QUEUE';
 
@@ -323,7 +307,23 @@ export async function flushOutboxQueue() {
   } catch {}
 }
 
-// Non-blocking background sync ke Supabase Cloud dengan Offline Outbox Fallback
+/**
+ * 5. Reflection Journal Storage & Context Retrieval
+ */
+export function recordReflection(entry: ReflectionEntry) {
+  MEMORY_REFLECTION_STORE.unshift(entry);
+  if (MEMORY_REFLECTION_STORE.length > 50) {
+    MEMORY_REFLECTION_STORE.pop();
+  }
+
+  // Persistensi ke Client-side LocalStorage untuk kebal amnesia antar refresh browser
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('TRADEMIND_EPISODIC_JOURNAL', JSON.stringify(MEMORY_REFLECTION_STORE.slice(0, 30)));
+    } catch {}
+  }
+
+  // Non-blocking background sync ke Supabase Cloud dengan Offline Outbox Fallback
   const payload = {
     symbol: entry.symbol,
     decision: entry.keputusan,
