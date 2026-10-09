@@ -10,15 +10,18 @@ echo "🚀 [1/5] Mempersiapkan direktori dan environment Python..."
 mkdir -p /root/quant_engine
 cd /root/quant_engine
 
-apt-get update -y && apt-get install -y python3 python3-pip python3-venv sqlite3 curl ufw
-
-# Buat virtual environment jika belum ada
-if [ ! -d "/root/quant_engine/venv" ]; then
-    python3 -m venv /root/quant_engine/venv
+# Deteksi package manager (Ubuntu/Debian vs CentOS/RHEL/AlmaLinux)
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y && apt-get install -y python3 sqlite3 curl || true
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y python3 sqlite curl || true
+elif command -v yum >/dev/null 2>&1; then
+    yum install -y python3 sqlite curl || true
 fi
 
-/root/quant_engine/venv/bin/pip install --upgrade pip
-/root/quant_engine/venv/bin/pip install --no-cache-dir ccxt requests
+# Cari path binary python3 di VPS
+PYTHON_BIN=$(command -v python3 || echo "/usr/bin/python3")
+echo "🐍 Python binary terdeteksi: $PYTHON_BIN ($($PYTHON_BIN --version 2>&1))"
 
 echo "⚙️ [2/5] Menulis bridge.py enterprise (WAL Mode + HMAC Security + 24/7 Daemon)..."
 cat << 'EOF' > /root/quant_engine/bridge.py
@@ -389,7 +392,7 @@ if __name__ == "__main__":
 EOF
 
 echo "🔧 [3/5] Mengonfigurasi Systemd Service (quant-bridge)..."
-cat << 'EOF' > /etc/systemd/system/quant-bridge.service
+cat << EOF > /etc/systemd/system/quant-bridge.service
 [Unit]
 Description=TradeSim Autonomous Quant Engine Bridge 24/7
 After=network.target
@@ -398,7 +401,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/quant_engine
-ExecStart=/root/quant_engine/venv/bin/python3 /root/quant_engine/bridge.py
+ExecStart=$PYTHON_BIN /root/quant_engine/bridge.py
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
@@ -415,8 +418,15 @@ systemctl enable quant-bridge
 systemctl restart quant-bridge
 
 echo "🛡️ [5/5] Mengonfigurasi firewall port 8002 & port 80..."
-ufw allow 8002/tcp || true
-ufw allow 80/tcp || true
+if command -v ufw >/dev/null 2>&1; then
+    ufw allow 8002/tcp || true
+    ufw allow 80/tcp || true
+fi
+if command -v firewall-cmd >/dev/null 2>&1; then
+    firewall-cmd --zone=public --add-port=8002/tcp --permanent || true
+    firewall-cmd --zone=public --add-port=80/tcp --permanent || true
+    firewall-cmd --reload || true
+fi
 
 echo "✅ [SUKSES] TradeSim Quant Bridge 24/7 berhasil diperbarui dengan SQLite WAL Mode & HMAC Auth!"
 systemctl status quant-bridge --no-pager
