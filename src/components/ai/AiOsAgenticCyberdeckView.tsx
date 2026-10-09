@@ -44,6 +44,7 @@ import { FIRM_AGENTS } from '@/lib/hedgefund/firmRoster';
 import { checkIDXMarketStatus } from '@/lib/market/marketHours';
 import { notifyTelegramTradeBuy } from '@/lib/telegram/telegramNotificationEngine';
 import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
+import ThreeJsSynapticBrainCanvas from './ThreeJsSynapticBrainCanvas';
 
 // ── View Modes ──
 export type CyberdeckViewMode =
@@ -136,6 +137,7 @@ export default function AiOsAgenticCyberdeckView({
 
   // Active View Mode (Default: NEURAL BRAIN 3D Architecture)
   const [viewMode, setViewMode] = useState<CyberdeckViewMode>('NEURAL BRAIN');
+  const [renderEngine, setRenderEngine] = useState<'THREE_JS' | 'CANVAS_3D'>('THREE_JS');
   const [selectedNodeId, setSelectedNodeId] = useState<string>('core');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
@@ -1592,6 +1594,31 @@ export default function AiOsAgenticCyberdeckView({
 
       {/* ── Subnav Modes & Speed Controller Bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#070b14] border border-slate-800/80 text-[11px]">
+        {/* Engine Switcher */}
+        <div className="flex items-center gap-1 bg-[#090d16] px-2 py-1 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 font-bold uppercase mr-1">ENGINE:</span>
+          <button
+            onClick={() => setRenderEngine('THREE_JS')}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+              renderEngine === 'THREE_JS'
+                ? 'bg-cyan-500 text-black shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-white bg-slate-900/80'
+            }`}
+          >
+            ⚡ THREE.JS (WEBGL)
+          </button>
+          <button
+            onClick={() => setRenderEngine('CANVAS_3D')}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+              renderEngine === 'CANVAS_3D'
+                ? 'bg-cyan-500 text-black shadow-sm font-extrabold'
+                : 'text-slate-400 hover:text-white bg-slate-900/80'
+            }`}
+          >
+            🧊 CANVAS 3D
+          </button>
+        </div>
+
         {/* The 7 View Modes */}
         <div className="flex items-center gap-1 overflow-x-auto py-1">
           <span className="text-slate-500 mr-1 uppercase text-[10px] font-bold">VIEW:</span>
@@ -1831,59 +1858,69 @@ export default function AiOsAgenticCyberdeckView({
 
         {/* ── CENTER RADAR CONSTELLATION CANVAS (3D Neural Brain Architecture) ── */}
         <section className="lg:col-span-6 flex flex-col justify-between rounded-xl bg-[#020408] border border-slate-800/80 relative overflow-hidden min-h-[580px] shadow-2xl">
-          {/* Top Canvas Controls & Breadcrumbs */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-            <div className="pointer-events-auto px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-2 shadow-lg backdrop-blur">
-              <span className="text-cyan-400 font-bold">MODE AKTIF:</span>
-              <span className="text-white font-bold">{viewMode}</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-cyan-300 font-bold">{nodes.length} SIMPUL &amp; BLOK TENSOR</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-emerald-400 font-bold">5 TAHAP PIPELINE</span>
-            </div>
+          {renderEngine === 'THREE_JS' ? (
+            <ThreeJsSynapticBrainCanvas
+              speedFactor={orbitSpeedFactor}
+              onOpenWarRoom={onOpenWarRoom}
+              onSelectNeuron={(sn) => sn && setSelectedNodeId(sn.id)}
+            />
+          ) : (
+            <>
+              {/* Top Canvas Controls & Breadcrumbs */}
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
+                <div className="pointer-events-auto px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-2 shadow-lg backdrop-blur">
+                  <span className="text-cyan-400 font-bold">MODE AKTIF:</span>
+                  <span className="text-white font-bold">{viewMode}</span>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-cyan-300 font-bold">{nodes.length} SIMPUL &amp; BLOK TENSOR</span>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-emerald-400 font-bold">5 TAHAP PIPELINE</span>
+                </div>
 
-            <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 shadow-lg backdrop-blur">
-              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}>
-                [+] ZOOM
-              </span>
-              <span>·</span>
-              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}>
-                [-] ZOOM
-              </span>
-              <span>·</span>
-              <span
-                className="hover:text-cyan-300 cursor-pointer"
-                onClick={() => {
-                  setZoom(0.95);
-                  rotAngleXRef.current = 0.28;
-                  rotAngleYRef.current = 0.0;
-                }}
-              >
-                [RESET]
-              </span>
-            </div>
-          </div>
+                <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 shadow-lg backdrop-blur">
+                  <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}>
+                    [+] ZOOM
+                  </span>
+                  <span>·</span>
+                  <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}>
+                    [-] ZOOM
+                  </span>
+                  <span>·</span>
+                  <span
+                    className="hover:text-cyan-300 cursor-pointer"
+                    onClick={() => {
+                      setZoom(0.95);
+                      rotAngleXRef.current = 0.28;
+                      rotAngleYRef.current = 0.0;
+                    }}
+                  >
+                    [RESET]
+                  </span>
+                </div>
+              </div>
 
-          {/* High-Performance 3D Neural Canvas */}
-          <canvas ref={canvasRef} className="w-full h-full flex-1 cursor-grab active:cursor-grabbing block" />
+              {/* High-Performance 3D Neural Canvas */}
+              <canvas ref={canvasRef} className="w-full h-full flex-1 cursor-grab active:cursor-grabbing block" />
 
-          {/* Bottom Hint Bar */}
-          <div className="px-3 py-2 bg-[#050810]/95 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
-            <div className="flex items-center gap-3">
-              <span>
-                ● <strong className="text-slate-300">KLIK SIMPUL / BLOK</strong> = DETAIL TENSOR &amp; SYNAPSE BURST
-              </span>
-              <span>
-                ● <strong className="text-slate-300">DRAG MOUSE</strong> = PUTAR 3D PERSPEKTIF
-              </span>
-              <span>
-                ● <strong className="text-cyan-300">FOTON CYAN/AMBER</strong> = FORWARD &amp; BACKPROP
-              </span>
-            </div>
-            <div className="text-cyan-400/80 font-mono">
-              STAGE: <span className="text-white font-bold">L1 INPUT ➜ L2 ENCODER ➜ L3 MoE ➜ L4 GATE ➜ L5 DECISION</span>
-            </div>
-          </div>
+              {/* Bottom Hint Bar */}
+              <div className="px-3 py-2 bg-[#050810]/95 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
+                <div className="flex items-center gap-3">
+                  <span>
+                    ● <strong className="text-slate-300">KLIK SIMPUL / BLOK</strong> = DETAIL TENSOR &amp; SYNAPSE BURST
+                  </span>
+                  <span>
+                    ● <strong className="text-slate-300">DRAG MOUSE</strong> = PUTAR 3D PERSPEKTIF
+                  </span>
+                  <span>
+                    ● <strong className="text-cyan-300">FOTON CYAN/AMBER</strong> = FORWARD &amp; BACKPROP
+                  </span>
+                </div>
+                <div className="text-cyan-400/80 font-mono">
+                  STAGE: <span className="text-white font-bold">L1 INPUT ➜ L2 ENCODER ➜ L3 MoE ➜ L4 GATE ➜ L5 DECISION</span>
+                </div>
+              </div>
+            </>
+          )}
         </section>
 
         {/* ── RIGHT PANEL: Action Skills Deck, Autonomous Routines, VPS Link ── */}

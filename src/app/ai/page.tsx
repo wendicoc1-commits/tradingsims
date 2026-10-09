@@ -65,7 +65,7 @@ const PRESET_PROMPTS = [
 export default function FinceptAiCopilotPage() {
   const [mainAiTab, setMainAiTab] = useState<
     'VIRTUAL_OFFICE' | 'AI_OS_CYBERDECK' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
-  >('VIRTUAL_OFFICE');
+  >('AI_OS_CYBERDECK');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -278,8 +278,8 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
                 : 'text-cyan-400 border border-cyan-800/50 bg-cyan-950/20 hover:text-white hover:bg-cyan-900/40'
             }`}
           >
-            <Globe className="w-3.5 h-3.5 text-cyan-300" />
-            <span>🌌 AI·OS 3D Cyberdeck (Celestial Globe)</span>
+            <Brain className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+            <span>🧠 AI·OS 3D Neural Brain (Synaptic WebGL)</span>
           </button>
 
           <button
