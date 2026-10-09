@@ -1,27 +1,3 @@
-#!/bin/bash
-# ==============================================================================
-# TRADEMIND QUANT ENGINE 24/7 - VPS SETUP & UPDATE SCRIPT
-# Target: Ubuntu/Debian Linux VPS (IP: 38.9.46.160)
-# ==============================================================================
-
-set -e
-
-echo "🚀 [1/5] Mempersiapkan direktori dan environment Python..."
-mkdir -p /root/quant_engine
-cd /root/quant_engine
-
-apt-get update -y && apt-get install -y python3 python3-pip python3-venv sqlite3 curl ufw
-
-# Buat virtual environment jika belum ada
-if [ ! -d "/root/quant_engine/venv" ]; then
-    python3 -m venv /root/quant_engine/venv
-fi
-
-/root/quant_engine/venv/bin/pip install --upgrade pip
-/root/quant_engine/venv/bin/pip install --no-cache-dir ccxt requests
-
-echo "⚙️ [2/5] Menulis bridge.py enterprise (WAL Mode + HMAC Security + 24/7 Daemon)..."
-cat << 'EOF' > /root/quant_engine/bridge.py
 import sys, os, json, time, sqlite3, threading, logging, hmac
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -129,7 +105,7 @@ def fetch_live_crypto_prices():
         logger.warning(f"Gagal mengambil harga Binance: {e}")
         return {}
 
-# ── 4. 24/7 AUTONOMOUS HEARTBEAT DAEMON ──
+# ── 4. 24/7 AUTONOMOUS HEARTBEAT DAEMON (BERJALAN DI VPS WALAUPUN LAPTOP MATI) ──
 def autonomous_worker_loop():
     logger.info("🚀 [DAEMON 24/7] Autonomous Heartbeat Worker aktif di latar belakang VPS!")
     while AUTONOMOUS_STATE["is_running"]:
@@ -137,6 +113,7 @@ def autonomous_worker_loop():
             AUTONOMOUS_STATE["last_heartbeat"] = int(time.time())
             AUTONOMOUS_STATE["cycle_count"] += 1
             
+            # 1. Update harga pasar terkini
             prices = fetch_live_crypto_prices()
             if prices:
                 AUTONOMOUS_STATE["live_prices"] = prices
@@ -145,7 +122,7 @@ def autonomous_worker_loop():
             conn = get_db_connection()
             c = conn.cursor()
 
-            # Periksa posisi terbuka
+            # 2. Periksa posisi yang terbuka (TP/SL/Trailing Stop)
             remaining_positions = []
             for pos in AUTONOMOUS_STATE["open_positions"]:
                 sym = pos["pair"]
@@ -158,11 +135,12 @@ def autonomous_worker_loop():
                 entry_price = pos["entry_price"]
                 pnl_pct = ((curr_price - entry_price) / entry_price) * 100
 
+                # Update Peak Price untuk Chandelier Trailing Stop
                 if curr_price > pos.get("peak_price", entry_price):
                     pos["peak_price"] = curr_price
 
                 peak = pos.get("peak_price", entry_price)
-                trailing_stop = peak * 0.965
+                trailing_stop = peak * 0.965  # 3.5% trailing stop dari puncak
 
                 is_tp = curr_price >= pos.get("target_price", entry_price * 1.08)
                 is_sl = curr_price <= pos.get("stop_loss", entry_price * 0.95)
@@ -187,16 +165,18 @@ def autonomous_worker_loop():
 
             AUTONOMOUS_STATE["open_positions"] = remaining_positions
 
-            # Opportunity Scanner
+            # 3. Autonomous Opportunity Scanner: Jika slot posisi tersedia (< 3 posisi terbuka)
             if len(AUTONOMOUS_STATE["open_positions"]) < 3:
                 for pair, data in prices.items():
+                    # Kondisi Alpha: Momentum positif 24h > 1.8% dan harga di atas 75% range 24h
                     price_range = data["high_24h"] - data["low_24h"]
                     is_breakout = price_range > 0 and (data["price"] - data["low_24h"]) / price_range > 0.75
                     is_already_holding = any(p["pair"] == pair for p in AUTONOMOUS_STATE["open_positions"])
 
                     if data["change_24h"] > 1.8 and is_breakout and not is_already_holding:
+                        # Masuk posisi BUY dengan slippage simulasi (0.15%)
                         entry_price = data["price"] * 1.0015
-                        stake_usd = 2000.0
+                        stake_usd = 2000.0  # $2000 per posisi
                         amount = round(stake_usd / entry_price, 6)
                         trade_id = f"auto-{int(time.time())}-{pair.replace('/', '')}"
 
@@ -214,9 +194,10 @@ def autonomous_worker_loop():
                             "source": "VPS_AUTONOMOUS_DAEMON_24_7"
                         }
                         AUTONOMOUS_STATE["open_positions"].append(new_pos)
-                        logger.info(f"⚡ [VPS 24/7 AUTO-BUY] Deteksi Alpha Breakout! {pair} @ {entry_price:.4f}")
+                        logger.info(f"⚡ [VPS 24/7 AUTO-BUY] Deteksi Alpha Breakout! Membuka posisi {pair} @ {entry_price:.4f}")
                         break
 
+            # Hitung total trade tercatat
             c.execute('SELECT COUNT(*) FROM ai_trades')
             AUTONOMOUS_STATE["recent_trades_count"] = c.fetchone()[0]
             conn.close()
@@ -224,8 +205,9 @@ def autonomous_worker_loop():
         except Exception as err:
             logger.error(f"Error pada Autonomous Daemon: {err}")
 
-        time.sleep(30)
+        time.sleep(30) # Detak jantung setiap 30 detik
 
+# Mulai thread daemon 24/7
 daemon_thread = threading.Thread(target=autonomous_worker_loop, daemon=True)
 daemon_thread.start()
 
@@ -242,6 +224,7 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
     def _verify_auth(self):
         auth_header = self.headers.get("Authorization", "").strip()
         expected = f"Bearer {QUANT_BRIDGE_SECRET}".strip()
+        # Timing-attack safe comparison via HMAC constant time
         if not hmac.compare_digest(auth_header.encode("utf-8"), expected.encode("utf-8")):
             self._set_cors_headers(401)
             self.wfile.write(json.dumps({"success": False, "error": "Unauthorized: Invalid Signature"}).encode("utf-8"))
@@ -374,39 +357,5 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = HTTPServer(("0.0.0.0", 8002), QuantBridgeHandler)
-    logger.info("🚀 Quant Bridge ONLINE di port 8002 (KVM Cloud 24/7 Full Autonomous WAL Mode)")
+    logger.info("🚀 Quant Bridge ONLINE di port 8002 (KVM Cloud 24/7 Full Autonomous)")
     server.serve_forever()
-EOF
-
-echo "🔧 [3/5] Mengonfigurasi Systemd Service (quant-bridge)..."
-cat << 'EOF' > /etc/systemd/system/quant-bridge.service
-[Unit]
-Description=TradeSim Autonomous Quant Engine Bridge 24/7
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/quant_engine
-ExecStart=/root/quant_engine/venv/bin/python3 /root/quant_engine/bridge.py
-Restart=always
-RestartSec=3
-Environment=PYTHONUNBUFFERED=1
-Environment=QUANT_BRIDGE_SECRET=tradesim_quant_sec_7f9e1d82ab
-Environment=QUANT_DB_FILE=/root/quant_engine/ai_memory.db
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-echo "🔄 [4/5] Memuat ulang systemd dan me-restart quant-bridge..."
-systemctl daemon-reload
-systemctl enable quant-bridge
-systemctl restart quant-bridge
-
-echo "🛡️ [5/5] Mengonfigurasi firewall port 8002 & port 80..."
-ufw allow 8002/tcp || true
-ufw allow 80/tcp || true
-
-echo "✅ [SUKSES] TradeSim Quant Bridge 24/7 berhasil diperbarui dengan SQLite WAL Mode & HMAC Auth!"
-systemctl status quant-bridge --no-pager

@@ -31,6 +31,43 @@ import {
   type ValidatedAgentDecision,
 } from '@/lib/agents/agentContextCompactor';
 
+/**
+ * Defensive JSON Extractor & Sanitizer:
+ * Tangguh terhadap markdown code fences (```json), preamble bebas LLM,
+ * trailing commas, dan string noise. Mengembalikan null jika unparseable.
+ */
+function safeExtractJSON<T = any>(raw: string): T | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+
+  // 1. Direct parse
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+
+  // 2. Extract from markdown code fences ```json ... ``` atau ``` ... ```
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch {}
+  }
+
+  // 3. Fallback regex to capture outer { ... } atau [ ... ]
+  const jsonMatch = trimmed.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (jsonMatch && jsonMatch[0]) {
+    try {
+      const cleaned = jsonMatch[0]
+        .replace(/,\s*([}\]])/g, '$1') // bersihkan trailing commas
+        .trim();
+      return JSON.parse(cleaned);
+    } catch {}
+  }
+
+  return null;
+}
+
+
 const SYSTEM_PROMPT_TRADEMIND = `
 <system_prompt>
 <identity>
@@ -199,9 +236,9 @@ let hourlyWindowResetTimestamp = Date.now() + 3_600_000;
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content || '{}';
-        const parsed = JSON.parse(content);
+        const parsed = safeExtractJSON<any>(content);
 
-        if (parsed.keputusan && parsed.analisis_teknikal) {
+        if (parsed && parsed.keputusan && parsed.analisis_teknikal) {
           // 3. Post-Processing Guardrail: Verifikasi dan clamp fraksi bursa & RRR
           const clamped = validateAndClampDecision(parsed, market);
           return {
@@ -246,7 +283,7 @@ let hourlyWindowResetTimestamp = Date.now() + 3_600_000;
       if (geminiRes.ok) {
         const gData = await geminiRes.json();
         const gText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const parsedGemini = JSON.parse(gText);
+        const parsedGemini = safeExtractJSON<any>(gText);
         if (parsedGemini.keputusan && parsedGemini.analisis_teknikal) {
           const clamped = validateAndClampDecision(parsedGemini, market);
           return {
