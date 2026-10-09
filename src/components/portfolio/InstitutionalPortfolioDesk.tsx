@@ -179,26 +179,7 @@ export default function InstitutionalPortfolioDesk() {
             updateMap[cleanSym] = live.price;
             updateMap[`${cleanSym}USDT`] = live.price;
 
-            // Trigger kalibrasi jika holding terdeteksi membawa seed harga historis yang salah atau TP/SL rembesan
-            const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false;
-            const recentDisparity = isRecentlyBought && h.avgPrice > 0 && Math.abs(h.avgPrice - live.price) / h.avgPrice > 0.05;
-
-            if (
-              recentDisparity ||
-              (cleanSym === 'APT' && h.avgPrice >= 2.0 && live.price < 1.5) ||
-              (cleanSym === 'RENDER' && h.avgPrice >= 2.5 && live.price < 2.2) ||
-              (cleanSym === 'PEPE' && h.avgPrice >= 0.000006 && live.price < 0.000005) ||
-              (cleanSym === 'ARB' && h.avgPrice < 0.01 && live.price > 0.08) ||
-              (cleanSym === 'TON' && h.avgPrice >= 4.0 && live.price < 3.5) ||
-              (cleanSym === 'NEAR' && h.avgPrice >= 3.8 && live.price < 3.0) ||
-              (cleanSym === 'TIA' && h.avgPrice >= 4.5 && live.price < 3.8) ||
-              (cleanSym === 'FET' && h.avgPrice >= 0.9 && live.price < 0.8) ||
-              (cleanSym === 'WIF' && h.avgPrice >= 2.0 && live.price < 1.8) ||
-              (h.avgPrice > live.price * 1.30) ||
-              (h.avgPrice < live.price * 0.70) ||
-              (h.takeProfitPrice && h.takeProfitPrice > live.price * 2.5) ||
-              (Math.abs(live.price - h.currentPrice) > 0.000000001)
-            ) {
+            if (Math.abs(live.price - h.currentPrice) > 0.000000001) {
               needsHeal = true;
             }
           }
@@ -233,26 +214,8 @@ export default function InstitutionalPortfolioDesk() {
     const curPrice = getLivePrice(h);
 
     let effectiveAvgPrice = h.avgPrice;
-    if (isCrypto && curPrice > 0) {
-      const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false;
-      const recentDisparity = isRecentlyBought && effectiveAvgPrice > 0 && Math.abs(effectiveAvgPrice - curPrice) / effectiveAvgPrice > 0.05;
-
-      if (
-        recentDisparity ||
-        (cleanSym === 'APT' && effectiveAvgPrice >= 2.0 && curPrice < 1.5) ||
-        (cleanSym === 'RENDER' && effectiveAvgPrice >= 2.5 && curPrice < 2.2) ||
-        (cleanSym === 'PEPE' && effectiveAvgPrice >= 0.000006 && curPrice < 0.000005) ||
-        (cleanSym === 'ARB' && effectiveAvgPrice < 0.01 && curPrice > 0.08) ||
-        (cleanSym === 'TON' && effectiveAvgPrice >= 4.0 && curPrice < 3.5) ||
-        (cleanSym === 'NEAR' && effectiveAvgPrice >= 3.8 && curPrice < 3.0) ||
-        (cleanSym === 'TIA' && effectiveAvgPrice >= 4.5 && curPrice < 3.8) ||
-        (cleanSym === 'FET' && effectiveAvgPrice >= 0.9 && curPrice < 0.8) ||
-        (cleanSym === 'WIF' && effectiveAvgPrice >= 2.0 && curPrice < 1.8) ||
-        (effectiveAvgPrice > curPrice * 1.30) ||
-        (effectiveAvgPrice < curPrice * 0.70)
-      ) {
-        effectiveAvgPrice = curPrice;
-      }
+    if (isCrypto && curPrice > 0 && effectiveAvgPrice > curPrice * 200) {
+      effectiveAvgPrice = curPrice;
     }
 
     if (isCrypto || isUS) {
@@ -616,26 +579,8 @@ export default function InstitutionalPortfolioDesk() {
 
                     // Kalibrasi real-time harga beli jika holding membawa seed anomali lama
                     let effectiveAvgPrice = h.avgPrice;
-                    if (isCrypto && curPrice > 0) {
-                      const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false;
-                      const recentDisparity = isRecentlyBought && effectiveAvgPrice > 0 && Math.abs(effectiveAvgPrice - curPrice) / effectiveAvgPrice > 0.05;
-
-                      if (
-                        recentDisparity ||
-                        (cleanSym === 'APT' && effectiveAvgPrice >= 2.0 && curPrice < 1.5) ||
-                        (cleanSym === 'RENDER' && effectiveAvgPrice >= 2.5 && curPrice < 2.2) ||
-                        (cleanSym === 'PEPE' && effectiveAvgPrice >= 0.000006 && curPrice < 0.000005) ||
-                        (cleanSym === 'ARB' && effectiveAvgPrice < 0.01 && curPrice > 0.08) ||
-                        (cleanSym === 'TON' && effectiveAvgPrice >= 4.0 && curPrice < 3.5) ||
-                        (cleanSym === 'NEAR' && effectiveAvgPrice >= 3.8 && curPrice < 3.0) ||
-                        (cleanSym === 'TIA' && effectiveAvgPrice >= 4.5 && curPrice < 3.8) ||
-                        (cleanSym === 'FET' && effectiveAvgPrice >= 0.9 && curPrice < 0.8) ||
-                        (cleanSym === 'WIF' && effectiveAvgPrice >= 2.0 && curPrice < 1.8) ||
-                        (effectiveAvgPrice > curPrice * 1.30) ||
-                        (effectiveAvgPrice < curPrice * 0.70)
-                      ) {
-                        effectiveAvgPrice = curPrice;
-                      }
+                    if (isCrypto && curPrice > 0 && effectiveAvgPrice > curPrice * 200) {
+                      effectiveAvgPrice = curPrice;
                     }
 
                     // Sanitasi TP / SL kripto agar tidak bocor dari target saham IDR (misal $3640)

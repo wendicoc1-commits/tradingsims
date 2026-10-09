@@ -693,25 +693,7 @@ export default function PortfolioPage() {
           cryptoMap[clean] = item.price;
           cryptoMap[`${clean}USDT`] = item.price;
 
-          const isRecentlyBought = h.lastBoughtAt ? (Date.now() - h.lastBoughtAt < 48 * 3600 * 1000) : false;
-          const recentDisparity = isRecentlyBought && h.avgPrice > 0 && Math.abs(h.avgPrice - item.price) / h.avgPrice > 0.05;
-
-          if (
-            recentDisparity ||
-            (clean === 'APT' && h.avgPrice >= 2.0 && item.price < 1.5) ||
-            (clean === 'RENDER' && h.avgPrice >= 2.5 && item.price < 2.2) ||
-            (clean === 'PEPE' && h.avgPrice >= 0.000006 && item.price < 0.000005) ||
-            (clean === 'ARB' && h.avgPrice < 0.01 && item.price > 0.08) ||
-            (clean === 'TON' && h.avgPrice >= 4.0 && item.price < 3.5) ||
-            (clean === 'NEAR' && h.avgPrice >= 3.8 && item.price < 3.0) ||
-            (clean === 'TIA' && h.avgPrice >= 4.5 && item.price < 3.8) ||
-            (clean === 'FET' && h.avgPrice >= 0.9 && item.price < 0.8) ||
-            (clean === 'WIF' && h.avgPrice >= 2.0 && item.price < 1.8) ||
-            (h.avgPrice > item.price * 1.30) ||
-            (h.avgPrice < item.price * 0.70) ||
-            (h.takeProfitPrice && h.takeProfitPrice > item.price * 2.5) ||
-            (Math.abs(item.price - h.currentPrice) > 0.000000001)
-          ) {
+          if (Math.abs(item.price - h.currentPrice) > 0.000000001) {
             needsHeal = true;
           }
         }
