@@ -137,7 +137,7 @@ export default function AiOsAgenticCyberdeckView({
 
   // Active View Mode (Default: NEURAL BRAIN 3D Architecture)
   const [viewMode, setViewMode] = useState<CyberdeckViewMode>('NEURAL BRAIN');
-  const [renderEngine, setRenderEngine] = useState<'THREE_JS' | 'CANVAS_3D'>('THREE_JS');
+  const [renderEngine, setRenderEngine] = useState<'THREE_JS' | 'CANVAS_3D'>('CANVAS_3D');
   const [selectedNodeId, setSelectedNodeId] = useState<string>('core');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
@@ -1863,6 +1863,7 @@ export default function AiOsAgenticCyberdeckView({
               speedFactor={orbitSpeedFactor}
               onOpenWarRoom={onOpenWarRoom}
               onSelectNeuron={(sn) => sn && setSelectedNodeId(sn.id)}
+              onFallbackToCanvas={() => setRenderEngine('CANVAS_3D')}
             />
           ) : (
             <>
