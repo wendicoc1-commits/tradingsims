@@ -31,6 +31,7 @@ import {
   Moon,
   Activity,
   Award,
+  Camera,
 } from 'lucide-react';
 import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
 import type { BandarmologiInsight, CryptoWhaleInsight } from '@/lib/hedgefund/bandarmologiEngine';
@@ -117,6 +118,11 @@ import TimeTravelScrubberBar from './TimeTravelScrubberBar';
 import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
 import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
 import { globalAgentAtlas, type AgentVisualState } from '@/lib/office/SpriteSheetAtlasPool';
+import { globalLaserNetwork } from '@/lib/office/AgentLaserNetworkEngine';
+import { globalHoloHub } from '@/lib/office/HolographicMarketHub';
+import { globalAtmosphere } from '@/lib/office/MarketAtmosphereEngine';
+import { globalDeskProps } from '@/lib/office/DynamicDeskPropsEngine';
+import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
 
 // ───────────────────────── konstanta ─────────────────────────
 
@@ -503,6 +509,11 @@ function decideNext(sim: Sim, a: AgentRT) {
       const id = options[Math.floor(Math.random() * options.length)];
       const t = sim.byId[id];
       a.visitId = id;
+      const sigType =
+        a.def.dept === 'RISK' ? 'RISK_VETO'
+        : a.def.dept === 'ALPHA' || a.def.dept === 'QUANT' ? 'SIGNAL_TRADE'
+        : 'TELEMETRY';
+      globalLaserNetwork.fireStream(a.slot.dx, a.slot.dy, t.slot.dx, t.slot.dy, sigType);
       goTo(sim, a, t.slot.dx + 68, t.slot.dy + 16, 'VISIT');
       return;
     }
@@ -736,7 +747,7 @@ function buildStaticLayer(assets: Assets): HTMLCanvasElement {
 
 // ───────────────────────── render dinamis ─────────────────────────
 
-function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
+function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number, dt: number = 0.016) {
   const { w, h, dpr } = sim.view;
   const cam = sim.cam;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -912,10 +923,13 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
     });
   });
 
-  // hologram di meja
+  // hologram & hub pasar di war room
   items.push({
     z: WAR_ROOM.cy,
     draw: () => {
+      // 3D Holographic Cylinder & Wireframe Globe
+      globalHoloHub.renderHoloHub(ctx, WAR_ROOM.cx, WAR_ROOM.cy, now);
+
       ctx.textAlign = 'center';
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 24px monospace';
@@ -935,6 +949,26 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
   });
 
   items.sort((p, q) => p.z - q.z).forEach((it) => it.draw());
+
+  // ── 1. Inter-Agent Laser Network Splines ──
+  globalLaserNetwork.updateAndRender(ctx, dt);
+
+  // ── 2. Dynamic Desk Props (Mugs, Trophy, Smoke) ──
+  sim.agents.forEach((a) => {
+    globalDeskProps.renderProps(
+      ctx,
+      {
+        agentId: a.def.id,
+        deskX: a.slot.dx,
+        deskY: a.slot.dy,
+        pendingTasks: a.mode === 'SIT' && a.timer > 8 ? 4 : 1,
+        isTopSharpe: a.def.id === 'pm_quant' || a.def.id === 'strat_momentum',
+        hasError: false,
+      },
+      now
+    );
+  });
+  globalDeskProps.updateAndDrawSmoke(ctx);
 
   // Render & Update Confetti (Dimensi 4: Confetti Celebration)
   if (sim.confetti && sim.confetti.length > 0) {
@@ -1017,6 +1051,13 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const zoom = cam.zoom;
   const toScreen = (wx: number, wy: number) => ({ x: (wx - cam.x) * zoom, y: (wy - cam.y) * zoom });
+
+  // ── 3. Dynamic Market Atmosphere & Glitch Overlay ──
+  const atmoMode =
+    sim.alarm ? 'VOLATILITY_GLITCH'
+    : sim.weather === 'BEARISH_RAIN' ? 'BEAR_RAIN'
+    : 'BULL_GOLDEN';
+  globalAtmosphere.render(ctx, atmoMode, now, w, h);
 
   sim.agents.forEach((a) => {
     const headY = (a.mode === 'SIT' ? a.slot.seatY : a.y) - CHAR_H;
@@ -1515,6 +1556,15 @@ export default function VirtualAgentOfficeView() {
     setAlarm(true);
     // Visual flash and audio alert
     executiveVoice.speak(`Peringatan darurat: Anomali Black Swan terdeteksi! Skenario ${crisis.type}. Pembekuan order non-hedged diaktifkan.`);
+    // 3D Holographic Shockwave & Glitch
+    globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#ef4444', 360);
+    globalAtmosphere.triggerGlitch(1.0);
+    ['pm_quant', 'risk_head', 'execution_algo'].forEach((agentId) => {
+      const a = simRef.current?.byId[agentId];
+      if (a) {
+        globalLaserNetwork.fireStream(WAR_ROOM.cx, WAR_ROOM.cy, a.x, a.y, 'RISK_VETO');
+      }
+    });
   };
 
   const handleResolveCrisis = () => {
@@ -1598,6 +1648,30 @@ export default function VirtualAgentOfficeView() {
   const [replayTick, setReplayTick] = useState(0);
   const [totalRecordedTicks, setTotalRecordedTicks] = useState(0);
   const [activeReplaySnapshot, setActiveReplaySnapshot] = useState<ReplayTickSnapshot | null>(null);
+
+  // ── MODUL 5: ISOMETRIC CCTV ACTION TRACKER ──
+  const [showCctv, setShowCctv] = useState<boolean>(true);
+  const [cctvAgent, setCctvAgent] = useState<CctvTargetAgent | null>({
+    id: 'pm_quant',
+    name: 'Dr. Kenji Sato',
+    dept: 'Portfolio Strategy',
+    role: 'Lead Quantitative Portfolio Manager',
+    action: 'Monitoring Alpha Arbitrage Matrix & Liquidity',
+    status: 'ACTIVE_EXECUTION',
+    confidence: 0.94,
+  });
+
+  const handleFocusCctvAgent = useCallback((agentId: string) => {
+    const sim = simRef.current;
+    if (!sim) return;
+    const agent = sim.byId[agentId];
+    if (agent) {
+      sim.cam.tx = agent.x;
+      sim.cam.ty = agent.y;
+      sim.cam.tz = 1.15;
+      sim.selectedId = agentId;
+    }
+  }, []);
 
   // Scrub timeline function
   const handleScrubTick = (tick: number) => {
@@ -1983,7 +2057,7 @@ export default function VirtualAgentOfficeView() {
         }
       }
 
-      renderFrame(ctx, sim, now);
+      renderFrame(ctx, sim, now, dt);
       if (mctx && mini) {
         const dpr = sim.view.dpr;
         if (mini.width !== MW * dpr) {
@@ -2307,6 +2381,20 @@ export default function VirtualAgentOfficeView() {
       const speaker = sim.byId[line.agentId];
       if (speaker) {
         speaker.bubble = { text: line.text, from: performance.now() / 1000, until: performance.now() / 1000 + 4.5 };
+        // Laser spline dari speaker ke meja War Room
+        globalLaserNetwork.fireStream(speaker.x, speaker.y, WAR_ROOM.cx, WAR_ROOM.cy, 'SIGNAL_TRADE');
+        // Pulse shockwave pada holographic market hub
+        globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#38bdf8', 180);
+        // Sinkronisasi CCTV target
+        setCctvAgent({
+          id: speaker.def.id,
+          name: speaker.def.name,
+          dept: DEPT_BY_ID[speaker.def.dept].name,
+          role: speaker.def.role,
+          action: line.text,
+          status: 'WAR_ROOM_DEBATE',
+          confidence: 0.92,
+        });
       }
       if (voiceEnabled) {
         executiveVoice.speak(line.agentId, line.text);
@@ -2434,6 +2522,11 @@ export default function VirtualAgentOfficeView() {
     } else {
       if (simRef.current) {
         triggerConfetti(simRef.current, 130);
+        globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#10b981', 340);
+        const pm = simRef.current.byId['pm_quant'];
+        if (pm) {
+          globalLaserNetwork.fireStream(WAR_ROOM.cx, WAR_ROOM.cy, pm.slot.dx, pm.slot.dy, 'SIGNAL_TRADE');
+        }
       }
       const qtyLabel = isCrypto ? `${orderLots} unit` : `${orderLots} lot`;
       const priceLabel = isCrypto ? `$${entryPrice.toLocaleString('en-US')}` : `Rp ${entryPrice.toLocaleString('id-ID')}`;
@@ -2796,6 +2889,20 @@ export default function VirtualAgentOfficeView() {
               >
                 <span>⏪</span>
                 <span>Time-Travel</span>
+              </button>
+
+              {/* Tombol CCTV Action Tracker */}
+              <button
+                onClick={() => setShowCctv(!showCctv)}
+                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
+                  showCctv
+                    ? 'bg-rose-600 text-white border-rose-400 font-extrabold shadow-md shadow-rose-600/30'
+                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-zinc-300'
+                }`}
+                title="CCTV Auto-Tracking Security Monitor"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>CCTV Cam</span>
               </button>
 
               {/* Tombol Re-Scan & Auto-Execute */}
@@ -4399,6 +4506,15 @@ export default function VirtualAgentOfficeView() {
         onTogglePlay={handleToggleReplayPlay}
         activeSnapshot={activeReplaySnapshot}
       />
+
+      {/* ── MODUL 5: CCTV ACTION TRACKER PIP WIDGET ── */}
+      {showCctv && (
+        <CctvSecurityPipWidget
+          activeAgent={cctvAgent}
+          onFocusAgent={handleFocusCctvAgent}
+          onClose={() => setShowCctv(false)}
+        />
+      )}
     </div>
   );
 }
