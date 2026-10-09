@@ -977,6 +977,10 @@ export const usePortfolioStore = create<PortfolioState>()(
       return { order: null, error: 'Jumlah koin/lot dan harga jual harus bernilai positif.' }
     }
 
+    // Normalisasi simbol konsisten
+    const rawClean = (displaySymbol || symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
+
     // Deteksi apakah instrumen merupakan cryptocurrency
     const isCrypto =
       params.assetClass === 'CRYPTO' ||
