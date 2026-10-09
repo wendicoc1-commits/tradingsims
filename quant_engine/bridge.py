@@ -7,7 +7,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("QuantBridge24_7")
 
 QUANT_BRIDGE_SECRET = os.environ.get("QUANT_BRIDGE_SECRET", "tradesim_quant_sec_7f9e1d82ab")
-DB_FILE = os.environ.get("QUANT_DB_FILE", "/root/quant_engine/ai_memory.db")
+DEFAULT_DB = "/root/quant_engine/ai_memory.db" if os.path.exists("/root") else os.path.expanduser("~/.gemini/antigravity/scratch/quant_engine/ai_memory.db")
+DB_FILE = os.environ.get("QUANT_DB_FILE", DEFAULT_DB)
 
 # Helper koneksi database SQLite dengan mode WAL (Write-Ahead Logging) & Concurrency Pool
 def get_db_connection():
