@@ -128,10 +128,6 @@ import { globalDeskProps } from '@/lib/office/DynamicDeskPropsEngine';
 import { globalFloorPbr } from '@/lib/office/FloorPbrReflectionEngine';
 import { globalMeritocracy } from '@/lib/office/MeritocracyPromotionEngine';
 import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
-import MissionControlDecisionCenter from './MissionControlDecisionCenter';
-import KronosKLineForecastView from './KronosKLineForecastView';
-import GroundStationMissionControl from './GroundStationMissionControl';
-import { useMissionControlBridgeStore } from '@/store/useMissionControlBridgeStore';
 import QuantDeskJessePanel from './QuantDeskJessePanel';
 import FloatingAgentInspector from './FloatingAgentInspector';
 import type { AgentProfile } from '@/types/simulation.types';
@@ -1286,9 +1282,6 @@ export default function VirtualAgentOfficeView() {
   const [aiRiskTpEdit, setAiRiskTpEdit] = useState<string>('10');
   const [aiRiskSlEdit, setAiRiskSlEdit] = useState<string>('5');
   const [aiRiskTrailingEdit, setAiRiskTrailingEdit] = useState<string>('5');
-  const [showMissionControl, setShowMissionControl] = useState(false);
-  const [showKronosForecast, setShowKronosForecast] = useState(false);
-  const [showGroundStation, setShowGroundStation] = useState(false);
 
   // data live
   const [quote, setQuote] = useState<LiveQuote | null>(null);
@@ -2211,7 +2204,6 @@ export default function VirtualAgentOfficeView() {
     if (hit) {
       sim.selectedId = hit.def.id;
       setInspectId(hit.def.id);
-      useMissionControlBridgeStore.getState().selectAgent(hit.def.id);
       return;
     }
     // klik meja War Room
@@ -2222,18 +2214,6 @@ export default function VirtualAgentOfficeView() {
       else resetDebate();
     }
   };
-
-  // Sinkronisasi kamera kanvas saat selectedAgentId di Mission Control Roster berubah
-  const selectedAgentIdFromBridge = useMissionControlBridgeStore((s) => s.selectedAgentId);
-  useEffect(() => {
-    if (!selectedAgentIdFromBridge || !simRef.current) return;
-    const agent = simRef.current.byId[selectedAgentIdFromBridge];
-    if (agent) {
-      simRef.current.selectedId = selectedAgentIdFromBridge;
-      setInspectId(selectedAgentIdFromBridge);
-      flyTo(agent.x, agent.y, 1.25);
-    }
-  }, [selectedAgentIdFromBridge, flyTo]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -3031,66 +3011,6 @@ export default function VirtualAgentOfficeView() {
                 <span>CCTV Cam</span>
               </button>
 
-              {/* Tombol Mission Control (Decisions & Kill Switch) */}
-              <button
-                onClick={() => {
-                  setShowMissionControl(!showMissionControl);
-                  if (!showMissionControl) {
-                    setShowKronosForecast(false);
-                    setShowGroundStation(false);
-                  }
-                }}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                  showMissionControl
-                    ? 'bg-amber-500 text-black border-amber-300 font-extrabold shadow-md shadow-amber-500/30'
-                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-amber-300'
-                }`}
-                title="Pusat Otoritas & Decisions Approval Queue AI Swarm"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-                <span>🛡️ Decisions</span>
-              </button>
-
-              {/* Tombol Kronos K-Line Foundation Model */}
-              <button
-                onClick={() => {
-                  setShowKronosForecast(!showKronosForecast);
-                  if (!showKronosForecast) {
-                    setShowMissionControl(false);
-                    setShowGroundStation(false);
-                  }
-                }}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                  showKronosForecast
-                    ? 'bg-emerald-500 text-black border-emerald-300 font-extrabold shadow-md shadow-emerald-500/30'
-                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-emerald-300'
-                }`}
-                title="Kronos Financial Foundation Model - Ghost Candlestick Forecast"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-                <span>🔮 Kronos AI</span>
-              </button>
-
-              {/* Tombol Ground Station Polar Radar */}
-              <button
-                onClick={() => {
-                  setShowGroundStation(!showGroundStation);
-                  if (!showGroundStation) {
-                    setShowMissionControl(false);
-                    setShowKronosForecast(false);
-                  }
-                }}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                  showGroundStation
-                    ? 'bg-cyan-500 text-black border-cyan-300 font-extrabold shadow-md shadow-cyan-500/30'
-                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-cyan-300'
-                }`}
-                title="Ground Station SDR Waterfall & Polar Tracking Radar"
-              >
-                <Radio className="w-3.5 h-3.5 text-cyan-300" />
-                <span>📡 Radar DSP</span>
-              </button>
-
               {/* Tombol Re-Scan & Auto-Execute */}
               <button
                 onClick={executeUniverseScan}
@@ -3153,25 +3073,6 @@ export default function VirtualAgentOfficeView() {
               >
                 ↺ Kembali ke Auto-Pilot ({scanResult.topPick.symbol})
               </button>
-            </div>
-          )}
-
-          {/* ── MISSION CONTROL / KRONOS FORECAST / GROUND STATION COLLAPSIBLE DRAWERS ── */}
-          {showMissionControl && (
-            <div className="relative mb-3 animate-fadeIn">
-              <MissionControlDecisionCenter isEmbedded={true} />
-            </div>
-          )}
-
-          {showKronosForecast && (
-            <div className="relative mb-3 animate-fadeIn">
-              <KronosKLineForecastView isEmbedded={true} />
-            </div>
-          )}
-
-          {showGroundStation && (
-            <div className="relative mb-3 animate-fadeIn">
-              <GroundStationMissionControl isEmbedded={true} />
             </div>
           )}
 
