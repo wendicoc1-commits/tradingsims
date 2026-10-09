@@ -5,6 +5,40 @@ const QUANT_BRIDGE_SECRET = process.env.QUANT_BRIDGE_SECRET || 'tradesim_quant_s
 
 export async function GET(req: NextRequest) {
   try {
+    const action = req.nextUrl.searchParams.get('action');
+
+    // 0. Forwarding untuk Memory Persistent SQLite di VPS
+    if (action === 'memory') {
+      try {
+        const res = await fetch(`${QUANT_BRIDGE_URL}/api/quant/memory`, {
+          headers: { 'Authorization': `Bearer ${QUANT_BRIDGE_SECRET}` },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return NextResponse.json(data);
+        }
+      } catch {
+        return NextResponse.json({ success: true, memories: [] });
+      }
+    }
+
+    // Forwarding untuk Live Positions 24/7 di VPS
+    if (action === 'positions') {
+      try {
+        const res = await fetch(`${QUANT_BRIDGE_URL}/api/quant/positions`, {
+          headers: { 'Authorization': `Bearer ${QUANT_BRIDGE_SECRET}` },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return NextResponse.json(data);
+        }
+      } catch {
+        return NextResponse.json({ success: true, positions: [] });
+      }
+    }
+
     // 1. Coba hubungi Quant Bridge 24/7 di VPS Cloud / Lokal
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
@@ -89,6 +123,27 @@ export async function POST(req: NextRequest) {
       body = await req.json();
     } catch {
       body = {};
+    }
+
+    const queryAction = req.nextUrl.searchParams.get('action');
+    if (queryAction === 'memory') {
+      try {
+        const res = await fetch(`${QUANT_BRIDGE_URL}/api/quant/memory`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${QUANT_BRIDGE_SECRET}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return NextResponse.json(data);
+        }
+      } catch {
+        return NextResponse.json({ success: true, saved: 'local_fallback' });
+      }
     }
 
     const { engine, action, ticker, price, stopLoss, targetPrice, reason, mode, requireLive } = body;

@@ -216,7 +216,52 @@ let hourlyWindowResetTimestamp = Date.now() + 3_600_000;
     }
   }
 
-  // 4. Algorithmic Fallback jika API Groq offline
+  // 3.5. Secondary Cloud LLM Failover: Google Gemini 1.5 Flash
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+  if (geminiKey) {
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: `${SYSTEM_PROMPT_TRADEMIND}\n\n${userPrompt}` }
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.15,
+            },
+          }),
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+
+      if (geminiRes.ok) {
+        const gData = await geminiRes.json();
+        const gText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const parsedGemini = JSON.parse(gText);
+        if (parsedGemini.keputusan && parsedGemini.analisis_teknikal) {
+          const clamped = validateAndClampDecision(parsedGemini, market);
+          return {
+            decision: clamped,
+            provider: 'Google-Gemini-1.5-Flash-Cloud',
+            model: 'gemini-1.5-flash',
+          };
+        }
+      }
+    } catch {
+      // Lanjut ke Algorithmic Fallback jika Gemini gagal
+    }
+  }
+
+  // 4. Algorithmic Fallback jika API Groq & Gemini offline
   const isUp = market.bandarmologiVerdict === 'AKUMULASI';
   const rawFallback = {
     analisis_teknikal: `Analisis Kuantitatif Algoritmik 24/7: ${cleanTicker} diperdagangkan di ${priceLabel}. Order block demand terdeteksi di area ${s1Label}.`,

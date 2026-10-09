@@ -607,6 +607,7 @@ export async function runAutonomousAgentCycle(
     };
     const totalNav = portfolioNav(snapshot);
     const maxAllocationPerAsset = totalNav * 0.25; // Batas maksimal alokasi 25% NAV per saham (Risk Governance)
+    const maxAllocationPerSector = totalNav * 0.30; // 🛡️ SECTOR CONCENTRATION CEILING: Maksimal 30% NAV per sektor industri
 
     const findHolding = (sym: string) =>
       portfolioStore.holdings.find(
@@ -625,6 +626,22 @@ export async function runAutonomousAgentCycle(
       }
       return (h.shares || h.lots * 100) * p;
     };
+
+    // 🛡️ SECTOR EXPOSURE AGGREGATOR
+    const sectorExposureOf = (sectorName: string) => {
+      if (!sectorName) return 0;
+      let total = 0;
+      for (const h of portfolioStore.holdings) {
+        const sym = h.displaySymbol.replace('.JK', '').toUpperCase();
+        const assetObj = getGroundedStockIntelligence(sym);
+        const hSec = (assetObj?.financials ? assetObj.name : (h.assetClass === 'CRYPTO' ? 'Crypto' : 'General')).toLowerCase();
+        if (hSec.includes(sectorName.toLowerCase()) || sectorName.toLowerCase().includes(hSec)) {
+          total += exposureOf(sym);
+        }
+      }
+      return total;
+    };
+
     // Posisi dianggap cukup jika sudah >= 10 lot atau menyentuh plafon alokasi
     const isAllocated = (sym: string) => {
       const h = findHolding(sym);
@@ -721,8 +738,35 @@ export async function runAutonomousAgentCycle(
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
       const sizing = computePositionSizing(intel, snapshot);
 
+      // 🛡️ SECTOR CONCENTRATION CHECK (Maksimal 30% NAV per sektor)
+      const targetSector = (intel.name ? intel.name.split(' ')[0] : (isCryptoSymbol(target.symbol) ? 'Crypto' : 'General'));
+      const currentSectorExp = sectorExposureOf(targetSector);
+      
+      // 🛡️ SLIPPAGE & LIQUIDITY FRICTION MODEL
+      const isLiquidBluechip = ['BBCA', 'BBRI', 'BMRI', 'TLKM', 'ASII', 'BTC', 'ETH', 'SOL'].includes(cleanSym);
+      const slippageRate = isLiquidBluechip ? 0.0015 : 0.0035; // 0.15% bluechip vs 0.35% mid/small-cap
+      const rawEntryPrice = sizing.entry;
+      const effectiveEntryPrice = isIndonesianStock(target.symbol)
+        ? roundTick(Math.round(rawEntryPrice * (1 + slippageRate)))
+        : Number((rawEntryPrice * (1 + slippageRate)).toFixed(4));
+      sizing.entry = effectiveEntryPrice;
+      sizing.notional = Math.round(effectiveEntryPrice * (isIndonesianStock(target.symbol) ? sizing.lots * 100 : sizing.lots));
+
       // Hitung total biaya pembelian termasuk broker fee (0.15%)
       const totalBuyCost = Math.round(sizing.notional * 1.0015);
+
+      if (currentSectorExp + totalBuyCost > maxAllocationPerSector) {
+        aiStore.logAction({
+          type: 'RISK_GATE',
+          symbol: target.symbol,
+          agentId: 'cro',
+          agentName: 'Bambang Suroso (Chief Risk Officer)',
+          agentEmoji: '🛡️',
+          title: `Plafon Sektor Penuh: ${target.symbol} Ditolak`,
+          details: `Alokasi untuk sektor "${targetSector}" telah mencapai Rp ${Math.round(currentSectorExp).toLocaleString('id-ID')}. Pembelian tambahan Rp ${totalBuyCost.toLocaleString('id-ID')} akan menembus batas maksimal 30% NAV (Rp ${Math.round(maxAllocationPerSector).toLocaleString('id-ID')}). Trade dibatalkan demi mitigasi risiko klaster!`,
+        });
+        return;
+      }
 
       // Cek apakah kas tidak cukup dan perlu rotasi modal
       // Proteksi Modal Ketat: Rotasi modal HANYA diizinkan jika melikuidasi posisi yang SUDAH UNTUNG (>= 2%),
@@ -833,7 +877,10 @@ export async function runAutonomousAgentCycle(
               sl: oodaDecision.stop_loss,
             },
           });
-          const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
+          return; // 🛡️ CRO VETO: Hentikan eksekusi order jika OODA me-veto!
+        }
+
+        const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
           const shareInfo = calculateShares(target.symbol, sizing.lots);
           const isTargetForeign = shareInfo.isCrypto || shareInfo.isUS;
 

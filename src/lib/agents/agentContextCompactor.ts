@@ -354,6 +354,15 @@ export async function flushOutboxQueue() {
   } catch {
     enqueueOutboxItem(payload);
   }
+
+  // 🛡️ PERSISTENSI KE QUANT BRIDGE SQLITE (VPS 24/7)
+  if (typeof window !== 'undefined') {
+    fetch('/api/quant?action=memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
 }
 
 export function getRecentReflectionContext(symbol: string, currentRegime?: MarketRegime): string {
