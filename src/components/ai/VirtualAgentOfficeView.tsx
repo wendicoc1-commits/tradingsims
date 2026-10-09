@@ -123,8 +123,12 @@ import { globalLaserNetwork } from '@/lib/office/AgentLaserNetworkEngine';
 import { globalHoloHub } from '@/lib/office/HolographicMarketHub';
 import { globalAtmosphere } from '@/lib/office/MarketAtmosphereEngine';
 import { globalDeskProps } from '@/lib/office/DynamicDeskPropsEngine';
+import { globalFloorPbr } from '@/lib/office/FloorPbrReflectionEngine';
+import { globalMeritocracy } from '@/lib/office/MeritocracyPromotionEngine';
 import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
 import QuantDeskJessePanel from './QuantDeskJessePanel';
+import FloatingAgentInspector from './FloatingAgentInspector';
+import type { AgentProfile } from '@/types/simulation.types';
 
 // ───────────────────────── konstanta ─────────────────────────
 
@@ -760,6 +764,10 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number, dt: n
 
   if (sim.staticLayer) ctx.drawImage(sim.staticLayer, 0, 0);
 
+  // ── PBR Wet/Metallic Floor Specular Reflections ──
+  const currentAtmosphere = globalAtmosphere.getState();
+  globalFloorPbr.renderFloorSpecularReflection(ctx, WORLD_W, WORLD_H, now, currentAtmosphere.regime);
+
   // Cuaca Pasar Kantor Virtual (Dimensi 4: Market Weather)
   if (sim.weather === 'BULLISH_SUNNY') {
     ctx.save();
@@ -964,7 +972,7 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number, dt: n
         deskX: a.slot.dx,
         deskY: a.slot.dy,
         pendingTasks: a.mode === 'SIT' && a.timer > 8 ? 4 : 1,
-        isTopSharpe: a.def.id === 'pm_quant' || a.def.id === 'strat_momentum',
+        isTopSharpe: a.def.id === 'cio' || a.def.id === 'trader_crypto' || a.def.id === 'pm_quant',
         hasError: false,
       },
       now
@@ -2649,6 +2657,66 @@ export default function VirtualAgentOfficeView() {
   const inspected = inspectId ? simRef.current!.byId[inspectId] : null;
   const inspectedReport = inspectId ? reports[inspectId] : null;
 
+  const inspectedProfile: AgentProfile | null = useMemo(() => {
+    if (!inspected) return null;
+    const def = inspected.def;
+    const rep = inspectedReport;
+    const sharpeMap: Record<string, number> = {
+      cio: 2.85,
+      trader_crypto: 2.74,
+      head_quant: 2.62,
+      cro: 2.41,
+      macro: 2.15,
+      quant_modeler: 2.05,
+      risk_officer: 1.95,
+      sentiment: 1.82,
+      execution: 1.76,
+    };
+    const sharpe = sharpeMap[def.id] || 1.90;
+    const cotHistory = [];
+    if (rep?.rationale || rep?.recommendation) {
+      cotHistory.push({
+        id: `cot-${Date.now()}`,
+        timestamp: Date.now(),
+        tokenCount: 420,
+        latencyMs: 135,
+        thoughtSnippet: rep.rationale || `Mengevaluasi likuiditas dan setup teknikal ${selectedStock}. Rekomendasi: ${rep.recommendation}`,
+        convictionScore: rep.confidence ? rep.confidence / 100 : 0.85,
+        proposedAction: rep.recommendation as any,
+      });
+    } else if (liveAiAnalysis && !liveAiAnalysis.loading && liveAiAnalysis.decision) {
+      cotHistory.push({
+        id: `cot-live-${Date.now()}`,
+        timestamp: Date.now(),
+        tokenCount: 512,
+        latencyMs: 168,
+        thoughtSnippet: liveAiAnalysis.decision.alasan_eksekusi || liveAiAnalysis.decision.analisis_teknikal,
+        convictionScore: (liveAiAnalysis.decision.conviction_score || 85) / 100,
+        proposedAction: liveAiAnalysis.decision.keputusan as any,
+      });
+    }
+
+    return {
+      id: def.id,
+      name: def.name,
+      role: def.role as any,
+      avatarUrl: def.avatar,
+      status: inspected.mode === 'WALK' ? 'CONVENING_WAR_ROOM' : inspected.mode === 'MEETING' ? 'ANALYZING' : 'IDLE',
+      currentDeskId: `desk_${def.id}`,
+      targetDeskId: null,
+      position: { x: inspected.x, y: inspected.y },
+      velocity: { vx: 0, vy: 0 },
+      orientationAngle: inspected.dir * 90,
+      rollingSharpeRatio: sharpe,
+      netAlphaUsd: Math.round(sharpe * 14500),
+      maxDrawdownPct: 3.2,
+      winRatePct: 74.5,
+      taskQueueDepth: Math.max(1, Math.round(sharpe * 1.5)),
+      activeModelLatencyMs: 142,
+      cotHistory,
+    };
+  }, [inspected, inspectedReport, selectedStock, liveAiAnalysis]);
+
   const modeCounts = useMemo(() => {
     const m: Record<Mode, number> = { SIT: 0, WALK: 0, TALK: 0, BREAK: 0, MEETING: 0 };
     agentsRT.forEach((a) => (m[a.mode] += 1));
@@ -3169,6 +3237,20 @@ export default function VirtualAgentOfficeView() {
                 Bekerja {modeCounts.SIT} · Jalan {modeCounts.WALK} · Diskusi {modeCounts.TALK} · Istirahat {modeCounts.BREAK} · Rapat {modeCounts.MEETING}
               </span>
             </div>
+
+            {/* ── Floating Agent Telemetry Inspector HUD ── */}
+            <FloatingAgentInspector
+              agent={inspectedProfile}
+              onClose={() => setInspectId(null)}
+              onConveneWarRoomVote={() => {
+                startDebate();
+                const a = simRef.current?.byId[inspectId || ''];
+                if (a) {
+                  globalLaserNetwork.fireStream(a.x, a.y, WAR_ROOM.cx, WAR_ROOM.cy, 'SIGNAL_TRADE');
+                  globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#f59e0b', 240);
+                }
+              }}
+            />
           </div>
 
           {/* Panel samping (40% Execution Deck) */}
