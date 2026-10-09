@@ -62,7 +62,7 @@ export default function PortfolioAnalytics() {
       value,
       percentage: Number(((value / total) * 100).toFixed(1)),
     })).sort((a, b) => b.value - a.value);
-  }, [cash, totalSBNValue, holdings, totalNetWorth]);
+  }, [cash, holdings, totalNetWorth]);
 
   // Trading Performance & Win Rate
   const tradingMetrics = useMemo(() => {

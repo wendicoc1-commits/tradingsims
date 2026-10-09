@@ -32,6 +32,9 @@ import PortfolioNewsFeed from '@/components/portfolio/PortfolioNewsFeed';
 import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTestModal';
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
+import TradingJournalCalendar from '@/components/portfolio/TradingJournalCalendar';
+import TelegramAlertSettingsModal from '@/components/portfolio/TelegramAlertSettingsModal';
+import CopyTradingModal from '@/components/portfolio/CopyTradingModal';
 import AuthModal from '@/components/auth/AuthModal';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import EmptyState from '@/components/common/EmptyState';
@@ -561,11 +564,13 @@ export default function PortfolioPage() {
     updateHoldingPrices,
   } = usePortfolioStore();
   const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'analytics' | 'orders' | 'news'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'journal' | 'analytics' | 'orders' | 'news'>('holdings');
   const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
   const [useDRIP, setUseDRIP] = useState(false);
   const [isStressTestOpen, setIsStressTestOpen] = useState(false);
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [isCopyTradingModalOpen, setIsCopyTradingModalOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -911,6 +916,22 @@ export default function PortfolioPage() {
           >
             📑 CLASSIC DETAILED DESK
           </button>
+          <button
+            onClick={() => setIsTelegramModalOpen(true)}
+            className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-sky-950/60 text-sky-400 hover:text-sky-300 border border-sky-600/40 flex items-center gap-1.5 shadow-sm"
+            title="Buka Pengaturan Notifikasi Telegram 24/7"
+          >
+            <span>📱</span>
+            <span className="hidden sm:inline">TELEGRAM ALERTS</span>
+          </button>
+          <button
+            onClick={() => setIsCopyTradingModalOpen(true)}
+            className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-purple-950/60 text-purple-300 hover:text-purple-200 border border-purple-600/40 flex items-center gap-1.5 shadow-sm"
+            title="1-Click Copy Trading AI Hedge Fund"
+          >
+            <span>👥</span>
+            <span className="hidden sm:inline">COPY TRADING AI</span>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           {syncStatus && (
@@ -1123,6 +1144,16 @@ export default function PortfolioPage() {
               }}
             >
               <Calendar className="w-4 h-4 text-amber-400" /> Kalender Dividen
+            </button>
+            <button
+              onClick={() => setActiveTab('journal')}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
+              style={{
+                color: activeTab === 'journal' ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: activeTab === 'journal' ? '2px solid var(--accent)' : '2px solid transparent',
+              }}
+            >
+              <Calendar className="w-4 h-4 text-emerald-400" /> Jurnal PnL Kalender
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
@@ -1584,6 +1615,11 @@ export default function PortfolioPage() {
           </div>
         )}
 
+          {/* TAB: TRADING JOURNAL CALENDAR HEATMAP */}
+          {activeTab === 'journal' && (
+            <TradingJournalCalendar />
+          )}
+
           {/* TAB: ANALYTICS & ALLOCATION */}
           {activeTab === 'analytics' && (
             <PortfolioAnalytics />
@@ -1609,6 +1645,17 @@ export default function PortfolioPage() {
         onClose={() => setIsStressTestOpen(false)}
       />
 
+      {/* Telegram 24/7 Alerts Settings Modal */}
+      <TelegramAlertSettingsModal
+        isOpen={isTelegramModalOpen}
+        onClose={() => setIsTelegramModalOpen(false)}
+      />
+
+      {/* 1-Click Copy Trading AI Hedge Fund Modal */}
+      <CopyTradingModal
+        isOpen={isCopyTradingModalOpen}
+        onClose={() => setIsCopyTradingModalOpen(false)}
+      />
 
       {/* Member Authentication Modal (Email, Apple, Facebook, Google) */}
       <AuthModal
