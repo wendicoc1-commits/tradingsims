@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradeMind Ground Station — AI Office Mission Control Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap');
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #04070d;
+      color: #cbd5e1;
+    }
+    .radar-grid {
+      background: radial-gradient(circle, rgba(6,182,212,0.06) 0%, rgba(6,182,212,0.02) 60%, transparent 70%);
+    }
+    @keyframes sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-sweep {
+      animation: sweep 4s linear infinite;
+      transform-origin: center;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-6 min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+  <!-- ── Top Header Mission Control ── -->
+  <header class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-[#080d1a] border border-cyan-900/60 shadow-2xl">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-cyan-950 border border-cyan-500/50 flex items-center justify-center text-cyan-300 text-xl shadow-lg shadow-cyan-500/20">
+        📡
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-white tracking-wider">GROUND STATION · TRADING FLOOR MISSION CONTROL</span>
+          <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> DSP ACTIVE
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400">Adaptasi Modul Aerospace SDR & Multi-Target Tracking untuk Kantor Agen Fincept</p>
+      </div>
+    </div>
+
+    <!-- DSP Pipeline Status Badges -->
+    <div class="flex items-center gap-2 text-[10px] overflow-x-auto py-1">
+      <div class="px-2.5 py-1 rounded bg-[#0b1222] border border-slate-800 flex items-center gap-1.5">
+        <span class="text-slate-500">RX STREAM:</span>
+        <span class="text-cyan-300 font-bold">BINANCE + BEI WS</span>
+      </div>
+      <div class="px-2.5 py-1 rounded bg-[#0b1222] border border-slate-800 flex items-center gap-1.5">
+        <span class="text-slate-500">SAMPLING:</span>
+        <span class="text-emerald-300 font-bold">2.4 MSPS</span>
+      </div>
+      <div class="px-2.5 py-1 rounded bg-[#0b1222] border border-slate-800 flex items-center gap-1.5">
+        <span class="text-slate-500">UPLINK VPS:</span>
+        <span class="text-amber-300 font-bold">PORT 8002 OK</span>
+      </div>
+      <div class="px-2.5 py-1 rounded bg-[#0b1222] border border-slate-800 flex items-center gap-1.5">
+        <span class="text-slate-500">LATENCY:</span>
+        <span id="header-latency" class="text-emerald-400 font-bold">14.2 ms</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main Grid Console ── -->
+  <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 my-4 flex-1 items-stretch">
+
+    <!-- ── LEFT: SDR Waterfall & FFT Spectrum Analyzer (4 Cols) ── -->
+    <section class="lg:col-span-5 flex flex-col justify-between p-4 rounded-xl bg-[#070b16] border border-slate-800 shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5 mb-2">
+        <div class="flex items-center gap-2 text-xs font-bold text-slate-200">
+          <span class="text-cyan-400">🌊</span>
+          <span>SDR MARKET SIGNAL WATERFALL</span>
+        </div>
+        <div class="flex items-center gap-1 text-[10px]">
+          <span class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-400">FFT: 512-PT</span>
+          <span class="px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-800 text-cyan-300 font-bold">BANDARMOLOGI DENSITY</span>
+        </div>
+      </div>
+
+      <!-- Live Spectrum Oscilloscope Bar -->
+      <div class="h-16 w-full bg-[#03060c] rounded-lg border border-slate-800 relative overflow-hidden mb-2">
+        <canvas id="spectrumCanvas" class="w-full h-full block"></canvas>
+        <div class="absolute bottom-1 left-2 text-[9px] text-slate-500 font-mono">
+          CENTER: <strong class="text-cyan-400">98,650 USDT</strong> · VFO: <strong class="text-emerald-400">LOCKED</strong>
+        </div>
+      </div>
+
+      <!-- Falling Waterfall Heatmap -->
+      <div class="flex-1 w-full bg-[#020408] rounded-lg border border-slate-800 relative overflow-hidden min-h-[220px]">
+        <canvas id="waterfallCanvas" class="w-full h-full block"></canvas>
+        <div class="absolute top-2 right-2 text-[9px] px-2 py-0.5 rounded bg-[#070b16]/90 border border-slate-800 text-slate-400">
+          TIME DELTA: -30s
+        </div>
+      </div>
+
+      <!-- Waterfall Controller Bar -->
+      <div class="flex items-center justify-between text-[10px] text-slate-400 pt-3 border-t border-slate-800/80 mt-2">
+        <div class="flex items-center gap-2">
+          <span>PALET:</span>
+          <button onclick="changeWaterfallTheme('CYAN')" class="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold hover:bg-cyan-900">CYAN</button>
+          <button onclick="changeWaterfallTheme('HEATMAP')" class="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white">HEAT</button>
+        </div>
+        <button onclick="injectSmartMoneyWave()" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 font-bold cursor-pointer transition-all">
+          ⚡ SUNTIK SINYAL PAUS
+        </button>
+      </div>
+    </section>
+
+    <!-- ── CENTER: Multi-Target Alpha Polar Radar (4 Cols) ── -->
+    <section class="lg:col-span-4 flex flex-col justify-between p-4 rounded-xl bg-[#070b16] border border-cyan-900/50 shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5 mb-2">
+        <div class="flex items-center gap-2 text-xs font-bold text-slate-200">
+          <span class="text-emerald-400">🎯</span>
+          <span>MULTI-TARGET ALPHA RADAR</span>
+        </div>
+        <span class="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+          TRACKING: 4 TARGETS
+        </span>
+      </div>
+
+      <!-- 2D Polar Azimuth/Elevation Display -->
+      <div class="relative w-full aspect-square max-w-[280px] mx-auto my-auto flex items-center justify-center">
+        <!-- SVG Polar Rings -->
+        <svg class="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
+          <!-- Outer Ring -->
+          <circle cx="100" cy="100" r="95" fill="none" stroke="#1e293b" stroke-width="1.5" />
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#0e2a38" stroke-width="1" stroke-dasharray="3,3" />
+          <circle cx="100" cy="100" r="45" fill="none" stroke="#0e2a38" stroke-width="1" />
+          <circle cx="100" cy="100" r="20" fill="none" stroke="#06b6d4" stroke-width="1" stroke-dasharray="2,2" />
+
+          <!-- Crosshairs -->
+          <line x1="5" y1="100" x2="195" y2="100" stroke="#1e293b" stroke-width="1" />
+          <line x1="100" y1="5" x2="100" y2="195" stroke="#1e293b" stroke-width="1" />
+
+          <!-- Diagonal Cardinal Labels -->
+          <text x="100" y="14" fill="#64748b" font-size="7" text-anchor="middle" font-family="monospace">000° NORTH</text>
+          <text x="188" y="102" fill="#64748b" font-size="7" text-anchor="middle" font-family="monospace">090°</text>
+          <text x="100" y="196" fill="#64748b" font-size="7" text-anchor="middle" font-family="monospace">180°</text>
+          <text x="12" y="102" fill="#64748b" font-size="7" text-anchor="middle" font-family="monospace">270°</text>
+
+          <!-- Sweeping Radar Line -->
+          <g class="animate-sweep">
+            <line x1="100" y1="100" x2="100" y2="5" stroke="rgba(6, 182, 212, 0.85)" stroke-width="2" />
+            <polygon points="100,100 135,20 100,5" fill="rgba(6, 182, 212, 0.15)" />
+          </g>
+
+          <!-- Dynamic Blips -->
+          <!-- Target 1: BTC/USDT (Locked) -->
+          <circle cx="138" cy="62" r="4.5" fill="#10b981" class="animate-pulse" />
+          <circle cx="138" cy="62" r="8" fill="none" stroke="#10b981" stroke-width="1" class="animate-ping" style="animation-duration: 2s;" />
+          <text x="145" y="60" fill="#a7f3d0" font-size="8" font-weight="bold" font-family="monospace">BTC [LOCK]</text>
+
+          <!-- Target 2: BBCA.JK -->
+          <circle cx="68" cy="132" r="3" fill="#38bdf8" />
+          <text x="75" y="134" fill="#93c5fd" font-size="7" font-family="monospace">BBCA (IDX)</text>
+
+          <!-- Target 3: OP/USDT -->
+          <circle cx="72" cy="74" r="3.5" fill="#f59e0b" />
+          <text x="78" y="72" fill="#fde68a" font-size="7" font-family="monospace">OP (L2)</text>
+
+          <!-- Target 4: ARB/USDT -->
+          <circle cx="128" cy="142" r="3" fill="#a855f7" />
+          <text x="134" y="146" fill="#d8b4fe" font-size="7" font-family="monospace">ARB (L2)</text>
+        </svg>
+
+        <!-- Center Reticle Indicator -->
+        <div class="w-3 h-3 rounded-full bg-cyan-400/80 shadow-md shadow-cyan-400"></div>
+      </div>
+
+      <!-- Target Telemetry Info Card -->
+      <div class="p-3 rounded-lg bg-[#040812] border border-cyan-800/40 text-[11px] space-y-1 mt-2">
+        <div class="flex justify-between items-center">
+          <span class="text-slate-400">LOCKED TARGET:</span>
+          <span class="text-emerald-400 font-bold">BTC/USDT @ 98,650</span>
+        </div>
+        <div class="flex justify-between items-center text-[10px]">
+          <span class="text-slate-500">AZ/EL COORD:</span>
+          <span class="text-slate-300 font-mono">AZ: 042.8° · EL: +68.4°</span>
+        </div>
+        <div class="flex justify-between items-center text-[10px]">
+          <span class="text-slate-500">SLIPPAGE DOPPLER:</span>
+          <span class="text-cyan-300 font-mono">-0.008% (OPTIMAL)</span>
+        </div>
+        <div class="flex justify-between items-center text-[10px]">
+          <span class="text-slate-500">EST. TIME TO TARGET:</span>
+          <span class="text-amber-400 font-mono">00:03:42 SIKLUS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── RIGHT: Telemetry Packet Stream & DSP Pipeline (3 Cols) ── -->
+    <section class="lg:col-span-3 flex flex-col justify-between p-4 rounded-xl bg-[#070b16] border border-slate-800 shadow-xl space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+        <div class="flex items-center gap-2 text-xs font-bold text-slate-200">
+          <span class="text-amber-400">💾</span>
+          <span>TELEMETRY PACKET STREAM</span>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
+          HEX + ASCII
+        </span>
+      </div>
+
+      <!-- Raw Packet Stream Terminal -->
+      <div id="packetStream" class="flex-1 bg-[#02050c] rounded-lg border border-slate-800/90 p-2.5 text-[10px] font-mono space-y-1.5 overflow-y-auto max-h-[300px] custom-scrollbar">
+        <!-- Live rows dynamically injected via script -->
+      </div>
+
+      <!-- DSP Topology Mini Flow -->
+      <div class="p-3 rounded-lg bg-[#040812] border border-slate-800 space-y-2 text-[10px]">
+        <div class="text-slate-400 font-bold text-[9px] uppercase tracking-wider">DSP PIPELINE THREADS:</div>
+        <div class="space-y-1.5 font-mono">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-300">T1: WebSocket Ingest</span>
+            <span class="text-emerald-400 font-bold">100% OK</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-300">T2: FFT Bandarmologi</span>
+            <span class="text-cyan-400 font-bold">0.8 ms</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-300">T3: Kelly Sizer Gate</span>
+            <span class="text-emerald-400 font-bold">PASS 94%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-300">T4: Linux VPS Socket</span>
+            <span class="text-amber-400 font-bold">:8002 SYNC</span>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="pingVpsSocket()" class="w-full py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-bold text-xs cursor-pointer transition-all">
+        TEST TELEMETRY PING
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ── Footer Action Bar ── -->
+  <footer class="p-3 rounded-xl bg-[#080d1a] border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+    <div class="flex items-center gap-3 text-slate-400 text-[11px]">
+      <span>💡 <strong>Konsep Integrasi:</strong> Komponen ini akan dipasang sebagai <em>CCTV / Monitor Dinding Atas</em> di ruang Virtual Trading Floor 2D Anda.</span>
+    </div>
+    <div class="text-emerald-400 text-[11px] font-bold">
+      STATUS: PREVIEW READY (100% 2D CANVAS &amp; SVG)
+    </div>
+  </footer>
+
+  <!-- ── Script: Canvas Animations & Packet Streaming ── -->
+  <script>
+    // 1. Spectrum Oscilloscope Canvas
+    const spectrumCanvas = document.getElementById('spectrumCanvas');
+    const specCtx = spectrumCanvas.getContext('2d');
+    let specWidth, specHeight;
+
+    function resizeSpectrum() {
+      specWidth = spectrumCanvas.width = spectrumCanvas.parentElement.clientWidth;
+      specHeight = spectrumCanvas.height = spectrumCanvas.parentElement.clientHeight;
+    }
+    resizeSpectrum();
+    window.addEventListener('resize', resizeSpectrum);
+
+    let specPhase = 0;
+    let smartMoneySpike = 0;
+
+    function drawSpectrum() {
+      specCtx.fillStyle = 'rgba(3, 6, 12, 0.35)';
+      specCtx.fillRect(0, 0, specWidth, specHeight);
+
+      specCtx.beginPath();
+      specCtx.strokeStyle = smartMoneySpike > 0 ? '#10b981' : '#06b6d4';
+      specCtx.lineWidth = 1.8;
+
+      const bars = 64;
+      const step = specWidth / bars;
+
+      for (let i = 0; i < bars; i++) {
+        const x = i * step;
+        const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
+        const baseNoise = Math.sin(specPhase + i * 0.4) * 8 + Math.cos(specPhase * 1.5 + i * 0.2) * 6;
+        const centerPeak = Math.max(0, (1 - distFromCenter * 1.6)) * (24 + smartMoneySpike * 20);
+        const y = specHeight - 8 - Math.max(2, baseNoise + centerPeak);
+
+        if (i === 0) specCtx.moveTo(x, y);
+        else specCtx.lineTo(x, y);
+      }
+
+      specCtx.stroke();
+
+      specPhase += 0.08;
+      if (smartMoneySpike > 0) smartMoneySpike *= 0.95;
+
+      requestAnimationFrame(drawSpectrum);
+    }
+    drawSpectrum();
+
+    // 2. Waterfall Canvas
+    const waterfallCanvas = document.getElementById('waterfallCanvas');
+    const wfCtx = waterfallCanvas.getContext('2d');
+    let wfWidth, wfHeight;
+
+    function resizeWaterfall() {
+      wfWidth = waterfallCanvas.width = waterfallCanvas.parentElement.clientWidth;
+      wfHeight = waterfallCanvas.height = waterfallCanvas.parentElement.clientHeight;
+    }
+    resizeWaterfall();
+    window.addEventListener('resize', resizeWaterfall);
+
+    let wfTheme = 'CYAN';
+    function changeWaterfallTheme(theme) {
+      wfTheme = theme;
+    }
+
+    function drawWaterfallStep() {
+      // Shift existing canvas image down by 2px
+      wfCtx.drawImage(waterfallCanvas, 0, 0, wfWidth, wfHeight - 2, 0, 2, wfWidth, wfHeight - 2);
+
+      // Generate new top scanline
+      const cols = 72;
+      const colWidth = wfWidth / cols;
+
+      for (let i = 0; i < cols; i++) {
+        const distFromCenter = Math.abs(i - cols / 2) / (cols / 2);
+        let val = (1 - distFromCenter * 1.4) * (0.6 + smartMoneySpike * 0.8) + (Math.random() * 0.25);
+        val = Math.max(0, Math.min(1, val));
+
+        if (wfTheme === 'CYAN') {
+          const r = Math.floor(val * 16);
+          const g = Math.floor(val * 240);
+          const b = Math.floor(val * 255);
+          wfCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        } else {
+          // Heatmap: dark -> amber -> red
+          const r = Math.floor(val * 255);
+          const g = Math.floor(val * 120);
+          const b = Math.floor(val * 20);
+          wfCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        }
+
+        wfCtx.fillRect(i * colWidth, 0, colWidth + 1, 2);
+      }
+    }
+    setInterval(drawWaterfallStep, 45);
+
+    function injectSmartMoneyWave() {
+      smartMoneySpike = 1.0;
+      addPacketLog('0x7F 0xAA 0x11', 'SMART_MONEY_FLOW_INJECTED');
+    }
+
+    // 3. Telemetry Packet Stream Simulation
+    const packetStream = document.getElementById('packetStream');
+    const samplePackets = [
+      { hex: '0x4A 0x89 0xBC 0x01', ascii: 'BTC_TICK_98650' },
+      { hex: '0x1F 0x3D 0xAA 0xFF', ascii: 'ORDERBOOK_DELTA_+48' },
+      { hex: '0xE2 0x71 0x09 0x4B', ascii: 'VPS_HMAC_SIG_VALID' },
+      { hex: '0x9C 0xB1 0x44 0x12', ascii: 'OP_BREAKOUT_PASS' },
+      { hex: '0x05 0xEF 0x77 0x8A', ascii: 'KELLY_SIZE_0.34' },
+      { hex: '0x66 0x10 0x82 0x3C', ascii: 'IDX_BBCA_NET_BUY' },
+    ];
+
+    function addPacketLog(hex, ascii) {
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between text-slate-400 hover:text-white py-0.5 border-b border-slate-900';
+      row.innerHTML = `
+        <span class="text-cyan-400 font-bold">${hex}</span>
+        <span class="text-slate-500 text-[9px]">|</span>
+        <span class="text-emerald-300 font-mono">${ascii}</span>
+      `;
+      packetStream.prepend(row);
+      if (packetStream.children.length > 20) {
+        packetStream.removeChild(packetStream.lastChild);
+      }
+    }
+
+    // Initial packets
+    samplePackets.forEach(p => addPacketLog(p.hex, p.ascii));
+
+    // Dynamic stream every 2s
+    setInterval(() => {
+      const p = samplePackets[Math.floor(Math.random() * samplePackets.length)];
+      const randomHex = `0x${Math.floor(Math.random()*255).toString(16).toUpperCase()} 0x${Math.floor(Math.random()*255).toString(16).toUpperCase()} ${p.hex.slice(10)}`;
+      addPacketLog(randomHex, p.ascii);
+    }, 1800);
+
+    function pingVpsSocket() {
+      addPacketLog('0xFF 0x00 0xAA 0x55', 'PING_VPS:8002_RTT_12MS');
+      const lat = (10 + Math.random() * 8).toFixed(1);
+      document.getElementById('header-latency').innerText = `${lat} ms`;
+    }
+  </script>
+</body>
+</html>

@@ -24,7 +24,10 @@ import AutonomousPaperTradingDesk from '@/components/ai/AutonomousPaperTradingDe
 import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
 import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
-import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain } from 'lucide-react';
+import MissionControlDecisionCenter from '@/components/ai/MissionControlDecisionCenter';
+import KronosKLineForecastView from '@/components/ai/KronosKLineForecastView';
+import GroundStationMissionControl from '@/components/ai/GroundStationMissionControl';
+import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain, Radio, ShieldCheck } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -63,7 +66,7 @@ const PRESET_PROMPTS = [
 
 export default function FinceptAiCopilotPage() {
   const [mainAiTab, setMainAiTab] = useState<
-    'VIRTUAL_OFFICE' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
+    'VIRTUAL_OFFICE' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT' | 'MISSION_CONTROL' | 'KRONOS_FORECAST' | 'GROUND_STATION'
   >('VIRTUAL_OFFICE');
 
   useEffect(() => {
@@ -72,6 +75,12 @@ export default function FinceptAiCopilotPage() {
       const tabParam = params.get('tab');
       if (tabParam === 'chat' || tabParam === 'copilot') {
         setMainAiTab('COPILOT_CHAT');
+      } else if (tabParam === 'mission-control' || tabParam === 'decisions') {
+        setMainAiTab('MISSION_CONTROL');
+      } else if (tabParam === 'kronos' || tabParam === 'k-line' || tabParam === 'forecast') {
+        setMainAiTab('KRONOS_FORECAST');
+      } else if (tabParam === 'ground-station' || tabParam === 'radar') {
+        setMainAiTab('GROUND_STATION');
       } else if (tabParam === 'cyberdeck' || tabParam === 'ai-os' || tabParam === 'globe' || tabParam === 'hud') {
         setMainAiTab('VIRTUAL_OFFICE');
       } else if (tabParam === 'quant' || tabParam === 'bridge' || tabParam === 'freqtrade' || tabParam === 'lumibot') {
@@ -342,6 +351,42 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
           </button>
 
           <button
+            onClick={() => setMainAiTab('MISSION_CONTROL')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+              mainAiTab === 'MISSION_CONTROL'
+                ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30 font-extrabold'
+                : 'text-amber-400 border border-amber-800/50 bg-amber-950/20 hover:text-white hover:bg-amber-900/40'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+            <span>🛡️ Mission Control &amp; Decisions</span>
+          </button>
+
+          <button
+            onClick={() => setMainAiTab('KRONOS_FORECAST')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+              mainAiTab === 'KRONOS_FORECAST'
+                ? 'bg-emerald-400 text-black shadow-md shadow-emerald-400/30 font-extrabold'
+                : 'text-emerald-400 border border-emerald-800/50 bg-emerald-950/20 hover:text-white hover:bg-emerald-900/40'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+            <span>🔮 Kronos K-Line Foundation Model</span>
+          </button>
+
+          <button
+            onClick={() => setMainAiTab('GROUND_STATION')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+              mainAiTab === 'GROUND_STATION'
+                ? 'bg-cyan-400 text-black shadow-md shadow-cyan-400/30 font-extrabold'
+                : 'text-cyan-400 border border-cyan-800/50 bg-cyan-950/20 hover:text-white hover:bg-cyan-900/40'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 text-cyan-300" />
+            <span>📡 Ground Station Signal Radar</span>
+          </button>
+
+          <button
             onClick={() => setMainAiTab('COPILOT_CHAT')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'COPILOT_CHAT'
@@ -363,6 +408,12 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
       {/* ── Tab Content Rendering ── */}
       {mainAiTab === 'VIRTUAL_OFFICE' ? (
         <VirtualAgentOfficeView />
+      ) : mainAiTab === 'MISSION_CONTROL' ? (
+        <MissionControlDecisionCenter />
+      ) : mainAiTab === 'KRONOS_FORECAST' ? (
+        <KronosKLineForecastView />
+      ) : mainAiTab === 'GROUND_STATION' ? (
+        <GroundStationMissionControl />
       ) : mainAiTab === 'QUANT_BRIDGE' ? (
         <QuantBridgeDeskView />
       ) : mainAiTab === 'CRYPTO_DESK' ? (
