@@ -1000,8 +1000,7 @@ export async function runAutonomousAgentCycle(
               details: `Validasi eksekusi gagal: ${res.error}`,
             });
           }
-        }
-      } else if (sizing.notional > 0 && portfolioStore.cash < totalBuyCost) {
+        } else if (sizing.notional > 0 && portfolioStore.cash < totalBuyCost) {
         aiStore.logAction({
           type: 'RISK_GATE',
           symbol: target.symbol,
