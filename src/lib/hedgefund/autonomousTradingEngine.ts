@@ -927,7 +927,7 @@ export async function runAutonomousAgentCycle(
               title: `Deduplikasi Order: ${target.symbol}`,
               details: `Order untuk ${target.symbol} baru saja dieksekusi kurang dari 60 detik lalu. Mencegah order ganda.`,
             });
-            break;
+            return;
           }
           ORDER_DEDUPLICATION_CACHE[target.symbol] = Date.now();
 
