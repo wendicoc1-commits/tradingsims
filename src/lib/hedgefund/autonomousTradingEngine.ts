@@ -17,6 +17,7 @@ import { checkIDXMarketStatus, isIndonesianStock } from '../market/marketHours';
 import { normalizeSymbol, calculateShares } from '../stockRules';
 import { isCryptoSymbol } from '../universe/masterAssetUniverse';
 import { sanitizeUntrustedIntel, formatUntrustedNewsContext, detectMarketRegime } from '../agents/agentContextCompactor';
+import { globalTieredEngine } from '../cognitive/TieredCognitivePipeline';
 
 /**
  * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities di VPS 24/7)
@@ -450,6 +451,21 @@ export async function runAutonomousAgentCycle(
           reason: 'CRO Veto Hard Stop Loss',
         });
 
+        // ── TIER 3: ASYNCHRONOUS POST-MORTEM & EPISODIC MEMORY COMMIT ──
+        const postPnlPct = holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : -3.0;
+        globalTieredEngine.triggerAsyncPostMortem({
+          symbol: sym,
+          action: 'SELL',
+          entryPrice: holding.avgPrice,
+          exitPrice: sellPrice,
+          realizedPnlIdr: -lossVal,
+          realizedPnlPct: postPnlPct,
+          stopLossHit: true,
+          marketRegime: 'BEAR_DRAWDOWN',
+          rationale: `Stop loss cut by CRO. Rugi: -Rp ${lossVal.toLocaleString('id-ID')}`,
+          engineUsed: isCrypto ? 'freqtrade' : 'lumibot',
+        }).catch(() => {});
+
         if (typeof window !== 'undefined') {
           fetch('/api/ai/agent?action=reflect', {
             method: 'POST',
@@ -457,7 +473,7 @@ export async function runAutonomousAgentCycle(
             body: JSON.stringify({
               ticker: sym,
               trade_result: 'LOSS',
-              pnl_percentage: holding.avgPrice > 0 ? Number((((sellPrice - holding.avgPrice) / holding.avgPrice) * 100).toFixed(2)) : -3.0,
+              pnl_percentage: postPnlPct,
               reflection_text: `Cut loss pada Rp ${sellPrice.toLocaleString('id-ID')} (Rugi: -Rp ${lossVal.toLocaleString('id-ID')}). Support tertembus dan volume buyer melemah. Pelajaran: perketat filter volume sebelum entry.`,
               market_condition: 'IHSG Breakdown / Volatilitas Tinggi',
             }),
@@ -913,8 +929,52 @@ export async function runAutonomousAgentCycle(
         }
 
         const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
-          const shareInfo = calculateShares(target.symbol, sizing.lots);
-          const isTargetForeign = shareInfo.isCrypto || shareInfo.isUS;
+        const shareInfo = calculateShares(target.symbol, sizing.lots);
+        const isTargetForeign = shareInfo.isCrypto || shareInfo.isUS;
+
+        // ── TIERED EXECUTION HYBRID PIPELINE (Tier 1 Fast vs Tier 2 Deep Cognitive) ──
+        const rawRegime = detectMarketRegime(liveQuotesMap);
+        const cognitiveRegime =
+          rawRegime === 'BEARISH_PANIC' || rawRegime === 'EXTREME_VOLATILITY'
+            ? 'BEAR_DRAWDOWN'
+            : rawRegime === 'EUPHORIA'
+            ? 'BULL_MOMENTUM'
+            : 'CALM_EQUILIBRIUM';
+
+        const tieredEval = await globalTieredEngine.evaluateTradeProposal({
+          symbol: target.symbol,
+          price: sizing.entry,
+          targetLots: sizing.lots,
+          totalValueIdr: totalBuyCost,
+          alphaScore: target.score,
+          signalReason: target.suggestedAction.reason || `Alpha Scanner Rank #${target.rank}`,
+          marketRegime: cognitiveRegime,
+          isCrypto: shareInfo.isCrypto,
+        });
+
+        if (!tieredEval.approved) {
+          aiStore.logAction({
+            type: 'RISK_GATE',
+            symbol: target.symbol,
+            agentId: 'cro',
+            agentName: 'Bambang Suroso (Chief Risk Officer & Critic)',
+            agentEmoji: '🛡️',
+            title: `Tiered Gate Veto: ${target.symbol}`,
+            details: tieredEval.reason,
+            metadata: {
+              tier: tieredEval.tier,
+              quorum: tieredEval.quorumScore,
+              criticReport: tieredEval.criticReport,
+              pastMistakes: tieredEval.pastMistakesConsidered.length,
+            },
+          });
+          return; // 🛡️ CRO & CRITIC VETO: Hentikan order jika gagal di Tier 1/2
+        }
+
+        // Terapkan penyesuaian lot (The Critic Remedial Clamp)
+        if (tieredEval.adjustedLots > 0 && tieredEval.adjustedLots < sizing.lots) {
+          sizing.lots = tieredEval.adjustedLots;
+        }
 
           let finalTakeProfit: number | undefined;
           let finalStopLoss: number | undefined;
@@ -1013,13 +1073,13 @@ export async function runAutonomousAgentCycle(
 
             // Dispatch ke Quant Bridge (Freqtrade untuk Crypto / Lumibot untuk Equities)
             dispatchToQuantBridge({
-              engine: shareInfo.isCrypto ? 'freqtrade' : 'lumibot',
+              engine: tieredEval.targetEngine,
               action: 'BUY',
               ticker: target.symbol,
               price: sizing.entry,
               stopLoss: finalStopLoss,
               targetPrice: finalTakeProfit,
-              reason: oodaDecision?.alasan_eksekusi || `Autonomous Alpha Scanner Rank #${target.rank}`,
+              reason: `[${tieredEval.tier}] ${tieredEval.reason}`,
             });
           } else if (res.error) {
             aiStore.logAction({

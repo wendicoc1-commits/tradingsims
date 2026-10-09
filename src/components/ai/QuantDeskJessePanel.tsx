@@ -192,10 +192,13 @@ export default function QuantDeskJessePanel({
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-white text-xs tracking-wider">QUANTDESK &times; JESSE AI</span>
               <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 font-extrabold">
-                HYBRID ASINKRON
+                HYBRID TIERED
+              </span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 font-bold hidden sm:inline">
+                FREQTRADE &middot; LUMIBOT
               </span>
             </div>
-            <p className="text-[10px] text-slate-400">Tactical Crypto Engine &middot; Single Risk Gate</p>
+            <p className="text-[10px] text-slate-400">Tier 1 Fast &middot; Tier 2 Deep Consensus &middot; Tier 3 Post-Mortem</p>
           </div>
         </div>
 
