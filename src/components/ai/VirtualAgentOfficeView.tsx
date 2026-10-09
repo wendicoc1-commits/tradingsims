@@ -32,6 +32,7 @@ import {
   Activity,
   Award,
   Camera,
+  Flame,
 } from 'lucide-react';
 import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
 import type { BandarmologiInsight, CryptoWhaleInsight } from '@/lib/hedgefund/bandarmologiEngine';
@@ -123,6 +124,7 @@ import { globalHoloHub } from '@/lib/office/HolographicMarketHub';
 import { globalAtmosphere } from '@/lib/office/MarketAtmosphereEngine';
 import { globalDeskProps } from '@/lib/office/DynamicDeskPropsEngine';
 import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
+import QuantDeskJessePanel from './QuantDeskJessePanel';
 
 // ───────────────────────── konstanta ─────────────────────────
 
@@ -1214,7 +1216,7 @@ const MODE_DOT: Record<Mode, string> = {
   MEETING: 'bg-rose-400',
 };
 
-type PanelTab = 'ROSTER' | 'AI_ACTIVITY' | 'RADAR' | 'NEWS' | 'TRANSCRIPT';
+type PanelTab = 'QUANT_JESSE' | 'ROSTER' | 'AI_ACTIVITY' | 'RADAR' | 'NEWS' | 'TRANSCRIPT';
 type Phase = 'IDLE' | 'RUNNING' | 'DONE';
 
 interface DebateSnapshot {
@@ -1237,7 +1239,7 @@ export default function VirtualAgentOfficeView() {
   });
   const [assetFilter, setAssetFilter] = useState<'ALL' | 'IDX' | 'CRYPTO' | 'GLOBAL'>('ALL');
   const [customTicker, setCustomTicker] = useState('');
-  const [panelTab, setPanelTab] = useState<PanelTab>('ROSTER');
+  const [panelTab, setPanelTab] = useState<PanelTab>('QUANT_JESSE');
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [assetsReady, setAssetsReady] = useState(false);
@@ -3128,8 +3130,8 @@ export default function VirtualAgentOfficeView() {
           ))}
         </div>
 
-        {/* ── Kanvas + panel ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-3">
+        {/* ── Kanvas + panel (Hybrid Asinkron: 60% Visual Kantor + 40% Panel Eksekusi QuantDesk/Jesse) ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_460px] 2xl:grid-cols-[60%_40%] gap-3">
           <div ref={containerRef} className="relative rounded-xl border-2 border-zinc-700 bg-black overflow-hidden shadow-2xl h-[68vh] min-h-[480px]">
             <canvas
               ref={canvasRef}
@@ -3169,10 +3171,11 @@ export default function VirtualAgentOfficeView() {
             </div>
           </div>
 
-          {/* Panel samping */}
+          {/* Panel samping (40% Execution Deck) */}
           <aside className="bg-[#0d1017] border border-zinc-800 rounded-xl flex flex-col h-[68vh] min-h-[480px] overflow-hidden">
-            <div className="flex border-b border-zinc-800 text-[11px] font-bold font-mono">
+            <div className="flex border-b border-zinc-800 text-[11px] font-bold font-mono overflow-x-auto scrollbar-none">
               {([
+                ['QUANT_JESSE', 'QUANT & JESSE', Flame],
                 ['ROSTER', 'ROSTER', Users],
                 ['AI_ACTIVITY', 'TRADES', Zap],
                 ['RADAR', 'RADAR', Activity],
@@ -3182,15 +3185,43 @@ export default function VirtualAgentOfficeView() {
                 <button
                   key={id}
                   onClick={() => setPanelTab(id)}
-                  className={`flex-1 py-2.5 flex items-center justify-center gap-1 ${panelTab === id ? 'bg-amber-500/15 text-amber-300 border-b-2 border-amber-400' : 'text-zinc-400 hover:text-white'}`}
+                  className={`flex-1 min-w-[76px] py-2.5 flex items-center justify-center gap-1 shrink-0 ${
+                    panelTab === id
+                      ? 'bg-amber-500/15 text-amber-300 border-b-2 border-amber-400 font-extrabold'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  {label}
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-3 text-xs">
+            {panelTab === 'QUANT_JESSE' ? (
+              <QuantDeskJessePanel
+                selectedSymbol={selectedStock}
+                onSelectSymbol={(sym) => setSelectedStock(sym)}
+                onRequestWarRoomConsensus={(sym) => {
+                  setSelectedStock(sym);
+                  const kevin = simRef.current?.byId['trader_crypto'];
+                  if (kevin) {
+                    globalLaserNetwork.fireStream(kevin.x, kevin.y, WAR_ROOM.cx, WAR_ROOM.cy, 'SIGNAL_TRADE');
+                    globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#38bdf8', 220);
+                  }
+                  startDebate();
+                }}
+                onLocateJesseDesk={() => {
+                  const kevin = simRef.current?.byId['trader_crypto'];
+                  if (kevin && simRef.current) {
+                    simRef.current.cam.tx = kevin.x;
+                    simRef.current.cam.ty = kevin.y;
+                    simRef.current.cam.tz = 1.2;
+                    simRef.current.selectedId = 'trader_crypto';
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-3 text-xs">
               {/* Widget Penghargaan Agent of the Month (Dimensi 4) */}
               <div className="p-2.5 rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-[#131722] to-zinc-900 shadow-sm relative overflow-hidden">
                 <div className="flex items-center justify-between mb-1.5">
@@ -3552,6 +3583,7 @@ export default function VirtualAgentOfficeView() {
                 </div>
               )}
             </div>
+          )}
           </aside>
         </div>
 
