@@ -115,6 +115,8 @@ import CrisisCommandConsole from './CrisisCommandConsole';
 import PostMortemVaultModal from './PostMortemVaultModal';
 import TimeTravelScrubberBar from './TimeTravelScrubberBar';
 import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
+import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
+import { globalAgentAtlas, type AgentVisualState } from '@/lib/office/SpriteSheetAtlasPool';
 
 // ───────────────────────── konstanta ─────────────────────────
 
@@ -884,8 +886,17 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number) {
             ctx.drawImage(sheet, sx, sy, 16, 32, a.x - CHAR_W / 2, feetY - CHAR_H + bob, CHAR_W, CHAR_H);
           }
         } else {
-          ctx.fillStyle = DEPT_BY_ID[a.def.dept].color;
-          ctx.fillRect(a.x - 10, feetY - 50, 20, 50);
+          const state: AgentVisualState =
+            sim.crisisEvent ? 'alert_crisis'
+            : a.mode === 'SIT' ? 'typing'
+            : a.mode === 'WALK' ? 'walking'
+            : a.mode === 'MEETING' ? 'meeting'
+            : 'idle';
+          const drawn = globalAgentAtlas.drawBakedAgent(ctx, a.def.dept, state, a.x, feetY - 25, 0.85);
+          if (!drawn) {
+            ctx.fillStyle = DEPT_BY_ID[a.def.dept].color;
+            ctx.fillRect(a.x - 10, feetY - 50, 20, 50);
+          }
         }
       },
     });
@@ -1960,6 +1971,17 @@ export default function VirtualAgentOfficeView() {
       c.x += (c.tx - c.x) * 0.16;
       c.y += (c.ty - c.y) * 0.16;
       c.zoom += (c.tz - c.zoom) * 0.16;
+
+      // Zero-allocation real-time quote refresh langsung dari LockFreeMarketRingBuffer
+      if (sim.board && sim.board.symbol) {
+        const rawSym = sim.board.symbol.split(' ')[0].replace(/[^A-Za-z0-9]/g, '');
+        const latestTick = globalTickBuffer.getLatest(rawSym + 'USDT') || globalTickBuffer.getLatest(rawSym);
+        if (latestTick) {
+          sim.board.price = `$${latestTick.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          sim.board.change = `${latestTick.change24h >= 0 ? '+' : ''}${latestTick.change24h.toFixed(2)}%`;
+          sim.board.live = true;
+        }
+      }
 
       renderFrame(ctx, sim, now);
       if (mctx && mini) {

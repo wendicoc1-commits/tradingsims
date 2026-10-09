@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from 'react';
 import { useCryptoPriceStore } from '@/store/useCryptoPriceStore';
 import { MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
+import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
 
 export interface BinanceTickerData {
   symbol: string;
@@ -126,6 +127,20 @@ async function fetchInitialRestSnapshot() {
   }
 }
 
+let pendingTickersBatch: Record<string, BinanceTickerData> = {};
+let batchFlushTimer: NodeJS.Timeout | null = null;
+
+function flushTickerBatch() {
+  if (Object.keys(pendingTickersBatch).length === 0) return;
+  const toFlush = pendingTickersBatch;
+  pendingTickersBatch = {};
+  useCryptoPriceStore.getState().setTickerMap((prev) => ({
+    ...prev,
+    ...toFlush,
+  }));
+  useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
+}
+
 function initSingletonWebSocket() {
   if (typeof window === 'undefined') return;
   if (globalWs && (globalWs.readyState === WebSocket.OPEN || globalWs.readyState === WebSocket.CONNECTING)) {
@@ -147,57 +162,67 @@ function initSingletonWebSocket() {
         if (!Array.isArray(rawTickers)) return;
 
         const now = Date.now();
-        useCryptoPriceStore.getState().setTickerMap((prev) => {
-          const updated = { ...prev };
 
-          for (const t of rawTickers) {
-            const sym = t.s;
-            if (!sym || !sym.endsWith('USDT')) continue;
+        for (const t of rawTickers) {
+          const sym = t.s;
+          if (!sym || !sym.endsWith('USDT')) continue;
 
-            const curPrice = parseFloat(t.c);
-            const openPrice = parseFloat(t.o);
-            const highPrice = parseFloat(t.h);
-            const lowPrice = parseFloat(t.l);
-            const quoteVol = parseFloat(t.q);
+          const curPrice = parseFloat(t.c);
+          const openPrice = parseFloat(t.o);
+          const highPrice = parseFloat(t.h);
+          const lowPrice = parseFloat(t.l);
+          const quoteVol = parseFloat(t.q);
 
-            const prevPrice = globalPrevPrices[sym] ?? curPrice;
-            let direction: 'up' | 'down' | 'same' = 'same';
-            if (curPrice > prevPrice) direction = 'up';
-            else if (curPrice < prevPrice) direction = 'down';
+          const prevPrice = globalPrevPrices[sym] ?? curPrice;
+          let direction: 'up' | 'down' | 'same' = 'same';
+          if (curPrice > prevPrice) direction = 'up';
+          else if (curPrice < prevPrice) direction = 'down';
 
-            globalPrevPrices[sym] = curPrice;
+          globalPrevPrices[sym] = curPrice;
 
-            const changePct = openPrice > 0 ? ((curPrice - openPrice) / openPrice) * 100 : 0;
+          const changePct = openPrice > 0 ? ((curPrice - openPrice) / openPrice) * 100 : 0;
 
-            let volFormatted = '$' + quoteVol.toLocaleString();
-            if (quoteVol >= 1e9) {
-              volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
-            } else if (quoteVol >= 1e6) {
-              volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
-            }
+          // Push instantly to high-frequency zero-allocation RingBuffer
+          globalTickBuffer.push({
+            symbol: sym,
+            price: curPrice,
+            change24h: Math.round(changePct * 100) / 100,
+            timestamp: now,
+            volume: quoteVol,
+          });
 
-            const base = sym.replace(/USDT$/, '');
-            const tickerData: BinanceTickerData = {
-              symbol: sym,
-              price: curPrice,
-              change24h: Math.round(changePct * 100) / 100,
-              high24h: highPrice,
-              low24h: lowPrice,
-              volume24h: volFormatted,
-              quoteVolume24h: quoteVol,
-              direction,
-              lastUpdated: now,
-            };
-
-            updated[sym] = tickerData;
-            updated[base] = { ...tickerData, symbol: base };
-            globalPrevPrices[base] = curPrice;
+          let volFormatted = '$' + quoteVol.toLocaleString();
+          if (quoteVol >= 1e9) {
+            volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
+          } else if (quoteVol >= 1e6) {
+            volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
           }
 
-          return updated;
-        });
+          const base = sym.replace(/USDT$/, '');
+          const tickerData: BinanceTickerData = {
+            symbol: sym,
+            price: curPrice,
+            change24h: Math.round(changePct * 100) / 100,
+            high24h: highPrice,
+            low24h: lowPrice,
+            volume24h: volFormatted,
+            quoteVolume24h: quoteVol,
+            direction,
+            lastUpdated: now,
+          };
 
-        useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
+          pendingTickersBatch[sym] = tickerData;
+          pendingTickersBatch[base] = { ...tickerData, symbol: base };
+          globalPrevPrices[base] = curPrice;
+        }
+
+        // Batch flush ke React Store setiap 200ms untuk mencegah DOM re-render storm
+        if (!batchFlushTimer) {
+          batchFlushTimer = setTimeout(() => {
+            batchFlushTimer = null;
+            flushTickerBatch();
+          }, 200);
+        }
       } catch (e) {
         console.error('Error parsing Binance ws data', e);
       }
