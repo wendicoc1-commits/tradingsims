@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award,
   Cpu,
@@ -37,14 +36,9 @@ export default function FloatingAgentInspector({
   const isHighSharpe = agent.rollingSharpeRatio >= 2.0;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, x: 30, scale: 0.95 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        exit={{ opacity: 0, x: 30, scale: 0.95 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="fixed top-20 right-6 w-[410px] max-w-[calc(100vw-32px)] bg-[#070b13]/95 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.18)] text-slate-100 font-mono text-xs overflow-hidden z-50 pointer-events-auto"
-      >
+    <div
+      className="fixed top-20 right-6 w-[410px] max-w-[calc(100vw-32px)] bg-[#070b13]/95 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.18)] text-slate-100 font-mono text-xs overflow-hidden z-50 pointer-events-auto transition-all duration-200 animate-in fade-in zoom-in-95"
+    >
         {/* Top Header Bar */}
         <div className="p-3.5 bg-gradient-to-r from-cyan-950/40 via-[#0d1527] to-transparent border-b border-cyan-500/20 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
@@ -189,7 +183,6 @@ export default function FloatingAgentInspector({
             </button>
           </div>
         </div>
-      </motion.div>
-    </AnimatePresence>
-  );
+      </div>
+    );
 }
