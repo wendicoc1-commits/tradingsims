@@ -5,14 +5,8 @@ import {
   Calendar as CalendarIcon,
   TrendingUp,
   TrendingDown,
-  Award,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  BarChart2,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 
@@ -27,7 +21,7 @@ interface DayTradeSummary {
 }
 
 export default function TradingJournalCalendar() {
-  const { orders, realizedPL } = usePortfolioStore();
+  const { orders } = usePortfolioStore();
   const [selectedMonth, setSelectedMonth] = useState<number>(9); // 0-indexed (9 = Oktober)
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [activeDayDetail, setActiveDayDetail] = useState<DayTradeSummary | null>(null);

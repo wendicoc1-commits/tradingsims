@@ -3,14 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Send,
-  Bell,
   CheckCircle2,
   AlertTriangle,
   Smartphone,
   ExternalLink,
   ShieldCheck,
   X,
-  Sparkles,
 } from 'lucide-react';
 
 interface TelegramAlertSettingsModalProps {

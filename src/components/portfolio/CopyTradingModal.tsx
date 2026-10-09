@@ -4,13 +4,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Users,
   Sparkles,
-  TrendingUp,
-  ShieldCheck,
   CheckCircle2,
   X,
-  Sliders,
-  DollarSign,
-  Activity,
   Flame,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
