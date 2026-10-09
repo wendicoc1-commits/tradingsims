@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resetUserPortfolio, getUserByEmailAsync } from '@/lib/server/portfolioStorage';
+import { resetUserPortfolio, wipeAllAccountsAndPortfolios, getUserByEmailAsync } from '@/lib/server/portfolioStorage';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
@@ -11,12 +11,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Format JSON tidak valid' }, { status: 400 });
     }
 
+    // Dukungan Operasi Wipe All Global jika diminta
+    if (body.wipeAll === true || body.resetAll === true) {
+      const stats = await wipeAllAccountsAndPortfolios();
+      return NextResponse.json({
+        success: true,
+        wipeAll: true,
+        stats,
+        message: 'Seluruh akun dan portofolio database berhasil di-wipe dan dibersihkan.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : undefined;
     const userId = typeof body.userId === 'string' ? body.userId.trim() : undefined;
     const resetNominal = typeof body.nominal === 'number' && body.nominal >= 0 ? body.nominal : 100_000_000;
 
     // Proteksi Keamanan: Wajib menyertakan identitas pengguna untuk reset portofolio pribadi.
-    // Menolak keras penghapusan masal tanpa target pengguna (Mencegah DoS / Global Data Wipeout).
     if (!email && !userId) {
       return NextResponse.json(
         { success: false, error: 'Identitas pengguna (email atau userId) wajib disertakan untuk melakukan reset.' },

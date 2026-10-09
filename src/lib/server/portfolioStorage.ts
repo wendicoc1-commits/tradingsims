@@ -487,3 +487,34 @@ export function resetUserPortfolio(identifier: { userId?: string; email?: string
     lastUpdated: Date.now(),
   });
 }
+
+/**
+ * Hard Reset / Wipe seluruh akun dan data portofolio dari server & database.
+ */
+export async function wipeAllAccountsAndPortfolios(): Promise<{ usersWiped: number; portfoliosWiped: number }> {
+  const currentDb = loadDatabase();
+  const usersCount = Object.keys(currentDb.users || {}).length;
+  const portfoliosCount = Object.keys(currentDb.portfolios || {}).length;
+
+  inMemoryDb = {
+    users: {},
+    portfolios: {},
+  };
+
+  saveDatabase(inMemoryDb);
+
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      await supabase.from('holdings').delete().neq('symbol', '__NEVER_MATCH__');
+      await supabase.from('orders').delete().neq('symbol', '__NEVER_MATCH__');
+      await supabase.from('user_portfolios').delete().neq('email', '__NEVER_MATCH__');
+      await supabase.from('app_users').delete().neq('email', '__NEVER_MATCH__');
+    } catch (err) {
+      console.warn('[SUPABASE GLOBAL WIPE WARN]', err);
+    }
+  }
+
+  return { usersWiped: usersCount, portfoliosWiped: portfoliosCount };
+}
+
