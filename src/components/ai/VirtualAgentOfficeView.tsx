@@ -3346,9 +3346,15 @@ export default function VirtualAgentOfficeView() {
                         <div key={l.id} className="p-2 rounded-lg border border-zinc-800 bg-zinc-900/60 space-y-1">
                           <div className="flex items-center justify-between">
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                              l.type === 'TRADE_BUY' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                              l.type === 'TRADE_BUY'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : l.type === 'TRADE_SELL'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : l.type === 'RISK_GATE'
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                : 'bg-zinc-500/20 text-zinc-300'
                             }`}>
-                              {l.type === 'TRADE_BUY' ? 'BUY' : 'SELL'}
+                              {l.type === 'TRADE_BUY' ? 'BUY' : l.type === 'TRADE_SELL' ? 'SELL' : l.type === 'RISK_GATE' ? 'VETO' : l.type}
                             </span>
                             <span className="font-bold text-white text-[11px] flex items-center gap-1">
                               {isCryptoLog && <span className="text-cyan-400">⚡</span>}

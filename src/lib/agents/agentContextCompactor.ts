@@ -201,9 +201,10 @@ export function validateAndClampDecision(
       clamped_reason = 'Stop loss dibatasi maksimum -4.5% untuk menjaga modal kerja';
     }
 
-    // 4. Hitung Risk to Reward Ratio deterministik
+    // 4. Hitung Risk to Reward Ratio deterministik (dukung fraksi desimal kripto/USD tanpa dipaksa bernilai Rp 1)
+    const minLossEpsilon = isForeign ? 0.00000001 : 1;
     const potentialGain = Math.max(0, target_price - entry_price);
-    const potentialLoss = Math.max(1, entry_price - stop_loss);
+    const potentialLoss = Math.max(minLossEpsilon, entry_price - stop_loss);
     const calculatedRRR = Number((potentialGain / potentialLoss).toFixed(2));
 
     // Enforcement: Jika RRR < 1.45, tolak BUY dan clamp menjadi HOLD
@@ -242,7 +243,8 @@ export function validateAndClampDecision(
   }
 
   // Jika SELL atau HOLD
-  const potentialLoss = Math.max(1, currentPrice - stop_loss);
+  const minLossEpsilon = isForeign ? 0.00000001 : 1;
+  const potentialLoss = Math.max(minLossEpsilon, currentPrice - stop_loss);
   const potentialGain = Math.max(0, target_price - currentPrice);
   const calculatedRRR = Number((potentialGain / potentialLoss).toFixed(2));
 
@@ -390,7 +392,15 @@ export function getRecentReflectionContext(symbol: string, currentRegime?: Marke
     ? ` ⚠️ PERINGATAN REZIM MAKRO: Sinyal sebelumnya dicatat saat ${previous.market_regime}, sedangkan kondisi saat ini adalah ${currentRegime}. Jangan duplikasi strategi tanpa konfirmasi volume!`
     : '';
 
-  return `Siklus ${timeDiffMin} menit lalu: Status ${previous.keputusan} di Entry Rp ${previous.entry_price.toLocaleString('id-ID')} (SL: Rp ${previous.stop_loss.toLocaleString('id-ID')}).${regimeAlert}`;
+  const isForeign = isCryptoSymbol(symbol) || isUSSymbol(symbol) || symbol.endsWith('USDT') || previous.entry_price < 50;
+  const entryFormatted = isForeign
+    ? `$${previous.entry_price.toLocaleString('en-US', { minimumFractionDigits: previous.entry_price < 1 ? 4 : 2 })}`
+    : `Rp ${previous.entry_price.toLocaleString('id-ID')}`;
+  const slFormatted = isForeign
+    ? `$${previous.stop_loss.toLocaleString('en-US', { minimumFractionDigits: previous.stop_loss < 1 ? 4 : 2 })}`
+    : `Rp ${previous.stop_loss.toLocaleString('id-ID')}`;
+
+  return `Siklus ${timeDiffMin} menit lalu: Status ${previous.keputusan} di Entry ${entryFormatted} (SL: ${slFormatted}).${regimeAlert}`;
 }
 
 export interface ValidatedToolOrderParams {
