@@ -246,8 +246,9 @@ export async function runAutonomousCryptoAgentCycle(
     }
 
     // B. Cek Stop Loss Otomatis Kripto (CRO Bambang & Jesse Risk Gate - hanya jika SL di bawah modal dan tidak dalam cooldown)
-    // Proteksi: Tidak boleh terpicu akibat glitch feed anomali (>35% dalam 1 tick)
-    const isGlitchDrop = holding.peakPrice ? livePrice < holding.peakPrice * 0.65 : false;
+    // Proteksi: Tidak boleh terpicu akibat glitch feed anomali (>35% dari peak atau modal dalam 1 tick)
+    const baselinePrice = holding.peakPrice || holding.avgPrice;
+    const isGlitchDrop = baselinePrice > 0 ? livePrice < baselinePrice * 0.65 : false;
     if (!isHoldingFresh && !isGlitchDrop && holding.stopLossPrice && holding.stopLossPrice <= holding.avgPrice * 0.99 && livePrice <= holding.stopLossPrice) {
       const res = portfolioStore.placeSellOrder({
         symbol: sym,
@@ -473,7 +474,11 @@ export async function runAutonomousCryptoAgentCycle(
           const userTpPct = aiStore.cryptoTakeProfitPct || 15;
           const userSlPct = aiStore.cryptoStopLossPct || 6;
           const liveP = tickerMap[candidate.asset.symbol]?.price ?? tickerMap[candidate.asset.baseAsset]?.price;
-          const curP = (liveP && liveP > 0) ? liveP : candidate.signal.currentPrice;
+          // Proteksi integritas data: Hanya beli jika ada live ticker dari feed pasar nyata (mencegah beli pada benchmark basi)
+          if (!liveP || liveP <= 0) {
+            continue;
+          }
+          const curP = liveP;
           const calculatedTP = Number((curP * (1 + userTpPct / 100)).toFixed(curP < 1 ? 8 : 4));
           const calculatedSL = Number((curP * (1 - userSlPct / 100)).toFixed(curP < 1 ? 8 : 4));
 

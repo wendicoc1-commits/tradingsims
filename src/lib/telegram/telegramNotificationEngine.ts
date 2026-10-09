@@ -5,6 +5,8 @@
  * setiap kali order BUY, TAKE PROFIT, STOP LOSS, atau VETO RISIKO dieksekusi.
  */
 
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+
 export interface TelegramConfig {
   botToken: string;
   chatId: string;
@@ -157,25 +159,24 @@ export async function notifyTelegramTradeBuy(payload: {
   strategy?: string;
   engine?: string;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'ARB'].includes(payload.symbol.toUpperCase());
-  const priceFmt = isCrypto
-    ? `$${payload.price.toLocaleString('en-US')}`
+  const { clean: symClean, isCrypto, isUS } = resolveAssetFormat(payload.symbol);
+  const priceFmt = (isCrypto || isUS)
+    ? `$${payload.price.toLocaleString('en-US', { minimumFractionDigits: payload.price < 1 ? 4 : 2, maximumFractionDigits: 6 })} USD`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;
-  const notionalFmt = isCrypto
-    ? `$${payload.notional.toLocaleString('en-US')}`
+  const notionalFmt = (isCrypto || isUS)
+    ? `$${(payload.notional / 16000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (~Rp ${Math.round(payload.notional).toLocaleString('id-ID')})`
     : `Rp ${Math.round(payload.notional).toLocaleString('id-ID')}`;
-  const qtyLabel = isCrypto ? `${payload.lots} Unit` : `${payload.lots} Lot`;
+  const qtyLabel = isCrypto ? `${payload.lots} Unit Koin` : isUS ? `${payload.lots} Lembar Saham` : `${payload.lots} Lot`;
 
   const slFmt = payload.stopLoss
-    ? (isCrypto ? `$${payload.stopLoss}` : `Rp ${payload.stopLoss}`)
+    ? ((isCrypto || isUS) ? `$${payload.stopLoss}` : `Rp ${payload.stopLoss}`)
     : 'ATR Trailing';
   const tpFmt = payload.takeProfit
-    ? (isCrypto ? `$${payload.takeProfit}` : `Rp ${payload.takeProfit}`)
+    ? ((isCrypto || isUS) ? `$${payload.takeProfit}` : `Rp ${payload.takeProfit}`)
     : 'Dynamic Target';
 
   const tierBadge = escapeHtml(payload.tier || 'WAR_ROOM_CONSENSUS');
   const engineBadge = escapeHtml((payload.engine || (isCrypto ? 'FREQTRADE' : 'LUMIBOT')).toUpperCase());
-  const symClean = escapeHtml(payload.symbol.replace(/USDT$/i, ''));
   const nameClean = payload.name ? escapeHtml(payload.name) : '';
 
   const timeStr = new Date().toLocaleTimeString('id-ID');
@@ -202,6 +203,17 @@ export async function notifyTelegramTradeBuy(payload: {
 }
 
 /**
+ * Helper deteksi format aset
+ */
+function resolveAssetFormat(symbol: string) {
+  const clean = symbol.trim().toUpperCase().replace('.JK', '').replace(/USDT$/i, '').replace(/-USD$/i, '');
+  const isCrypto = symbol.toUpperCase().endsWith('USDT') || symbol.toUpperCase().endsWith('-USD') || isCryptoSymbol(clean);
+  const isUS = !isCrypto && isUSSymbol(clean);
+  const isIDX = !isCrypto && !isUS;
+  return { clean, isCrypto, isUS, isIDX };
+}
+
+/**
  * Notifikasi saat Take Profit Tercapai
  */
 export async function notifyTelegramTradeTakeProfit(payload: {
@@ -211,15 +223,14 @@ export async function notifyTelegramTradeTakeProfit(payload: {
   realizedProfit: number;
   pnlPct?: number;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'ARB'].includes(payload.symbol.toUpperCase());
-  const priceFmt = isCrypto
-    ? `$${payload.price.toLocaleString('en-US')}`
+  const { clean: symClean, isCrypto, isUS } = resolveAssetFormat(payload.symbol);
+  const priceFmt = (isCrypto || isUS)
+    ? `$${payload.price.toLocaleString('en-US', { minimumFractionDigits: payload.price < 1 ? 4 : 2, maximumFractionDigits: 6 })} USD`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;
-  const profitFmt = isCrypto
-    ? `+$${payload.realizedProfit.toLocaleString('en-US')}`
+  const profitFmt = (isCrypto || isUS)
+    ? `+Rp ${Math.round(payload.realizedProfit).toLocaleString('id-ID')} (~+$${(Math.abs(payload.realizedProfit) / 16000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
     : `+Rp ${Math.round(payload.realizedProfit).toLocaleString('id-ID')}`;
   const pctFmt = payload.pnlPct !== undefined ? ` (+${payload.pnlPct.toFixed(2)}%)` : '';
-  const symClean = escapeHtml(payload.symbol);
   const timeStr = new Date().toLocaleTimeString('id-ID');
 
   const html = [
@@ -227,7 +238,7 @@ export async function notifyTelegramTradeTakeProfit(payload: {
     ``,
     `📌 <b>Aset:</b> <code>${symClean}</code>`,
     `💵 <b>Harga Jual:</b> ${priceFmt}`,
-    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
+    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit Koin' : isUS ? 'Lembar' : 'Lot'}`,
     `💰 <b>Keuntungan Realisasi:</b> <b>${profitFmt}</b>${pctFmt}`,
     ``,
     `✅ <i>Posisi dilikuidasi untuk mengamankan profit portofolio.</i>`,
@@ -248,15 +259,14 @@ export async function notifyTelegramTradeStopLoss(payload: {
   pnlPct?: number;
   reason?: string;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'ARB'].includes(payload.symbol.toUpperCase());
-  const priceFmt = isCrypto
-    ? `$${payload.price.toLocaleString('en-US')}`
+  const { clean: symClean, isCrypto, isUS } = resolveAssetFormat(payload.symbol);
+  const priceFmt = (isCrypto || isUS)
+    ? `$${payload.price.toLocaleString('en-US', { minimumFractionDigits: payload.price < 1 ? 4 : 2, maximumFractionDigits: 6 })} USD`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;
-  const lossFmt = isCrypto
-    ? `-$${Math.abs(payload.realizedLoss).toLocaleString('en-US')}`
+  const lossFmt = (isCrypto || isUS)
+    ? `-Rp ${Math.round(Math.abs(payload.realizedLoss)).toLocaleString('id-ID')} (~-$${(Math.abs(payload.realizedLoss) / 16000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
     : `-Rp ${Math.round(Math.abs(payload.realizedLoss)).toLocaleString('id-ID')}`;
   const pctFmt = payload.pnlPct !== undefined ? ` (${payload.pnlPct.toFixed(2)}%)` : '';
-  const symClean = escapeHtml(payload.symbol);
   const reasonClean = escapeHtml(payload.reason || 'Batas toleransi risiko modal tercapai. Otomatis dilikuidasi.');
   const timeStr = new Date().toLocaleTimeString('id-ID');
 
@@ -265,7 +275,7 @@ export async function notifyTelegramTradeStopLoss(payload: {
     ``,
     `📌 <b>Aset:</b> <code>${symClean}</code>`,
     `💵 <b>Harga Cut Loss:</b> ${priceFmt}`,
-    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
+    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit Koin' : isUS ? 'Lembar' : 'Lot'}`,
     `🔻 <b>Realisasi Risiko:</b> <b>${lossFmt}</b>${pctFmt}`,
     ``,
     `🧠 <b>Keterangan:</b> <i>${reasonClean}</i>`,

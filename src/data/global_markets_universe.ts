@@ -300,7 +300,7 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
 
   // ── INFRASTRUCTURE, ORACLE & GAMING ──
   { rank: 63, symbol: 'PYTHUSDT', name: 'Pyth Network (High-Freq Oracle)', category: 'INFRA', price: 0.385, change24h: 4.20, high24h: 0.405, low24h: 0.365, volume24h: '$120M', marketCap: '$1.4B' },
-  { rank: 64, symbol: 'WUSDT', name: 'Wormhole Cross-Chain', category: 'INFRA', price: 0.285, change24h: 3.40, high24h: 0.302, low24h: 0.270, volume24h: '$85M', marketCap: '$750M' },
+  { rank: 64, symbol: 'WUSDT', name: 'Wormhole Cross-Chain', category: 'INFRA', price: 0.0175, change24h: 1.20, high24h: 0.0185, low24h: 0.0165, volume24h: '$85M', marketCap: '$750M' },
   { rank: 65, symbol: 'JTOUSDT', name: 'Jito (Solana MEV Liquid Stake)', category: 'INFRA', price: 2.85, change24h: 6.80, high24h: 3.05, low24h: 2.65, volume24h: '$95M', marketCap: '$360M' },
   { rank: 66, symbol: 'STXUSDT', name: 'Stacks (Bitcoin L2/Smart Contracts)', category: 'INFRA', price: 1.78, change24h: 4.10, high24h: 1.88, low24h: 1.68, volume24h: '$110M', marketCap: '$2.6B' },
   { rank: 67, symbol: 'CHZUSDT', name: 'Chiliz (Sports Fan Tokens)', category: 'INFRA', price: 0.072, change24h: 2.10, high24h: 0.076, low24h: 0.069, volume24h: '$65M', marketCap: '$640M' },
