@@ -715,21 +715,20 @@ export const usePortfolioStore = create<PortfolioState>()(
         useAuthStore.getState().recordOrderToDatabase(newOrder);
         useAuthStore.getState().syncPortfolioToDatabase();
       }).catch(() => {});
-      if (params.source !== 'AI_AGENT') {
-        import('@/lib/telegram/telegramNotificationEngine').then(({ notifyTelegramTradeBuy }) => {
-          notifyTelegramTradeBuy({
-            symbol: cleanSym,
-            name: name,
-            price: execPrice,
-            lots: lots,
-            notional: totalCost,
-            stopLoss: params.stopLossPrice,
-            takeProfit: params.takeProfitPrice,
-            tier: 'MANUAL_PORTFOLIO_ORDER',
-            engine: isCrypto ? 'FREQTRADE' : 'LUMIBOT',
-          }).catch(() => {});
+      // ── TELEGRAM ALERT DISPATCHER (Setiap kali order beli berhasil dieksekusi) ──
+      import('@/lib/telegram/telegramNotificationEngine').then(({ notifyTelegramTradeBuy }) => {
+        notifyTelegramTradeBuy({
+          symbol: cleanSym,
+          name: name,
+          price: execPrice,
+          lots: lots,
+          notional: totalCost,
+          stopLoss: params.stopLossPrice,
+          takeProfit: params.takeProfitPrice,
+          tier: params.source === 'AI_AGENT' ? 'AI_AGENT_EXECUTION' : 'MANUAL_PORTFOLIO_ORDER',
+          engine: isCrypto ? 'FREQTRADE' : 'LUMIBOT',
         }).catch(() => {});
-      }
+      }).catch(() => {});
     }
 
     return { order: newOrder }
@@ -1172,6 +1171,27 @@ export const usePortfolioStore = create<PortfolioState>()(
           useAuthStore.getState().deleteHoldingFromDatabase(resolvedSym);
         }
         useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+      // ── TELEGRAM ALERT DISPATCHER (Setiap kali order jual berhasil dieksekusi) ──
+      import('@/lib/telegram/telegramNotificationEngine').then(({ notifyTelegramTradeTakeProfit, notifyTelegramTradeStopLoss }) => {
+        if (orderRealizedPL >= 0) {
+          notifyTelegramTradeTakeProfit({
+            symbol: cleanSym,
+            price: execPrice,
+            lots: lots,
+            realizedProfit: orderRealizedPL,
+            pnlPct: orderRealizedPLPercent,
+          }).catch(() => {});
+        } else {
+          notifyTelegramTradeStopLoss({
+            symbol: cleanSym,
+            price: execPrice,
+            lots: lots,
+            realizedLoss: Math.abs(orderRealizedPL),
+            pnlPct: orderRealizedPLPercent,
+            reason: 'Likuidasi posisi penjualan portofolio',
+          }).catch(() => {});
+        }
       }).catch(() => {});
     }
 

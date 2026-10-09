@@ -2,7 +2,7 @@
 /**
  * Fincept Capital — Telegram 24/7 Real-Time Alert Engine
  * Mengirimkan notifikasi instan langsung ke Telegram pengguna
- * setiap kali AI mengeksekusi BUY, TAKE PROFIT, STOP LOSS, atau VETO RISIKO.
+ * setiap kali order BUY, TAKE PROFIT, STOP LOSS, atau VETO RISIKO dieksekusi.
  */
 
 export interface TelegramConfig {
@@ -21,13 +21,16 @@ export function getTelegramConfig(): TelegramConfig {
   }
 
   try {
-    const botToken = localStorage.getItem('TRADEMIND_TELEGRAM_BOT_TOKEN') || '';
-    const chatId = localStorage.getItem('TRADEMIND_TELEGRAM_CHAT_ID') || '';
-    const enabled = localStorage.getItem('TRADEMIND_TELEGRAM_ENABLED') !== 'false';
+    const botToken = (localStorage.getItem('TRADEMIND_TELEGRAM_BOT_TOKEN') || '').trim();
+    const chatId = (localStorage.getItem('TRADEMIND_TELEGRAM_CHAT_ID') || '').trim();
+    const rawEnabled = localStorage.getItem('TRADEMIND_TELEGRAM_ENABLED');
+    // Default enabled jika token & chatId terisi dan tidak eksplisit disetel 'false'
+    const enabled = rawEnabled !== 'false' && Boolean(botToken && chatId);
+
     return {
-      botToken: botToken.trim(),
-      chatId: chatId.trim(),
-      enabled: enabled && !!botToken && !!chatId,
+      botToken,
+      chatId,
+      enabled,
     };
   } catch {
     return { botToken: '', chatId: '', enabled: false };
@@ -35,35 +38,72 @@ export function getTelegramConfig(): TelegramConfig {
 }
 
 /**
- * Mengirim pesan mentah ke Telegram Bot
+ * Mengirim pesan ke Telegram Bot dengan HTML parse mode
+ * dan fail-safe fallback otomatis ke Plain Text jika Telegram menolak formatting.
  */
-export async function sendTelegramRawMessage(text: string): Promise<boolean> {
+export async function sendTelegramRawMessage(htmlText: string): Promise<boolean> {
   const config = getTelegramConfig();
   if (!config.enabled || !config.botToken || !config.chatId) {
     return false;
   }
 
+  const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;
+
   try {
-    const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;
+    // 1. Percobaan Pertama: Kirim dengan format rapi HTML
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: config.chatId,
-        text,
-        parse_mode: 'Markdown',
+        text: htmlText,
+        parse_mode: 'HTML',
       }),
     });
+
     const data = await res.json();
-    return !!data.ok;
+    if (data.ok) {
+      return true;
+    }
+
+    console.warn('[Telegram Alert] Percobaan HTML ditolak Telegram:', data.description);
+
+    // 2. Fail-Safe Fallback: Bersihkan tag HTML dan kirim sebagai Plain Text murni
+    const plainText = htmlText
+      .replace(/<[^>]*>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+
+    const fallbackRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: plainText,
+      }),
+    });
+
+    const fallbackData = await fallbackRes.json();
+    return !!fallbackData.ok;
   } catch (err) {
-    console.warn('[Telegram Alert] Gagal mengirim pesan ke Telegram:', err);
+    console.warn('[Telegram Alert] Gagal mengirim notifikasi:', err);
     return false;
   }
 }
 
 /**
- * Notifikasi saat AI Membeli Saham / Kripto
+ * Helper untuk sanitasi teks agar aman disisipkan ke tag HTML Telegram
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Notifikasi saat Order BUY Berhasil (Saham / Kripto)
  */
 export async function notifyTelegramTradeBuy(payload: {
   symbol: string;
@@ -93,28 +133,32 @@ export async function notifyTelegramTradeBuy(payload: {
     ? (isCrypto ? `$${payload.takeProfit}` : `Rp ${payload.takeProfit}`)
     : 'Dynamic';
 
-  const tierBadge = payload.tier || 'TIER_1_FAST';
-  const engineBadge = (payload.engine || (isCrypto ? 'FREQTRADE' : 'LUMIBOT')).toUpperCase();
+  const tierBadge = escapeHtml(payload.tier || 'TIER_1_FAST');
+  const engineBadge = escapeHtml((payload.engine || (isCrypto ? 'FREQTRADE' : 'LUMIBOT')).toUpperCase());
+  const symClean = escapeHtml(payload.symbol);
+  const nameClean = payload.name ? escapeHtml(payload.name) : '';
 
-  const msg = [
-    `🟢 *[AI ORDER BUY FILLED]* 🚀`,
+  const timeStr = new Date().toLocaleTimeString('id-ID');
+
+  const html = [
+    `<b>🟢 [ORDER BUY BERHASIL] 🚀</b>`,
     ``,
-    `📌 *Aset:* \`${payload.symbol}\` ${payload.name ? `(${payload.name})` : ''}`,
-    `💰 *Harga Beli:* ${priceFmt}`,
-    `📦 *Jumlah:* ${qtyLabel}`,
-    `💵 *Total Nilai:* ${notionalFmt}`,
+    `📌 <b>Aset:</b> <code>${symClean}</code> ${nameClean ? `(${nameClean})` : ''}`,
+    `💰 <b>Harga Beli:</b> ${priceFmt}`,
+    `📦 <b>Jumlah:</b> ${qtyLabel}`,
+    `💵 <b>Total Nilai:</b> ${notionalFmt}`,
     ``,
-    `🛡️ *Stop Loss:* ${slFmt}`,
-    `🎯 *Take Profit:* ${tpFmt}`,
+    `🛡️ <b>Stop Loss:</b> ${slFmt}`,
+    `🎯 <b>Take Profit:</b> ${tpFmt}`,
     ``,
-    `⚙️ *Execution Tier:* \`${tierBadge}\``,
-    `⚡ *Quant Engine:* \`${engineBadge}\``,
-    payload.strategy ? `🧠 *Strategi:* _${payload.strategy}_` : '',
+    `⚙️ <b>Execution:</b> <code>${tierBadge}</code>`,
+    `⚡ <b>Engine:</b> <code>${engineBadge}</code>`,
+    payload.strategy ? `🧠 <b>Strategi:</b> <i>${escapeHtml(payload.strategy)}</i>` : '',
     ``,
-    `🕒 _${new Date().toLocaleTimeString('id-ID')} WIB · Fincept Autonomous Hedge Fund_`,
+    `🕒 <i>${timeStr} WIB · Fincept Autonomous Hedge Fund</i>`,
   ].filter(Boolean).join('\n');
 
-  return sendTelegramRawMessage(msg);
+  return sendTelegramRawMessage(html);
 }
 
 /**
@@ -135,20 +179,22 @@ export async function notifyTelegramTradeTakeProfit(payload: {
     ? `+$${payload.realizedProfit.toLocaleString('en-US')}`
     : `+Rp ${Math.round(payload.realizedProfit).toLocaleString('id-ID')}`;
   const pctFmt = payload.pnlPct !== undefined ? ` (+${payload.pnlPct.toFixed(2)}%)` : '';
+  const symClean = escapeHtml(payload.symbol);
+  const timeStr = new Date().toLocaleTimeString('id-ID');
 
-  const msg = [
-    `🎯 *[TAKE PROFIT OTOMATIS TERCAPAI]* 💎`,
+  const html = [
+    `<b>🎯 [TAKE PROFIT TERCAPAI] 💎</b>`,
     ``,
-    `📌 *Aset:* \`${payload.symbol}\``,
-    `💵 *Harga Jual:* ${priceFmt}`,
-    `📦 *Volume:* ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
-    `💰 *Keuntungan Modal:* *${profitFmt}*${pctFmt}`,
+    `📌 <b>Aset:</b> <code>${symClean}</code>`,
+    `💵 <b>Harga Jual:</b> ${priceFmt}`,
+    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
+    `💰 <b>Keuntungan Realisasi:</b> <b>${profitFmt}</b>${pctFmt}`,
     ``,
-    `✅ _Posisi dilikuidasi untuk mengamankan profit portofolio._`,
-    `🕒 _${new Date().toLocaleTimeString('id-ID')} WIB_`,
+    `✅ <i>Posisi dilikuidasi untuk mengamankan profit portofolio.</i>`,
+    `🕒 <i>${timeStr} WIB · Fincept Capital</i>`,
   ].join('\n');
 
-  return sendTelegramRawMessage(msg);
+  return sendTelegramRawMessage(html);
 }
 
 /**
@@ -170,21 +216,24 @@ export async function notifyTelegramTradeStopLoss(payload: {
     ? `-$${Math.abs(payload.realizedLoss).toLocaleString('en-US')}`
     : `-Rp ${Math.round(Math.abs(payload.realizedLoss)).toLocaleString('id-ID')}`;
   const pctFmt = payload.pnlPct !== undefined ? ` (${payload.pnlPct.toFixed(2)}%)` : '';
+  const symClean = escapeHtml(payload.symbol);
+  const reasonClean = escapeHtml(payload.reason || 'Batas toleransi risiko modal tercapai. Otomatis dilikuidasi.');
+  const timeStr = new Date().toLocaleTimeString('id-ID');
 
-  const msg = [
-    `🛡️ *[STOP LOSS OTOMATIS / CRO VETO]* ⚠️`,
+  const html = [
+    `<b>🛡️ [STOP LOSS CUT / PROTEKSI MODAL] ⚠️</b>`,
     ``,
-    `📌 *Aset:* \`${payload.symbol}\``,
-    `💵 *Harga Cut Loss:* ${priceFmt}`,
-    `📦 *Volume:* ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
-    `🔻 *Realisasi Risiko:* *${lossFmt}*${pctFmt}`,
+    `📌 <b>Aset:</b> <code>${symClean}</code>`,
+    `💵 <b>Harga Cut Loss:</b> ${priceFmt}`,
+    `📦 <b>Volume:</b> ${payload.lots} ${isCrypto ? 'Unit' : 'Lot'}`,
+    `🔻 <b>Realisasi Risiko:</b> <b>${lossFmt}</b>${pctFmt}`,
     ``,
-    `🧠 *Keterangan:* _${payload.reason || 'Batas toleransi risiko modal tercapai. Otomatis dilikuidasi untuk melindungi drawdown.'}_`,
-    `🔄 _Tier 3 Post-Mortem aktif di memori untuk mencegah pengulangan._`,
-    `🕒 _${new Date().toLocaleTimeString('id-ID')} WIB_`,
+    `🧠 <b>Keterangan:</b> <i>${reasonClean}</i>`,
+    `🔄 <i>Pelajaran dikomit ke memori untuk mencegah kesalahan serupa.</i>`,
+    `🕒 <i>${timeStr} WIB · Fincept Capital</i>`,
   ].join('\n');
 
-  return sendTelegramRawMessage(msg);
+  return sendTelegramRawMessage(html);
 }
 
 /**
@@ -195,16 +244,21 @@ export async function notifyTelegramRiskVeto(payload: {
   reason: string;
   tier?: string;
 }): Promise<boolean> {
-  const msg = [
-    `⛔ *[ORDER DITOLAK / VETO RISIKO]* 🛡️`,
+  const symClean = escapeHtml(payload.symbol);
+  const tierClean = escapeHtml(payload.tier || 'TIER_2_COGNITIVE');
+  const reasonClean = escapeHtml(payload.reason);
+  const timeStr = new Date().toLocaleTimeString('id-ID');
+
+  const html = [
+    `<b>⛔ [ORDER DITOLAK / VETO RISIKO] 🛡️</b>`,
     ``,
-    `📌 *Aset:* \`${payload.symbol}\``,
-    `⚙️ *Gate:* \`${payload.tier || 'TIER_2_COGNITIVE'}\``,
-    `⚠️ *Alasan:* _${payload.reason}_`,
+    `📌 <b>Aset:</b> <code>${symClean}</code>`,
+    `⚙️ <b>Gate:</b> <code>${tierClean}</code>`,
+    `⚠️ <b>Alasan:</b> <i>${reasonClean}</i>`,
     ``,
-    `🔒 _Modal aman. Order tidak dieksekusi._`,
-    `🕒 _${new Date().toLocaleTimeString('id-ID')} WIB_`,
+    `🔒 <i>Modal aman. Order dibatalkan oleh protokol risiko.</i>`,
+    `🕒 <i>${timeStr} WIB · Fincept Capital</i>`,
   ].join('\n');
 
-  return sendTelegramRawMessage(msg);
+  return sendTelegramRawMessage(html);
 }
