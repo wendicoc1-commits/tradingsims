@@ -19,9 +19,9 @@ import { isCryptoSymbol } from '../universe/masterAssetUniverse';
 import { sanitizeUntrustedIntel, formatUntrustedNewsContext, detectMarketRegime } from '../agents/agentContextCompactor';
 
 /**
- * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities)
+ * Dispatch trade event ke Quant Bridge (Freqtrade untuk Crypto, Lumibot untuk Equities di VPS 24/7)
  */
-function dispatchToQuantBridge(payload: {
+export function dispatchToQuantBridge(payload: {
   engine: 'freqtrade' | 'lumibot';
   action: 'BUY' | 'SELL';
   ticker: string;
@@ -32,6 +32,28 @@ function dispatchToQuantBridge(payload: {
 }) {
   if (typeof window !== 'undefined') {
     fetch('/api/quant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Catat refleksi episodik ke memori persisten SQLite di VPS 24/7
+ */
+export function recordQuantMemoryToVPS(payload: {
+  symbol: string;
+  decision: string;
+  entry_price?: number;
+  target_price?: number;
+  stop_loss?: number;
+  justification?: string;
+  post_trade_reflection?: string;
+  market_regime?: string;
+}) {
+  if (typeof window !== 'undefined') {
+    fetch('/api/quant?action=memory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

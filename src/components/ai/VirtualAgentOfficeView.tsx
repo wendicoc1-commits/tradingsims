@@ -87,7 +87,11 @@ import { NavGrid, type Pt } from '@/lib/office/navGrid';
 import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
 import { broadcastEvent } from '@/lib/crossTabSync';
-import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine';
+import {
+  runAutonomousAgentCycle,
+  dispatchToQuantBridge,
+  recordQuantMemoryToVPS,
+} from '@/lib/hedgefund/autonomousTradingEngine';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import {
   MASTER_ASSETS,
@@ -1369,6 +1373,116 @@ export default function VirtualAgentOfficeView() {
     }
   }, [liveCryptoTicker]);
 
+  // ── SINKRONISASI AKTIF DENGAN AI OODA ENGINE (Groq Cloud & Gemini Flash) ──
+  const [liveAiAnalysis, setLiveAiAnalysis] = useState<{
+    loading: boolean;
+    decision?: {
+      analisis_teknikal: string;
+      bandarmologi_verdict: string;
+      keputusan: string;
+      entry_price: number;
+      target_price: number;
+      stop_loss: number;
+      risk_reward_ratio: number;
+      conviction_score: number;
+    };
+    provider?: string;
+    model?: string;
+  } | null>(null);
+
+  // ── SINKRONISASI STATUS QUANT BRIDGE VPS 24/7 (38.9.46.160) ──
+  const [vpsBridgeStatus, setVpsBridgeStatus] = useState<{
+    online: boolean;
+    cycles: number;
+    openPositionsCount: number;
+    equityUsd: number;
+    hasCcxt: boolean;
+    lastHeartbeat?: number;
+    memories: any[];
+  }>({
+    online: false,
+    cycles: 0,
+    openPositionsCount: 0,
+    equityUsd: 100000,
+    hasCcxt: false,
+    memories: [],
+  });
+
+  useEffect(() => {
+    let active = true;
+    const fetchVpsState = async () => {
+      try {
+        const [resStatus, resMem] = await Promise.all([
+          fetch('/api/quant', { signal: AbortSignal.timeout(4000) }),
+          fetch('/api/quant?action=memory', { signal: AbortSignal.timeout(4000) }),
+        ]);
+        if (!active) return;
+        if (resStatus.ok) {
+          const sData = await resStatus.json();
+          const mData = resMem.ok ? await resMem.json() : { memories: [] };
+          setVpsBridgeStatus({
+            online: sData.source === 'VPS_CLOUD_QUANT_BRIDGE_ONLINE' || sData.success === true,
+            cycles: sData.daemon?.cycles || 0,
+            openPositionsCount: sData.daemon?.open_positions_count || 0,
+            equityUsd: sData.daemon?.equity_usd || 100000,
+            hasCcxt: sData.daemon?.has_ccxt || false,
+            lastHeartbeat: sData.daemon?.last_heartbeat,
+            memories: mData.memories || [],
+          });
+        }
+      } catch {
+        // bridge offline or network timeout
+      }
+    };
+
+    fetchVpsState();
+    const interval = setInterval(fetchVpsState, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Ambil analisis AI aktual saat emiten atau agen diinspeksi
+  useEffect(() => {
+    if (!inspectId) {
+      setLiveAiAnalysis(null);
+      return;
+    }
+    let isSubscribed = true;
+    setLiveAiAnalysis({ loading: true });
+
+    fetch('/api/ai/agent?action=analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: selectedStock,
+        additional_intel: `Inspeksi langsung oleh Agen ${AGENT_BY_ID[inspectId]?.name || inspectId} (${AGENT_BY_ID[inspectId]?.title || ''}). Mengevaluasi setup teknikal dan bandarmologi ${selectedStock}.`,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!isSubscribed) return;
+        if (d?.decision) {
+          setLiveAiAnalysis({
+            loading: false,
+            decision: d.decision,
+            provider: d.provider || 'GroqCloud-Serverless-24/7',
+            model: d.model || 'Llama-3.3-70b-versatile',
+          });
+        } else {
+          setLiveAiAnalysis({ loading: false });
+        }
+      })
+      .catch(() => {
+        if (isSubscribed) setLiveAiAnalysis({ loading: false });
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [inspectId, selectedStock]);
+
   // ── intelligence & konteks ──
   const intel = useMemo(() => {
     const livePrice = liveCryptoTicker?.price ?? (quote && quote.live ? quote.price : undefined);
@@ -2166,6 +2280,31 @@ export default function VirtualAgentOfficeView() {
           takeProfit: tpPrice,
         },
       });
+
+      // ── SINKRONISASI AI QUANT 24/7 (VPS LINUX CLOUD) ──
+      // 1. Kirim sinyal order live ke Freqtrade / Lumibot di VPS
+      dispatchToQuantBridge({
+        engine: isCrypto ? 'freqtrade' : 'lumibot',
+        action: 'BUY',
+        ticker: snapshot.symbol,
+        price: entryPrice,
+        stopLoss: stopPrice,
+        targetPrice: tpPrice,
+        reason: `War Room Consensus Approval: ${qtyLabel} @ ${priceLabel}`,
+      });
+
+      // 2. Tulis penalaran ke Episodic Memory SQLite di VPS 24/7
+      recordQuantMemoryToVPS({
+        symbol: snapshot.symbol,
+        decision: 'BUY',
+        entry_price: entryPrice,
+        target_price: tpPrice,
+        stop_loss: stopPrice,
+        justification: `Sidang War Room Paripurna menyetujui BUY ${qtyLabel} @ ${priceLabel}`,
+        post_trade_reflection: `Eksekusi disahkan oleh konsensus PM, Quant, dan Risk Officer dengan Risk-Reward Ratio terverifikasi.`,
+        market_regime: isCrypto ? 'CRYPTO_MOMENTUM_24_7' : 'IDX_VALUE_SMC',
+      });
+
       useAIAgentStore.getState().recordTradeStat(true);
       broadcastEvent({ type: 'PORTFOLIO_CHANGED' });
       broadcastEvent({ type: 'AI_AGENT_CHANGED' });
@@ -2404,6 +2543,20 @@ export default function VirtualAgentOfficeView() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Badge Sinkronisasi VPS Quant 24/7 */}
+              <div
+                className="px-2.5 py-1.5 bg-[#0a101d] border border-cyan-500/30 rounded-lg flex items-center gap-1.5 text-xs font-mono shadow-sm shadow-cyan-500/10"
+                title="Status koneksi real-time ke VPS Background Quant Daemon di 38.9.46.160:8002"
+              >
+                <span className={`w-2 h-2 rounded-full ${vpsBridgeStatus.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="text-cyan-400 font-bold text-[11px]">
+                  {vpsBridgeStatus.online ? 'VPS 24/7 QUANT: ONLINE' : 'VPS: STANDALONE'}
+                </span>
+                <span className="text-zinc-600 text-[10px]">|</span>
+                <span className="text-zinc-300 text-[10px]">
+                  Siklus: <strong className="text-emerald-400">{vpsBridgeStatus.cycles}</strong>
+                </span>
+              </div>
 
               {/* Tombol Buka Leaderboard Alpha */}
               <button
@@ -3168,6 +3321,87 @@ export default function VirtualAgentOfficeView() {
                   ))}
                 </div>
               </section>
+
+              {/* ── SINKRONISASI AKTIF: LIVE AI NEURAL OODA REASONING STREAM (Groq / Gemini) ── */}
+              <section className="rounded-xl border border-cyan-500/30 bg-slate-950/80 p-3.5 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="font-mono text-[11px] font-bold text-cyan-300 tracking-wider uppercase">
+                      Live AI Neural OODA Reasoning
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300">
+                    {liveAiAnalysis?.provider || 'GroqCloud / Gemini Flash'}
+                  </span>
+                </div>
+
+                {liveAiAnalysis?.loading ? (
+                  <div className="py-4 flex items-center justify-center gap-2 text-cyan-400 font-mono text-xs">
+                    <span className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                    Menghubungi Deep OODA Neural Engine ({selectedStock})...
+                  </div>
+                ) : liveAiAnalysis?.decision ? (
+                  <div className="space-y-2.5 font-mono text-xs">
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block text-[10px]">KEPUTUSAN</span>
+                        <span className={`font-bold ${liveAiAnalysis.decision.keputusan === 'BUY' ? 'text-emerald-400' : liveAiAnalysis.decision.keputusan === 'SELL' ? 'text-rose-400' : 'text-amber-400'}`}>
+                          {liveAiAnalysis.decision.keputusan}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block text-[10px]">BANDARMOLOGI</span>
+                        <span className="text-purple-300 font-semibold">{liveAiAnalysis.decision.bandarmologi_verdict}</span>
+                      </div>
+                      <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block text-[10px]">CONVICTION</span>
+                        <span className="text-cyan-300 font-bold">{liveAiAnalysis.decision.conviction_score}%</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded bg-black/60 border border-slate-800/80 font-mono text-[11px] leading-relaxed text-slate-300">
+                      <span className="text-cyan-400 font-bold block mb-1">❯ REASONING CHAIN & PRICE ACTION:</span>
+                      {liveAiAnalysis.decision.analisis_teknikal}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                      <span>Target: <strong className="text-emerald-400">{liveAiAnalysis.decision.target_price}</strong></span>
+                      <span>Stop Loss: <strong className="text-rose-400">{liveAiAnalysis.decision.stop_loss}</strong></span>
+                      <span>RRR: <strong className="text-cyan-400">1:{liveAiAnalysis.decision.risk_reward_ratio}</strong></span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-slate-400 font-mono text-[11px] py-1">
+                    Evaluasi AI fallback aktif untuk {selectedStock}. Mengikuti parameter Risk Parity dan fraksi harga bursa.
+                  </div>
+                )}
+              </section>
+
+              {/* ── SINKRONISASI MEMORI EPISODIK VPS 24/7 (SQLite WAL) ── */}
+              {vpsBridgeStatus.memories.length > 0 && (
+                <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      🧠 Episodic Memory VPS 24/7 (SQLite WAL)
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      {vpsBridgeStatus.memories.length} Refleksi
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto font-mono text-[11px]">
+                    {vpsBridgeStatus.memories.slice(0, 3).map((m: any, idx: number) => (
+                      <div key={idx} className="p-2 rounded bg-slate-900/60 border border-slate-800/80 text-slate-300">
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-0.5">
+                          <span className="text-cyan-400 font-bold">{m.symbol} · {m.decision}</span>
+                          <span>{m.regime || 'RANGE_BOUND'}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 truncate">{m.reflection || m.justification}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <section>
                 <div className="text-[10px] font-mono text-zinc-500 uppercase mb-1">Tanggung jawab peran</div>
