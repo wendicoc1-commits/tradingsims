@@ -28,6 +28,7 @@ import { useAIAgentStore } from '@/store/aiAgentStore';
 import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
 import { evaluateJesseStrategy, type JesseStrategySignal } from '@/lib/crypto/jesseCryptoEngine';
 import { dispatchToQuantBridge } from '@/lib/hedgefund/autonomousTradingEngine';
+import { notifyTelegramTradeBuy } from '@/lib/telegram/telegramNotificationEngine';
 import { SUPPORTED_CRYPTO_PAIRS } from '@/hooks/useBinanceLivePrices';
 
 interface QuantDeskJessePanelProps {
@@ -149,6 +150,20 @@ export default function QuantDeskJessePanel({
           takeProfit: jesseSignal.takeProfit,
           lots: targetLots,
         });
+
+        // 2b. Dispatch notifikasi Telegram instan 24/7
+        notifyTelegramTradeBuy({
+          symbol: activePair,
+          name: `${activePair} Spot (Jesse Engine)`,
+          price: curPrice,
+          lots: targetLots,
+          notional: curPrice * targetLots * 16000,
+          stopLoss: jesseSignal.stopLoss,
+          takeProfit: jesseSignal.takeProfit,
+          tier: 'QUANTDESK_TACTICAL',
+          strategy: jesseSignal.strategyName,
+          engine: 'FREQTRADE',
+        }).catch((err) => console.warn('[Telegram Alert] Gagal kirim di QuantDesk:', err));
 
         // 3. Catat aksi di AI Agent Store
         useAIAgentStore.getState().logAction({

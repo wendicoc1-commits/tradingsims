@@ -38,20 +38,50 @@ export function getTelegramConfig(): TelegramConfig {
 }
 
 /**
- * Mengirim pesan ke Telegram Bot dengan HTML parse mode
- * dan fail-safe fallback otomatis ke Plain Text jika Telegram menolak formatting.
+ * Mengirim pesan ke Telegram Bot via Server Proxy (/api/telegram)
+ * dengan fallback langsung ke API Telegram.
  */
 export async function sendTelegramRawMessage(htmlText: string): Promise<boolean> {
   const config = getTelegramConfig();
   if (!config.enabled || !config.botToken || !config.chatId) {
+    console.warn('[Telegram Alert] Pengiriman dibatalkan. Konfigurasi tidak aktif atau belum diisi di Portofolio:', {
+      hasToken: Boolean(config.botToken),
+      hasChatId: Boolean(config.chatId),
+      enabled: config.enabled,
+    });
     return false;
   }
 
-  const url = `https://api.telegram.org/bot${config.botToken}/sendMessage`;
+  console.info('[Telegram Alert] Menyiapkan pengiriman notifikasi ke Chat ID:', config.chatId);
 
+  // 1. RUTE PRIORITAS: Kirim via Server Proxy Internal Next.js (/api/telegram)
+  // Ini 100% kebal terhadap AdBlocker, Brave Shields, atau CORS browser
   try {
-    // 1. Percobaan Pertama: Kirim dengan format rapi HTML
-    const res = await fetch(url, {
+    const proxyRes = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: htmlText,
+        botToken: config.botToken,
+        chatId: config.chatId,
+        parseMode: 'HTML',
+      }),
+    });
+
+    const proxyData = await proxyRes.json();
+    if (proxyData.ok) {
+      console.info('🎉 [Telegram Alert] Berhasil terkirim via Gateway Server!');
+      return true;
+    }
+    console.warn('[Telegram Alert] Gateway Server mengembalikan error:', proxyData.error);
+  } catch (proxyErr) {
+    console.warn('[Telegram Alert] Gateway Server tidak dapat dijangkau, mencoba rute langsung:', proxyErr);
+  }
+
+  // 2. RUTE CADANGAN: Kirim langsung dari browser ke Telegram API
+  try {
+    const directUrl = `https://api.telegram.org/bot${config.botToken}/sendMessage`;
+    const res = await fetch(directUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -63,19 +93,18 @@ export async function sendTelegramRawMessage(htmlText: string): Promise<boolean>
 
     const data = await res.json();
     if (data.ok) {
+      console.info('🎉 [Telegram Alert] Berhasil terkirim via Rute Langsung!');
       return true;
     }
 
-    console.warn('[Telegram Alert] Percobaan HTML ditolak Telegram:', data.description);
-
-    // 2. Fail-Safe Fallback: Bersihkan tag HTML dan kirim sebagai Plain Text murni
+    // Fail-Safe Plain Text jika HTML ditolak
     const plainText = htmlText
       .replace(/<[^>]*>/g, '')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>');
 
-    const fallbackRes = await fetch(url, {
+    const fallbackRes = await fetch(directUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -83,11 +112,10 @@ export async function sendTelegramRawMessage(htmlText: string): Promise<boolean>
         text: plainText,
       }),
     });
-
     const fallbackData = await fallbackRes.json();
     return !!fallbackData.ok;
   } catch (err) {
-    console.warn('[Telegram Alert] Gagal mengirim notifikasi:', err);
+    console.warn('[Telegram Alert] Gagal di semua rute:', err);
     return false;
   }
 }
@@ -96,7 +124,7 @@ export async function sendTelegramRawMessage(htmlText: string): Promise<boolean>
  * Helper untuk sanitasi teks agar aman disisipkan ke tag HTML Telegram
  */
 function escapeHtml(str: string): string {
-  return str
+  return String(str || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -117,7 +145,7 @@ export async function notifyTelegramTradeBuy(payload: {
   strategy?: string;
   engine?: string;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB'].includes(payload.symbol);
+  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'BNB', 'ARB'].includes(payload.symbol.toUpperCase());
   const priceFmt = isCrypto
     ? `$${payload.price.toLocaleString('en-US')}`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;
@@ -131,11 +159,11 @@ export async function notifyTelegramTradeBuy(payload: {
     : 'ATR Trailing';
   const tpFmt = payload.takeProfit
     ? (isCrypto ? `$${payload.takeProfit}` : `Rp ${payload.takeProfit}`)
-    : 'Dynamic';
+    : 'Dynamic Target';
 
-  const tierBadge = escapeHtml(payload.tier || 'TIER_1_FAST');
+  const tierBadge = escapeHtml(payload.tier || 'WAR_ROOM_CONSENSUS');
   const engineBadge = escapeHtml((payload.engine || (isCrypto ? 'FREQTRADE' : 'LUMIBOT')).toUpperCase());
-  const symClean = escapeHtml(payload.symbol);
+  const symClean = escapeHtml(payload.symbol.replace(/USDT$/i, ''));
   const nameClean = payload.name ? escapeHtml(payload.name) : '';
 
   const timeStr = new Date().toLocaleTimeString('id-ID');
@@ -152,7 +180,7 @@ export async function notifyTelegramTradeBuy(payload: {
     `🎯 <b>Take Profit:</b> ${tpFmt}`,
     ``,
     `⚙️ <b>Execution:</b> <code>${tierBadge}</code>`,
-    `⚡ <b>Engine:</b> <code>${engineBadge}</code>`,
+    `⚡ <b>Quant Engine:</b> <code>${engineBadge}</code>`,
     payload.strategy ? `🧠 <b>Strategi:</b> <i>${escapeHtml(payload.strategy)}</i>` : '',
     ``,
     `🕒 <i>${timeStr} WIB · Fincept Autonomous Hedge Fund</i>`,
@@ -171,7 +199,7 @@ export async function notifyTelegramTradeTakeProfit(payload: {
   realizedProfit: number;
   pnlPct?: number;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT');
+  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'ARB'].includes(payload.symbol.toUpperCase());
   const priceFmt = isCrypto
     ? `$${payload.price.toLocaleString('en-US')}`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;
@@ -208,7 +236,7 @@ export async function notifyTelegramTradeStopLoss(payload: {
   pnlPct?: number;
   reason?: string;
 }): Promise<boolean> {
-  const isCrypto = payload.symbol.endsWith('USDT');
+  const isCrypto = payload.symbol.endsWith('USDT') || ['BTC', 'ETH', 'SOL', 'ARB'].includes(payload.symbol.toUpperCase());
   const priceFmt = isCrypto
     ? `$${payload.price.toLocaleString('en-US')}`
     : `Rp ${payload.price.toLocaleString('id-ID')}`;

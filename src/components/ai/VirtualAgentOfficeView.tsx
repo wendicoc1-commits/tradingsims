@@ -94,6 +94,7 @@ import {
   dispatchToQuantBridge,
   recordQuantMemoryToVPS,
 } from '@/lib/hedgefund/autonomousTradingEngine';
+import { notifyTelegramTradeBuy } from '@/lib/telegram/telegramNotificationEngine';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import {
   MASTER_ASSETS,
@@ -2598,6 +2599,20 @@ export default function VirtualAgentOfficeView() {
         post_trade_reflection: `Eksekusi disahkan oleh konsensus PM, Quant, dan Risk Officer dengan Risk-Reward Ratio terverifikasi.`,
         market_regime: isCrypto ? 'CRYPTO_MOMENTUM_24_7' : 'IDX_VALUE_SMC',
       });
+
+      // 3. Notifikasi Telegram Instan 24/7
+      notifyTelegramTradeBuy({
+        symbol: snapshot.symbol,
+        name: isCrypto ? `${intel.name} (Crypto Spot)` : intel.name,
+        price: entryPrice,
+        lots: orderLots,
+        notional: tradeValue,
+        stopLoss: stopPrice,
+        takeProfit: tpPrice,
+        tier: 'WAR_ROOM_CONSENSUS',
+        strategy: isCrypto ? 'Kevin Zhang (Jesse Crypto Desk Lead)' : 'All Departments Full Consensus',
+        engine: isCrypto ? 'FREQTRADE' : 'LUMIBOT',
+      }).catch((err) => console.warn('[Telegram Alert] Error in War Room send:', err));
 
       useAIAgentStore.getState().recordTradeStat(true);
       broadcastEvent({ type: 'PORTFOLIO_CHANGED' });

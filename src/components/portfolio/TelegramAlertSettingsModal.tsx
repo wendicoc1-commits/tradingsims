@@ -73,9 +73,15 @@ export default function TelegramAlertSettingsModal({ isOpen, onClose }: Telegram
 
       const data = await res.json();
       if (data.ok) {
+        // Otomatis simpan ke localStorage seketika tes berhasil
+        localStorage.setItem('TRADEMIND_TELEGRAM_BOT_TOKEN', botToken.trim());
+        localStorage.setItem('TRADEMIND_TELEGRAM_CHAT_ID', chatId.trim());
+        localStorage.setItem('TRADEMIND_TELEGRAM_ENABLED', 'true');
+        setEnabled(true);
+
         setTestStatus({
           success: true,
-          message: '🎉 Notifikasi tes berhasil terkirim ke Telegram HP Anda!',
+          message: '🎉 Notifikasi tes berhasil terkirim dan disimpan otomatis!',
         });
       } else {
         setTestStatus({
