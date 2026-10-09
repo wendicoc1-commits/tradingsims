@@ -104,6 +104,17 @@ import {
   isUSSymbol,
   type UnifiedAsset,
 } from '@/lib/universe/masterAssetUniverse';
+import type {
+  CrisisEventPayload,
+  PostMortemEntry,
+  MeritocraticAllocation,
+} from '@/lib/hedgefund/autonomousEcosystemSchema';
+import { calculateDynamicAumRouting } from '@/lib/hedgefund/meritocraticSpatialEngine';
+import { globalReplayEngine, type ReplayTickSnapshot } from '@/lib/office/TimeTravelReplayEngine';
+import CrisisCommandConsole from './CrisisCommandConsole';
+import PostMortemVaultModal from './PostMortemVaultModal';
+import TimeTravelScrubberBar from './TimeTravelScrubberBar';
+import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
 
 // ───────────────────────── konstanta ─────────────────────────
 
@@ -1483,6 +1494,124 @@ export default function VirtualAgentOfficeView() {
     };
   }, [inspectId, selectedStock]);
 
+  // ── MODUL 1: BLACK SWAN CRISIS INJECTOR ──
+  const [crisisConsoleOpen, setCrisisConsoleOpen] = useState(false);
+  const [activeCrisis, setActiveCrisis] = useState<CrisisEventPayload | null>(null);
+
+  const handleInjectCrisis = (crisis: CrisisEventPayload) => {
+    setActiveCrisis(crisis);
+    setCrisisConsoleOpen(false);
+    setAlarm(true);
+    // Visual flash and audio alert
+    executiveVoice.speak(`Peringatan darurat: Anomali Black Swan terdeteksi! Skenario ${crisis.type}. Pembekuan order non-hedged diaktifkan.`);
+  };
+
+  const handleResolveCrisis = () => {
+    setActiveCrisis(null);
+    setAlarm(false);
+    executiveVoice.speak('Skenario darurat selesai. Seluruh sistem kembali ke parameter operasional normal.');
+  };
+
+  // ── MODUL 2: POST-MORTEM & MEMORY VAULT ──
+  const [postMortemModalOpen, setPostMortemModalOpen] = useState(false);
+  const [activePostMortem, setActivePostMortem] = useState<PostMortemEntry | null>(null);
+  const [postMortemEntries, setPostMortemEntries] = useState<PostMortemEntry[]>([
+    {
+      id: 'PM-1',
+      tradeId: 'TRD-BTC-SL',
+      agentId: 'trader_crypto',
+      agentName: 'Kevin Zhang (Crypto Lead)',
+      symbol: 'BTC/USDT',
+      lossUsd: 1420,
+      lossPct: 4.8,
+      entryPrice: 98500,
+      exitPrice: 93772,
+      timestamp: Date.now() - 3600000 * 2,
+      rootCause: 'Terjebak false breakout akibat kaskade liquidasi derivatif di jam rollover pasar Asia.',
+      cognitiveBlindSpot: 'Mengabaikan rasio Funding Rate yang terlalu panas (> 0.05%) sebelum entry.',
+      lessonsLearned: [
+        'Wajib memeriksa Open Interest delta sebelum entry momentum.',
+        'Kecilkan alokasi per posisi sebesar 15% jika Funding Rate ekstrem.'
+      ],
+      vectorEmbeddingId: 'VEC-9f82b1-EMBED-1536',
+      ruleModulation: [
+        {
+          parameter: 'Max Exposure Per Breakout',
+          beforeValue: 20,
+          afterValue: 15,
+          adjustmentReason: 'Penurunan batas sizing posisi saat funding panas.'
+        },
+        {
+          parameter: 'Trailing Stop Buffer Pct',
+          beforeValue: 3.5,
+          afterValue: 4.2,
+          adjustmentReason: 'Memperlebar buffer demi menghindari sumbu likuidasi.'
+        }
+      ]
+    },
+    {
+      id: 'PM-2',
+      tradeId: 'TRD-BBRI-SL',
+      agentId: 'pm_idx',
+      agentName: 'Raditya Pratama (L/S Equity PM)',
+      symbol: 'BBRI',
+      lossUsd: 890,
+      lossPct: 3.2,
+      entryPrice: 4720,
+      exitPrice: 4568,
+      timestamp: Date.now() - 3600000 * 5,
+      rootCause: 'Distribusi asing masif bersamaan dengan rilis yield US 10-Year Treasury melonjak.',
+      cognitiveBlindSpot: 'Korelasi negatif Rupiah/USD belum terintegrasi ke dalam scoring SMC intraday.',
+      lessonsLearned: [
+        'Aktifkan veto otomatis jika Foreign Net Sell harian melebihi Rp 500 Miliar.',
+        'Gunakan fraksi harga BEI tick kelipatan 25 pada rentang > Rp 5.000.'
+      ],
+      vectorEmbeddingId: 'VEC-77a41c-EMBED-1536',
+      ruleModulation: [
+        {
+          parameter: 'Foreign Net Sell Tolerance',
+          beforeValue: 1000,
+          afterValue: 500,
+          adjustmentReason: 'Memperketat ambang batas outflow asing.'
+        }
+      ]
+    }
+  ]);
+
+  // ── MODUL 3: MERITOCRATIC CAPITAL ALLOCATION & DESK HIERARCHY ──
+  const [meritocracyOpen, setMeritocracyOpen] = useState(false);
+
+  // ── MODUL 4: TIME-TRAVEL TIMELINE REPLAY ──
+  const [timeTravelOpen, setTimeTravelOpen] = useState(false);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [replayTick, setReplayTick] = useState(0);
+  const [totalRecordedTicks, setTotalRecordedTicks] = useState(0);
+  const [activeReplaySnapshot, setActiveReplaySnapshot] = useState<ReplayTickSnapshot | null>(null);
+
+  // Scrub timeline function
+  const handleScrubTick = (tick: number) => {
+    setReplayTick(tick);
+    setIsReplaying(true);
+    const snap = globalReplayEngine.scrubToTick(tick);
+    if (snap) {
+      setActiveReplaySnapshot(snap);
+      // Sinkronkan agen di canvas visual ke koordinat masa lalu
+      if (simRef.current && snap.agents) {
+        snap.agents.forEach((sa) => {
+          const a = simRef.current!.byId[sa.agentId];
+          if (a) {
+            a.x = sa.x;
+            a.y = sa.y;
+          }
+        });
+      }
+    }
+  };
+
+  const handleToggleReplayPlay = () => {
+    setIsReplaying(!isReplaying);
+  };
+
   // ── intelligence & konteks ──
   const intel = useMemo(() => {
     const livePrice = liveCryptoTicker?.price ?? (quote && quote.live ? quote.price : undefined);
@@ -1505,6 +1634,38 @@ export default function VirtualAgentOfficeView() {
     }),
     [cash, realizedPL, holdings, orders]
   );
+
+  const meritocraticAllocations = useMemo(() => {
+    return calculateDynamicAumRouting(
+      [
+        { id: 'quant_lead', name: 'Dewi Sartika (Quant Alpha)', sharpe: 2.15, winRate: 74, sortino: 2.8 },
+        { id: 'pm_idx', name: 'Raditya Pratama (Equity PM)', sharpe: 1.85, winRate: 68, sortino: 2.1 },
+        { id: 'trader_crypto', name: 'Kevin Zhang (Crypto Desk)', sharpe: 1.45, winRate: 62, sortino: 1.7 },
+        { id: 'cro', name: 'Bambang Soediro (Chief Risk Officer)', sharpe: 1.10, winRate: 58, sortino: 1.3 },
+        { id: 'macro_lead', name: 'Dr. Faisal Basri (Macro Strategist)', sharpe: 0.85, winRate: 52, sortino: 0.9 },
+        { id: 'sentiment_analyst', name: 'Marsha Timothy (Newsroom)', sharpe: 0.65, winRate: 48, sortino: 0.7 },
+      ],
+      Math.round(portfolioNav(portfolio) / 16000) || 100000
+    );
+  }, [portfolio]);
+
+  // Rekam tick ke globalReplayEngine setiap 2 detik
+  useEffect(() => {
+    if (isReplaying) return;
+    const interval = setInterval(() => {
+      const agents = simRef.current?.agents || [];
+      const currentTickIdx = globalReplayEngine.recordTick(
+        Math.round(portfolioNav(portfolio) / 16000) || 100000,
+        quote?.price || 1,
+        selectedStock,
+        activeCrisis ? 'CRITICAL_BLACK_SWAN' : 'NORMAL',
+        agents.map((a) => ({ id: a.def.id, x: a.x, y: a.y, state: a.mode }))
+      );
+      setTotalRecordedTicks(currentTickIdx + 1);
+      setReplayTick(currentTickIdx);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [portfolio, quote, selectedStock, activeCrisis, isReplaying]);
 
   const ctxData: DeskContext = useMemo(
     () => ({
@@ -2565,6 +2726,54 @@ export default function VirtualAgentOfficeView() {
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 🏆 Leaderboard Alpha ({scanResult?.scannedCount ?? 60}+ Aset)
+              </button>
+
+              {/* Tombol Black Swan Crisis Injector */}
+              <button
+                onClick={() => setCrisisConsoleOpen(true)}
+                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
+                  activeCrisis
+                    ? 'bg-rose-600 text-white border-rose-400 animate-pulse shadow-lg shadow-rose-600/40'
+                    : 'bg-[#181016] hover:bg-rose-950/60 border-rose-500/40 text-rose-300 hover:border-rose-400'
+                }`}
+                title="Buka Crisis Control Panel untuk injeksi skenario Black Swan"
+              >
+                <span>🚨</span>
+                <span>{activeCrisis ? 'KRISIS AKTIF' : 'Black Swan'}</span>
+              </button>
+
+              {/* Tombol Hall of Post-Mortems & Memory Vault */}
+              <button
+                onClick={() => setPostMortemModalOpen(true)}
+                className="px-2.5 py-1.5 bg-[#0e1420] hover:bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 hover:border-cyan-400 text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all"
+                title="Buka Hall of Post-Mortems & Episodic Memory Vault"
+              >
+                <span>📚</span>
+                <span>Memory Vault</span>
+              </button>
+
+              {/* Tombol Meritocracy & Desk Promotions */}
+              <button
+                onClick={() => setMeritocracyOpen(true)}
+                className="px-2.5 py-1.5 bg-[#1a1710] hover:bg-amber-950/60 border border-amber-500/40 text-amber-300 hover:border-amber-400 text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all"
+                title="Buka Alokasi Modal Meritokratis & Peringkat Meja"
+              >
+                <span>👑</span>
+                <span>Hierarki Meja</span>
+              </button>
+
+              {/* Tombol Time-Travel Replay */}
+              <button
+                onClick={() => setTimeTravelOpen(!timeTravelOpen)}
+                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
+                  timeTravelOpen
+                    ? 'bg-cyan-500 text-black border-cyan-300 font-extrabold shadow-md shadow-cyan-500/30'
+                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-zinc-300'
+                }`}
+                title="Buka Time-Travel Scrubber Bar untuk rewind simulasi"
+              >
+                <span>⏪</span>
+                <span>Time-Travel</span>
               </button>
 
               {/* Tombol Re-Scan & Auto-Execute */}
@@ -4130,6 +4339,44 @@ export default function VirtualAgentOfficeView() {
           </div>
         </div>
       )}
+      {/* ── MODUL 1: CRISIS COMMAND CONSOLE ── */}
+      <CrisisCommandConsole
+        isOpen={crisisConsoleOpen}
+        onClose={() => setCrisisConsoleOpen(false)}
+        onInjectCrisis={handleInjectCrisis}
+        isCrisisActive={Boolean(activeCrisis)}
+        activeCrisis={activeCrisis}
+        onResolveCrisis={handleResolveCrisis}
+      />
+
+      {/* ── MODUL 2: POST-MORTEM VAULT MODAL ── */}
+      <PostMortemVaultModal
+        isOpen={postMortemModalOpen}
+        onClose={() => setPostMortemModalOpen(false)}
+        entries={postMortemEntries}
+        activeEntry={activePostMortem}
+        onSelectEntry={(entry) => setActivePostMortem(entry)}
+      />
+
+      {/* ── MODUL 3: MERITOCRACY LEADERBOARD DRAWER ── */}
+      <MeritocracyLeaderboardDrawer
+        isOpen={meritocracyOpen}
+        onClose={() => setMeritocracyOpen(false)}
+        allocations={meritocraticAllocations}
+        totalFundNavUsd={Math.round(portfolioNav(portfolio) / 16000) || 100000}
+      />
+
+      {/* ── MODUL 4: TIME-TRAVEL SCRUBBER BAR ── */}
+      <TimeTravelScrubberBar
+        isOpen={timeTravelOpen}
+        onToggle={() => setTimeTravelOpen(false)}
+        currentTick={replayTick}
+        totalTicks={totalRecordedTicks}
+        isReplaying={isReplaying}
+        onScrub={handleScrubTick}
+        onTogglePlay={handleToggleReplayPlay}
+        activeSnapshot={activeReplaySnapshot}
+      />
     </div>
   );
 }
