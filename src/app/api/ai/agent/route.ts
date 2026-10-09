@@ -125,7 +125,39 @@ ${sanitizedIntel}
 Berikan evaluasi OODA Loop dalam JSON format murni sesuai instruksi sistem.
 `.trim();
 
+// 🛡️ CHAOS RESILIENCE: HOURLY LLM TOKEN & INVOCATION HARD CAP (Anti-Financial DoS)
+const HOURLY_LLM_INVOCATION_CAP = 120; // Maksimal 120 pemanggilan per jam
+let hourlyLlmCallCount = 0;
+let hourlyWindowResetTimestamp = Date.now() + 3_600_000;
+
   const now = Date.now();
+  if (now > hourlyWindowResetTimestamp) {
+    hourlyLlmCallCount = 0;
+    hourlyWindowResetTimestamp = now + 3_600_000;
+  }
+
+  // Jika kuota per jam tercapai, aktifkan Budget Shield (Fallback Deterministik Instan)
+  if (hourlyLlmCallCount >= HOURLY_LLM_INVOCATION_CAP) {
+    const isUp = market.bandarmologiVerdict === 'AKUMULASI';
+    const rawBudgetDecision = {
+      analisis_teknikal: `[Budget Shield Active] Model Kuantitatif Deterministik: ${cleanTicker} di ${priceLabel}. Plafon kuota LLM per jam (${HOURLY_LLM_INVOCATION_CAP} calls) tercapai demi perlindungan biaya.`,
+      bandarmologi_verdict: market.bandarmologiVerdict,
+      keputusan: isUp ? 'BUY' : 'HOLD',
+      entry_price: market.currentPrice,
+      target_price: isUp ? market.smcResistance : market.currentPrice * 1.02,
+      stop_loss: isUp ? market.smcSupport : market.currentPrice * 0.97,
+      conviction_score: isUp ? 75 : 50,
+      alasan_eksekusi: 'Eksekusi berbasis model matematika lokal (Anti-Financial DoS Protection).',
+    };
+    return {
+      decision: validateAndClampDecision(rawBudgetDecision, market),
+      provider: 'Deterministic-Local-Engine (Budget-Shield-Active)',
+      model: 'RuleEngine-v2',
+    };
+  }
+
+  let attemptCount = 0;
+  const maxAttemptsPerRequest = 2; // Batasi maksimal 2 retry per request untuk mencegah CPU/Token burn
 
   for (const key of keys) {
     if (keyCooldowns[key] && keyCooldowns[key] > now) {
@@ -133,6 +165,10 @@ Berikan evaluasi OODA Loop dalam JSON format murni sesuai instruksi sistem.
     }
 
     for (const model of GROQ_MODELS) {
+      if (attemptCount >= maxAttemptsPerRequest) break;
+      attemptCount++;
+      hourlyLlmCallCount++;
+
       try {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -149,6 +185,7 @@ Berikan evaluasi OODA Loop dalam JSON format murni sesuai instruksi sistem.
             temperature: 0.15,
             response_format: { type: 'json_object' },
           }),
+          signal: AbortSignal.timeout(4500), // Timeout 4.5 detik untuk cegah hanging connection
         });
 
         if (response.status === 429) {

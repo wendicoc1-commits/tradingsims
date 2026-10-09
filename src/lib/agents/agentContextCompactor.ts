@@ -280,25 +280,79 @@ export function recordReflection(entry: ReflectionEntry) {
     } catch {}
   }
 
-  // Non-blocking background sync ke Supabase Cloud (mencegah memory loss pada cold starts)
+// ── CHAOS RESILIENCE: TRANSACTIONAL OFFLINE OUTBOX QUEUE (Anti-Split-Brain) ──
+const OUTBOX_STORAGE_KEY = 'TRADEMIND_OFFLINE_OUTBOX_QUEUE';
+
+export function enqueueOutboxItem(payload: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(OUTBOX_STORAGE_KEY);
+    const queue = raw ? JSON.parse(raw) : [];
+    queue.push({ payload, queuedAt: Date.now() });
+    localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(queue.slice(-50)));
+  } catch {}
+}
+
+export async function flushOutboxQueue() {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(OUTBOX_STORAGE_KEY);
+    if (!raw) return;
+    const queue = JSON.parse(raw);
+    if (!Array.isArray(queue) || queue.length === 0) return;
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return;
+
+    const remaining = [];
+    for (const item of queue) {
+      try {
+        const { error } = await supabase.from('agent_episodic_memory').insert(item.payload);
+        if (error) {
+          remaining.push(item);
+        }
+      } catch {
+        remaining.push(item);
+      }
+    }
+    if (remaining.length > 0) {
+      localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(remaining));
+    } else {
+      localStorage.removeItem(OUTBOX_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+// Non-blocking background sync ke Supabase Cloud dengan Offline Outbox Fallback
+  const payload = {
+    symbol: entry.symbol,
+    decision: entry.keputusan,
+    entry_price: entry.entry_price,
+    target_price: entry.target_price,
+    stop_loss: entry.stop_loss,
+    risk_reward_ratio: 1.5,
+    conviction_score: 80,
+    justification: `Rezim Pasar: ${entry.market_regime || 'RANGE_BOUND'} | Disiplin model OODA`,
+    post_trade_reflection: `Eksekusi ${entry.keputusan} pada level entry ${entry.entry_price} (${entry.market_regime || 'NORMAL'})`,
+    created_at: new Date(entry.timestamp).toISOString(),
+  };
+
   try {
     const supabase = getSupabaseServerClient();
     if (supabase) {
-      supabase.from('agent_episodic_memory').insert({
-        symbol: entry.symbol,
-        decision: entry.keputusan,
-        entry_price: entry.entry_price,
-        target_price: entry.target_price,
-        stop_loss: entry.stop_loss,
-        risk_reward_ratio: 1.5,
-        conviction_score: 80,
-        justification: `Rezim Pasar: ${entry.market_regime || 'RANGE_BOUND'} | Disiplin model OODA`,
-        post_trade_reflection: `Eksekusi ${entry.keputusan} pada level entry ${entry.entry_price} (${entry.market_regime || 'NORMAL'})`,
-        created_at: new Date(entry.timestamp).toISOString(),
-      }).then(() => {}).catch(() => {});
+      supabase.from('agent_episodic_memory').insert(payload)
+        .then(() => {
+          flushOutboxQueue();
+        })
+        .catch(() => {
+          // 🛡️ Jika Supabase down, jangan biarkan event hilang! Simpan ke Outbox Queue
+          enqueueOutboxItem(payload);
+        });
+    } else {
+      enqueueOutboxItem(payload);
     }
   } catch {
-    // Abaikan jika dipanggil dari environment browser tanpa server config
+    enqueueOutboxItem(payload);
   }
 }
 

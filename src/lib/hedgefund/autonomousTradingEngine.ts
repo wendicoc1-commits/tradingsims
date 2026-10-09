@@ -44,6 +44,9 @@ const CROSS_TAB_LOCK_KEY = 'TRADEMIND_EXECUTION_LOCK_TIMESTAMP';
 const CROSS_TAB_LOCK_TTL_MS = 12_000; // 12 detik lease lock
 const ORDER_DEDUPLICATION_CACHE: Record<string, number> = {}; // ticker -> timestamp ms
 
+// ── BLACK SWAN & FLASH CRASH DUAL-TICK CONFIRMATION TRACKER ──
+const FLASH_CRASH_CONFIRMATION_CACHE: Record<string, { firstSeen: number; count: number; initialCrashPrice: number }> = {};
+
 function acquireCrossTabLock(): boolean {
   if (typeof window === 'undefined') return true;
   try {
@@ -252,11 +255,33 @@ export async function runAutonomousAgentCycle(
     }
 
     // B. Cek Trailing Stop Loss Dinamis (ATR Chandelier Exit)
-    // Proteksi:
-    // 1. Data kuotasi tidak boleh dummy benchmark non-live jika holding sudah berjalan
-    // 2. Proteksi glitch data: Penurunan harga tidak boleh anomali > 35% dalam 1 tick dari peakPrice
-    // 3. Trailing stop hanya boleh mengunci keuntungan (sellPrice > holding.avgPrice)
-    const isGlitchDrop = holding.peakPrice ? sellPrice < holding.peakPrice * 0.65 : false;
+    // 🛡️ CHAOS RESILIENCE: DUAL-TICK FLASH CRASH & BLACK SWAN DETECTOR
+    const isExtremeDrop = holding.peakPrice ? sellPrice < holding.peakPrice * 0.65 : false;
+    let isGlitchDrop = false;
+    let isConfirmedBlackSwan = false;
+
+    if (isExtremeDrop) {
+      const now = Date.now();
+      const existing = FLASH_CRASH_CONFIRMATION_CACHE[sym];
+      if (!existing) {
+        // Tick pertama: Anggap anomali data sementara, beri grace period 1.5 detik
+        FLASH_CRASH_CONFIRMATION_CACHE[sym] = { firstSeen: now, count: 1, initialCrashPrice: sellPrice };
+        isGlitchDrop = true;
+      } else {
+        // Tick kedua dan seterusnya: Jika anjlok bertahan >= 1.5 detik, ini adalah Black Swan nyata!
+        if (now - existing.firstSeen >= 1500) {
+          isConfirmedBlackSwan = true;
+          isGlitchDrop = false; // Buka proteksi glitch, izinkan Stop Loss darurat dieksekusi!
+        } else {
+          existing.count += 1;
+          isGlitchDrop = true;
+        }
+      }
+    } else {
+      if (FLASH_CRASH_CONFIRMATION_CACHE[sym]) {
+        delete FLASH_CRASH_CONFIRMATION_CACHE[sym];
+      }
+    }
     const isLiveValid = liveQ ? (liveQ.live !== false) : true;
 
     if (
@@ -333,14 +358,12 @@ export async function runAutonomousAgentCycle(
       }
     }
 
-    // C. Cek Hard Stop Loss (CRO Risk Gate Veto - hanya terpicu jika stop loss benar di bawah modal)
+    // C. Cek Hard Stop Loss (CRO Risk Gate Veto & Black Swan Emergency Exit)
     if (
       !isHoldingFresh &&
       isLiveValid &&
-      !isGlitchDrop &&
-      holding.stopLossPrice &&
-      holding.stopLossPrice <= holding.avgPrice * 0.99 &&
-      sellPrice <= holding.stopLossPrice &&
+      (!isGlitchDrop || isConfirmedBlackSwan) &&
+      (isConfirmedBlackSwan || (holding.stopLossPrice && holding.stopLossPrice <= holding.avgPrice * 0.99 && sellPrice <= holding.stopLossPrice)) &&
       holding.lots > 0
     ) {
       const sellLots = holding.lots;
@@ -355,21 +378,29 @@ export async function runAutonomousAgentCycle(
 
       if (res.order) {
         tradeExecuted = true;
+        if (FLASH_CRASH_CONFIRMATION_CACHE[sym]) {
+          delete FLASH_CRASH_CONFIRMATION_CACHE[sym];
+        }
         const lossVal = isForeign
           ? Math.round((holding.avgPrice - sellPrice) * sellLots * rate)
           : (holding.avgPrice - sellPrice) * sellLots * 100;
         const priceLabel = isForeign ? `$${sellPrice.toLocaleString('en-US')}` : `Rp ${sellPrice.toLocaleString('id-ID')}`;
         const qtyLabel = isCrypto ? `${sellLots} unit` : isUS ? `${sellLots} shares` : `${sellLots} lot`;
-        actionTaken = `🛡️ STOP LOSS OTOMATIS (CRO VETO): Cut loss ${qtyLabel} ${sym} @ ${priceLabel} (Batas risiko: ${holding.stopLossPrice})`;
+        
+        actionTaken = isConfirmedBlackSwan
+          ? `🚨 BLACK SWAN EMERGENCY EXIT: Likuidasi Pasar ${qtyLabel} ${sym} @ ${priceLabel} (Flash Crash Terkonfirmasi >35%)`
+          : `🛡️ STOP LOSS OTOMATIS (CRO VETO): Cut loss ${qtyLabel} ${sym} @ ${priceLabel} (Batas risiko: ${holding.stopLossPrice})`;
 
         aiStore.logAction({
           type: 'RISK_GATE',
           symbol: sym,
           agentId: 'cro',
           agentName: 'Bambang Suroso (Chief Risk Officer)',
-          agentEmoji: '🛡️',
-          title: `Stop Loss Cut: ${sym}`,
-          details: `Harga menyentuh batas proteksi modal ${holding.stopLossPrice}. Posisi ditutup untuk mencegah drawdown lebih dalam.`,
+          agentEmoji: isConfirmedBlackSwan ? '🚨' : '🛡️',
+          title: isConfirmedBlackSwan ? `Black Swan Emergency Exit: ${sym}` : `Stop Loss Cut: ${sym}`,
+          details: isConfirmedBlackSwan
+            ? `Flash Crash ekstrim (>35% dari peak) terkonfirmasi oleh 2 tick berturut-turut. Emergency Kill-Switch aktif untuk memotong posisi secara instan.`
+            : `Harga menyentuh batas proteksi modal ${holding.stopLossPrice}. Posisi ditutup untuk mencegah drawdown lebih dalam.`,
           metadata: {
             price: sellPrice,
             lots: sellLots,

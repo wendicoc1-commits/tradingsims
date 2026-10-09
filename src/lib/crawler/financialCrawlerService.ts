@@ -112,18 +112,32 @@ const NEGATION_TRIGGERS = [
 
 const SARCASM_BEARISH_COLLOCATIONS = [
   'terbang ke jurang', 'terjun bebas', 'rekor terburuk', 'cuan halu',
-  'bull trap', 'fake pump', 'rug pull', 'pom-pom', 'cuci gudang', 'pembodohan'
+  'bull trap', 'fake pump', 'rug pull', 'pom-pom', 'cuci gudang', 'pembodohan',
+  'to the moon', 'all in', 'beli sekarang', 'serbu', 'wajib beli', 'sinyal bandar'
 ];
 
-// Detect market sentiment dengan Negation-Awareness & Sarcasm Resistance (Pilar 6)
-function detectSentiment(title: string, summary: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
+export const TIER_1_VERIFIED_SOURCES = [
+  'bloomberg', 'reuters', 'cnbc', 'wsj', 'financial times', 'ft.com',
+  'bisnis.com', 'kontan', 'cnbc indonesia', 'detik', 'kompas', 'investortrust', 'idx', 'bursa efek indonesia'
+];
+
+export function isTier1Source(sourceStr?: string): boolean {
+  if (!sourceStr) return false;
+  const s = sourceStr.toLowerCase();
+  return TIER_1_VERIFIED_SOURCES.some((t) => s.includes(t));
+}
+
+// Detect market sentiment dengan Negation-Awareness & Anti-Poisoning Quorum
+function detectSentiment(title: string, summary: string, source?: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' {
   const combined = `${title} ${summary}`.toLowerCase();
   const words = combined.split(/\s+/);
+  const isVerifiedTier1 = isTier1Source(source);
 
-  // 1. Cek kolokasi sarkasme atau istilah jebakan pasar
+  // 1. Cek kolokasi sarkasme atau istilah jebakan pump-and-dump
   for (const phrase of SARCASM_BEARISH_COLLOCATIONS) {
     if (combined.includes(phrase)) {
-      return 'BEARISH';
+      // Jika sumber unverified menggunakan kata-kata pompa, netralkan atau anggap mencurigakan
+      return isVerifiedTier1 ? 'BEARISH' : 'NEUTRAL';
     }
   }
 
@@ -137,16 +151,14 @@ function detectSentiment(title: string, summary: string): 'BULLISH' | 'BEARISH' 
     
     let index = -1;
     while ((index = words.indexOf(kwFirstWord, index + 1)) !== -1) {
-      // Cek 3 kata sebelumnya apakah ada kata sanggahan/negasi
       const start = Math.max(0, index - 3);
       const precedingWords = words.slice(start, index);
       const hasNegation = precedingWords.some((w) => NEGATION_TRIGGERS.includes(w));
 
       if (hasNegation) {
-        // "Tidak laba", "Gagal rekor" => Dibalik menjadi sentimen BEARISH
         bearScore += 1.5;
       } else {
-        bullScore += 1.0;
+        bullScore += isVerifiedTier1 ? 1.0 : 0.6; // Bobot lebih rendah untuk unverified blog
       }
     }
   });
@@ -162,17 +174,17 @@ function detectSentiment(title: string, summary: string): 'BULLISH' | 'BEARISH' 
       const hasNegation = precedingWords.some((w) => NEGATION_TRIGGERS.includes(w));
 
       if (hasNegation) {
-        // "Tidak anjlok", "Bukan rugi" => Dibalik menjadi sentimen BULLISH
         bullScore += 1.0;
       } else {
-        bearScore += 1.0;
+        bearScore += isVerifiedTier1 ? 1.0 : 0.6;
       }
     }
   });
 
-  // 3. Ambang batas selisih skor
-  if (bullScore >= bearScore + 1.0) return 'BULLISH';
-  if (bearScore >= bullScore + 1.0) return 'BEARISH';
+  // 3. Ambang batas selisih skor (Lebih ketat untuk unverified source demi cegah spoofing)
+  const threshold = isVerifiedTier1 ? 1.0 : 1.8;
+  if (bullScore >= bearScore + threshold) return 'BULLISH';
+  if (bearScore >= bullScore + threshold) return 'BEARISH';
   return 'NEUTRAL';
 }
 
@@ -242,7 +254,7 @@ function parseRssFeed(xmlText: string, defaultSource: string, region: CrawledArt
       }
 
       const cashtags = extractCashtags(`${title} ${summary}`);
-      const sentiment = detectSentiment(title, summary);
+      const sentiment = detectSentiment(title, summary, source);
 
       // Create deterministic unique ID based on title and source
       const id = `crawl-${Buffer.from(`${title}-${source}`).toString('base64').slice(0, 16)}`;
