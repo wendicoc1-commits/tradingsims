@@ -49,9 +49,9 @@ export const ALL_ID_HEATMAP_UNIVERSE: HeatmapStockData[] = [
     name: 'Bank Rakyat Indonesia (Persero) Tbk.',
     sector: 'Keuangan',
     subSector: 'Bank BUMN / Mikro',
-    marketCap: 748000000000000, // Rp 748 T
-    price: 3060,
-    change1D: -1.29,
+    marketCap: 840000000000000, // Rp 840 T
+    price: 5550,
+    change1D: 0.45,
     change1W: -1.40,
     change1M: 2.30,
     change1Y: 8.50,
@@ -622,9 +622,9 @@ export const ALL_ID_HEATMAP_UNIVERSE: HeatmapStockData[] = [
     name: 'Telkom Indonesia (Persero) Tbk.',
     sector: 'Infrastruktur',
     subSector: 'Telekomunikasi BUMN',
-    marketCap: 295000000000000, // Rp 295 T
-    price: 2240,
-    change1D: -0.44,
+    marketCap: 369000000000000, // Rp 369 T
+    price: 3730,
+    change1D: 2.19,
     change1W: 1.40,
     change1M: -3.50,
     change1Y: -21.40,
@@ -901,9 +901,9 @@ export const ALL_ID_HEATMAP_UNIVERSE: HeatmapStockData[] = [
     name: 'GoTo Gojek Tokopedia Tbk.',
     sector: 'Teknologi',
     subSector: 'Ekosistem Digital / On-Demand',
-    marketCap: 78500000000000,
-    price: 27,
-    change1D: -3.57,
+    marketCap: 115000000000000,
+    price: 96,
+    change1D: 5.49,
     change1W: 6.50,
     change1M: 14.00,
     change1Y: -22.50,

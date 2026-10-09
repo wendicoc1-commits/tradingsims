@@ -47,26 +47,7 @@ const CRYPTO_MASTER: UnifiedAsset[] = MASTER_GLOBAL_CRYPTO.map((c) => {
 });
 
 // 2. Global US & World Stocks (160+ emiten)
-const POPULAR_GLOBAL = new Set([
-  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'META', 'PLTR', 'AVGO', 'AMD',
-  'BRK.B', 'LLY', 'JPM', 'V', 'WMT', 'NFLX', 'ORCL', 'COST', 'XOM', 'COIN', 'QCOM',
-  'CRM', 'ADBE', 'INTC', 'MA', 'PG', 'JNJ', 'HD', 'TSM', 'BABA', 'ASML', 'NVO',
-  'SPY', 'QQQ', 'SOXX', 'SMH', 'VOO',
-]);
-
-const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS.map((s) => ({
-  symbol: s.ticker.toUpperCase(),
-  name: s.name,
-  category: 'GLOBAL' as AssetCategory,
-  sector: s.sector,
-  currency: 'USD' as const,
-  market: 'US' as const,
-  defaultPrice: s.price,
-  flag: s.flag || '🌐',
-  isPopular: POPULAR_GLOBAL.has(s.ticker.toUpperCase()),
-}));
-
-// Popular IDX Bluechips
+// 2. 951 IDX Stocks from idx_dividend_all.json
 const POPULAR_IDX = new Set([
   'BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM',
   'ADRO', 'PTBA', 'PGAS', 'AMMN', 'ANTM', 'BREN',
@@ -74,7 +55,6 @@ const POPULAR_IDX = new Set([
   'BRIS', 'MEDC', 'INKP', 'MDKA', 'CPIN', 'BRMS', 'CUAN',
 ]);
 
-// 3. 951 IDX Stocks from idx_dividend_all.json
 const IDX_MASTER: UnifiedAsset[] = (idxDividendJson as any[]).map((item) => {
   const code = (item.code || '').toUpperCase().trim();
   const benchmark = IDX_BENCHMARK_PRICES[code];
@@ -94,14 +74,41 @@ const IDX_MASTER: UnifiedAsset[] = (idxDividendJson as any[]).map((item) => {
   };
 });
 
-// Master Map
+const IDX_SET = new Set(IDX_MASTER.map((i) => i.symbol.toUpperCase()));
+
+// 3. Global US & World Stocks (160+ emiten luar negeri)
+const POPULAR_GLOBAL = new Set([
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'META', 'PLTR', 'AVGO', 'AMD',
+  'BRK.B', 'LLY', 'JPM', 'V', 'WMT', 'NFLX', 'ORCL', 'COST', 'XOM', 'COIN', 'QCOM',
+  'CRM', 'ADBE', 'INTC', 'MA', 'PG', 'JNJ', 'HD', 'TSM', 'BABA', 'ASML', 'NVO',
+  'SPY', 'QQQ', 'SOXX', 'SMH', 'VOO',
+]);
+
+const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS
+  .filter((s) => s.countryCode !== 'ID' && !IDX_SET.has(s.ticker.toUpperCase()))
+  .map((s) => ({
+    symbol: s.ticker.toUpperCase(),
+    name: s.name,
+    category: 'GLOBAL' as AssetCategory,
+    sector: s.sector,
+    currency: (s.currency === 'IDR' ? 'IDR' : 'USD') as const,
+    market: (s.countryCode === 'ID' ? 'IDX' : 'US') as const,
+    defaultPrice: s.price,
+    flag: s.flag || '🌐',
+    isPopular: POPULAR_GLOBAL.has(s.ticker.toUpperCase()),
+  }));
+
+// Master Map: Prioritaskan IDX dan Kripto agar tidak tertimpa saham global
 export const MASTER_ASSETS: UnifiedAsset[] = [...CRYPTO_MASTER, ...IDX_MASTER, ...GLOBAL_MASTER];
 
 // Index for O(1) lookup
 const ASSET_BY_SYMBOL = new Map<string, UnifiedAsset>();
 for (const a of MASTER_ASSETS) {
   const sym = a.symbol.toUpperCase();
-  ASSET_BY_SYMBOL.set(sym, a);
+  // Jangan menimpa emiten IDX jika simbol sama
+  if (!ASSET_BY_SYMBOL.has(sym)) {
+    ASSET_BY_SYMBOL.set(sym, a);
+  }
   if (a.category === 'CRYPTO') {
     ASSET_BY_SYMBOL.set(`${sym}USDT`, a);
     ASSET_BY_SYMBOL.set(`${sym}-USD`, a);
@@ -127,6 +134,8 @@ export function isCryptoSymbol(symbol: string): boolean {
 export function isUSSymbol(symbol: string): boolean {
   if (!symbol) return false;
   const clean = symbol.trim().toUpperCase().replace('.JK', '');
+  if (symbol.toUpperCase().endsWith('.JK')) return false;
+  if (IDX_SET.has(clean)) return false; // Saham IDX TIDAK PERNAH merupakan saham US!
   return GLOBAL_SET.has(clean);
 }
 
