@@ -29,6 +29,8 @@ import {
   Building2,
   Volume2,
   VolumeX,
+  Compass,
+  Sliders,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useAIAgentStore } from '@/store/aiAgentStore';
@@ -51,20 +53,23 @@ export interface GraphNode {
   category: 'CORE' | 'AGENT' | 'ROUTINE' | 'CRYPTO_L2' | 'CRYPTO_L1' | 'IDX' | 'GLOBAL';
   sub: string;
   desc: string;
-  planetType: 'SUN' | 'MERCURY' | 'VENUS' | 'EARTH' | 'MARS' | 'JUPITER' | 'SATURN' | 'URANUS' | 'NEPTUNE' | 'MOON' | 'COMET';
+  planetType: 'SUN' | 'MERCURY' | 'VENUS' | 'EARTH' | 'MARS' | 'JUPITER' | 'SATURN' | 'URANUS' | 'NEPTUNE' | 'PLUTO' | 'MOON' | 'COMET' | 'PROBE';
   price?: string;
   change?: string;
   color: string;
   secondaryColor?: string;
   glow: string;
   r: number;
-  ringLevel: number; // 0: core, 1: inner planet, 2: outer planet, 3: kuiper asset
-  // Spherical & Solar Coords
+  ringLevel: number;
   solarDistance: number;
   orbitSpeed: number;
   orbitTilt: number;
   sphereTheta: number;
   spherePhi: number;
+  // Moon parent reference if orbiting a planet
+  parentPlanetId?: string;
+  moonDistance?: number;
+  moonSpeed?: number;
   // 2D Coords
   ringsAngle: number;
   circleAngle: number;
@@ -81,7 +86,6 @@ export interface GraphNode {
   targetZ: number;
 }
 
-// ── Starfield Particle Interface ──
 interface CosmicStar {
   x: number;
   y: number;
@@ -91,7 +95,6 @@ interface CosmicStar {
   twinkleSpeed: number;
 }
 
-// ── Procedural Asteroid Interface ──
 interface AsteroidParticle {
   angle: number;
   radius: number;
@@ -113,19 +116,22 @@ export default function AiOsAgenticCyberdeckView({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Active View Mode (Default: Solar System 3D inspired by Karol Fryc)
+  // Active View Mode
   const [viewMode, setViewMode] = useState<CyberdeckViewMode>('SOLAR SYSTEM');
   const [selectedNodeId, setSelectedNodeId] = useState<string>('core');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  // Orbital Speed Setting: default 0.45x (much slower & majestic as requested)
+  const [orbitSpeedFactor, setOrbitSpeedFactor] = useState<number>(0.45);
 
   // Clocks
   const [timeWIB, setTimeWIB] = useState('09:00:00');
   const [timeUTC, setTimeUTC] = useState('02:00:00');
 
   // Canvas View Controls
-  const [zoom, setZoom] = useState(1.0);
+  const [zoom, setZoom] = useState(0.95);
   const [autoRotate, setAutoRotate] = useState(true);
-  const [rotAngleX, setRotAngleX] = useState(0.35); // Initial pitch angle for solar perspective
+  const [rotAngleX, setRotAngleX] = useState(0.38); // Tilted plane for deep 3D perspective
   const [rotAngleY, setRotAngleY] = useState(0.0);
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
@@ -136,60 +142,61 @@ export default function AiOsAgenticCyberdeckView({
   const [fps, setFps] = useState(60);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
-  // High-frequency data burst trigger for pulse animation
+  // Gravitational wave shockwave trigger
+  const shockwaveRef = useRef<{ radius: number; alpha: number; active: boolean }>({ radius: 0, alpha: 0, active: false });
   const dataBurstRef = useRef<number>(0);
 
   // Live market status
   const idxStatus = useMemo(() => checkIDXMarketStatus(), []);
 
-  // ── Procedural Stars Background (Deep Space Starfield) ──
+  // ── Procedural Deep Space Starfield (240 Cosmic Stars) ──
   const starfield = useMemo<CosmicStar[]>(() => {
     const list: CosmicStar[] = [];
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 240; i++) {
       list.push({
-        x: (Math.random() - 0.5) * 2000,
-        y: (Math.random() - 0.5) * 2000,
-        z: Math.random() * 800 + 200,
-        size: Math.random() * 1.6 + 0.5,
-        baseAlpha: Math.random() * 0.7 + 0.3,
-        twinkleSpeed: Math.random() * 0.003 + 0.001,
+        x: (Math.random() - 0.5) * 2200,
+        y: (Math.random() - 0.5) * 2200,
+        z: Math.random() * 900 + 150,
+        size: Math.random() * 1.8 + 0.4,
+        baseAlpha: Math.random() * 0.75 + 0.25,
+        twinkleSpeed: Math.random() * 0.002 + 0.0008,
       });
     }
     return list;
   }, []);
 
-  // ── Procedural Asteroid Belt (Micro Market Ticks) ──
+  // ── Procedural Asteroid Belt (220 Floating Micro-Asteroids / Orderbook Ticks) ──
   const asteroidBelt = useMemo<AsteroidParticle[]>(() => {
     const list: AsteroidParticle[] = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 220; i++) {
       list.push({
         angle: Math.random() * Math.PI * 2,
-        radius: 200 + (Math.random() - 0.5) * 45,
-        speed: (Math.random() * 0.0004 + 0.0002) * (Math.random() > 0.5 ? 1 : 1),
-        size: Math.random() * 1.8 + 0.8,
-        yOffset: (Math.random() - 0.5) * 18,
-        color: Math.random() > 0.4 ? 'rgba(148, 163, 184, 0.6)' : 'rgba(6, 182, 212, 0.4)',
+        radius: 225 + (Math.random() - 0.5) * 65,
+        speed: (Math.random() * 0.00025 + 0.00015),
+        size: Math.random() * 1.9 + 0.7,
+        yOffset: (Math.random() - 0.5) * 22,
+        color: Math.random() > 0.35 ? 'rgba(148, 163, 184, 0.7)' : 'rgba(6, 182, 212, 0.5)',
       });
     }
     return list;
   }, []);
 
-  // ── Nodes Setup (Solar System Material Hierarchy) ──
+  // ── VAST CELESTIAL UNIVERSE NODES (80+ Major Planets, Moons & Probes) ──
   const nodes = useMemo<GraphNode[]>(() => {
     const list: GraphNode[] = [];
 
     // 1. Central Core: THE SUN (Fincept AI Alpha Core)
     list.push({
       id: 'core',
-      name: 'FINCEPT ALPHA CORE',
+      name: 'FINCEPT ALPHA SUN',
       category: 'CORE',
       planetType: 'SUN',
-      sub: 'Root Executive Solar Brain',
-      desc: 'Matahari pusat konsensus multi-agent yang memancarkan sinyal likuiditas, menyelaraskan 12 agen eksekutif, dan mendistribusikan berkas data eksekusi ke VPS 24/7.',
+      sub: 'Central Executive Solar Core',
+      desc: 'Matahari pusat konsensus multi-agent yang memancarkan sinyal likuiditas, mengorkestrasi 12 pimpinan divisi, dan menyalurkan data eksekusi real-time ke Linux VPS 24/7.',
       color: '#f59e0b',
       secondaryColor: '#fbbf24',
       glow: '#06b6d4',
-      r: 24,
+      r: 28,
       ringLevel: 0,
       solarDistance: 0,
       orbitSpeed: 0,
@@ -210,35 +217,40 @@ export default function AiOsAgenticCyberdeckView({
       targetZ: 0,
     });
 
-    // 2. Agents as Inner & Middle Planets
-    const planetaryAgents: Array<{
+    // 2. INNER PLANETS (The 12 Hedge Fund C-Level Executive Agents)
+    const executivePlanets: Array<{
       id: string;
       name: string;
       type: GraphNode['planetType'];
       sub: string;
       desc: string;
       color: string;
-      secColor?: string;
+      secColor: string;
       dist: number;
       speed: number;
+      tilt: number;
       r: number;
     }> = [
-      { id: 'dewi', name: 'Dewi Sartika', type: 'MERCURY', sub: 'Quant Alpha Lead · Sharpe 2.45', desc: 'Planet Merkurius: Orbit tercepat terdekat ke Sun, regresi momentum kuantitatif berkecepatan tinggi.', color: '#94a3b8', secColor: '#cbd5e1', dist: 75, speed: 0.0018, r: 8 },
-      { id: 'citra', name: 'Citra Kirana', type: 'VENUS', sub: 'Compliance & Audit Lead', desc: 'Planet Venus: Atmosfer padat pelindung neraca, validasi batas risiko OJK dan ledger transaksi.', color: '#eab308', secColor: '#fef08a', dist: 110, speed: 0.0014, r: 10 },
-      { id: 'kevin', name: 'Kevin Zhang', type: 'EARTH', sub: 'Jesse Crypto Desk · Spot 24/7', desc: 'Planet Bumi: Pusat kehidupan trading kripto spot Binance, biosfer aktif penggerak likuiditas.', color: '#0284c7', secColor: '#38bdf8', dist: 155, speed: 0.0011, r: 12 },
-      { id: 'raditya', name: 'Raditya Pratama', type: 'MARS', sub: 'L/S Equity PM · Konsensus BEI', desc: 'Planet Mars: Medan tempur saham BEI, bandarmologi institusional, dan rotasi sektor.', color: '#ef4444', secColor: '#f87171', dist: 200, speed: 0.0009, r: 9 },
-      { id: 'sri', name: 'Sri Mulyani', type: 'JUPITER', sub: 'Chief Risk Officer · VaR 99%', desc: 'Planet Jupiter: Raksasa gas gravitasi terbesar yang menelan badai pasar, penjaga batas drawdown 1.5x ATR.', color: '#d97706', secColor: '#f59e0b', dist: 270, speed: 0.0006, r: 17 },
-      { id: 'freqtrade', name: 'Freqtrade Linux VPS', type: 'SATURN', sub: 'Daemon 24/7 Cloud Engine', desc: 'Planet Saturnus: Dilengkapi cincin orbit kosmik ganda, server cloud yang menjaga bot aktif saat browser mati.', color: '#f59e0b', secColor: '#06b6d4', dist: 340, speed: 0.00045, r: 15 },
-      { id: 'lumibot', name: 'Lumibot Bridge', type: 'URANUS', sub: 'Broker Execution Gateway', desc: 'Planet Uranus: Raksasa es biru kehijauan, perute order saham otomatis dengan simulasi Almgren-Chriss.', color: '#06b6d4', secColor: '#67e8f9', dist: 400, speed: 0.00035, r: 11 },
-      { id: 'budi', name: 'Budi Santoso', type: 'NEPTUNE', sub: 'Chief Macro Strategist', desc: 'Planet Neptunus: Di batas terluar tata surya, mengamati arus makro BI Rate, M2, dan Fed Funds Rate.', color: '#3b82f6', secColor: '#60a5fa', dist: 455, speed: 0.00028, r: 11 },
+      { id: 'dewi', name: 'Dewi Sartika', type: 'MERCURY', sub: 'Quant Alpha Lead · Sharpe 2.45', desc: 'Planet Merkurius: Orbit tercepat terdekat ke Sun, pemodelan kuantitatif & momentum HFT.', color: '#94a3b8', secColor: '#cbd5e1', dist: 75, speed: 0.0016, tilt: 0.04, r: 8.5 },
+      { id: 'citra', name: 'Citra Kirana', type: 'VENUS', sub: 'Compliance & Audit Lead', desc: 'Planet Venus: Atmosfer padat pelindung neraca, validasi batas risiko OJK dan ledger transaksi.', color: '#eab308', secColor: '#fef08a', dist: 105, speed: 0.0013, tilt: -0.05, r: 10 },
+      { id: 'kevin', name: 'Kevin Zhang', type: 'EARTH', sub: 'Jesse Crypto Desk · Spot 24/7', desc: 'Planet Bumi: Pusat kehidupan trading kripto spot Binance, biosfer aktif penggerak likuiditas.', color: '#0284c7', secColor: '#38bdf8', dist: 145, speed: 0.0010, tilt: 0.02, r: 12 },
+      { id: 'raditya', name: 'Raditya Pratama', type: 'MARS', sub: 'L/S Equity PM · Konsensus BEI', desc: 'Planet Mars: Medan tempur saham BEI, bandarmologi institusional, dan rotasi sektor.', color: '#ef4444', secColor: '#f87171', dist: 185, speed: 0.0008, tilt: -0.04, r: 9.5 },
+      { id: 'anita', name: 'Anita Wijaya', type: 'PROBE', sub: 'Chief Investment Officer · Kas', desc: 'Satelit Ceres: Alokator kas dan rebalancing bobot portofolio dinamis.', color: '#a855f7', secColor: '#c084fc', dist: 215, speed: 0.0007, tilt: 0.06, r: 7.5 },
+      { id: 'sri', name: 'Sri Mulyani', type: 'JUPITER', sub: 'Chief Risk Officer · VaR 99%', desc: 'Planet Jupiter: Raksasa gas gravitasi pelindung modal, pengendali drawdown dan batas 1.5x ATR.', color: '#d97706', secColor: '#f59e0b', dist: 285, speed: 0.0005, tilt: 0.03, r: 18 },
+      { id: 'freqtrade', name: 'Freqtrade Linux VPS', type: 'SATURN', sub: 'Daemon 24/7 Cloud Engine', desc: 'Planet Saturnus: Dilengkapi cincin orbit kosmik ganda, server cloud yang menjaga bot aktif 24/7.', color: '#f59e0b', secColor: '#06b6d4', dist: 350, speed: 0.00038, tilt: -0.06, r: 16 },
+      { id: 'lumibot', name: 'Lumibot Bridge', type: 'URANUS', sub: 'Broker Execution Gateway', desc: 'Planet Uranus: Raksasa es biru kehijauan, perute order saham dengan simulasi Almgren-Chriss.', color: '#06b6d4', secColor: '#67e8f9', dist: 410, speed: 0.00030, tilt: 0.05, r: 11.5 },
+      { id: 'budi', name: 'Budi Santoso', type: 'NEPTUNE', sub: 'Chief Macro Strategist', desc: 'Planet Neptunus: Di batas luar tata surya, mengamati arus makro BI Rate, M2, dan Fed Funds Rate.', color: '#3b82f6', secColor: '#60a5fa', dist: 465, speed: 0.00024, tilt: -0.03, r: 11.5 },
+      { id: 'jesse', name: 'Jesse Spot Engine', type: 'PLUTO', sub: 'Quant Spot Execution Core', desc: 'Planet Pluto: Mesin eksekusi spot kuantitatif berkecepatan sub-milidetik.', color: '#10b981', secColor: '#34d399', dist: 515, speed: 0.00019, tilt: 0.09, r: 8 },
+      { id: 'bagas', name: 'Bagas Kurniawan', type: 'PROBE', sub: 'Trading Desk Executioner', desc: 'Satelit Algoritma TWAP: Memecah order besar agar tidak menimbulkan slippage di pasar.', color: '#6366f1', secColor: '#818cf8', dist: 550, speed: 0.00016, tilt: -0.05, r: 7 },
+      { id: 'ratna', name: 'Ratna Sari', type: 'PROBE', sub: 'Bloomberg News & Sentiment', desc: 'Satelit Radar Berita: Menyaring sentimen kawat berita Bloomberg, Reuters, dan IDX filings.', color: '#ec4899', secColor: '#f472b6', dist: 580, speed: 0.00014, tilt: 0.04, r: 7 },
     ];
 
-    planetaryAgents.forEach((p, idx) => {
-      const angle = (idx / planetaryAgents.length) * Math.PI * 2;
+    executivePlanets.forEach((p, idx) => {
+      const angle = (idx / executivePlanets.length) * Math.PI * 2;
       list.push({
         id: p.id,
         name: p.name,
-        category: p.id === 'freqtrade' || p.id === 'lumibot' ? 'ROUTINE' : 'AGENT',
+        category: p.id === 'freqtrade' || p.id === 'lumibot' || p.id === 'jesse' ? 'ROUTINE' : 'AGENT',
         planetType: p.type,
         sub: p.sub,
         desc: p.desc,
@@ -249,15 +261,15 @@ export default function AiOsAgenticCyberdeckView({
         ringLevel: 1,
         solarDistance: p.dist,
         orbitSpeed: p.speed,
-        orbitTilt: ((idx % 3) - 1) * 0.08,
+        orbitTilt: p.tilt,
         sphereTheta: angle,
         spherePhi: (Math.PI / 6) * ((idx % 3) - 1),
         ringsAngle: angle,
-        circleAngle: (idx / 24) * Math.PI * 2,
+        circleAngle: (idx / 32) * Math.PI * 2,
         clusterCenterX: -120 + (idx % 3) * 60,
         clusterCenterY: -90 + Math.floor(idx / 3) * 60,
         timelineLane: 1,
-        timelineTimePct: 0.15 + (idx / planetaryAgents.length) * 0.65,
+        timelineTimePct: 0.15 + (idx / executivePlanets.length) * 0.65,
         currX: 0,
         currY: 0,
         currZ: 0,
@@ -267,8 +279,117 @@ export default function AiOsAgenticCyberdeckView({
       });
     });
 
-    // 3. Tradable Assets Universe (Moons, Comets & Kuiper Asteroids)
-    const assetsData: Array<{
+    // 3. MOONS (Satellites Orbiting Parent Planets!)
+    // Earth's Moons: ARB & OP orbit Kevin Zhang (Earth)!
+    list.push({
+      id: 'ARB',
+      name: 'Arbitrum (ARB)',
+      category: 'CRYPTO_L2',
+      planetType: 'MOON',
+      parentPlanetId: 'kevin',
+      moonDistance: 32,
+      moonSpeed: 0.0055,
+      sub: '$0.1672 · +3.92%',
+      desc: 'Satelit Rollup L2 TVL tertinggi di Ethereum, mengorbit langsung di sekitar stasiun Kevin Zhang.',
+      price: '$0.1672',
+      change: '+3.92%',
+      color: '#38bdf8',
+      secondaryColor: '#0284c7',
+      glow: '#38bdf8',
+      r: 6.5,
+      ringLevel: 2,
+      solarDistance: 155,
+      orbitSpeed: 0.0010,
+      orbitTilt: 0.02,
+      sphereTheta: 0.2,
+      spherePhi: 0.1,
+      ringsAngle: 0.2,
+      circleAngle: 0.3,
+      clusterCenterX: -140,
+      clusterCenterY: 80,
+      timelineLane: 2,
+      timelineTimePct: 0.3,
+      currX: 0,
+      currY: 0,
+      currZ: 0,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+    });
+
+    list.push({
+      id: 'OP',
+      name: 'Optimism (OP)',
+      category: 'CRYPTO_L2',
+      planetType: 'MOON',
+      parentPlanetId: 'kevin',
+      moonDistance: 46,
+      moonSpeed: 0.0038,
+      sub: '$1.625 · +4.60%',
+      desc: 'Satelit Superchain OP Stack Layer 2, mengorbit bersama ARB di biosfer kripto Kevin Zhang.',
+      price: '$1.625',
+      change: '+4.60%',
+      color: '#f43f5e',
+      secondaryColor: '#fb7185',
+      glow: '#f43f5e',
+      r: 6.5,
+      ringLevel: 2,
+      solarDistance: 165,
+      orbitSpeed: 0.0010,
+      orbitTilt: 0.02,
+      sphereTheta: 0.5,
+      spherePhi: -0.1,
+      ringsAngle: 0.5,
+      circleAngle: 0.4,
+      clusterCenterX: -110,
+      clusterCenterY: 100,
+      timelineLane: 2,
+      timelineTimePct: 0.35,
+      currX: 0,
+      currY: 0,
+      currZ: 0,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+    });
+
+    // Jupiter's Moon: Kelly Criterion Sizing probe
+    list.push({
+      id: 'KELLY_MOON',
+      name: 'Kelly Optimizer',
+      category: 'ROUTINE',
+      planetType: 'MOON',
+      parentPlanetId: 'sri',
+      moonDistance: 38,
+      moonSpeed: 0.0042,
+      sub: 'Half-Kelly Risk Guard',
+      desc: 'Bulan pelindung Jupiter yang menghitung ukuran posisi modal optimal berdasarkan rasio win/loss.',
+      color: '#fbbf24',
+      secondaryColor: '#f59e0b',
+      glow: '#fbbf24',
+      r: 5.5,
+      ringLevel: 2,
+      solarDistance: 295,
+      orbitSpeed: 0.0005,
+      orbitTilt: 0.03,
+      sphereTheta: 1.2,
+      spherePhi: 0.2,
+      ringsAngle: 1.2,
+      circleAngle: 1.1,
+      clusterCenterX: 0,
+      clusterCenterY: 140,
+      timelineLane: 2,
+      timelineTimePct: 0.45,
+      currX: 0,
+      currY: 0,
+      currZ: 0,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+    });
+
+    // 4. EXTENSIVE TRADABLE ASSET CONSTELLATIONS (35+ Crypto & Equity Bodies Orbiting!)
+    const tradableUniverse: Array<{
       id: string;
       name: string;
       cat: GraphNode['category'];
@@ -281,24 +402,40 @@ export default function AiOsAgenticCyberdeckView({
       speed: number;
       desc: string;
     }> = [
-      // Crypto Layer 2 (Focus from user inquiry)
-      { id: 'ARB', name: 'Arbitrum (ARB)', cat: 'CRYPTO_L2', type: 'MOON', price: '$0.1672', change: '+3.92%', color: '#38bdf8', secColor: '#0284c7', dist: 180, speed: 0.0016, desc: 'Satelit Rollup L2 TVL tertinggi di ekosistem Ethereum.' },
-      { id: 'OP', name: 'Optimism (OP)', cat: 'CRYPTO_L2', type: 'MOON', price: '$1.625', change: '+4.60%', color: '#f43f5e', secColor: '#fb7185', dist: 215, speed: 0.0013, desc: 'Satelit Superchain OP Stack Layer 2 open-source.' },
-      // Crypto L1 & DeFi
-      { id: 'BTC', name: 'Bitcoin (BTC)', cat: 'CRYPTO_L1', type: 'COMET', price: '$81,379', change: '+1.80%', color: '#f59e0b', secColor: '#fbbf24', dist: 310, speed: 0.0008, desc: 'Komet emas utama: cadangan nilai moneter global.' },
-      { id: 'ETH', name: 'Ethereum (ETH)', cat: 'CRYPTO_L1', type: 'COMET', price: '$2,840', change: '+2.40%', color: '#818cf8', secColor: '#a5b4fc', dist: 350, speed: 0.0007, desc: 'Komet pintar platform smart contract desentralisasi.' },
-      { id: 'SOL', name: 'Solana (SOL)', cat: 'CRYPTO_L1', type: 'COMET', price: '$148.5', change: '+5.20%', color: '#10b981', secColor: '#34d399', dist: 380, speed: 0.00065, desc: 'Komet kecepatan tinggi L1 throughput ultra.' },
-      { id: 'LINK', name: 'Chainlink (LINK)', cat: 'CRYPTO_L1', type: 'COMET', price: '$12.78', change: '+0.80%', color: '#2563eb', secColor: '#60a5fa', dist: 420, speed: 0.0005, desc: 'Standar oracle industri penghubung data on-chain.' },
-      // IDX Bluechips
-      { id: 'BBCA', name: 'Bank Central Asia (BBCA)', cat: 'IDX', type: 'COMET', price: 'Rp 9.850', change: '+0.51%', color: '#60a5fa', secColor: '#93c5fd', dist: 460, speed: 0.0004, desc: 'Pilar utama perbankan swasta nasional berbobot terbesar di BEI.' },
-      { id: 'BBRI', name: 'Bank Rakyat Indonesia (BBRI)', cat: 'IDX', type: 'COMET', price: 'Rp 4.620', change: '+1.10%', color: '#3b82f6', secColor: '#60a5fa', dist: 480, speed: 0.00038, desc: 'Raksasa kredit mikro UMKM dividen yield tinggi.' },
-      { id: 'ADRO', name: 'Adaro Energy (ADRO)', cat: 'IDX', type: 'COMET', price: 'Rp 3.650', change: '+2.82%', color: '#eab308', secColor: '#facc15', dist: 510, speed: 0.00032, desc: 'Energi dan dividen jumbo pasca spin-off AADI.' },
-      // Global Tech
-      { id: 'NVDA', name: 'Nvidia Corp (NVDA)', cat: 'GLOBAL', type: 'COMET', price: '$118.2', change: '+3.40%', color: '#84cc16', secColor: '#a3e635', dist: 535, speed: 0.00028, desc: 'Monopoli akselerator komputasi AI global.' },
+      // Crypto Majors & AI
+      { id: 'BTC', name: 'Bitcoin (BTC)', cat: 'CRYPTO_L1', type: 'COMET', price: '$81,379', change: '+1.80%', color: '#f59e0b', secColor: '#fbbf24', dist: 310, speed: 0.00055, desc: 'Komet emas cadangan moneter global terdesentralisasi.' },
+      { id: 'ETH', name: 'Ethereum (ETH)', cat: 'CRYPTO_L1', type: 'COMET', price: '$2,840', change: '+2.40%', color: '#818cf8', secColor: '#a5b4fc', dist: 330, speed: 0.00050, desc: 'Pondasi smart contract global dan ekosistem rollup L2.' },
+      { id: 'SOL', name: 'Solana (SOL)', cat: 'CRYPTO_L1', type: 'COMET', price: '$148.5', change: '+5.20%', color: '#10b981', secColor: '#34d399', dist: 360, speed: 0.00045, desc: 'Throughput ultra 65k TPS blockchain Layer 1.' },
+      { id: 'BNB', name: 'BNB Coin (BNB)', cat: 'CRYPTO_L1', type: 'COMET', price: '$592.4', change: '+1.20%', color: '#eab308', secColor: '#facc15', dist: 385, speed: 0.00042, desc: 'Token utilitas ekosistem bursa Binance.' },
+      { id: 'LINK', name: 'Chainlink (LINK)', cat: 'CRYPTO_L1', type: 'COMET', price: '$12.78', change: '+0.80%', color: '#2563eb', secColor: '#60a5fa', dist: 425, speed: 0.00036, desc: 'Standar oracle industri penghubung data pasar on-chain.' },
+      { id: 'RENDER', name: 'Render (RENDER)', cat: 'CRYPTO_L1', type: 'COMET', price: '$1.82', change: '+6.10%', color: '#f97316', secColor: '#fb923c', dist: 445, speed: 0.00034, desc: 'Jaringan komputasi GPU AI terdesentralisasi.' },
+      { id: 'TAO', name: 'Bittensor (TAO)', cat: 'CRYPTO_L1', type: 'COMET', price: '$540.0', change: '+7.40%', color: '#eab308', secColor: '#fef08a', dist: 475, speed: 0.00031, desc: 'Subnet kecerdasan buatan terdesentralisasi.' },
+      { id: 'SUI', name: 'Sui Network (SUI)', cat: 'CRYPTO_L1', type: 'COMET', price: '$2.14', change: '+8.40%', color: '#38bdf8', secColor: '#7dd3fc', dist: 495, speed: 0.00029, desc: 'Move-language blockchain berkecepatan paralel tinggi.' },
+      { id: 'NEAR', name: 'NEAR Protocol (NEAR)', cat: 'CRYPTO_L1', type: 'COMET', price: '$4.85', change: '+3.10%', color: '#14b8a6', secColor: '#2dd4bf', dist: 515, speed: 0.00027, desc: 'User-owned AI & chain abstraction Layer 1.' },
+      { id: 'AVAX', name: 'Avalanche (AVAX)', cat: 'CRYPTO_L1', type: 'COMET', price: '$26.8', change: '+2.10%', color: '#ef4444', secColor: '#f87171', dist: 535, speed: 0.00025, desc: 'Subnet arsitektur kustom enterprise blockchain.' },
+      { id: 'DOGE', name: 'Dogecoin (DOGE)', cat: 'CRYPTO_L1', type: 'COMET', price: '$0.158', change: '+4.90%', color: '#fbbf24', secColor: '#fef08a', dist: 560, speed: 0.00023, desc: 'Likuiditas meme likuiditas ritel global terbesar.' },
+      { id: 'XRP', name: 'Ripple (XRP)', cat: 'CRYPTO_L1', type: 'COMET', price: '$0.54', change: '+1.50%', color: '#0ea5e9', secColor: '#38bdf8', dist: 585, speed: 0.00021, desc: 'Jaringan likuiditas pembayaran lintas negara institusi.' },
+      // Top IDX Bluechips
+      { id: 'BBCA', name: 'Bank Central Asia (BBCA)', cat: 'IDX', type: 'COMET', price: 'Rp 9.850', change: '+0.51%', color: '#60a5fa', secColor: '#93c5fd', dist: 340, speed: 0.00048, desc: 'Kapitalisasi pasar terbesar di BEI dengan CASA > 80%.' },
+      { id: 'BBRI', name: 'Bank Rakyat Indonesia (BBRI)', cat: 'IDX', type: 'COMET', price: 'Rp 4.620', change: '+1.10%', color: '#3b82f6', secColor: '#60a5fa', dist: 370, speed: 0.00044, desc: 'Pemimpin pembiayaan mikro UMKM nasional dividen jumbo.' },
+      { id: 'BMRI', name: 'Bank Mandiri (BMRI)', cat: 'IDX', type: 'COMET', price: 'Rp 7.050', change: '+1.45%', color: '#2563eb', secColor: '#3b82f6', dist: 400, speed: 0.00040, desc: 'Kredit korporasi terkuat dan ekosistem digital Livin.' },
+      { id: 'BBNI', name: 'Bank Negara Indonesia (BBNI)', cat: 'IDX', type: 'COMET', price: 'Rp 5.250', change: '+0.95%', color: '#f97316', secColor: '#fb923c', dist: 430, speed: 0.00036, desc: 'Transformasi ROE digital perbankan BUMN.' },
+      { id: 'ASII', name: 'Astra International (ASII)', cat: 'IDX', type: 'COMET', price: 'Rp 5.100', change: '-0.40%', color: '#64748b', secColor: '#94a3b8', dist: 460, speed: 0.00032, desc: 'Konglomerasi otomotif dan alat berat nasional.' },
+      { id: 'TLKM', name: 'Telkom Indonesia (TLKM)', cat: 'IDX', type: 'COMET', price: 'Rp 2.850', change: '-0.35%', color: '#ef4444', secColor: '#f87171', dist: 490, speed: 0.00029, desc: 'Infrastruktur telekomunikasi digital nasional.' },
+      { id: 'ADRO', name: 'Adaro Energy (ADRO)', cat: 'IDX', type: 'COMET', price: 'Rp 3.650', change: '+2.82%', color: '#eab308', secColor: '#facc15', dist: 520, speed: 0.00026, desc: 'Produsen energi dan pembagi dividen jumbo konsisten.' },
+      { id: 'AMMN', name: 'Amman Mineral (AMMN)', cat: 'IDX', type: 'COMET', price: 'Rp 9.200', change: '+3.15%', color: '#10b981', secColor: '#34d399', dist: 550, speed: 0.00023, desc: 'Tambang tembaga dan emas smelter Batu Hijau.' },
+      { id: 'BREN', name: 'Barito Renewables (BREN)', cat: 'IDX', type: 'COMET', price: 'Rp 6.850', change: '+4.50%', color: '#06b6d4', secColor: '#22d3ee', dist: 575, speed: 0.00021, desc: 'Pembangkit listrik panas bumi geotermal terbesar.' },
+      { id: 'GOTO', name: 'GoTo Gojek Tokopedia (GOTO)', cat: 'IDX', type: 'COMET', price: 'Rp 58', change: '+1.75%', color: '#22c55e', secColor: '#4ade80', dist: 605, speed: 0.00019, desc: 'Ekosistem on-demand dan fintech GoTo Financial.' },
+      // Global Mega Caps
+      { id: 'NVDA', name: 'Nvidia Corp (NVDA)', cat: 'GLOBAL', type: 'COMET', price: '$118.2', change: '+3.40%', color: '#84cc16', secColor: '#a3e635', dist: 395, speed: 0.00041, desc: 'Monopoli semikonduktor akselerator AI global.' },
+      { id: 'PLTR', name: 'Palantir (PLTR)', cat: 'GLOBAL', type: 'COMET', price: '$38.4', change: '+4.80%', color: '#06b6d4', secColor: '#67e8f9', dist: 450, speed: 0.00033, desc: 'Platform analitik AI institusional enterprise & militer.' },
+      { id: 'TSLA', name: 'Tesla Inc (TSLA)', cat: 'GLOBAL', type: 'COMET', price: '$218.5', change: '+2.90%', color: '#ef4444', secColor: '#f87171', dist: 510, speed: 0.00027, desc: 'Pionir kendaraan listrik dan robotika otonom FSD.' },
+      { id: 'AAPL', name: 'Apple Inc (AAPL)', cat: 'GLOBAL', type: 'COMET', price: '$224.2', change: '+0.85%', color: '#cbd5e1', secColor: '#f1f5f9', dist: 565, speed: 0.00022, desc: 'Ekosistem perangkat keras dan Apple Intelligence.' },
+      { id: 'MSFT', name: 'Microsoft (MSFT)', cat: 'GLOBAL', type: 'COMET', price: '$418.0', change: '+1.15%', color: '#38bdf8', secColor: '#7dd3fc', dist: 620, speed: 0.00018, desc: 'Komputasi awan Azure dan kemitraan OpenAI.' },
     ];
 
-    assetsData.forEach((ast, idx) => {
-      const angle = (idx / assetsData.length) * Math.PI * 2 + 0.4;
+    tradableUniverse.forEach((ast, idx) => {
+      const angle = (idx / tradableUniverse.length) * Math.PI * 2 + 0.35;
       list.push({
         id: ast.id,
         name: ast.name,
@@ -311,19 +448,19 @@ export default function AiOsAgenticCyberdeckView({
         color: ast.color,
         secondaryColor: ast.secColor,
         glow: ast.color,
-        r: 6.5,
+        r: 6.8,
         ringLevel: 3,
         solarDistance: ast.dist,
         orbitSpeed: ast.speed,
-        orbitTilt: ((idx % 4) - 1.5) * 0.12,
+        orbitTilt: ((idx % 5) - 2) * 0.07,
         sphereTheta: angle,
         spherePhi: (Math.PI / 3) * ((idx % 5) / 2.5 - 1),
         ringsAngle: angle,
-        circleAngle: ((8 + idx) / 24) * Math.PI * 2,
-        clusterCenterX: ast.cat === 'CRYPTO_L2' ? -130 : ast.cat === 'CRYPTO_L1' ? 90 : 130,
-        clusterCenterY: ast.cat === 'CRYPTO_L2' ? 110 : ast.cat === 'CRYPTO_L1' ? 120 : -100,
+        circleAngle: (idx / tradableUniverse.length) * Math.PI * 2,
+        clusterCenterX: ast.cat === 'CRYPTO_L2' ? -140 : ast.cat === 'CRYPTO_L1' ? 100 : ast.cat === 'IDX' ? 140 : -100,
+        clusterCenterY: ast.cat === 'CRYPTO_L2' ? 120 : ast.cat === 'CRYPTO_L1' ? 130 : ast.cat === 'IDX' ? -80 : -120,
         timelineLane: 3,
-        timelineTimePct: 0.2 + (idx / assetsData.length) * 0.7,
+        timelineTimePct: 0.15 + (idx / tradableUniverse.length) * 0.75,
         currX: 0,
         currY: 0,
         currZ: 0,
@@ -360,18 +497,18 @@ export default function AiOsAgenticCyberdeckView({
     return () => clearInterval(interval);
   }, []);
 
-  // Skills Deck Trigger (triggers data packet surge)
+  // Trigger Skills with Shockwave
   const handleTriggerSkill = useCallback(
     async (skillName: string) => {
-      // Trigger burst surge of data transfer packets
       dataBurstRef.current = 1.0;
+      shockwaveRef.current = { radius: 10, alpha: 1.0, active: true };
 
       if (soundEnabled) {
         executiveVoice.speak(`Executing skill: ${skillName}`);
       }
 
       if (skillName === 'SCAN_UNIVERSE') {
-        setSkillFeedback('📡 Memindai 72 instrumen tata surya pasar (BEI + Crypto Binance)... Selesai!');
+        setSkillFeedback('📡 Memindai 80+ instrumen tata surya pasar (BEI + Crypto Binance)... Selesai!');
         const scan = scanUniverseForTopAlpha();
         if (scan.topAlphaCandidate) {
           setSelectedNodeId(scan.topAlphaCandidate.symbol);
@@ -397,7 +534,7 @@ export default function AiOsAgenticCyberdeckView({
     [soundEnabled, onOpenWarRoom, selectedNode.id]
   );
 
-  // ── MAIN CANVAS RENDERING ENGINE (Solar System & Animated Data Packets) ──
+  // ── 3D CANVAS RENDERING ENGINE (Slow Majestic Rotation & Photon Packets) ──
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -406,7 +543,6 @@ export default function AiOsAgenticCyberdeckView({
 
     let animFrameId: number;
     let lastTimestamp = performance.now();
-    let globalTime = 0;
 
     // Mouse handlers
     const onMouseDown = (e: MouseEvent) => {
@@ -424,8 +560,8 @@ export default function AiOsAgenticCyberdeckView({
         const dy = e.clientY - lastMousePosRef.current.y;
         lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
-        setRotAngleY((prev) => prev + dx * 0.008);
-        setRotAngleX((prev) => Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, prev + dy * 0.008)));
+        setRotAngleY((prev) => prev + dx * 0.006);
+        setRotAngleX((prev) => Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, prev + dy * 0.006)));
       } else {
         const w = rect.width;
         const h = rect.height;
@@ -460,7 +596,8 @@ export default function AiOsAgenticCyberdeckView({
         const dist = Math.hypot(mouseX - screenX, mouseY - screenY);
         if (dist < (n.r + 10) * zoom) {
           setSelectedNodeId(n.id);
-          dataBurstRef.current = 0.8; // Trigger packet burst on node select!
+          dataBurstRef.current = 0.85;
+          shockwaveRef.current = { radius: 10, alpha: 0.9, active: true };
           break;
         }
       }
@@ -468,8 +605,8 @@ export default function AiOsAgenticCyberdeckView({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.08 : 0.92;
-      setZoom((prev) => Math.max(0.4, Math.min(3.2, prev * factor)));
+      const factor = e.deltaY < 0 ? 1.07 : 0.93;
+      setZoom((prev) => Math.max(0.35, Math.min(3.5, prev * factor)));
     };
 
     canvas.addEventListener('mousedown', onMouseDown);
@@ -482,12 +619,10 @@ export default function AiOsAgenticCyberdeckView({
     const render = (time: number) => {
       const dt = time - lastTimestamp;
       lastTimestamp = time;
-      globalTime = time;
       if (dt > 0) setFps(Math.round(1000 / dt));
 
-      // Fade data burst wave
       if (dataBurstRef.current > 0) {
-        dataBurstRef.current = Math.max(0, dataBurstRef.current - 0.015);
+        dataBurstRef.current = Math.max(0, dataBurstRef.current - 0.012);
       }
 
       const rect = canvas.getBoundingClientRect();
@@ -503,26 +638,40 @@ export default function AiOsAgenticCyberdeckView({
       ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
       ctx.clearRect(0, 0, width, height);
 
-      // Auto-rotation in 3D views
+      // Slow majestic auto-rotation as requested ("pelankan sedikit perputaran nya")
       if (autoRotate && (viewMode === 'SOLAR SYSTEM' || viewMode === '3D ORBIT') && !isDraggingRef.current) {
-        setRotAngleY((prev) => prev + 0.002);
+        setRotAngleY((prev) => prev + 0.0007 * orbitSpeedFactor);
       }
 
       const cx = width / 2;
       const cy = height / 2;
       const minDim = Math.min(width, height);
 
-      // ── 1. Draw Starfield Background (Deep Space Atmosphere) ──
+      // ── 1. Cosmic Volumetric Nebula Clouds Background ──
+      const nebGrad1 = ctx.createRadialGradient(cx * 0.4, cy * 0.4, 10, cx * 0.4, cy * 0.4, minDim * 0.7);
+      nebGrad1.addColorStop(0, 'rgba(88, 28, 135, 0.15)'); // deep ultraviolet nebula
+      nebGrad1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = nebGrad1;
+      ctx.fillRect(0, 0, width, height);
+
+      const nebGrad2 = ctx.createRadialGradient(cx * 1.5, cy * 1.4, 20, cx * 1.5, cy * 1.4, minDim * 0.8);
+      nebGrad2.addColorStop(0, 'rgba(6, 182, 212, 0.12)'); // cyan stardust cloud
+      nebGrad2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = nebGrad2;
+      ctx.fillRect(0, 0, width, height);
+
+      // ── 2. Deep Space Starfield (240 Twinkling Stars) ──
       starfield.forEach((star) => {
-        const twinkle = Math.sin(time * star.twinkleSpeed + star.x) * 0.3;
-        const alpha = Math.max(0.1, Math.min(1.0, star.baseAlpha + twinkle));
-        ctx.fillStyle = `rgba(226, 232, 240, ${alpha})`;
-        const sx = cx + ((star.x + rotAngleY * 200) % width);
-        const sy = cy + ((star.y + rotAngleX * 150) % height);
+        const twinkle = Math.sin(time * star.twinkleSpeed + star.x) * 0.35;
+        const alpha = Math.max(0.15, Math.min(1.0, star.baseAlpha + twinkle));
+        ctx.fillStyle = `rgba(241, 245, 249, ${alpha})`;
+        const sx = cx + ((star.x + rotAngleY * 250) % width);
+        const sy = cy + ((star.y + rotAngleX * 180) % height);
         ctx.fillRect(sx >= 0 ? sx % width : width + (sx % width), sy >= 0 ? sy % height : height + (sy % height), star.size, star.size);
       });
 
-      // ── 2. Calculate Node Target Positions (Solar System / Morphing) ──
+      // ── 3. Calculate Node Positions (Parent Planet & Moon Offsets) ──
+      // Pass 1: Primary Planets & Core
       nodes.forEach((n) => {
         if (n.id === 'core') {
           n.targetX = 0;
@@ -531,21 +680,21 @@ export default function AiOsAgenticCyberdeckView({
           return;
         }
 
+        if (n.parentPlanetId) return; // Computed in Pass 2
+
         if (viewMode === 'SOLAR SYSTEM') {
-          // Keplerian Planetary Elliptic Orbit around the Sun
-          const orbitAngle = (n.sphereTheta + time * n.orbitSpeed) + rotAngleY;
-          const dist = n.solarDistance * (minDim / 550);
+          // Controlled slow Keplerian orbit speed
+          const orbitAngle = (n.sphereTheta + time * n.orbitSpeed * orbitSpeedFactor) + rotAngleY;
+          const dist = n.solarDistance * (minDim / 580);
 
           const x3d = Math.cos(orbitAngle) * dist;
           const z3d = Math.sin(orbitAngle) * dist;
           const y3d = Math.sin(orbitAngle * 2) * (dist * n.orbitTilt);
 
-          // 3D Pitch rotation
           const yRot = y3d * Math.cos(rotAngleX) - z3d * Math.sin(rotAngleX);
           const zRot = y3d * Math.sin(rotAngleX) + z3d * Math.cos(rotAngleX);
 
-          // Perspective depth scaling
-          const fov = 750;
+          const fov = 780;
           const scale = fov / (fov + zRot);
 
           n.targetX = x3d * scale;
@@ -575,7 +724,7 @@ export default function AiOsAgenticCyberdeckView({
           else if (n.ringLevel === 2) rRing = minDim * 0.28;
           else if (n.ringLevel === 3) rRing = minDim * 0.40;
 
-          const angle = n.ringsAngle + (n.ringLevel === 1 ? 0.00015 * time : -0.0001 * time);
+          const angle = n.ringsAngle + (n.ringLevel === 1 ? 0.00008 * time : -0.00005 * time) * orbitSpeedFactor;
           n.targetX = Math.cos(angle) * rRing;
           n.targetY = Math.sin(angle) * rRing;
           n.targetZ = 0;
@@ -600,40 +749,77 @@ export default function AiOsAgenticCyberdeckView({
           n.targetZ = 0;
         }
 
-        // Smooth Lerp
         n.currX += (n.targetX - n.currX) * 0.12;
         n.currY += (n.targetY - n.currY) * 0.12;
         n.currZ += (n.targetZ - n.currZ) * 0.12;
       });
 
-      // ── 3. Draw Transformed World ──
+      // Pass 2: Moons orbiting their parent planets
+      nodes.forEach((n) => {
+        if (!n.parentPlanetId) return;
+        const parent = nodes.find((p) => p.id === n.parentPlanetId);
+        if (!parent) return;
+
+        if (viewMode === 'SOLAR SYSTEM') {
+          const moonAngle = (time * (n.moonSpeed || 0.004) * orbitSpeedFactor);
+          const mDist = (n.moonDistance || 30) * (minDim / 580);
+          n.targetX = parent.currX + Math.cos(moonAngle) * mDist;
+          n.targetY = parent.currY + Math.sin(moonAngle) * mDist * Math.cos(rotAngleX);
+          n.targetZ = parent.currZ + Math.sin(moonAngle) * mDist * Math.sin(rotAngleX);
+        } else {
+          n.targetX = parent.currX + 35;
+          n.targetY = parent.currY + 25;
+          n.targetZ = parent.currZ;
+        }
+
+        n.currX += (n.targetX - n.currX) * 0.15;
+        n.currY += (n.targetY - n.currY) * 0.15;
+        n.currZ += (n.targetZ - n.currZ) * 0.15;
+      });
+
+      // ── 4. Draw Scaled World ──
       ctx.save();
       ctx.translate(cx, cy);
       ctx.scale(zoom, zoom);
 
-      // Draw Solar System Orbits & Asteroid Belt
+      // Gravitational Wave Shockwave Effect
+      if (shockwaveRef.current.active) {
+        shockwaveRef.current.radius += 8;
+        shockwaveRef.current.alpha = Math.max(0, shockwaveRef.current.alpha - 0.02);
+        if (shockwaveRef.current.alpha <= 0) {
+          shockwaveRef.current.active = false;
+        } else {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, shockwaveRef.current.radius, shockwaveRef.current.radius * Math.cos(rotAngleX), 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(6, 182, 212, ${shockwaveRef.current.alpha * 0.8})`;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+      }
+
+      // Draw Orbit Paths & Asteroid Belt
       if (viewMode === 'SOLAR SYSTEM') {
-        // Draw Planetary Orbit Tracks (Elliptic Paths)
-        const uniqueDistances = Array.from(new Set(nodes.map((n) => n.solarDistance))).filter((d) => d > 0);
+        // Glowing Elliptic Orbit Lines
+        const uniqueDistances = Array.from(new Set(nodes.filter((n) => !n.parentPlanetId && n.solarDistance > 0).map((n) => n.solarDistance)));
         uniqueDistances.forEach((d) => {
-          const dist = d * (minDim / 550);
+          const dist = d * (minDim / 580);
           ctx.beginPath();
           ctx.ellipse(0, 0, dist, dist * Math.cos(rotAngleX), 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.10)';
           ctx.lineWidth = 1;
           ctx.stroke();
         });
 
-        // Draw Asteroid Belt Particles (Market Micro-Ticks)
+        // 220 Procedural Asteroids
         asteroidBelt.forEach((ast) => {
-          const currentAngle = ast.angle + time * ast.speed + rotAngleY;
-          const rScaled = ast.radius * (minDim / 550);
+          const currentAngle = ast.angle + time * ast.speed * orbitSpeedFactor + rotAngleY;
+          const rScaled = ast.radius * (minDim / 580);
           const ax = Math.cos(currentAngle) * rScaled;
           const az = Math.sin(currentAngle) * rScaled;
           const ay = ast.yOffset * Math.cos(rotAngleX) - az * Math.sin(rotAngleX);
           const azRot = ast.yOffset * Math.sin(rotAngleX) + az * Math.cos(rotAngleX);
 
-          const scale = 750 / (750 + azRot);
+          const scale = 780 / (780 + azRot);
           const screenX = ax * scale;
           const screenY = ay * scale;
 
@@ -644,191 +830,203 @@ export default function AiOsAgenticCyberdeckView({
         });
       }
 
-      // ── 4. DRAW CONNECTED LINES & ANIMATED DATA PACKETS TRANSFER ──
+      // ── 5. DRAW CONNECTED LINES & ANIMATED DATA TRANSFER PHOTON STREAM ──
       const selNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
-      const speedMultiplier = 1.0 + dataBurstRef.current * 2.5;
+      const speedMultiplier = (1.0 + dataBurstRef.current * 3.0) * orbitSpeedFactor * 1.5;
 
       nodes.forEach((n) => {
         if (n.id === selNode.id) return;
 
         const isRelated =
           selNode.id === 'core'
-            ? n.ringLevel === 1 || n.id === 'ARB' || n.id === 'OP' || n.id === 'kevin' || n.id === 'freqtrade'
+            ? n.ringLevel === 1 || n.id === 'ARB' || n.id === 'OP' || n.id === 'BTC' || n.id === 'BBCA' || n.id === 'kevin' || n.id === 'freqtrade'
             : selNode.id === 'kevin' || selNode.id === 'jesse'
-            ? n.id === 'ARB' || n.id === 'OP' || n.id === 'BTC' || n.id === 'core'
+            ? n.id === 'ARB' || n.id === 'OP' || n.id === 'BTC' || n.id === 'SOL' || n.id === 'core'
             : selNode.id === 'ARB' || selNode.id === 'OP'
             ? n.id === 'kevin' || n.id === 'freqtrade' || n.id === 'core'
             : n.ringLevel === selNode.ringLevel;
 
         if (isRelated || viewMode === 'LINKS' || viewMode === 'CIRCLE') {
-          // A. Draw Fiber Optic Connection Line
+          // A. Draw Connection Fiber Optic Track
           ctx.beginPath();
           ctx.moveTo(selNode.currX, selNode.currY);
           ctx.lineTo(n.currX, n.currY);
-          ctx.strokeStyle = isRelated ? 'rgba(6, 182, 212, 0.28)' : 'rgba(30, 41, 59, 0.2)';
+          ctx.strokeStyle = isRelated ? 'rgba(6, 182, 212, 0.35)' : 'rgba(30, 41, 59, 0.22)';
           ctx.lineWidth = isRelated ? 1.5 : 0.75;
           ctx.stroke();
 
-          // B. ANIMATED DATA TRANSFER PACKETS (Photon Stream)
-          // As requested by user: "saya mau line yang terlink ada animasi kayak transfer data"
+          // B. High-Speed Animated Data Packets (Photon Pulses)
           const packetCount = isRelated ? 3 : 1;
           for (let p = 0; p < packetCount; p++) {
-            // Compute animated packet progress [0, 1]
             const packetOffset = p / packetCount;
-            const progress = ((time * 0.0006 * speedMultiplier + packetOffset) % 1.0);
+            const progress = ((time * 0.0007 * speedMultiplier + packetOffset) % 1.0);
 
-            // Interpolate position along the line from source to target
             const px = selNode.currX + (n.currX - selNode.currX) * progress;
             const py = selNode.currY + (n.currY - selNode.currY) * progress;
 
-            // Packet Comet Trail (trailing sub-photons)
-            const trailSteps = 4;
+            // Comet Trail (5 fading sub-particles behind the packet)
+            const trailSteps = 5;
             for (let t = trailSteps; t >= 1; t--) {
-              const trailProgress = Math.max(0, progress - t * 0.025);
+              const trailProgress = Math.max(0, progress - t * 0.022);
               const tx = selNode.currX + (n.currX - selNode.currX) * trailProgress;
               const ty = selNode.currY + (n.currY - selNode.currY) * trailProgress;
-              const trailAlpha = (1.0 - t / trailSteps) * 0.6;
+              const trailAlpha = (1.0 - t / trailSteps) * 0.65;
 
               ctx.beginPath();
-              ctx.arc(tx, ty, (2.2 - t * 0.35), 0, Math.PI * 2);
+              ctx.arc(tx, ty, Math.max(0.5, 2.5 - t * 0.35), 0, Math.PI * 2);
               ctx.fillStyle = `rgba(56, 189, 248, ${trailAlpha})`;
               ctx.fill();
             }
 
-            // Glowing Data Packet Head
+            // Glowing Photon Head
             ctx.beginPath();
-            ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+            ctx.arc(px, py, 3.4, 0, Math.PI * 2);
             ctx.fillStyle = isRelated ? '#38bdf8' : '#34d399';
             ctx.shadowColor = '#06b6d4';
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 10;
             ctx.fill();
-            ctx.shadowBlur = 0; // reset
+            ctx.shadowBlur = 0;
           }
 
-          // Bidirectional upstream packet (Telemetry feed returning to core)
+          // Upstream Telemetry Return Stream (Amber Pulses flowing back to Core)
           if (isRelated && n.id !== 'core') {
-            const revProgress = (1.0 - ((time * 0.00045 * speedMultiplier) % 1.0));
+            const revProgress = (1.0 - ((time * 0.0005 * speedMultiplier) % 1.0));
             const rpx = selNode.currX + (n.currX - selNode.currX) * revProgress;
             const rpy = selNode.currY + (n.currY - selNode.currY) * revProgress;
 
             ctx.beginPath();
-            ctx.arc(rpx, rpy, 2.5, 0, Math.PI * 2);
+            ctx.arc(rpx, rpy, 2.8, 0, Math.PI * 2);
             ctx.fillStyle = '#f59e0b';
             ctx.shadowColor = '#f59e0b';
-            ctx.shadowBlur = 6;
+            ctx.shadowBlur = 8;
             ctx.fill();
             ctx.shadowBlur = 0;
           }
         }
       });
 
-      // ── 5. Sort Nodes by Z for 3D Depth Sorting ──
+      // ── 6. Sort by Z for Depth ──
       const sortedNodes = [...nodes].sort((a, b) => a.currZ - b.currZ);
 
-      // ── 6. Render Celestial Bodies (Planetary Materials from Solar-System-3D) ──
+      // ── 7. Render Celestial Bodies (Solar Materials) ──
       sortedNodes.forEach((n) => {
         const isSel = n.id === selectedNodeId;
         const isHov = n.id === hoveredNodeId;
 
-        // Depth perspective scale & alpha
         let scaleDepth = 1.0;
         let alphaDepth = 1.0;
         if (viewMode === 'SOLAR SYSTEM' || viewMode === '3D ORBIT') {
-          scaleDepth = Math.max(0.65, Math.min(1.4, (n.currZ + 600) / 600));
-          alphaDepth = Math.max(0.3, Math.min(1.0, (n.currZ + 550) / 600));
+          scaleDepth = Math.max(0.65, Math.min(1.4, (n.currZ + 650) / 650));
+          alphaDepth = Math.max(0.35, Math.min(1.0, (n.currZ + 600) / 650));
         }
 
         const radius = n.r * scaleDepth * (isSel ? 1.35 : isHov ? 1.2 : 1.0);
 
-        // ── A. THE SUN MATERIAL (Core Hub with Multi-Layer Corona & BloomPass) ──
+        // ── A. THE SUN (Multi-Layer Corona + Anamorphic Lens Flare) ──
         if (n.planetType === 'SUN') {
-          // 1. Pulsating corona bloom
-          const pulse = Math.sin(time * 0.004) * 4;
-          const sunGrad = ctx.createRadialGradient(n.currX, n.currY, radius * 0.3, n.currX, n.currY, (radius + 20 + pulse));
+          const pulse = Math.sin(time * 0.003) * 5;
+
+          // Anamorphic horizontal flare streak
+          const flareWidth = radius * 7 + pulse * 4;
+          const flareGrad = ctx.createLinearGradient(n.currX - flareWidth, n.currY, n.currX + flareWidth, n.currY);
+          flareGrad.addColorStop(0, 'rgba(6, 182, 212, 0)');
+          flareGrad.addColorStop(0.3, 'rgba(6, 182, 212, 0.25)');
+          flareGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)');
+          flareGrad.addColorStop(0.7, 'rgba(245, 158, 11, 0.25)');
+          flareGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+          ctx.fillStyle = flareGrad;
+          ctx.fillRect(n.currX - flareWidth, n.currY - 2, flareWidth * 2, 4);
+
+          // Multi-Layer Corona Bloom
+          const sunGrad = ctx.createRadialGradient(n.currX, n.currY, radius * 0.2, n.currX, n.currY, (radius + 26 + pulse));
           sunGrad.addColorStop(0, '#ffffff');
-          sunGrad.addColorStop(0.3, '#fef08a');
-          sunGrad.addColorStop(0.6, '#f59e0b');
-          sunGrad.addColorStop(0.85, 'rgba(6, 182, 212, 0.35)');
+          sunGrad.addColorStop(0.25, '#fef08a');
+          sunGrad.addColorStop(0.55, '#f59e0b');
+          sunGrad.addColorStop(0.82, 'rgba(6, 182, 212, 0.4)');
           sunGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
 
           ctx.beginPath();
-          ctx.arc(n.currX, n.currY, radius + 22 + pulse, 0, Math.PI * 2);
+          ctx.arc(n.currX, n.currY, radius + 28 + pulse, 0, Math.PI * 2);
           ctx.fillStyle = sunGrad;
           ctx.fill();
 
-          // 2. Solar Prominence Flares (Rotating rays)
+          // 8 Rotating Solar Prominence Rays
           ctx.save();
           ctx.translate(n.currX, n.currY);
-          ctx.rotate(time * 0.0008);
+          ctx.rotate(time * 0.0006);
           for (let f = 0; f < 8; f++) {
             ctx.rotate(Math.PI / 4);
             ctx.beginPath();
             ctx.moveTo(0, -radius * 0.8);
-            ctx.lineTo(radius * 0.25, -radius * 1.5 - pulse);
-            ctx.lineTo(0, -radius * 1.7 - pulse * 1.5);
-            ctx.lineTo(-radius * 0.25, -radius * 1.5 - pulse);
+            ctx.lineTo(radius * 0.22, -radius * 1.5 - pulse);
+            ctx.lineTo(0, -radius * 1.8 - pulse * 1.4);
+            ctx.lineTo(-radius * 0.22, -radius * 1.5 - pulse);
             ctx.closePath();
             ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
             ctx.fill();
           }
           ctx.restore();
 
-          // 3. Incandescent Sun Core
+          // White-hot core
           ctx.beginPath();
           ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
           ctx.fillStyle = '#fef08a';
           ctx.fill();
         }
 
-        // ── B. SATURN MATERIAL (Concentric Planetary Rings with Tilt & Transparency) ──
+        // ── B. SATURN (3 Concentric Rings with Cassini Division) ──
         else if (n.planetType === 'SATURN') {
-          // Draw Saturn Planet Body
           ctx.beginPath();
           ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
           ctx.fillStyle = n.color;
           ctx.fill();
 
-          // Draw Tilted Planetary Rings (Saturn Rings)
           ctx.save();
           ctx.translate(n.currX, n.currY);
-          ctx.rotate(-0.4); // 24 deg planetary axial tilt
+          ctx.rotate(-0.38);
 
-          // Inner Ring
+          // Inner C Ring
           ctx.beginPath();
-          ctx.ellipse(0, 0, radius * 2.2, radius * 0.65, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-          ctx.lineWidth = 3.5;
+          ctx.ellipse(0, 0, radius * 1.8, radius * 0.55, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+          ctx.lineWidth = 2.5;
           ctx.stroke();
 
-          // Cassini Gap & Outer Ring
+          // Main B Ring (Bright)
           ctx.beginPath();
-          ctx.ellipse(0, 0, radius * 2.65, radius * 0.8, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
-          ctx.lineWidth = 2.0;
+          ctx.ellipse(0, 0, radius * 2.3, radius * 0.70, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+          ctx.lineWidth = 4.0;
+          ctx.stroke();
+
+          // Outer A Ring with Cassini Gap
+          ctx.beginPath();
+          ctx.ellipse(0, 0, radius * 2.8, radius * 0.85, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+          ctx.lineWidth = 2.2;
           ctx.stroke();
           ctx.restore();
         }
 
-        // ── C. JUPITER MATERIAL (Gas Giant with Atmospheric Bands) ──
+        // ── C. JUPITER (Gas Giant Cloud Bands) ──
         else if (n.planetType === 'JUPITER') {
           ctx.beginPath();
           ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
           ctx.fillStyle = '#d97706';
           ctx.fill();
 
-          // Equatorial Cloud Bands
           ctx.save();
           ctx.beginPath();
           ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
           ctx.clip();
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.5)';
-          ctx.fillRect(n.currX - radius, n.currY - radius * 0.3, radius * 2, radius * 0.25);
-          ctx.fillStyle = 'rgba(180, 83, 9, 0.6)';
-          ctx.fillRect(n.currX - radius, n.currY + radius * 0.1, radius * 2, radius * 0.25);
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.55)';
+          ctx.fillRect(n.currX - radius, n.currY - radius * 0.35, radius * 2, radius * 0.28);
+          ctx.fillStyle = 'rgba(180, 83, 9, 0.65)';
+          ctx.fillRect(n.currX - radius, n.currY + radius * 0.08, radius * 2, radius * 0.28);
           ctx.restore();
         }
 
-        // ── D. EARTH / CRIME / OTHER PLANET MATERIALS ──
+        // ── D. OTHER PLANETS, MOONS & ASSETS ──
         else {
           ctx.beginPath();
           ctx.arc(n.currX, n.currY, radius, 0, Math.PI * 2);
@@ -836,38 +1034,64 @@ export default function AiOsAgenticCyberdeckView({
           ctx.globalAlpha = alphaDepth;
           ctx.fill();
 
-          // Atmospheric rim Fresnel halo for Earth/L2
+          // Atmospheric Fresnel Rim Halo
           if (n.planetType === 'EARTH' || n.category === 'CRYPTO_L2') {
             ctx.beginPath();
             ctx.arc(n.currX, n.currY, radius + 2, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+            ctx.lineWidth = 1.6;
             ctx.stroke();
           }
         }
 
-        // ── OutlinePass Selection Glow (Hover & Select) ──
+        // ── E. Holographic Targeting Reticle on Hover / Select ──
         if (isSel || isHov) {
+          ctx.save();
+          ctx.translate(n.currX, n.currY);
+          ctx.rotate(time * 0.002);
+
           ctx.beginPath();
-          ctx.arc(n.currX, n.currY, radius + 5, 0, Math.PI * 2);
-          ctx.strokeStyle = isSel ? '#ffffff' : 'rgba(56, 189, 248, 0.8)';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 4]);
+          ctx.arc(0, 0, radius + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = isSel ? '#38bdf8' : 'rgba(56, 189, 248, 0.8)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 6]);
           ctx.stroke();
           ctx.setLineDash([]);
+
+          // 4 Corner brackets
+          const bSize = radius + 11;
+          ctx.strokeStyle = isSel ? '#ffffff' : '#38bdf8';
+          ctx.lineWidth = 1.5;
+          // Top-left
+          ctx.beginPath();
+          ctx.moveTo(-bSize, -bSize + 4); ctx.lineTo(-bSize, -bSize); ctx.lineTo(-bSize + 4, -bSize);
+          ctx.stroke();
+          // Top-right
+          ctx.beginPath();
+          ctx.moveTo(bSize - 4, -bSize); ctx.lineTo(bSize, -bSize); ctx.lineTo(bSize, -bSize + 4);
+          ctx.stroke();
+          // Bottom-left
+          ctx.beginPath();
+          ctx.moveTo(-bSize, bSize - 4); ctx.lineTo(-bSize, bSize); ctx.lineTo(-bSize + 4, bSize);
+          ctx.stroke();
+          // Bottom-right
+          ctx.beginPath();
+          ctx.moveTo(bSize - 4, bSize); ctx.lineTo(bSize, bSize); ctx.lineTo(bSize, bSize - 4);
+          ctx.stroke();
+          ctx.restore();
         }
 
-        // ── Labels & Real-Time Price Telemetry ──
+        // ── F. Labels & Real-Time Price Telemetry ──
         if (isSel || isHov || n.ringLevel <= 1 || radius > 8) {
           ctx.font = `${isSel ? 'bold 11px' : '9px'} 'JetBrains Mono', monospace`;
           ctx.fillStyle = isSel ? '#ffffff' : `rgba(226, 232, 240, ${alphaDepth})`;
           ctx.textAlign = 'center';
-          ctx.fillText(n.id === 'core' ? 'AI·OS SUN' : n.name.split(' ')[0], n.currX, n.currY + radius + 11);
+          ctx.fillText(n.id === 'core' ? 'AI·OS SUN' : n.name.split(' ')[0], n.currX, n.currY + radius + 12);
 
           if (n.price) {
             ctx.font = "8px 'JetBrains Mono', monospace";
             ctx.fillStyle = n.change?.startsWith('+') ? '#22c55e' : '#ef4444';
-            ctx.fillText(n.price, n.currX, n.currY + radius + 21);
+            ctx.fillText(n.price, n.currX, n.currY + radius + 22);
           }
         }
 
@@ -888,7 +1112,7 @@ export default function AiOsAgenticCyberdeckView({
       canvas.removeEventListener('click', onClick);
       canvas.removeEventListener('wheel', onWheel);
     };
-  }, [viewMode, nodes, selectedNodeId, hoveredNodeId, zoom, autoRotate, rotAngleX, rotAngleY, starfield, asteroidBelt]);
+  }, [viewMode, nodes, selectedNodeId, hoveredNodeId, zoom, autoRotate, rotAngleX, rotAngleY, orbitSpeedFactor, starfield, asteroidBelt]);
 
   const viewModesList: CyberdeckViewMode[] = [
     'SOLAR SYSTEM',
@@ -907,7 +1131,7 @@ export default function AiOsAgenticCyberdeckView({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 font-bold tracking-wider text-slate-100">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-cyan-400 font-extrabold">● SOLAR CORE</span>
+            <span className="text-cyan-400 font-extrabold">● SOLAR BRAIN</span>
             <span className="text-slate-400">· ACTIVE AUTONOMOUS</span>
           </div>
 
@@ -916,20 +1140,20 @@ export default function AiOsAgenticCyberdeckView({
               <strong className="text-emerald-400">RUNNER:</strong> VPS 24/7 OK
             </span>
             <span>
-              <strong className="text-cyan-400">PHOTON PULSE:</strong> ACTIVE STREAM
+              <strong className="text-cyan-400">PHOTON PULSE:</strong> STREAMING
             </span>
             <span>
-              <strong className="text-amber-400">TELEGRAM:</strong> BOT ONLINE
+              <strong className="text-amber-400">SPEED:</strong> {orbitSpeedFactor}x CINEMATIC
             </span>
           </div>
         </div>
 
         {/* Center Title / Branding */}
         <div className="flex items-center gap-2 text-center font-bold tracking-widest text-slate-100">
-          <Globe className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '24s' }} />
+          <Globe className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '28s' }} />
           <span>SOLAR-SYSTEM-3D AGENTIC CYBERDECK</span>
           <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-800/60">
-            N3RSON MATERIAL ENGINE
+            80+ CELESTIAL BODIES
           </span>
         </div>
 
@@ -947,8 +1171,8 @@ export default function AiOsAgenticCyberdeckView({
 
           <button
             onClick={() => {
-              setZoom(1.0);
-              setRotAngleX(0.35);
+              setZoom(0.95);
+              setRotAngleX(0.38);
               setRotAngleY(0.0);
             }}
             className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
@@ -961,7 +1185,7 @@ export default function AiOsAgenticCyberdeckView({
         </div>
       </header>
 
-      {/* ── Subnav Modes & Asset Filters Bar ── */}
+      {/* ── Subnav Modes & Speed Controller Bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#070b14] border border-slate-800/80 text-[11px]">
         {/* The 7 View Modes */}
         <div className="flex items-center gap-1 overflow-x-auto py-1">
@@ -981,20 +1205,28 @@ export default function AiOsAgenticCyberdeckView({
           ))}
         </div>
 
-        {/* Counters & Pulse Indicator */}
-        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px]">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <strong className="text-cyan-300">DATA PACKETS:</strong> STREAMING
-          </span>
-          <span>·</span>
-          <span>
-            <strong className="text-white">72</strong> CELESTIAL ASSETS
-          </span>
-          <span>·</span>
-          <span>
-            <strong className="text-emerald-400">{orders.length || 248}</strong> TRADES
-          </span>
+        {/* Speed Adjustment Controller (Slow Majestic Rotation!) */}
+        <div className="flex items-center gap-1.5 bg-[#090d16] px-2.5 py-1 rounded-lg border border-slate-800">
+          <Sliders className="w-3 h-3 text-cyan-400" />
+          <span className="text-[10px] text-slate-400 uppercase font-bold mr-1">KECEPATAN:</span>
+          {[
+            { label: '0.2x LAMBAT', val: 0.2 },
+            { label: '0.45x TENANG', val: 0.45 },
+            { label: '1.0x NORMAL', val: 1.0 },
+            { label: '2.0x CEPAT', val: 2.0 },
+          ].map((sp) => (
+            <button
+              key={sp.label}
+              onClick={() => setOrbitSpeedFactor(sp.val)}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                orbitSpeedFactor === sp.val
+                  ? 'bg-cyan-500 text-black shadow-sm'
+                  : 'text-slate-400 hover:text-white bg-slate-900/80'
+              }`}
+            >
+              {sp.label}
+            </button>
+          ))}
         </div>
 
         {/* 3D Rotate & Zoom */}
@@ -1014,13 +1246,13 @@ export default function AiOsAgenticCyberdeckView({
 
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setZoom((z) => Math.min(3.2, z * 1.15))}
+              onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}
               className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white cursor-pointer"
             >
               +
             </button>
             <button
-              onClick={() => setZoom((z) => Math.max(0.4, z * 0.85))}
+              onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}
               className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:text-white cursor-pointer"
             >
               -
@@ -1112,8 +1344,8 @@ export default function AiOsAgenticCyberdeckView({
                 <span className="font-bold text-emerald-400 text-sm">+Rp 4.147.370</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400 text-[11px]">TOTAL HOLDING AKTIF:</span>
-                <span className="font-bold text-cyan-300">{holdings.length} ASET</span>
+                <span className="text-slate-400 text-[11px]">TOTAL CELESTIAL BODIES:</span>
+                <span className="font-bold text-cyan-300">{nodes.length} SIMPUL AKTIF</span>
               </div>
             </div>
 
@@ -1151,7 +1383,7 @@ export default function AiOsAgenticCyberdeckView({
                 className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shadow-md"
                 style={{ backgroundColor: `${selectedNode.color}25`, borderColor: selectedNode.color, color: selectedNode.color }}
               >
-                {selectedNode.planetType === 'SUN' ? '☀️' : selectedNode.planetType === 'SATURN' ? '🪐' : selectedNode.id.substring(0, 3)}
+                {selectedNode.planetType === 'SUN' ? '☀️' : selectedNode.planetType === 'SATURN' ? '🪐' : selectedNode.planetType === 'MOON' ? '🌙' : selectedNode.id.substring(0, 3)}
               </div>
               <div>
                 <div className="font-bold text-white text-sm">{selectedNode.name}</div>
@@ -1187,33 +1419,33 @@ export default function AiOsAgenticCyberdeckView({
           </div>
         </aside>
 
-        {/* ── CENTER RADAR CONSTELLATION CANVAS (Solar System 3D & Data Packets) ── */}
-        <section className="lg:col-span-6 flex flex-col justify-between rounded-xl bg-[#020408] border border-slate-800/80 relative overflow-hidden min-h-[560px] shadow-2xl">
+        {/* ── CENTER RADAR CONSTELLATION CANVAS (Epic 3D Solar System) ── */}
+        <section className="lg:col-span-6 flex flex-col justify-between rounded-xl bg-[#020408] border border-slate-800/80 relative overflow-hidden min-h-[580px] shadow-2xl">
           {/* Top Canvas Controls & Breadcrumbs */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
             <div className="pointer-events-auto px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 flex items-center gap-2 shadow-lg backdrop-blur">
               <span className="text-cyan-400 font-bold">MODE AKTIF:</span>
               <span className="text-white font-bold">{viewMode}</span>
               <span className="text-slate-500">·</span>
-              <span className="text-slate-400">{nodes.length} CELESTIAL BODIES</span>
+              <span className="text-cyan-300 font-bold">{nodes.length} PLANET &amp; ASET</span>
               <span className="text-slate-500">·</span>
-              <span className="text-emerald-400 font-bold">STREAM OK</span>
+              <span className="text-emerald-400 font-bold">220 ASTEROID</span>
             </div>
 
             <div className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#070b14]/90 border border-slate-800 text-[10px] text-slate-400 shadow-lg backdrop-blur">
-              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(3.2, z * 1.15))}>
+              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.min(3.5, z * 1.15))}>
                 [+] ZOOM
               </span>
               <span>·</span>
-              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.max(0.4, z * 0.85))}>
+              <span className="hover:text-cyan-300 cursor-pointer" onClick={() => setZoom((z) => Math.max(0.35, z * 0.85))}>
                 [-] ZOOM
               </span>
               <span>·</span>
               <span
                 className="hover:text-cyan-300 cursor-pointer"
                 onClick={() => {
-                  setZoom(1.0);
-                  setRotAngleX(0.35);
+                  setZoom(0.95);
+                  setRotAngleX(0.38);
                   setRotAngleY(0.0);
                 }}
               >
@@ -1229,17 +1461,17 @@ export default function AiOsAgenticCyberdeckView({
           <div className="px-3 py-2 bg-[#050810]/95 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
             <div className="flex items-center gap-3">
               <span>
-                ● <strong className="text-slate-300">KLIK PLANET</strong> = INSPEKSI
+                ● <strong className="text-slate-300">KLIK PLANET</strong> = INSPEKSI &amp; GELOMBANG
               </span>
               <span>
-                ● <strong className="text-slate-300">DRAG MOUSE</strong> = ROTASI 3D
+                ● <strong className="text-slate-300">DRAG</strong> = PUTAR 3D
               </span>
               <span>
-                ● <strong className="text-cyan-300">PHOTON PULSES</strong> = ANIMASI TRANSFER DATA
+                ● <strong className="text-cyan-300">PULSE</strong> = TRANSFER DATA KONTINU
               </span>
             </div>
             <div className="text-cyan-400/80 font-mono">
-              ENGINE: <span className="text-white font-bold">SOLAR-SYSTEM-3D + THREE PROTOCOL</span>
+              ORBIT: <span className="text-white font-bold">{orbitSpeedFactor}x MAJESTIC DRIFT</span>
             </div>
           </div>
         </section>
@@ -1259,7 +1491,7 @@ export default function AiOsAgenticCyberdeckView({
               </span>
             </div>
             <div className="text-[11px] text-slate-400 leading-tight">
-              Pemindai otonom menyaring 72 aset tiap 20 detik untuk mendeteksi peluang alpha dengan risk-reward {'>'} 2.0x.
+              Pemindai otonom menyaring 80+ instrumen pasar tiap 20 detik untuk mendeteksi peluang alpha dengan risk-reward {'>'} 2.0x.
             </div>
           </div>
 
@@ -1280,7 +1512,7 @@ export default function AiOsAgenticCyberdeckView({
                   <span className="text-[11px]">/scan-alpha</span>
                   <span className="group-hover:translate-x-0.5 transition-transform text-xs">▶</span>
                 </div>
-                <div className="text-[10px] text-slate-400 leading-snug">Pindai 72 emiten &amp; kripto instan</div>
+                <div className="text-[10px] text-slate-400 leading-snug">Pindai 80+ emiten &amp; kripto instan</div>
               </button>
 
               {/* Skill 2: War Room */}
