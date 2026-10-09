@@ -571,13 +571,13 @@ export function selectDiversifiedCandidate(
       priority -= 15; // Penalti jika sudah punya saham ini agar tidak beli emiten yang sama terus
     }
 
-    // B. Bonus Rotasi Sektoral (+14 Poin untuk sektor yang belum ada di portofolio)
+    // B. Bonus Rotasi Sektoral (+8 Poin untuk sektor yang belum ada di portofolio)
     if (countInSector === 0) {
-      priority += 14;
+      priority += 8;
     } else if (countInSector === 1) {
-      priority -= 4; // Sedikit penalti jika sektor sudah ada 1 saham
+      priority -= 3;
     } else {
-      priority -= (countInSector * 12); // Penalti berat jika sektor sudah jenuh (>= 2 saham)
+      priority -= Math.min(15, countInSector * 5); // Maksimal penalti -15 poin (seimbang)
     }
 
     // C. Bonus Keragaman Strategi Alpha (+6 Poin)
@@ -590,18 +590,30 @@ export function selectDiversifiedCandidate(
       priority += 4;
     }
 
-    // D. Penalti Kuat Saham yang Sedang Ditampilkan Saat Ini (-28 Poin)
+    // D. Penalti Kuat Saham yang Sedang Ditampilkan Saat Ini (-40 Poin)
     // Mencegah AI terus-menerus memilih kembali saham yang baru saja diulas
     if (currentStock && cleanSym === currentStock.toUpperCase()) {
-      priority -= 28;
+      priority -= 40;
     }
 
-    // E. Penalti Cooldown Riwayat Rotasi Terakhir (-22 s/d -6 Poin)
-    // Menghentikan fenomena ping-pong osilasi antara 2 aset teratas (misal ARB bolak-balik LINK)
-    const recentIndex = recentVisitedRing.indexOf(cleanSym);
-    if (recentIndex !== -1) {
-      const recencyWeight = (recentIndex + 1) / recentVisitedRing.length;
-      priority -= Math.round(recencyWeight * 22);
+    // E. Anti Ping-Pong Strict Cooldown:
+    // Cek seberapa baru aset ini dikunjungi dari urutan terakhir (0 = baru saja dipilih 1 putaran lalu)
+    const reversedIndex = [...recentVisitedRing].reverse().indexOf(cleanSym);
+    if (reversedIndex !== -1) {
+      if (reversedIndex === 0) {
+        // Baru saja dipilih 1 putaran lalu: penalti masif (-50) agar MUSTAHIL dipilih kembali langsung
+        priority -= 50;
+      } else if (reversedIndex === 1) {
+        // Dipilih 2 putaran lalu: penalti sangat kuat (-40) agar tidak terjadi ping-pong 2 aset (misal ARB bolak-balik OP)
+        priority -= 40;
+      } else if (reversedIndex === 2) {
+        // Dipilih 3 putaran lalu: penalti kuat (-30) agar tidak terjadi looping 3 aset
+        priority -= 30;
+      } else if (reversedIndex === 3) {
+        priority -= 20;
+      } else {
+        priority -= 10;
+      }
     }
 
     return { candidate: c, priority };
@@ -614,12 +626,8 @@ export function selectDiversifiedCandidate(
 
   if (winner) {
     const sym = winner.symbol.toUpperCase();
-    const existingIdx = recentVisitedRing.indexOf(sym);
-    if (existingIdx !== -1) {
-      recentVisitedRing.splice(existingIdx, 1);
-    }
     recentVisitedRing.push(sym);
-    if (recentVisitedRing.length > 8) {
+    if (recentVisitedRing.length > 10) {
       recentVisitedRing.shift();
     }
   }

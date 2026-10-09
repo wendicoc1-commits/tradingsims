@@ -1298,6 +1298,7 @@ export default function VirtualAgentOfficeView() {
   const [alarm, setAlarm] = useState(false);
   const [orderResult, setOrderResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pendingWarRoomTarget, setPendingWarRoomTarget] = useState<string | null>(null);
+  const lastDebateEndTimeRef = useRef<number>(0);
 
   // portfolio paper trading
   const cash = usePortfolioStore((s) => s.cash);
@@ -1347,7 +1348,13 @@ export default function VirtualAgentOfficeView() {
         }
       }
 
-      const heldTickers = usePortfolioStore.getState().holdings.map((h) => h.displaySymbol);
+      const heldTickers = usePortfolioStore.getState().holdings
+        .filter((h) => {
+          const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || isCryptoSymbol(h.displaySymbol);
+          const units = isCrypto ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0));
+          return units > 0.000001;
+        })
+        .map((h) => h.displaySymbol);
       const result = scanUniverseForTopAlpha(news, liveQuotesMap, heldTickers);
       setScanResult(result);
       setLastScanAt(result.timestamp);
@@ -1387,8 +1394,12 @@ export default function VirtualAgentOfficeView() {
       );
 
       if (autoPilot && candidate && phase === 'IDLE') {
-        setSelectedStock(candidate.symbol);
-        setPendingWarRoomTarget(candidate.symbol);
+        const timeSinceLastDebate = Date.now() - lastDebateEndTimeRef.current;
+        // Jeda inter-sidang minimal 12 detik agar petinggi bekerja di meja masing-masing dan tidak panik bolak-balik
+        if (timeSinceLastDebate >= 12000) {
+          setSelectedStock(candidate.symbol);
+          setPendingWarRoomTarget(candidate.symbol);
+        }
       }
 
       // Picu siklus otonom (monitoring TP/SL portofolio dan background checks).
@@ -2300,6 +2311,7 @@ export default function VirtualAgentOfficeView() {
 
   const resetDebate = useCallback(() => {
     executiveVoice.stop();
+    lastDebateEndTimeRef.current = Date.now();
     useAIAgentStore.getState().setActiveDeliberatingTicker(null);
     setPhase('IDLE');
     setStep(-1);
