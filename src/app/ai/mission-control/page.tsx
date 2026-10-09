@@ -1,58 +1,45 @@
 'use client'
 
 import React from 'react'
-import MissionControlDecisionCenter from '@/components/ai/MissionControlDecisionCenter'
+import AgentMissionControlDashboard from '@/components/ai/mission-control/AgentMissionControlDashboard'
 import Link from 'next/link'
-import { ArrowLeft, ShieldCheck, Building2 } from 'lucide-react'
+import { ArrowLeft, ShieldCheck } from 'lucide-react'
 
 export default function MissionControlPreviewPage() {
   return (
-    <div className="min-h-screen bg-[#02050c] text-slate-100 p-4 md:p-8 font-mono">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#02050c] text-slate-100 p-2 md:p-4 font-mono">
+      <div className="max-w-[1720px] mx-auto space-y-3">
         {/* Navigation & Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-[#27272a] pb-3">
           <div className="flex items-center gap-3">
             <Link
               href="/ai"
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-amber-500 text-xs text-slate-300 hover:text-white flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 hover:border-amber-500 text-xs text-zinc-300 hover:text-white flex items-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Kembali ke AI Copilot
             </Link>
             <div>
-              <h1 className="text-lg font-bold text-white flex items-center gap-2">
-                🛡️ Mission Control Oversight & Decisions Preview
+              <h1 className="text-sm font-bold text-white flex items-center gap-2">
+                🛡️ Fincept AI Mission Control Dashboard (Full Command Center)
                 <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                  Stand-alone Preview
+                  Fleet Orchestrator View
                 </span>
               </h1>
-              <p className="text-xs text-slate-400">
-                Adaptasi Konsep &quot;Human-in-the-Loop&quot; dan Emergency Circuit Breaker untuk AI Swarm
+              <p className="text-[11px] text-zinc-400">
+                Integrasi Komprehensif: Fleet Roster + 2D Virtual Office Canvas + Contextual Inspector + Telemetry Console
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-xs">
             <span className="text-emerald-400 flex items-center gap-1 font-mono text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 100% 2D & Clean Architecture
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 100% 2D &amp; High FPS
             </span>
           </div>
         </div>
 
-        {/* The Live Component */}
-        <div>
-          <MissionControlDecisionCenter />
-        </div>
-
-        {/* Integration Preview Explanation */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 space-y-3">
-          <h2 className="font-bold text-white flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-amber-400" />
-            Rencana Penempatan di Virtual Agent Office
-          </h2>
-          <p className="text-slate-400 leading-relaxed font-sans">
-            Komponen ini dapat diakses sebagai <strong>Tab / Drawer &quot;Oversight &amp; Decisions&quot;</strong> atau diletakkan tepat di samping denah lantai meja trading para agen AI di <code className="text-amber-300 font-mono">VirtualAgentOfficeView.tsx</code>. Ini memberikan kontrol penuh kepada Anda atas setiap order besar yang diusulkan agen, lengkap dengan tombol darurat <strong>Emergency Kill Switch</strong>.
-          </p>
-        </div>
+        {/* Master Mission Control Shell Component */}
+        <AgentMissionControlDashboard />
       </div>
     </div>
   )

@@ -24,7 +24,7 @@ import AutonomousPaperTradingDesk from '@/components/ai/AutonomousPaperTradingDe
 import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
 import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
-import MissionControlDecisionCenter from '@/components/ai/MissionControlDecisionCenter';
+import AgentMissionControlDashboard from '@/components/ai/mission-control/AgentMissionControlDashboard';
 import KronosKLineForecastView from '@/components/ai/KronosKLineForecastView';
 import GroundStationMissionControl from '@/components/ai/GroundStationMissionControl';
 import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain, Radio, ShieldCheck } from 'lucide-react';
@@ -409,7 +409,7 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
       {mainAiTab === 'VIRTUAL_OFFICE' ? (
         <VirtualAgentOfficeView />
       ) : mainAiTab === 'MISSION_CONTROL' ? (
-        <MissionControlDecisionCenter />
+        <AgentMissionControlDashboard />
       ) : mainAiTab === 'KRONOS_FORECAST' ? (
         <KronosKLineForecastView />
       ) : mainAiTab === 'GROUND_STATION' ? (

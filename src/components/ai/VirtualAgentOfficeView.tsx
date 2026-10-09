@@ -131,6 +131,7 @@ import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWi
 import MissionControlDecisionCenter from './MissionControlDecisionCenter';
 import KronosKLineForecastView from './KronosKLineForecastView';
 import GroundStationMissionControl from './GroundStationMissionControl';
+import { useMissionControlBridgeStore } from '@/store/useMissionControlBridgeStore';
 import QuantDeskJessePanel from './QuantDeskJessePanel';
 import FloatingAgentInspector from './FloatingAgentInspector';
 import type { AgentProfile } from '@/types/simulation.types';
@@ -2210,6 +2211,7 @@ export default function VirtualAgentOfficeView() {
     if (hit) {
       sim.selectedId = hit.def.id;
       setInspectId(hit.def.id);
+      useMissionControlBridgeStore.getState().selectAgent(hit.def.id);
       return;
     }
     // klik meja War Room
@@ -2220,6 +2222,18 @@ export default function VirtualAgentOfficeView() {
       else resetDebate();
     }
   };
+
+  // Sinkronisasi kamera kanvas saat selectedAgentId di Mission Control Roster berubah
+  const selectedAgentIdFromBridge = useMissionControlBridgeStore((s) => s.selectedAgentId);
+  useEffect(() => {
+    if (!selectedAgentIdFromBridge || !simRef.current) return;
+    const agent = simRef.current.byId[selectedAgentIdFromBridge];
+    if (agent) {
+      simRef.current.selectedId = selectedAgentIdFromBridge;
+      setInspectId(selectedAgentIdFromBridge);
+      flyTo(agent.x, agent.y, 1.25);
+    }
+  }, [selectedAgentIdFromBridge, flyTo]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
