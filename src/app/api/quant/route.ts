@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const QUANT_BRIDGE_URL = process.env.QUANT_BRIDGE_URL || 'http://localhost:8002';
+const QUANT_BRIDGE_URL = process.env.QUANT_BRIDGE_URL || 'http://38.9.46.160:8002';
 const QUANT_BRIDGE_SECRET = process.env.QUANT_BRIDGE_SECRET || 'tradesim_quant_sec_7f9e1d82ab';
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Coba hubungi Quant Bridge lokal jika sedang aktif di laptop
+    // 1. Coba hubungi Quant Bridge 24/7 di VPS Cloud / Lokal
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 3000);
 
     try {
       const res = await fetch(`${QUANT_BRIDGE_URL}/api/quant/status`, {
@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
         const data = await res.json();
         return NextResponse.json({
           ...data,
-          source: 'LOCAL_QUANT_BRIDGE_ONLINE',
+          source: 'VPS_CLOUD_QUANT_BRIDGE_ONLINE',
+          bridgeHost: QUANT_BRIDGE_URL,
         });
       }
     } catch {
