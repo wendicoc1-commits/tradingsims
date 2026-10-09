@@ -25,7 +25,7 @@ import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
 import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
 import AiOsAgenticCyberdeckView from '@/components/ai/AiOsAgenticCyberdeckView';
-import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe } from 'lucide-react';
+import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
