@@ -765,8 +765,16 @@ function renderFrame(ctx: CanvasRenderingContext2D, sim: Sim, now: number, dt: n
   if (sim.staticLayer) ctx.drawImage(sim.staticLayer, 0, 0);
 
   // ── PBR Wet/Metallic Floor Specular Reflections ──
-  const currentAtmosphere = globalAtmosphere.getState();
-  globalFloorPbr.renderFloorSpecularReflection(ctx, WORLD_W, WORLD_H, now, currentAtmosphere.regime);
+  try {
+    const floorRegime = sim.alarm
+      ? 'HIGH_VOLATILITY'
+      : sim.weather === 'BEARISH_RAIN'
+      ? 'BEAR_DRAWDOWN'
+      : 'BULL_MOMENTUM';
+    globalFloorPbr.renderFloorSpecularReflection(ctx, WORLD_W, WORLD_H, now, floorRegime);
+  } catch {
+    // Fallback gracefully without interrupting render loop
+  }
 
   // Cuaca Pasar Kantor Virtual (Dimensi 4: Market Weather)
   if (sim.weather === 'BULLISH_SUNNY') {

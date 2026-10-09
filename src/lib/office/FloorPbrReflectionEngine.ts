@@ -5,7 +5,7 @@
  * and neon wall tickers across the dark marble trading floor.
  */
 
-import { MarketRegime } from './MarketAtmosphereEngine';
+export type FloorPbrRegime = 'BULL_MOMENTUM' | 'BEAR_DRAWDOWN' | 'HIGH_VOLATILITY';
 
 export interface EmissiveLightSource {
   x: number;
@@ -45,7 +45,7 @@ export class FloorPbrReflectionEngine {
     worldW: number,
     worldH: number,
     now: number,
-    regime: MarketRegime = 'BULL_MOMENTUM'
+    regime: FloorPbrRegime = 'BULL_MOMENTUM'
   ): void {
     ctx.save();
 
@@ -130,7 +130,7 @@ export class FloorPbrReflectionEngine {
     worldW: number,
     worldH: number,
     now: number,
-    regime: MarketRegime = 'BULL_MOMENTUM'
+    regime: FloorPbrRegime = 'BULL_MOMENTUM'
   ): void {
     ctx.save();
     for (const light of this.lights) {
