@@ -114,8 +114,10 @@ export function roundTick(p: number): number {
 }
 
 export function portfolioNav(p: PortfolioSnapshot): number {
+  if (!p) return 0;
   const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
-  const hv = p.holdings.reduce((sum, h: any) => {
+  const holdingsList = Array.isArray(p.holdings) ? p.holdings : [];
+  const hv = holdingsList.reduce((sum, h: any) => {
     const sym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isCrypto =
       h.assetClass === 'CRYPTO' ||
