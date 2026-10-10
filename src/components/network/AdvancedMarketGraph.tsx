@@ -1111,25 +1111,39 @@ export default function AdvancedMarketGraph() {
             {/* Drawer Content */}
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               {/* Price & Change Card */}
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-[11px] text-slate-400">Harga Terkini</span>
-                  <span className="font-bold text-lg font-mono text-white">
-                    {selectedNode.isCrypto ? `$${selectedNode.currentPrice.toLocaleString()}` : `Rp ${selectedNode.currentPrice.toLocaleString('id-ID')}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Perubahan Estimasi</span>
-                  <span
-                    className={`font-semibold flex items-center gap-1 ${
-                      selectedNode.isUp ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    {selectedNode.isUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                    {(selectedNode.changePct >= 0 ? '+' : '') + selectedNode.changePct}%
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const nodePrice = (typeof (selectedNode as any).currentPrice === 'number'
+                  ? (selectedNode as any).currentPrice
+                  : (selectedNode as any).basePrice) || 0;
+                const nodeChange = typeof (selectedNode as any).changePct === 'number'
+                  ? (selectedNode as any).changePct
+                  : 0;
+                const nodeIsUp = typeof (selectedNode as any).isUp === 'boolean'
+                  ? (selectedNode as any).isUp
+                  : nodeChange >= 0;
+
+                return (
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-[11px] text-slate-400">Harga Terkini</span>
+                      <span className="font-bold text-lg font-mono text-white">
+                        {selectedNode.isCrypto ? `$${nodePrice.toLocaleString()}` : `Rp ${nodePrice.toLocaleString('id-ID')}`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Perubahan Estimasi</span>
+                      <span
+                        className={`font-semibold flex items-center gap-1 ${
+                          nodeIsUp ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {nodeIsUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                        {(nodeChange >= 0 ? '+' : '') + nodeChange}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* User Holding Alert (if in portfolio) */}
               {userHoldingsMap.has(selectedNode.label.toUpperCase()) && (

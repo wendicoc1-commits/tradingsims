@@ -79,13 +79,21 @@ export default function GlobalAutonomousAgentRunner() {
         }
 
         // 3. Eksekusi siklus otonom penuh (TP/SL, Sizing, OODA GPT-4o, dan Buy Alpha Pick)
-        const cycleResult = await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: false });
+        let cycleResult: { tradeExecuted?: boolean; actionTaken?: string | null } | null = null;
+        try {
+          const res = await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: false });
+          if (res && typeof res === 'object') {
+            cycleResult = res;
+          }
+        } catch (cycleErr) {
+          console.warn('[GlobalAutonomousAgentRunner] runAutonomousAgentCycle fallback:', cycleErr);
+        }
 
-        if (cycleResult?.tradeExecuted && cycleResult?.actionTaken) {
+        if (cycleResult && Boolean(cycleResult.tradeExecuted) && Boolean(cycleResult.actionTaken)) {
           tradeSimAudio.playOrderFilledChime();
           setToastNotification({
             id: `toast-${Date.now()}`,
-            message: cycleResult.actionTaken,
+            message: cycleResult.actionTaken || 'Trade dieksekusi otomatis oleh AI',
             type: 'trade',
           });
 
