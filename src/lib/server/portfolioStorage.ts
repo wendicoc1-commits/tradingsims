@@ -577,7 +577,10 @@ export interface ServerDepositRecord {
 let serverDepositsList: ServerDepositRecord[] = [];
 
 export function saveServerDeposit(record: ServerDepositRecord): void {
-  const existingIdx = serverDepositsList.findIndex((d) => d.id === record.id);
+  const existingIdx = serverDepositsList.findIndex((d) => 
+    d.id === record.id || 
+    (d.user_id === record.user_id && d.status === 'PENDING' && d.amount === record.amount)
+  );
   if (existingIdx >= 0) {
     serverDepositsList[existingIdx] = record;
   } else {

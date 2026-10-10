@@ -185,9 +185,12 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
           .maybeSingle();
 
         const curOrders = Array.isArray(portData?.orders) ? portData.orders : [];
-        const updatedOrders = curOrders.map((o: any) =>
-          o.id === depositId ? { ...o, status: 'APPROVED', approvedAt: new Date().toISOString(), approvedBy: adminId } : o
-        );
+        const updatedOrders = curOrders.map((o: any) => {
+          if (o.id === depositId || (o.type === 'DEPOSIT' && o.status === 'PENDING' && (o.virtualCashAmount === depositAmount || o.shares === depositAmount))) {
+            return { ...o, status: 'APPROVED', approvedAt: new Date().toISOString(), approvedBy: adminId };
+          }
+          return o;
+        });
 
         await supabaseAdmin
           .from('user_portfolios')
@@ -474,7 +477,7 @@ export async function getPendingDeposits(): Promise<DepositRecord[]> {
       } catch (_) {}
     }
 
-    return allDeposits.map((d: any) => ({
+    const mappedDeposits = allDeposits.map((d: any) => ({
       ...d,
       user: d.user || userMap[d.user_id] || {
         id: d.user_id,
@@ -483,6 +486,28 @@ export async function getPendingDeposits(): Promise<DepositRecord[]> {
         role: 'member',
       },
     }));
+
+    // Deduplikasi ketat antrean PENDING:
+    // Jika ada beberapa tiket PENDING untuk user yang sama dengan nominal yang sama persis,
+    // tampilkan 1 tiket terbaru saja agar tidak membingungkan admin.
+    const dedupedPendingMap = new Map<string, any>();
+    const nonPendingList: any[] = [];
+
+    for (const d of mappedDeposits) {
+      if (d.status === 'PENDING') {
+        const userKey = d.user?.email || d.user_id;
+        const dedupKey = `${userKey}_${d.amount}`;
+        if (!dedupedPendingMap.has(dedupKey)) {
+          dedupedPendingMap.set(dedupKey, d);
+        }
+      } else {
+        nonPendingList.push(d);
+      }
+    }
+
+    return [...Array.from(dedupedPendingMap.values()), ...nonPendingList].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
   } catch (err) {
     console.error('[getPendingDeposits Error]', err);
     return getServerDeposits() as DepositRecord[];
