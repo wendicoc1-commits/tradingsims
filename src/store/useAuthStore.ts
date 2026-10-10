@@ -597,7 +597,6 @@ export const useAuthStore = create<AuthState>()(
           status: order.status || 'FILLED',
           realized_pl: order.realizedPL ?? null,
           created_at: order.createdAt || new Date().toISOString(),
-          filled_at: order.filledAt || new Date().toISOString(),
         };
 
         if (isSupabaseConfigured) {
