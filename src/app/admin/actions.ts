@@ -12,6 +12,7 @@ import {
   saveUserPortfolio,
   ServerDepositRecord
 } from '@/lib/server/portfolioStorage';
+import { sendTelegramDepositNotification, sendTelegramDepositApproved } from '@/lib/telegram/botNotifier';
 import crypto from 'crypto';
 
 const SALT = 'tradingsims_cloud_sync_salt_v1';
@@ -241,6 +242,15 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
 
       // Update status di memory server
       updateServerDepositStatus(depositId, 'APPROVED', adminId);
+
+      // Kirim konfirmasi notifikasi Telegram
+      sendTelegramDepositApproved({
+        ticketId: depositId,
+        senderName: targetDeposit.user?.full_name || 'Member',
+        userEmail,
+        nominalPay: Math.round(depositAmount / 100),
+        virtualCashAmount: depositAmount,
+      }).catch(() => {});
     }
 
     revalidatePath('/admin/deposits');
@@ -800,6 +810,18 @@ export async function submitDepositTicket({
     } catch (e: any) {
       console.warn('[submitDepositTicket user_portfolios catch]', e?.message);
     }
+
+    // 4. Kirim notifikasi instan ke Telegram Admin (Non-blocking)
+    sendTelegramDepositNotification({
+      ticketId: ticketUuid,
+      senderName,
+      senderBank,
+      nominalPay,
+      virtualCashAmount,
+      userEmail,
+      notes,
+      proofUrl: proofImage,
+    }).catch((err) => console.warn('[Telegram Notification Error]', err));
 
     revalidatePath('/admin/deposits');
     return { success: true, data: savedData };

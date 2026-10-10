@@ -63,6 +63,9 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'CRYPTO', desc: 'AI Quant Cryptocurrency Trading Desk', cat: 'pasar' },
   { cmd: 'ADMIN', desc: 'Panel Administrator (Approval Deposit & Portofolio)', cat: 'alat' },
   { cmd: 'TOPUP', desc: 'Top Up Saldo Kas Virtual via QRIS', cat: 'alat' },
+  { cmd: 'LIGA', desc: 'Turnamen Liga Trading Berhadiah Tunai Rp 5 Jt', cat: 'alat' },
+  { cmd: 'ROADMAP', desc: 'Peta Jalan Belajar Trader & Quant FinTech', cat: 'alat' },
+  { cmd: 'ARCH', desc: 'Blueprint Arsitektur Sistem FinTech ACID', cat: 'alat' },
   { cmd: 'HELP', desc: 'Buka Panduan & Shortcuts TradeSim Pro', cat: 'alat' },
 ];
 
@@ -227,6 +230,9 @@ export default function TradeSimHeader() {
     if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
     else if (cmd === 'TOPUP' || cmd === 'DEPOSIT') setIsTopUpOpen(true);
     else if (cmd === 'ADMIN' || cmd === 'APPROVAL') router.push('/admin/deposits');
+    else if (cmd === 'LIGA' || cmd === 'CHAMPIONSHIP' || cmd === 'TOURNAMENT') router.push('/championship');
+    else if (cmd === 'ROADMAP' || cmd === 'LEARN') router.push('/roadmap');
+    else if (cmd === 'ARCH' || cmd === 'ARCHITECTURE') router.push('/architecture');
     else if (cmd === 'LOGIN' || cmd === 'AUTH') setIsAuthModalOpen(true);
     else if (cmd === 'SOUND' || cmd === 'AUDIO') handleToggleSound();
     else if (cmd === 'NEWS' || cmd === 'STREAM') router.push('/stream');
@@ -545,6 +551,39 @@ export default function TradeSimHeader() {
           }`}
         >
           <span>🌐 Makro &amp; Suku Bunga</span>
+        </Link>
+        <Link
+          href="/championship"
+          aria-current={pathname.startsWith('/championship') ? 'page' : undefined}
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/championship')
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+              : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
+          }`}
+        >
+          <span>🏆 Liga Trading</span>
+        </Link>
+        <Link
+          href="/roadmap"
+          aria-current={pathname.startsWith('/roadmap') ? 'page' : undefined}
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/roadmap')
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+              : 'text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10'
+          }`}
+        >
+          <span>🧭 Roadmap</span>
+        </Link>
+        <Link
+          href="/architecture"
+          aria-current={pathname.startsWith('/architecture') ? 'page' : undefined}
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+            pathname.startsWith('/architecture')
+              ? 'bg-zinc-800 text-white font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+          }`}
+        >
+          <span>🏗️ Arsitektur</span>
         </Link>
         <Link
           href="/admin/portfolios"
