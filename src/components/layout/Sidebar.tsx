@@ -48,6 +48,7 @@ const academyDesks = [
   { href: '/championship', label: 'Liga Trading Cuan', icon: Trophy },
   { href: '/roadmap', label: 'Roadmap Trader', icon: Compass },
   { href: '/architecture', label: 'Arsitektur Sistem', icon: Layers },
+  { href: '/api-hub', label: 'Public API Hub', icon: Globe },
 ];
 
 export default function Sidebar() {
