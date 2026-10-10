@@ -553,3 +553,61 @@ export function deleteUserAccountLocal(userId: string): void {
   saveDatabase(db);
 }
 
+export interface ServerDepositRecord {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  payment_method: string;
+  proof_url?: string | null;
+  notes?: string | null;
+  rejection_reason?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+let serverDepositsList: ServerDepositRecord[] = [];
+
+export function saveServerDeposit(record: ServerDepositRecord): void {
+  const existingIdx = serverDepositsList.findIndex((d) => d.id === record.id);
+  if (existingIdx >= 0) {
+    serverDepositsList[existingIdx] = record;
+  } else {
+    serverDepositsList.unshift(record);
+  }
+}
+
+export function getServerDeposits(): ServerDepositRecord[] {
+  return [...serverDepositsList];
+}
+
+export function updateServerDepositStatus(
+  depositId: string,
+  status: 'APPROVED' | 'REJECTED',
+  adminId: string = 'admin-system',
+  reason?: string
+): boolean {
+  const target = serverDepositsList.find((d) => d.id === depositId);
+  if (target) {
+    target.status = status;
+    target.updated_at = new Date().toISOString();
+    if (status === 'APPROVED') {
+      target.approved_by = adminId;
+      target.approved_at = new Date().toISOString();
+    } else {
+      target.rejection_reason = reason;
+      target.approved_by = adminId;
+    }
+    return true;
+  }
+  return false;
+}
+

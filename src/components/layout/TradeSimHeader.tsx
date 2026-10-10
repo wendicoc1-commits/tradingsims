@@ -36,6 +36,8 @@ import AdminTopUpApprovalModal from '@/components/portfolio/AdminTopUpApprovalMo
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAIAgentStore } from '@/store/aiAgentStore';
+import { useTopUpApprovalStore } from '@/store/useTopUpApprovalStore';
+import { submitDepositTicket } from '@/app/admin/actions';
 
 interface CliSuggestion {
   cmd: string;
@@ -102,6 +104,35 @@ export default function TradeSimHeader() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-sync antrean top-up lokal yang tertunda ke Supabase Cloud
+  const { requests: pendingTopUpRequests } = useTopUpApprovalStore();
+  const syncedTicketsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const pendings = pendingTopUpRequests.filter((r) => r.status === 'PENDING');
+    if (pendings.length === 0) return;
+
+    pendings.forEach(async (t) => {
+      if (syncedTicketsRef.current.has(t.id)) return;
+      syncedTicketsRef.current.add(t.id);
+
+      try {
+        await submitDepositTicket({
+          userId: user?.id,
+          userEmail: user?.email,
+          senderName: t.senderName,
+          senderBank: t.senderBank,
+          nominalPay: t.nominalIDR,
+          virtualCashAmount: t.virtualCash,
+          proofImage: t.proofImageBase64,
+          notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari browser',
+        });
+      } catch (err) {
+        console.warn('[Header auto-sync deposit ticket error]', err);
+      }
+    });
+  }, [pendingTopUpRequests, user?.id, user?.email]);
 
   useEffect(() => {
     checkSession();

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import {
   X,
@@ -18,9 +18,12 @@ import {
   TrendingUp,
   AlertCircle,
   FileCheck,
+  Loader2,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useTopUpApprovalStore, TopUpRequest } from '@/store/useTopUpApprovalStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { submitDepositTicket } from '@/app/admin/actions';
 import AdminTopUpApprovalModal from './AdminTopUpApprovalModal';
 
 interface TopUpModalProps {
@@ -53,6 +56,7 @@ const BANK_OPTIONS = [
 
 export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   const { cash } = usePortfolioStore();
+  const { user } = useAuthStore();
   const { submitRequest, requests } = useTopUpApprovalStore();
 
   const [step, setStep] = useState<'FORM' | 'SUBMITTED'>('FORM');
@@ -61,12 +65,13 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   const [copiedNMID, setCopiedNMID] = useState(false);
 
   // Form Fields Member
-  const [senderName, setSenderName] = useState('');
+  const [senderName, setSenderName] = useState(user?.fullName || '');
   const [senderBank, setSenderBank] = useState('BCA');
   const [refNote, setRefNote] = useState('');
   const [proofImageBase64, setProofImageBase64] = useState<string | null>(null);
   const [proofFileName, setProofFileName] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tiket yang baru disubmit
   const [lastSubmittedTicket, setLastSubmittedTicket] = useState<TopUpRequest | null>(null);
@@ -75,6 +80,46 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const syncedTicketIdsRef = useRef<Set<string>>(new Set());
+
+  // Auto-sync tiket yang tersimpan di browser sebelumnya ke Supabase Cloud Admin Panel
+  useEffect(() => {
+    const pendingTickets = requests.filter((r) => r.status === 'PENDING');
+    if (pendingTickets.length === 0) return;
+
+    pendingTickets.forEach(async (t) => {
+      if (syncedTicketIdsRef.current.has(t.id)) return;
+      syncedTicketIdsRef.current.add(t.id);
+
+      try {
+        await submitDepositTicket({
+          userId: user?.id,
+          userEmail: user?.email,
+          senderName: t.senderName,
+          senderBank: t.senderBank,
+          nominalPay: t.nominalIDR,
+          virtualCashAmount: t.virtualCash,
+          proofImage: t.proofImageBase64,
+          notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari sesi sebelumnya',
+        });
+      } catch (err) {
+        console.warn('[AutoSync Deposit ticket error]', err);
+      }
+    });
+  }, [requests, user?.id, user?.email]);
+
+  // Saat menunggu verifikasi, cek pembaruan saldo di database secara berkala
+  useEffect(() => {
+    if (step !== 'SUBMITTED') return;
+
+    const interval = setInterval(async () => {
+      try {
+        await useAuthStore.getState().loadPortfolioFromDatabase();
+      } catch (_) {}
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [step]);
 
   if (!isOpen) return null;
 
@@ -93,8 +138,8 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('Ukuran foto bukti transfer maksimal 5 MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('Ukuran foto bukti transfer maksimal 10 MB.');
       return;
     }
 
@@ -103,12 +148,42 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setProofImageBase64(event.target?.result as string);
+      const src = event.target?.result as string;
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1000;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.75);
+          setProofImageBase64(compressed);
+        } else {
+          setProofImageBase64(src);
+        }
+      };
+      img.onerror = () => {
+        setProofImageBase64(src);
+      };
+      img.src = src;
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmitProof = (e: React.FormEvent) => {
+  const handleSubmitProof = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!senderName.trim()) {
       setFormError('Silakan masukkan nama pemilik rekening/pengirim transfer.');
@@ -116,27 +191,62 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     }
 
     setFormError(null);
+    setIsSubmitting(true);
 
-    // Submit ke antrian pending (Saldo TIDAK bertambah sampai Admin approve)
-    const ticket = submitRequest({
-      senderName: senderName.trim(),
-      senderBank,
-      nominalIDR: activePay,
-      refNote: refNote.trim(),
-      proofImageBase64: proofImageBase64 || undefined,
-    });
+    try {
+      // 1. Submit ke Supabase Cloud Server Action
+      const res = await submitDepositTicket({
+        userId: user?.id,
+        userEmail: user?.email,
+        senderName: senderName.trim(),
+        senderBank,
+        nominalPay: activePay,
+        virtualCashAmount: virtualCashReceived,
+        proofImage: proofImageBase64 || undefined,
+        notes: refNote.trim(),
+      });
 
-    setLastSubmittedTicket(ticket);
-    setStep('SUBMITTED');
+      // 2. Submit ke antrian pending lokal untuk responsivitas UI instan
+      const ticket = submitRequest({
+        senderName: senderName.trim(),
+        senderBank,
+        nominalIDR: activePay,
+        refNote: refNote.trim(),
+        proofImageBase64: proofImageBase64 || undefined,
+      });
+
+      if (res.data?.id) {
+        ticket.id = res.data.id;
+        syncedTicketIdsRef.current.add(ticket.id);
+      }
+
+      setLastSubmittedTicket(ticket);
+      setStep('SUBMITTED');
+    } catch (err: any) {
+      console.error('[TopUpModal submit error]', err);
+      // Fallback submit ke lokal
+      const ticket = submitRequest({
+        senderName: senderName.trim(),
+        senderBank,
+        nominalIDR: activePay,
+        refNote: refNote.trim(),
+        proofImageBase64: proofImageBase64 || undefined,
+      });
+      setLastSubmittedTicket(ticket);
+      setStep('SUBMITTED');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetAndClose = () => {
     setStep('FORM');
-    setSenderName('');
+    setSenderName(user?.fullName || '');
     setRefNote('');
     setProofImageBase64(null);
     setProofFileName(null);
     setFormError(null);
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -144,6 +254,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   const liveTicketStatus = lastSubmittedTicket
     ? requests.find((r) => r.id === lastSubmittedTicket.id)?.status
     : null;
+
 
   return (
     <>
@@ -513,9 +624,17 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                   {/* Tombol Kirim Bukti Transfer */}
                   <button
                     type="submit"
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-600 hover:to-yellow-600 text-zinc-950 font-black text-sm shadow-xl shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-black text-sm shadow-xl shadow-amber-500/20 transition flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
-                    <span>📩 KIRIM BUKTI PEMBAYARAN KE ADMIN</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                        <span>MENGIRIM KE ADMIN PANEL...</span>
+                      </>
+                    ) : (
+                      <span>📩 KIRIM BUKTI PEMBAYARAN KE ADMIN</span>
+                    )}
                   </button>
 
                   <p className="text-[11px] text-center text-zinc-400">
@@ -527,17 +646,21 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
             {/* Footer Admin Link */}
             <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
-              <span>Sistem Proteksi Mutasi v2.0</span>
-              <button
-                type="button"
-                onClick={() => setIsAdminModalOpen(true)}
-                className="text-zinc-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition"
-                title="Buka panel persetujuan mutasi (Khusus Pemilik)"
-              >
-                <Lock className="w-3 h-3 text-amber-500" />
-                <span>Panel Verifikasi Admin</span>
-              </button>
+              <span>Sistem Proteksi Mutasi v2.0 (Cloud Sync)</span>
+              <div className="flex items-center gap-3">
+                <a
+                  href="/admin/deposits"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-amber-400/90 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer transition underline decoration-amber-500/40"
+                  title="Buka antrean approval deposit di Web Admin Panel"
+                >
+                  <ExternalLink className="w-3 h-3 text-amber-400" />
+                  <span>Admin Panel Cloud</span>
+                </a>
+              </div>
             </div>
+
           </div>
         </div>
       </div>
