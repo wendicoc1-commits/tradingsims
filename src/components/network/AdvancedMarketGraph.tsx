@@ -9,6 +9,8 @@ import {
   NetworkNode,
   NetworkEdge,
   NetworkPresetData,
+  FIRM_AI_EMPLOYEES,
+  EmployeeAgentNode,
 } from '@/data/market_network_universe';
 import { usePortfolioStore } from '@/store';
 import {
@@ -31,6 +33,11 @@ import {
   DollarSign,
   Maximize2,
   Box,
+  Brain,
+  Cpu,
+  Users,
+  Target,
+  Radio,
 } from 'lucide-react';
 import MarketGraph3D from './MarketGraph3D';
 
@@ -65,6 +72,8 @@ export default function AdvancedMarketGraph() {
   const [sizeMetric, setSizeMetric] = useState<'marketCap' | 'volume' | 'connections'>('marketCap');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedNode, setSelectedNode] = useState<SimulatedNode | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeAgentNode | null>(null);
+  const [selectedCoreInfo, setSelectedCoreInfo] = useState<{ consensusPct: number; currentTarget: string } | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(60);
 
@@ -146,6 +155,8 @@ export default function AdvancedMarketGraph() {
     nodesRef.current = simNodes;
     edgesRef.current = simEdges;
     setSelectedNode(null);
+    setSelectedEmployee(null);
+    setSelectedCoreInfo(null);
     setFocusedNodeId(null);
 
     // Reset camera to center
@@ -688,7 +699,27 @@ export default function AdvancedMarketGraph() {
             searchQuery={searchQuery}
             focusedNodeId={focusedNodeId}
             selectedNodeId={selectedNode ? selectedNode.id : null}
-            onSelectNode={(node) => setSelectedNode(node as SimulatedNode | null)}
+            onSelectNode={(node) => {
+              setSelectedNode(node as SimulatedNode | null);
+              if (node) {
+                setSelectedEmployee(null);
+                setSelectedCoreInfo(null);
+              }
+            }}
+            onSelectEmployee={(emp) => {
+              setSelectedEmployee(emp);
+              if (emp) {
+                setSelectedNode(null);
+                setSelectedCoreInfo(null);
+              }
+            }}
+            onSelectCore={(core) => {
+              setSelectedCoreInfo(core);
+              if (core) {
+                setSelectedNode(null);
+                setSelectedEmployee(null);
+              }
+            }}
             onFocusNode={(nodeId) => setFocusedNodeId(nodeId)}
             userHoldingsMap={userHoldingsMap}
             physicsActive={physicsActive}
@@ -815,9 +846,246 @@ export default function AdvancedMarketGraph() {
         )}
 
         {/* SIDE INSPECTOR DRAWER (RIGHT) */}
-        {selectedNode && (
+        {(selectedCoreInfo || selectedEmployee || selectedNode) && (
           <aside className="w-80 border-l border-white/10 bg-[#0c101a]/95 backdrop-blur-lg h-full flex flex-col z-20 absolute right-0 top-0 shadow-2xl transition-all duration-300">
-            {/* Drawer Header */}
+            {/* 1. CENTRAL AI DECISION CORE VIEW */}
+            {selectedCoreInfo && (
+              <>
+                <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-950/40 via-purple-950/30 to-slate-900/60 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-0.5 shadow-lg shadow-cyan-500/20">
+                      <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-cyan-400">
+                        <Brain className="w-5 h-5 animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                        QUANT AI DECISION CORE
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                          ORIGIN (0,0,0)
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400">Autonomous Committee Consensus Engine</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedCoreInfo(null)} className="text-slate-400 hover:text-white p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-y-auto space-y-4">
+                  {/* Current Active Decision Banner */}
+                  <div className="p-3.5 rounded-xl bg-gradient-to-br from-cyan-950/60 via-slate-900/90 to-emerald-950/40 border border-cyan-500/30 shadow-lg">
+                    <div className="flex items-center justify-between text-[11px] mb-2">
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> Status Laser Eksekusi
+                      </span>
+                      <span className="text-emerald-400 font-bold text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+                        EMITTING (FIRING)
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="text-[10px] text-slate-400 uppercase tracking-wider">Saham Target Terpilih:</div>
+                        <div className="text-2xl font-black font-mono text-cyan-300 flex items-center gap-1.5 mt-0.5">
+                          ${selectedCoreInfo.currentTarget}
+                          <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            STRONG BUY
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-slate-400 uppercase tracking-wider">Konsensus:</div>
+                        <div className="text-lg font-bold font-mono text-emerald-400">
+                          {selectedCoreInfo.consensusPct.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Laser Physics Mechanics Info */}
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-slate-300 space-y-1.5">
+                    <div className="font-bold text-slate-200 text-[11px] flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-cyan-400" /> Mekanisme 3D Laser Targeting:
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Sinar laser bertenaga tinggi ditembakkan secara otonom dari Central Core di koordinat (0, 0, 0) langsung menuju node saham <b className="text-cyan-300">${selectedCoreInfo.currentTarget}</b> di orbit terluar berdasarkan agregasi suara seluruh karyawan AI.
+                    </p>
+                  </div>
+
+                  {/* AI Employee Voting Ledger */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-indigo-400" /> Suara Komite Karyawan AI
+                      </span>
+                      <span className="text-[10px] text-slate-400">6 Anggota Aktif</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {FIRM_AI_EMPLOYEES.map((emp) => (
+                        <div
+                          key={emp.id}
+                          onClick={() => {
+                            setSelectedEmployee(emp);
+                            setSelectedCoreInfo(null);
+                          }}
+                          className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-cyan-500/30 transition cursor-pointer flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{emp.emoji}</span>
+                            <div>
+                              <div className="font-bold text-xs text-white">{emp.name}</div>
+                              <div className="text-[10px] text-slate-400">{emp.role}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                emp.vote === 'BUY'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}
+                            >
+                              {emp.vote} ${emp.targetSymbol}
+                            </span>
+                            <div className="text-[9px] text-slate-400 mt-0.5">
+                              Bobot: {(emp.weight * 100).toFixed(0)}%
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="pt-2 space-y-2">
+                    <button
+                      onClick={() => router.push(`/stock/${selectedCoreInfo.currentTarget}`)}
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Buka Terminal Saham ${selectedCoreInfo.currentTarget}
+                    </button>
+                    <button
+                      onClick={() => router.push('/office')}
+                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-white/10 transition flex items-center justify-center gap-1.5"
+                    >
+                      <Building2 className="w-3.5 h-3.5" /> Masuk ke Markas AI Office 2D
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 2. AI EMPLOYEE INSPECTOR VIEW */}
+            {selectedEmployee && (
+              <>
+                <div className="p-4 border-b border-indigo-500/20 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-slate-900 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xl shadow-lg border border-white/20"
+                      style={{ backgroundColor: selectedEmployee.avatarColor + '33' }}
+                    >
+                      {selectedEmployee.emoji}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                        {selectedEmployee.name}
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-bold border ${
+                            selectedEmployee.vote === 'BUY'
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          }`}
+                        >
+                          {selectedEmployee.vote}
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400">{selectedEmployee.role}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedEmployee(null)} className="text-slate-400 hover:text-white p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-y-auto space-y-4">
+                  {/* Department & Influence Weight */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
+                      <div className="text-slate-400 text-[10px]">Departemen</div>
+                      <div className="font-bold text-slate-200 mt-0.5 truncate">{selectedEmployee.dept}</div>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
+                      <div className="text-slate-400 text-[10px]">Bobot Voting Komite</div>
+                      <div className="font-bold text-cyan-400 mt-0.5 font-mono">
+                        {(selectedEmployee.weight * 100).toFixed(0)}% Pengaruh
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendation Card */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/90 border border-white/10">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Rekomendasi Saham:</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xl font-black font-mono text-emerald-400 flex items-center gap-2">
+                        ${selectedEmployee.targetSymbol}
+                        <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {selectedEmployee.vote} SIGNAL
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/stock/${selectedEmployee.targetSymbol}`)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 font-semibold"
+                      >
+                        Terminal <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Research Thesis */}
+                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-1.5">
+                    <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Tesis Riset & Argumen:
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed italic">
+                      "{selectedEmployee.thesis}"
+                    </p>
+                  </div>
+
+                  {/* Synaptic Beam Link Status */}
+                  <div className="p-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-xs">
+                    <div className="font-bold text-cyan-300 flex items-center gap-1.5 mb-1">
+                      <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> Synaptic Beam Ke Central Core
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Simpul 3D karyawan ini memancarkan jalur data sinaptik aktif langsung ke Central Quant Core (0, 0, 0) untuk memasok probabilitas bobot portofolio secara real-time.
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-2 space-y-2">
+                    <button
+                      onClick={() => router.push(`/stock/${selectedEmployee.targetSymbol}`)}
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Analisa Saham ${selectedEmployee.targetSymbol}
+                    </button>
+                    <button
+                      onClick={() => router.push('/office')}
+                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-white/10 transition flex items-center justify-center gap-1.5"
+                    >
+                      <Building2 className="w-3.5 h-3.5" /> Lihat Meja Kerja di AI Office 2D
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 3. STOCK / CRYPTO EMITEN VIEW */}
+            {selectedNode && (
+              <>
             <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-sm">
@@ -974,6 +1242,8 @@ export default function AdvancedMarketGraph() {
                 </button>
               </div>
             </div>
+            </>
+          )}
           </aside>
         )}
       </div>

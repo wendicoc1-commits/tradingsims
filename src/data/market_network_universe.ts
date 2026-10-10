@@ -36,6 +36,94 @@ export interface NetworkPresetData {
   edges: NetworkEdge[];
 }
 
+export interface EmployeeAgentNode {
+  id: string;
+  name: string;
+  role: string;
+  dept: string;
+  emoji: string;
+  vote: 'BUY' | 'HOLD' | 'VETO';
+  targetSymbol: string;
+  weight: number; // 0 to 1 voting weight
+  thesis: string;
+  avatarColor: string;
+}
+
+export const FIRM_AI_EMPLOYEES: EmployeeAgentNode[] = [
+  {
+    id: 'agent_cio',
+    name: 'Dr. Evelyn Chandra',
+    role: 'Chief Investment Officer (CIO)',
+    dept: 'Investment Committee',
+    emoji: '🧭',
+    vote: 'BUY',
+    targetSymbol: 'BREN',
+    weight: 0.30,
+    thesis: 'Pertumbuhan kapasitas panas bumi Star Energy & momentum ESG global sangat solid.',
+    avatarColor: '#06b6d4',
+  },
+  {
+    id: 'agent_cro',
+    name: 'Victor Halim',
+    role: 'Chief Risk Officer (CRO)',
+    dept: 'Risk Sentinel Desk',
+    emoji: '🚨',
+    vote: 'BUY',
+    targetSymbol: 'BBRI',
+    weight: 0.20,
+    thesis: 'Drawdown terkendali di bawah 1.5%. Rasio risk-reward 1:3.2 terverifikasi aman.',
+    avatarColor: '#f43f5e',
+  },
+  {
+    id: 'agent_quant',
+    name: 'Jesse Livermore',
+    role: 'Lead Quantitative Trader',
+    dept: 'High Frequency & Momentum Desk',
+    emoji: '🤠',
+    vote: 'BUY',
+    targetSymbol: 'ARB',
+    weight: 0.25,
+    thesis: 'Deteksi volume breakout anomalistis + lonjakan transaksi smart money tier-1.',
+    avatarColor: '#10b981',
+  },
+  {
+    id: 'agent_pm_idx',
+    name: 'Bagas Kurniawan',
+    role: 'Portfolio Manager (IDX)',
+    dept: 'Equity Research & Valuation',
+    emoji: '🇮🇩',
+    vote: 'BUY',
+    targetSymbol: 'BBCA',
+    weight: 0.20,
+    thesis: 'Margin bunga bersih (NIM) 5.8% stabil dengan kualitas kredit NPL sangat rendah.',
+    avatarColor: '#3b82f6',
+  },
+  {
+    id: 'agent_scout',
+    name: 'Alpha Scout',
+    role: 'Orderflow Scout',
+    dept: 'Bandarmology & Dark Pool Desk',
+    emoji: '⚡',
+    vote: 'BUY',
+    targetSymbol: 'BRPT',
+    weight: 0.15,
+    thesis: 'Broker J.P. Morgan (BK) dan UBS (AK) konsisten akumulasi net buy 4 hari berturut-turut.',
+    avatarColor: '#eab308',
+  },
+  {
+    id: 'agent_dividend',
+    name: 'Hendra Gunawan',
+    role: 'Dividend Strategist',
+    dept: 'Cashflow Optimization Desk',
+    emoji: '💰',
+    vote: 'HOLD',
+    targetSymbol: 'ASII',
+    weight: 0.10,
+    thesis: 'Menunggu pengumuman dividen interim kuartal 4 dengan estimasi yield > 7.5%.',
+    avatarColor: '#a855f7',
+  },
+];
+
 export const MARKET_NETWORK_DATASETS: Record<'conglomerates' | 'smartMoney' | 'crypto', NetworkPresetData> = {
   conglomerates: {
     title: 'Peta Konglomerasi & Holding Group Indonesia',
