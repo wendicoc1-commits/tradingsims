@@ -257,17 +257,6 @@ export default function MarketDepthVisualizer({ quote }: MarketDepthVisualizerPr
           </>
         );
       })()}
-                  </span>
-                  <div className="flex items-center gap-3 relative z-10 text-[11px]">
-                    <span className="text-rose-400">{a.lot.toLocaleString('id-ID')}</span>
-                    <span className="text-neutral-400 font-medium">({a.cumLot.toLocaleString('id-ID')})</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
