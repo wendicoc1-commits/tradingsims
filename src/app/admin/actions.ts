@@ -8,7 +8,7 @@ import {
   saveServerDeposit,
   getServerDeposits,
   updateServerDepositStatus,
-  loadUserPortfolio,
+  getUserPortfolio,
   saveUserPortfolio,
   ServerDepositRecord
 } from '@/lib/server/portfolioStorage';
@@ -204,7 +204,7 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
       } catch (_) {}
 
       // Sinkronkan juga ke runtime memory server lokal
-      const localPort = loadUserPortfolio({ userId: targetUserId, email: userEmail });
+      const localPort = getUserPortfolio({ userId: targetUserId, email: userEmail });
       saveUserPortfolio({ userId: targetUserId, email: userEmail }, {
         cash: (localPort?.cash || 0) + depositAmount,
         realizedPL: localPort?.realizedPL || 0,

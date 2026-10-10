@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
   allowedDevOrigins: [
     '192.168.0.68',
     'localhost:3000',

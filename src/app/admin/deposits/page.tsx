@@ -43,8 +43,8 @@ export default function AdminDepositsPage() {
 
   const [isPendingAction, startTransition] = useTransition();
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       // 1. Fetch langsung dari live REST API route /api/deposits
       const res = await fetch('/api/deposits?t=' + Date.now(), { cache: 'no-store' });
@@ -52,7 +52,7 @@ export default function AdminDepositsPage() {
         const json = await res.json();
         if (json.success && Array.isArray(json.deposits)) {
           setDeposits(json.deposits);
-          setIsLoading(false);
+          if (!silent) setIsLoading(false);
           return;
         }
       }
@@ -66,13 +66,16 @@ export default function AdminDepositsPage() {
         setDeposits(data);
       } catch (_) {}
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
-
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleApprove = (depositId: string) => {
@@ -440,19 +443,48 @@ export default function AdminDepositsPage() {
                   type="text"
                   value={simUserId}
                   onChange={(e) => setSimUserId(e.target.value)}
-                  placeholder="Contoh: usr-xxx atau email member"
+                  placeholder="Contoh: usr-xxx atau wendicoc1@gmail.com"
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500"
                 />
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  <span className="text-[10px] text-neutral-500">Pilih Cepat:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSimUserId('usr-1791653243226-b5cbn')}
+                    className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:text-emerald-400 border border-neutral-700/50 transition-colors"
+                  >
+                    wendicoc1@gmail.com
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSimUserId('usr-1791653041218-go5mq')}
+                    className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:text-emerald-400 border border-neutral-700/50 transition-colors"
+                  >
+                    test_member_verify_abc
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="text-[11px] text-neutral-400 block mb-1">Nominal Deposit (IDR)</label>
+                <label className="text-[11px] text-neutral-400 block mb-1">Nominal Saldo Wallet Ditambahkan (IDR)</label>
                 <input
                   type="number"
                   value={simAmount}
                   onChange={(e) => setSimAmount(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500"
                 />
+                <div className="flex gap-1.5 mt-1.5">
+                  {[20_000_000, 50_000_000, 100_000_000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setSimAmount(String(amt))}
+                      className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 hover:text-emerald-400 border border-neutral-700/50 transition-colors"
+                    >
+                      Rp {(amt / 1_000_000).toLocaleString('id-ID')} Juta
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
