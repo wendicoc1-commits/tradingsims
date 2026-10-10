@@ -555,22 +555,26 @@ export default function TradeSimHeader() {
           aria-current={pathname.startsWith('/architecture') ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
             pathname.startsWith('/architecture')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-purple-600/30 text-purple-200 border border-purple-500/50 font-bold shadow-md'
+              : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/20'
           }`}
         >
-          <span>🏗️ Arsitektur</span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+          </span>
+          <span>🏗️ Graphify Arsitektur</span>
         </Link>
         <Link
           href="/api-hub"
           aria-current={pathname.startsWith('/api-hub') ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
             pathname.startsWith('/api-hub')
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
+              ? 'bg-cyan-600/30 text-cyan-200 border border-cyan-500/50 font-bold shadow-md'
+              : 'text-cyan-300 hover:text-white hover:bg-cyan-950/40 border border-cyan-500/20'
           }`}
         >
-          <span>🌐 Public APIs</span>
+          <span>🌐 1.400+ Public APIs</span>
         </Link>
         <Link
           href="/admin/portfolios"

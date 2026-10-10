@@ -16,9 +16,11 @@ import {
   LineChart,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePathname } from 'next/navigation';
 
 export default function TradeSimAuthGate({ children }: { children: React.ReactNode }) {
   const { user, loginWithEmail, registerWithEmail, enterGuestMode, isLoading, authError } = useAuthStore();
+  const pathname = usePathname() || '';
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -41,8 +43,22 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
     );
   }
 
-  // If user is authenticated, render the full workstation
-  if (user) {
+  // Rute publik showcase/edukasi yang bisa langsung diakses tanpa login
+  const isPublicRoute =
+    pathname.startsWith('/architecture') ||
+    pathname.startsWith('/api-hub') ||
+    pathname.startsWith('/roadmap') ||
+    pathname.startsWith('/championship') ||
+    pathname.startsWith('/stream') ||
+    pathname.startsWith('/heatmap') ||
+    pathname.startsWith('/macro') ||
+    pathname.startsWith('/crypto') ||
+    pathname.startsWith('/screener') ||
+    pathname.startsWith('/dividend') ||
+    pathname.startsWith('/ipo');
+
+  // If user is authenticated or visiting public showcase routes, render children
+  if (user || isPublicRoute) {
     return <>{children}</>;
   }
 
@@ -285,11 +301,27 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
               type="button"
               onClick={() => enterGuestMode()}
               aria-label="Masuk sebagai tamu untuk demo gratis tanpa registrasi"
-              className="w-full py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer mb-2"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
               <span>Coba Demo Instan (Mode Tamu)</span>
             </button>
+
+            {/* Direct links to showcase features */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <a
+                href="/architecture"
+                className="py-1.5 px-2 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-500/30 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition text-center"
+              >
+                <span>🏗️ Arsitektur Graphify</span>
+              </a>
+              <a
+                href="/api-hub"
+                className="py-1.5 px-2 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition text-center"
+              >
+                <span>🌐 1.400+ Public APIs</span>
+              </a>
+            </div>
           </div>
         </div>
 

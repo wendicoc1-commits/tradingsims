@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Plus,
   RotateCcw,
@@ -940,6 +941,36 @@ export default function FinceptCustomizableDashboard() {
           </button>
         </div>
       )}
+
+      {/* ── Feature Highlight Banner: Graphify Knowledge Graph & 1.400+ Public APIs ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 bg-gradient-to-r from-purple-950/60 via-zinc-900/90 to-cyan-950/60 border border-purple-500/40 rounded-lg text-xs shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+          </span>
+          <span className="font-extrabold text-white tracking-wide text-xs">
+            NEW SYSTEM BLUEPRINT:
+          </span>
+          <span className="text-zinc-300 text-xs hidden md:inline">
+            Graphify Holographic Knowledge Graph &amp; 1.400+ Public API Hub telah terintegrasi!
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/architecture"
+            className="px-3 py-1 rounded-md bg-purple-600/40 hover:bg-purple-600/60 text-purple-200 border border-purple-500/60 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+          >
+            <span>🏗️ Buka Arsitektur Graphify</span>
+          </Link>
+          <Link
+            href="/api-hub"
+            className="px-3 py-1 rounded-md bg-cyan-600/40 hover:bg-cyan-600/60 text-cyan-200 border border-cyan-500/60 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+          >
+            <span>🌐 1.400+ Public APIs</span>
+          </Link>
+        </div>
+      </div>
 
       {/* ── User-Friendly Workspace Controls Bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#09090b] border border-[#27272a] rounded-sm text-xs">

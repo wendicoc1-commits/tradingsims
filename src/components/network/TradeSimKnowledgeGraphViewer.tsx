@@ -47,6 +47,38 @@ interface SimulatedGraphEdge extends KnowledgeGraphEdge {
   targetNode: SimulatedGraphNode;
 }
 
+function createInitialGraphSimulation(): {
+  simNodes: SimulatedGraphNode[];
+  simEdges: SimulatedGraphEdge[];
+} {
+  const simNodes: SimulatedGraphNode[] = TRADESIMS_KNOWLEDGE_NODES.map((n) => ({
+    ...n,
+    x: n.x ?? (Math.random() - 0.5) * 400,
+    y: n.y ?? (Math.random() - 0.5) * 400,
+    vx: 0,
+    vy: 0,
+    radius: n.category === 'STORE' || n.category === 'DATABASE' ? 24 : 18,
+  }));
+
+  const nodeMap = new Map<string, SimulatedGraphNode>();
+  simNodes.forEach((n) => nodeMap.set(n.id, n));
+
+  const simEdges: SimulatedGraphEdge[] = [];
+  TRADESIMS_KNOWLEDGE_EDGES.forEach((e) => {
+    const src = nodeMap.get(e.source);
+    const tgt = nodeMap.get(e.target);
+    if (src && tgt) {
+      simEdges.push({
+        ...e,
+        sourceNode: src,
+        targetNode: tgt,
+      });
+    }
+  });
+
+  return { simNodes, simEdges };
+}
+
 export default function TradeSimKnowledgeGraphViewer() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,51 +98,22 @@ export default function TradeSimKnowledgeGraphViewer() {
   const [pathNodes, setPathNodes] = useState<Set<string>>(new Set());
 
   // Camera Pan & Zoom Transform
-  const cameraRef = useRef({ x: 0, y: 0, scale: 1 });
+  const cameraRef = useRef({ x: 0, y: 0, scale: 0.95 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const draggedNodeRef = useRef<SimulatedGraphNode | null>(null);
 
-  // Nodes & Edges Refs for Simulation
-  const nodesRef = useRef<SimulatedGraphNode[]>([]);
-  const edgesRef = useRef<SimulatedGraphEdge[]>([]);
+  // Synchronous Node & Edge Graph Initialization
+  const initialData = useMemo(() => createInitialGraphSimulation(), []);
+  const nodesRef = useRef<SimulatedGraphNode[]>(initialData.simNodes);
+  const edgesRef = useRef<SimulatedGraphEdge[]>(initialData.simEdges);
   const animationFrameRef = useRef<number | null>(null);
   const radarAngleRef = useRef<number>(0);
 
-  // Inisialisasi posisi awal simpul
-  useEffect(() => {
-    const simNodes: SimulatedGraphNode[] = TRADESIMS_KNOWLEDGE_NODES.map((n) => ({
-      ...n,
-      x: n.x || (Math.random() - 0.5) * 400,
-      y: n.y || (Math.random() - 0.5) * 400,
-      vx: 0,
-      vy: 0,
-      radius: n.category === 'STORE' || n.category === 'DATABASE' ? 24 : 18,
-    }));
-
-    const nodeMap = new Map<string, SimulatedGraphNode>();
-    simNodes.forEach((n) => nodeMap.set(n.id, n));
-
-    const simEdges: SimulatedGraphEdge[] = [];
-    TRADESIMS_KNOWLEDGE_EDGES.forEach((e) => {
-      const src = nodeMap.get(e.source);
-      const tgt = nodeMap.get(e.target);
-      if (src && tgt) {
-        simEdges.push({
-          ...e,
-          sourceNode: src,
-          targetNode: tgt,
-        });
-      }
-    });
-
-    nodesRef.current = simNodes;
-    edgesRef.current = simEdges;
-  }, []);
-
   // Filter nodes & edges berdasarkan active cluster & search
   const visibleNodes = useMemo(() => {
-    return nodesRef.current.filter((n) => {
+    const currentNodes = nodesRef.current.length > 0 ? nodesRef.current : initialData.simNodes;
+    return currentNodes.filter((n) => {
       const matchCluster = activeClusterFilter === 'ALL' || n.cluster === activeClusterFilter;
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =
@@ -120,7 +123,7 @@ export default function TradeSimKnowledgeGraphViewer() {
         n.filePath.toLowerCase().includes(q);
       return matchCluster && matchSearch;
     });
-  }, [activeClusterFilter, searchQuery]);
+  }, [activeClusterFilter, searchQuery, initialData.simNodes]);
 
   // Algoritma BFS Shortest Path antara dua simpul (Fitur Graphify /graphify path)
   const calculateShortestPath = useCallback((startId: string, endId: string) => {
@@ -382,17 +385,37 @@ export default function TradeSimKnowledgeGraphViewer() {
     };
   }, [bgGridEnabled, bgOpacity, radarSweepEnabled, physicsActive, selectedNode, visibleNodes, pathNodes]);
 
-  // Handle Resize Canvas
+  // Handle Resize Canvas with ResizeObserver and resilient dimension fallback
   useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
     const handleResize = () => {
-      if (canvasRef.current && containerRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = containerRef.current.clientHeight;
+      const rect = container.getBoundingClientRect();
+      const w = Math.max(container.clientWidth, rect.width, 800);
+      const h = Math.max(container.clientHeight, rect.height, 620);
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
       }
     };
+
     handleResize();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize();
+      });
+      resizeObserver.observe(container);
+    }
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Mouse Interaction: Click, Drag, Zoom
@@ -555,14 +578,21 @@ export default function TradeSimKnowledgeGraphViewer() {
       </div>
 
       {/* ── Main Canvas Viewport ── */}
-      <div ref={containerRef} className="relative w-full h-full cursor-grab active:cursor-grabbing">
+      <div
+        ref={containerRef}
+        className="relative flex-1 w-full min-h-[620px] cursor-grab active:cursor-grabbing"
+        style={{ width: '100%', minHeight: '620px', height: '620px' }}
+      >
         <canvas
           ref={canvasRef}
+          width={1000}
+          height={620}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           className="w-full h-full block"
+          style={{ width: '100%', height: '100%', display: 'block' }}
         />
       </div>
 

@@ -47,8 +47,8 @@ const researchDesks = [
 const academyDesks = [
   { href: '/championship', label: 'Liga Trading Cuan', icon: Trophy },
   { href: '/roadmap', label: 'Roadmap Trader', icon: Compass },
-  { href: '/architecture', label: 'Arsitektur Sistem', icon: Layers },
-  { href: '/api-hub', label: 'Public API Hub', icon: Globe },
+  { href: '/architecture', label: 'Graphify Arsitektur', icon: Layers },
+  { href: '/api-hub', label: 'Public API Hub (1.4k)', icon: Globe },
 ];
 
 export default function Sidebar() {
