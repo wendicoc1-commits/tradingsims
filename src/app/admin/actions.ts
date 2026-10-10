@@ -116,6 +116,29 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
         targetDeposit = localList.find((d) => d.id === depositId);
       }
 
+      // Jika masih belum ditemukan, cari dari user_portfolios di Supabase Cloud
+      if (!targetDeposit) {
+        try {
+          const { data: allPorts } = await supabaseAdmin
+            .from('user_portfolios')
+            .select('user_id, email, orders');
+          if (allPorts) {
+            for (const p of allPorts) {
+              const found = (p.orders || []).find((o: any) => o.id === depositId);
+              if (found) {
+                targetDeposit = {
+                  id: depositId,
+                  user_id: p.user_id,
+                  amount: found.virtualCashAmount || found.shares || found.total || 0,
+                  user: { email: p.email, id: p.user_id },
+                };
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       if (!targetDeposit) {
         return { success: false, error: 'Data deposit tidak ditemukan' };
       }
