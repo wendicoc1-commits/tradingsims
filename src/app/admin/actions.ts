@@ -585,6 +585,7 @@ export async function createDepositRequest(userId: string, amount: number, payme
  * Server Action: Submit Tiket Deposit Member dari Top Up Modal ke Supabase Cloud
  */
 export async function submitDepositTicket({
+  ticketId,
   userId,
   userEmail,
   senderName,
@@ -594,6 +595,7 @@ export async function submitDepositTicket({
   proofImage,
   notes,
 }: {
+  ticketId?: string;
   userId?: string;
   userEmail?: string;
   senderName: string;
@@ -640,7 +642,37 @@ export async function submitDepositTicket({
       targetUserId = anyUser?.id || (userId || `usr-${Date.now()}`);
     }
 
-    const ticketUuid = crypto.randomUUID();
+    const ticketUuid = ticketId || crypto.randomUUID();
+
+    // 2. Anti-Duplicate & Anti-Spam Guard: Cek portofolio cloud
+    const { data: portData } = await supabaseAdmin
+      .from('user_portfolios')
+      .select('orders, email')
+      .eq('user_id', targetUserId)
+      .maybeSingle();
+
+    const existingOrders = Array.isArray(portData?.orders) ? portData.orders : [];
+
+    // Jika ID tiket ini sudah ada di database, jangan buat baru (idempotent)
+    const existingSameId = existingOrders.find((o: any) => o.id === ticketUuid);
+    if (existingSameId) {
+      return { success: true, data: existingSameId };
+    }
+
+    // Jika ada permohonan pending serupa dalam 20 detik terakhir untuk user ini, gunakan tiket tersebut
+    const nowMs = Date.now();
+    const recentDuplicate = existingOrders.find((o: any) => {
+      if (o.type === 'DEPOSIT' && o.status === 'PENDING' && o.virtualCashAmount === virtualCashAmount) {
+        const orderTime = new Date(o.createdAt || 0).getTime();
+        return (nowMs - orderTime) < 20_000;
+      }
+      return false;
+    });
+
+    if (recentDuplicate) {
+      return { success: true, data: recentDuplicate };
+    }
+
     const nowIso = new Date().toISOString();
     const notesText = `Pengirim: ${senderName} (${senderBank}). Bayar: Rp ${nominalPay.toLocaleString('id-ID')}. Saldo Wallet: Rp ${virtualCashAmount.toLocaleString('id-ID')}.${notes ? ` Catatan: ${notes}` : ''}`;
 

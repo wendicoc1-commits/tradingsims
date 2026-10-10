@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, userEmail, senderName, senderBank, nominalPay, virtualCashAmount, proofImage, notes } = body;
+    const { ticketId, userId, userEmail, senderName, senderBank, nominalPay, virtualCashAmount, proofImage, notes } = body;
 
     if (!senderName || !nominalPay || !virtualCashAmount) {
       return NextResponse.json(
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await submitDepositTicket({
+      ticketId,
       userId,
       userEmail,
       senderName,

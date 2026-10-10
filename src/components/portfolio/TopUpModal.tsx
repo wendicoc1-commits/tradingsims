@@ -76,38 +76,12 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   // Tiket yang baru disubmit
   const [lastSubmittedTicket, setLastSubmittedTicket] = useState<TopUpRequest | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const syncedTicketIdsRef = useRef<Set<string>>(new Set());
-
-  // Auto-sync tiket yang tersimpan di browser sebelumnya ke Supabase Cloud Admin Panel
+  // Bersihkan stale pending requests di local storage saat modal dibuka agar tidak menumpuk
   useEffect(() => {
-    const pendingTickets = requests.filter((r) => r.status === 'PENDING');
-    if (pendingTickets.length === 0) return;
-
-    pendingTickets.forEach(async (t) => {
-      if (syncedTicketIdsRef.current.has(t.id)) return;
-      syncedTicketIdsRef.current.add(t.id);
-
-      try {
-        await fetch('/api/deposits', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user?.id,
-            userEmail: user?.email,
-            senderName: t.senderName,
-            senderBank: t.senderBank,
-            nominalPay: t.nominalIDR,
-            virtualCashAmount: t.virtualCash,
-            proofImage: t.proofImageBase64,
-            notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari sesi sebelumnya',
-          }),
-        });
-      } catch (err) {
-        console.warn('[AutoSync Deposit ticket error]', err);
-      }
-    });
-  }, [requests, user?.id, user?.email]);
+    if (isOpen && requests.length > 5) {
+      useTopUpApprovalStore.getState().clearHistory();
+    }
+  }, [isOpen, requests.length]);
 
 
   // Saat menunggu verifikasi, cek pembaruan saldo di database secara berkala
@@ -196,11 +170,14 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     setIsSubmitting(true);
 
     try {
-      // 1. Submit langsung ke online API endpoint /api/deposits
+      const clientTicketId = `dep-${Date.now()}`;
+
+      // 1. Submit TUNGGAL langsung ke online API endpoint /api/deposits
       const resApi = await fetch('/api/deposits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ticketId: clientTicketId,
           userId: user?.id,
           userEmail: user?.email,
           senderName: senderName.trim(),
@@ -214,21 +191,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
       const jsonApi = await resApi.json().catch(() => ({}));
 
-      // 2. Submit juga via Server Action untuk sinkronisasi Next.js path
-      try {
-        await submitDepositTicket({
-          userId: user?.id,
-          userEmail: user?.email,
-          senderName: senderName.trim(),
-          senderBank,
-          nominalPay: activePay,
-          virtualCashAmount: virtualCashReceived,
-          proofImage: proofImageBase64 || undefined,
-          notes: refNote.trim(),
-        });
-      } catch (_) {}
-
-      // 3. Simpan ke local state untuk responsivitas UI modal
+      // 2. Simpan ke local state untuk responsivitas UI modal
       const ticket = submitRequest({
         senderName: senderName.trim(),
         senderBank,
@@ -237,11 +200,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
         proofImageBase64: proofImageBase64 || undefined,
       });
 
-      if (jsonApi?.data?.id) {
-        ticket.id = jsonApi.data.id;
-        syncedTicketIdsRef.current.add(ticket.id);
-      }
-
+      ticket.id = jsonApi?.data?.id || clientTicketId;
       setLastSubmittedTicket(ticket);
       setStep('SUBMITTED');
     } catch (err: any) {
