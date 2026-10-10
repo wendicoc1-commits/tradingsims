@@ -81,7 +81,7 @@ export default function GlobalAutonomousAgentRunner() {
         // 3. Eksekusi siklus otonom penuh (TP/SL, Sizing, OODA GPT-4o, dan Buy Alpha Pick)
         const cycleResult = await runAutonomousAgentCycle(news, liveQuotesMap, { skipEquityBuy: false });
 
-        if (cycleResult.tradeExecuted && cycleResult.actionTaken) {
+        if (cycleResult?.tradeExecuted && cycleResult?.actionTaken) {
           tradeSimAudio.playOrderFilledChime();
           setToastNotification({
             id: `toast-${Date.now()}`,

@@ -803,7 +803,7 @@ export async function runAutonomousAgentCycle(
             },
           });
         }
-        return;
+        return { actionTaken, tradeExecuted: false, topPick };
       }
 
       const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
@@ -836,7 +836,7 @@ export async function runAutonomousAgentCycle(
           title: `Plafon Sektor Penuh: ${target.symbol} Ditolak`,
           details: `Alokasi untuk sektor "${targetSector}" telah mencapai Rp ${Math.round(currentSectorExp).toLocaleString('id-ID')}. Pembelian tambahan Rp ${totalBuyCost.toLocaleString('id-ID')} akan menembus batas maksimal 30% NAV (Rp ${Math.round(maxAllocationPerSector).toLocaleString('id-ID')}). Trade dibatalkan demi mitigasi risiko klaster!`,
         });
-        return;
+        return { actionTaken, tradeExecuted: false, topPick };
       }
 
       // Cek apakah kas tidak cukup dan perlu rotasi modal
@@ -948,7 +948,7 @@ export async function runAutonomousAgentCycle(
               sl: oodaDecision.stop_loss,
             },
           });
-          return; // 🛡️ CRO VETO: Hentikan eksekusi order jika OODA me-veto!
+          return { actionTaken, tradeExecuted: false, topPick }; // 🛡️ CRO VETO: Hentikan eksekusi order jika OODA me-veto!
         }
 
         const { fullSymbol, displaySymbol } = normalizeSymbol(target.symbol);
@@ -998,7 +998,7 @@ export async function runAutonomousAgentCycle(
             tier: tieredEval.tier,
           }).catch(() => {});
 
-          return; // 🛡️ CRO & CRITIC VETO: Hentikan order jika gagal di Tier 1/2
+          return { actionTaken, tradeExecuted: false, topPick }; // 🛡️ CRO & CRITIC VETO: Hentikan order jika gagal di Tier 1/2
         }
 
         // Terapkan penyesuaian lot (The Critic Remedial Clamp)
@@ -1049,7 +1049,7 @@ export async function runAutonomousAgentCycle(
               title: `Deduplikasi Order: ${target.symbol}`,
               details: `Order untuk ${target.symbol} baru saja dieksekusi kurang dari 60 detik lalu. Mencegah order ganda.`,
             });
-            return;
+            return { actionTaken, tradeExecuted: false, topPick };
           }
           ORDER_DEDUPLICATION_CACHE[target.symbol] = Date.now();
 
@@ -1184,6 +1184,9 @@ export async function runAutonomousAgentCycle(
   );
 
     return { actionTaken, tradeExecuted, topPick };
+  } catch (err) {
+    console.error('[autonomousTradingEngine] Error in runAutonomousAgentCycle:', err);
+    return { actionTaken: null, tradeExecuted: false, topPick: null };
   } finally {
     isCycleCurrentlyExecuting = false;
     releaseCrossTabLock();
