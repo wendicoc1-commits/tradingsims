@@ -153,11 +153,22 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
 
       const newCash = currentCash + depositAmount;
 
-      // Update cash di user_portfolios
+      // Update cash dan status orders di user_portfolios Supabase
       try {
+        const { data: portData } = await supabaseAdmin
+          .from('user_portfolios')
+          .select('cash, orders')
+          .eq('user_id', targetUserId)
+          .maybeSingle();
+
+        const curOrders = Array.isArray(portData?.orders) ? portData.orders : [];
+        const updatedOrders = curOrders.map((o: any) =>
+          o.id === depositId ? { ...o, status: 'APPROVED', approvedAt: new Date().toISOString(), approvedBy: adminId } : o
+        );
+
         await supabaseAdmin
           .from('user_portfolios')
-          .update({ cash: newCash, updated_at: new Date().toISOString() })
+          .update({ cash: newCash, orders: updatedOrders, updated_at: new Date().toISOString() })
           .eq('user_id', targetUserId);
       } catch (_) {}
 
@@ -256,6 +267,30 @@ export async function rejectDeposit(
         .eq('id', depositId);
     } catch (_) {}
 
+    // Update status di user_portfolios.orders
+    try {
+      const { data: allPorts } = await supabaseAdmin
+        .from('user_portfolios')
+        .select('user_id, orders');
+
+      if (allPorts) {
+        for (const p of allPorts) {
+          const ords = Array.isArray(p.orders) ? p.orders : [];
+          const hasTarget = ords.some((o: any) => o.id === depositId);
+          if (hasTarget) {
+            const updatedOrders = ords.map((o: any) =>
+              o.id === depositId ? { ...o, status: 'REJECTED', rejectionReason: reason, approvedBy: adminId } : o
+            );
+            await supabaseAdmin
+              .from('user_portfolios')
+              .update({ orders: updatedOrders, updated_at: new Date().toISOString() })
+              .eq('user_id', p.user_id);
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
     // Update status di memory server
     updateServerDepositStatus(depositId, 'REJECTED', adminId, reason);
 
@@ -265,6 +300,7 @@ export async function rejectDeposit(
       success: true,
       message: 'Permohonan deposit telah ditolak.',
     };
+
   } catch (err: any) {
     console.error('[ServerAction rejectDeposit]', err);
     return { success: false, error: err.message || 'Terjadi kesalahan sistem' };
@@ -321,14 +357,14 @@ export async function resetMemberPassword(userId: string, newPassword: string) {
 }
 
 /**
- * Server Query: Fetch Pending Deposits Queue (Cloud Supabase + Resilient Memory Queue)
+ * Server Query: Fetch Pending Deposits Queue (Cloud Supabase + User Portfolios Cloud + Resilient Memory)
  */
 export async function getPendingDeposits(): Promise<DepositRecord[]> {
   try {
     const supabaseAdmin = getSupabaseAdminClient();
+    const combinedMap = new Map<string, any>();
 
-    // 1. Ambil data deposits dari Supabase
-    let cloudDeposits: any[] = [];
+    // 1. Ambil data deposits dari Supabase table deposits jika ada
     try {
       const { data, error } = await supabaseAdmin
         .from('deposits')
@@ -336,24 +372,60 @@ export async function getPendingDeposits(): Promise<DepositRecord[]> {
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        cloudDeposits = data;
-      } else if (error) {
-        console.warn('[getPendingDeposits Supabase notice]', error.message);
+        for (const d of data) {
+          combinedMap.set(d.id, d);
+        }
       }
     } catch (e: any) {
-      console.warn('[getPendingDeposits Supabase catch]', e?.message);
+      console.warn('[getPendingDeposits Supabase deposits catch]', e?.message);
     }
 
-    // 2. Ambil data deposits dari runtime server memory
+    // 2. Ambil data deposit dari user_portfolios (kolom orders) yang selalu ada di Supabase Cloud!
+    try {
+      const { data: allPorts } = await supabaseAdmin
+        .from('user_portfolios')
+        .select('user_id, email, orders');
+
+      if (allPorts && Array.isArray(allPorts)) {
+        for (const port of allPorts) {
+          const ords = Array.isArray(port.orders) ? port.orders : [];
+          for (const ord of ords) {
+            if (ord.type === 'DEPOSIT' || ord.symbol === 'DEPOSIT' || ord.symbol === 'IDR_DEPOSIT') {
+              const rec: DepositRecord = {
+                id: ord.id,
+                user_id: port.user_id,
+                amount: ord.virtualCashAmount || ord.shares || ord.total || 0,
+                status: ord.status || 'PENDING',
+                payment_method: ord.senderBank || 'QRIS',
+                proof_url: ord.proofUrl || null,
+                notes: ord.notes || `Pengirim: ${ord.senderName || 'Member'} (${ord.senderBank || 'Bank'}). Bayar: Rp ${(ord.total || 0).toLocaleString('id-ID')}`,
+                created_at: ord.createdAt || new Date().toISOString(),
+                updated_at: ord.createdAt || new Date().toISOString(),
+                user: {
+                  id: port.user_id,
+                  email: port.email || 'member@tradesim.id',
+                  full_name: ord.senderName || port.email?.split('@')[0] || 'Member Trader',
+                  role: 'member',
+                },
+              };
+              // Jangan timpa jika sudah ada dari tabel deposits
+              if (!combinedMap.has(rec.id)) {
+                combinedMap.set(rec.id, rec);
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('[getPendingDeposits user_portfolios catch]', e?.message);
+    }
+
+    // 3. Ambil data deposits dari runtime server memory
     const serverMemoryDeposits = getServerDeposits();
-
-    // 3. Gabungkan dan deduplikasi (utamakan cloud jika ID sama)
-    const combinedMap = new Map<string, any>();
     for (const d of serverMemoryDeposits) {
-      combinedMap.set(d.id, d);
-    }
-    for (const d of cloudDeposits) {
-      combinedMap.set(d.id, d);
+      if (!combinedMap.has(d.id)) {
+        combinedMap.set(d.id, d);
+      }
     }
 
     const allDeposits = Array.from(combinedMap.values()).sort(
@@ -393,6 +465,7 @@ export async function getPendingDeposits(): Promise<DepositRecord[]> {
     return getServerDeposits() as DepositRecord[];
   }
 }
+
 
 
 /**
@@ -474,23 +547,16 @@ export async function getMembersWithPortfolios(searchQuery: string = ''): Promis
  * Server Action: Submit Dummy Deposit Request (Untuk testing / onboarding member)
  */
 export async function createDepositRequest(userId: string, amount: number, paymentMethod: string = 'BANK_TRANSFER') {
-  try {
-    const supabaseAdmin = getSupabaseAdminClient();
-    const { data, error } = await supabaseAdmin.from('deposits').insert({
-      user_id: userId,
-      amount,
-      status: 'PENDING',
-      payment_method: paymentMethod,
-      created_at: new Date().toISOString(),
-    }).select().single();
-
-    if (error) throw error;
-    revalidatePath('/admin/deposits');
-    return { success: true, data };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return submitDepositTicket({
+    userId: userId.trim(),
+    senderName: 'Simulasi Admin',
+    senderBank: paymentMethod,
+    nominalPay: Math.round(amount / 100),
+    virtualCashAmount: amount,
+    notes: 'Dibuat langsung via fitur Simulasi Admin Panel',
+  });
 }
+
 
 /**
  * Server Action: Submit Tiket Deposit Member dari Top Up Modal ke Supabase Cloud
@@ -576,7 +642,7 @@ export async function submitDepositTicket({
     // 1. Simpan ke memory queue server terlebih dahulu agar langsung tersedia di admin panel
     saveServerDeposit(memoryRecord);
 
-    // 2. Simpan ke Supabase Cloud
+    // 2. Simpan ke Supabase Cloud (tabel deposits jika ada)
     let savedData: any = memoryRecord;
     try {
       const { data: cloudData, error: cloudErr } = await supabaseAdmin
@@ -604,8 +670,60 @@ export async function submitDepositTicket({
       console.warn('[submitDepositTicket Supabase catch - saved in memory queue]', e?.message);
     }
 
+    // 3. Simpan juga langsung ke Supabase Cloud tabel user_portfolios (kolom orders) yang PASTI ADA
+    try {
+      const { data: portData } = await supabaseAdmin
+        .from('user_portfolios')
+        .select('orders, email')
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+
+      const existingOrders = Array.isArray(portData?.orders) ? portData.orders : [];
+      const depositOrder = {
+        id: ticketUuid,
+        symbol: 'DEPOSIT',
+        displaySymbol: 'TOP UP CASHRDN',
+        type: 'DEPOSIT',
+        orderType: 'TOPUP',
+        price: 1,
+        lots: nominalPay,
+        shares: virtualCashAmount,
+        total: nominalPay,
+        fee: 0,
+        status: 'PENDING',
+        createdAt: nowIso,
+        senderName,
+        senderBank,
+        proofUrl: proofImage || null,
+        notes: notesText,
+        virtualCashAmount,
+      };
+
+      const updatedOrders = [depositOrder, ...existingOrders.filter((o: any) => o.id !== ticketUuid)];
+
+      if (portData) {
+        await supabaseAdmin
+          .from('user_portfolios')
+          .update({ orders: updatedOrders, updated_at: nowIso })
+          .eq('user_id', targetUserId);
+      } else {
+        await supabaseAdmin.from('user_portfolios').insert({
+          user_id: targetUserId,
+          email: userEmail || 'member@tradesim.id',
+          cash: 0,
+          realized_pl: 0,
+          holdings: [],
+          orders: updatedOrders,
+          updated_at: nowIso,
+        });
+      }
+    } catch (e: any) {
+      console.warn('[submitDepositTicket user_portfolios catch]', e?.message);
+    }
+
     revalidatePath('/admin/deposits');
     return { success: true, data: savedData };
+
   } catch (err: any) {
     console.error('[submitDepositTicket error]', err);
     return { success: false, error: err.message || 'Gagal menyimpan tiket deposit' };
