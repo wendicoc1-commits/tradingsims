@@ -176,32 +176,66 @@ export function calculateRealisticExecutionPrice(
   }
 
   const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-  const isLargeCap = ['BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM', 'AMMN', 'AAPL', 'MSFT', 'NVDA', 'BTC', 'ETH'].includes(cleanSym);
-  
-  // Baseline participation threshold
-  // Saham Bluechip likuid: dampak kecil (~0.05% - 0.2%)
-  // Saham Smallcap/kripto volatil: dampak lebih nyata (~0.2% - 1.8%)
-  const baseImpactFactor = isLargeCap ? 0.00008 : 0.00045;
-  const sqrtLots = Math.sqrt(lots);
-  
-  // Square-Root Law of Market Impact
-  let slippagePct = Math.min(0.035, baseImpactFactor * sqrtLots); // Max 3.5% slippage cap
-  if (lots <= 5) slippagePct = 0; // Order retail mikro tanpa slippage
+  const isCrypto = isCryptoSymbol(cleanSym) || FALLBACK_CRYPTO.has(cleanSym) || symbol.toUpperCase().endsWith('USDT');
+  const isUS = isUSSymbol(cleanSym) || FALLBACK_US.has(cleanSym);
+  const isForeign = isCrypto || isUS;
 
-  const isForeign = isCryptoSymbol(cleanSym) || isUSSymbol(cleanSym);
+  let slippagePct = 0;
+
+  if (isCrypto) {
+    // Untuk kripto, kuantitas 'lots' adalah unit koin kotor (bukan lot saham).
+    // Slippage dihitung proporsional terhadap nilai transaksi USD ($)
+    const notionalUSD = quotedPrice * lots;
+    const isMajorCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'SUI', 'NEAR', 'DOT'].includes(cleanSym);
+
+    if (notionalUSD <= 1500) {
+      // Order retail normal (< $1,500 USD) di bursa likuid Binance: spread tipis (~0.02% - 0.05%)
+      slippagePct = isMajorCrypto ? 0.0002 : 0.0005;
+    } else {
+      // Order bernilai besar (> $1,500) mulai mengikis kedalaman order book
+      const impactFactor = isMajorCrypto ? 0.000004 : 0.000015;
+      slippagePct = Math.min(0.015, impactFactor * Math.sqrt(notionalUSD));
+    }
+  } else if (isUS) {
+    // Saham US (lots = lembar saham, likuiditas NYSE/NASDAQ tinggi)
+    const notionalUSD = quotedPrice * lots;
+    const isLargeCapUS = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'].includes(cleanSym);
+
+    if (notionalUSD <= 2000) {
+      slippagePct = isLargeCapUS ? 0.0002 : 0.0005;
+    } else {
+      const impactFactor = isLargeCapUS ? 0.000003 : 0.000012;
+      slippagePct = Math.min(0.012, impactFactor * Math.sqrt(notionalUSD));
+    }
+  } else {
+    // Saham Indonesia (IDX / BEI): 1 lot = 100 lembar saham
+    const isLargeCap = ['BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM', 'AMMN'].includes(cleanSym);
+    const baseImpactFactor = isLargeCap ? 0.00008 : 0.00045;
+
+    if (lots <= 5) {
+      slippagePct = 0; // Order retail mikro tanpa slippage
+    } else {
+      const sqrtLots = Math.sqrt(lots);
+      slippagePct = Math.min(0.025, baseImpactFactor * sqrtLots);
+    }
+  }
+
   const factor = isSell ? (1 - slippagePct) : (1 + slippagePct);
   const rawExecuted = quotedPrice * factor;
 
-  // Round executed price to valid exchange tick
+  // Round executed price to valid exchange tick / precision
   let executedPrice = rawExecuted;
   if (!isForeign) {
     const tick = getIDXTickSize(quotedPrice);
     executedPrice = isSell
       ? Math.floor(rawExecuted / tick) * tick
       : Math.ceil(rawExecuted / tick) * tick;
-  } else {
-    const precision = quotedPrice < 1 ? 4 : 2;
+  } else if (isCrypto) {
+    // Presisi kripto disesuaikan dengan skala harga (koin sub-rupiah seperti PEPE/SHIB sampai BTC)
+    const precision = quotedPrice < 0.00001 ? 8 : quotedPrice < 0.01 ? 6 : quotedPrice < 1 ? 4 : 2;
     executedPrice = Number(rawExecuted.toFixed(precision));
+  } else {
+    executedPrice = Number(rawExecuted.toFixed(2));
   }
 
   const slippageNominal = Math.abs(executedPrice - quotedPrice);
