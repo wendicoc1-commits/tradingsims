@@ -214,7 +214,7 @@ export const KNOWN_CRYPTO_SYMBOLS = [
   'S', 'SEI', 'INJ', 'UNI', 'LTC', 'BCH', 'AAVE', 'ICP', 'POL', 'MATIC',
 ]
 
-export const INITIAL_CASH = 100000000 // Rp 100 Juta modal awal simulasi standar
+export const INITIAL_CASH = 0 // Rp 0 modal awal simulasi bersih
 
 export const INITIAL_HOLDINGS: PortfolioHolding[] = []
 
@@ -237,10 +237,47 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
     .map((h) => {
       const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
       const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
-      if (!isCrypto) return h
+      if (!isCrypto) {
+        const curPrice = h.currentPrice || 0
+        const avgPrice = h.avgPrice || 0
+        const isUS = h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean)
+        const totalShares = h.shares || (isUS ? h.lots : h.lots * SHARES_PER_LOT)
+        const rate = h.exchangeRate || 16000
 
-      const curPrice = h.currentPrice || 0
+        let unrealizedPL = h.unrealizedPL || 0
+        let unrealizedPLPercent = h.unrealizedPLPercent || 0
+
+        if (curPrice > 0 && avgPrice > 0 && totalShares > 0) {
+          unrealizedPL = isUS ? Math.round((curPrice - avgPrice) * totalShares * rate) : (curPrice - avgPrice) * totalShares
+          unrealizedPLPercent = Number((((curPrice - avgPrice) / avgPrice) * 100).toFixed(2))
+        }
+
+        return {
+          ...h,
+          shares: totalShares,
+          unrealizedPL,
+          unrealizedPLPercent,
+        }
+      }
+
+      let curPrice = h.currentPrice || 0
       let effectiveAvg = h.avgPrice
+
+      // Deteksi jika curPrice keliru tersimpan dalam format IDR (misal Rp 20.000 untuk DOT)
+      if (curPrice > 500 && curPrice / 16000 <= 150000) {
+        curPrice = Number((curPrice / 16000).toFixed(curPrice < 16 ? 6 : 4))
+      }
+
+      // Deteksi & kalibrasi dua arah avgPrice
+      if (curPrice > 0 && effectiveAvg > curPrice * 100) {
+        if (effectiveAvg / 16000 >= curPrice * 0.2 && effectiveAvg / 16000 <= curPrice * 5) {
+          effectiveAvg = Number((effectiveAvg / 16000).toFixed(effectiveAvg < 16 ? 6 : 4))
+        } else {
+          effectiveAvg = curPrice
+        }
+      } else if (curPrice > 0 && (effectiveAvg <= 0.0000001 || curPrice > effectiveAvg * 50)) {
+        effectiveAvg = curPrice
+      }
 
       // Pulihkan units nyata (jangan biarkan 0 mengesampingkan lots)
       const effectiveUnits = (h.cryptoUnits && h.cryptoUnits > 0) ? h.cryptoUnits : (h.lots || 0)
@@ -262,12 +299,17 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
       const rate = h.exchangeRate || 16000
       const units = effectiveUnits
       const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
-      const unrealizedPLPercent = effectiveAvg > 0
+      let calcPLPercent = effectiveAvg > 0
         ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
         : 0
 
+      // Hard-cap pengaman realistis untuk mencegah anomali meledak ke ribuan persen
+      if (calcPLPercent > 500) calcPLPercent = 500
+      if (calcPLPercent < -98) calcPLPercent = -98
+
       return {
         ...h,
+        currentPrice: curPrice,
         avgPrice: effectiveAvg,
         lots: effectiveLots,
         shares: effectiveShares,
@@ -275,7 +317,7 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
         takeProfitPrice: effectiveTP,
         stopLossPrice: effectiveSL,
         unrealizedPL,
-        unrealizedPLPercent,
+        unrealizedPLPercent: calcPLPercent,
       }
     })
 }
@@ -1202,11 +1244,16 @@ export const usePortfolioStore = create<PortfolioState>()(
           const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || isCryptoSymbol(clean)
           const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
           const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || isUSSymbol(clean) || KNOWN_US.includes(clean))
-          const candidatePrice =
+          let candidatePrice =
             priceMap[holding.symbol] ??
             priceMap[clean] ??
             priceMap[`${clean}USDT`] ??
             holding.currentPrice
+
+          // Proteksi: jika candidatePrice adalah angka IDR ribuan padahal crypto, konversi ke USD
+          if (isCrypto && candidatePrice && candidatePrice > 500 && candidatePrice / 16000 <= 150000) {
+            candidatePrice = Number((candidatePrice / 16000).toFixed(candidatePrice < 16 ? 6 : 4))
+          }
 
           const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
 
@@ -1218,13 +1265,21 @@ export const usePortfolioStore = create<PortfolioState>()(
           let effectiveStopLoss = holding.stopLossPrice
           let wasHealed = false
 
-          // Proteksi jika terjadi anomali ekstrem akibat kekeliruan input mata uang IDR ke USD (rasio > 200x)
-          if (isCrypto && effectiveAvgPrice > newPrice * 200 && newPrice > 0) {
-            effectiveAvgPrice = newPrice
-            wasHealed = true
-          } else if (isCrypto && effectiveAvgPrice <= 0 && newPrice > 0) {
-            effectiveAvgPrice = newPrice
-            wasHealed = true
+          // Proteksi dua arah untuk crypto:
+          if (isCrypto && newPrice > 0) {
+            // Kasus 1: avgPrice format IDR (> 100x newPrice)
+            if (effectiveAvgPrice > newPrice * 100) {
+              if (effectiveAvgPrice / 16000 >= newPrice * 0.2 && effectiveAvgPrice / 16000 <= newPrice * 5) {
+                effectiveAvgPrice = Number((effectiveAvgPrice / 16000).toFixed(newPrice < 1 ? 6 : 4))
+              } else {
+                effectiveAvgPrice = newPrice
+              }
+              wasHealed = true
+            } else if (effectiveAvgPrice <= 0.0000001 || newPrice > effectiveAvgPrice * 50) {
+              // Kasus 2: avgPrice terpotong/hilang desimal/0 sehingga memicu cuan ratusan ribu %
+              effectiveAvgPrice = newPrice
+              wasHealed = true
+            }
           }
 
           // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
@@ -1245,16 +1300,22 @@ export const usePortfolioStore = create<PortfolioState>()(
         if (isCrypto) {
           const rate = holding.exchangeRate || 16000
           unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * effectiveUnits * rate)
-          unrealizedPLPercent = effectiveAvgPrice > 0
+          let calcPLPct = effectiveAvgPrice > 0
             ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
+          if (calcPLPct > 500) calcPLPct = 500
+          if (calcPLPct < -98) calcPLPct = -98
+          unrealizedPLPercent = calcPLPct
         } else if (isUS) {
           const rate = holding.exchangeRate || 16000
           const units = holding.shares ?? holding.lots
           unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * units * rate)
-          unrealizedPLPercent = effectiveAvgPrice > 0
+          let calcPLPct = effectiveAvgPrice > 0
             ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
+          if (calcPLPct > 500) calcPLPct = 500
+          if (calcPLPct < -98) calcPLPct = -98
+          unrealizedPLPercent = calcPLPct
         } else {
           const totalShares = holding.shares || holding.lots * SHARES_PER_LOT
           unrealizedPL = (newPrice - effectiveAvgPrice) * totalShares

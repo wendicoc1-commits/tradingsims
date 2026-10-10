@@ -42,6 +42,9 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
+import { exportPortfolioToExcel, exportElementToPDF } from '@/lib/exportUtils';
 
 import { useOrderCalculation } from '@/hooks/useOrderCalculation';
 
@@ -137,19 +140,26 @@ function OrderForm() {
           orderType: isForeign ? 'MARKET' : 'LIMIT',
         });
         if (res.order) {
+          const successMsg = isCrypto
+            ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+            : isUS
+            ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
+            : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`;
+          
           setNotification({
             type: 'success',
-            message: isCrypto
-              ? `⚡ BERHASIL BELI: ${lotsNum} ${cleanSym} @ $${priceNum.toLocaleString()} USDT (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
-              : isUS
-              ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
-              : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`,
+            message: successMsg,
           });
+          toast.success(successMsg, {
+            description: `Saldo Kas Tersisa: Rp ${Math.round(cash - grandTotal).toLocaleString('id-ID')}`,
+          });
+          confetti({ particleCount: 40, spread: 60, origin: { y: 0.8 } });
           setSymbol('');
           setPrice('');
           setLots('');
         } else {
           setNotification({ type: 'error', message: res.error || 'Gagal melakukan pembelian.' });
+          toast.error('Gagal Order Beli', { description: res.error || 'Saldo tidak mencukupi atau parameter tidak valid.' });
         }
       } else {
         const cleanSym = rawSym.replace(/USDT$/i, '');
@@ -166,15 +176,23 @@ function OrderForm() {
         if (res.order) {
           const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
           const unitLabel = isCrypto ? 'koin' : shareInfo.isUS ? 'lembar' : 'lot';
+          const sellMsg = `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`;
           setNotification({
             type: 'success',
-            message: `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`,
+            message: sellMsg,
           });
+          toast.success(sellMsg, {
+            description: (res.order.realizedPL || 0) >= 0 ? '🎉 Posisi ditutup dengan profit!' : '⚠️ Proteksi modal / stop-loss selesai.',
+          });
+          if ((res.order.realizedPL || 0) > 0) {
+            confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 } });
+          }
           setSymbol('');
           setPrice('');
           setLots('');
         } else {
           setNotification({ type: 'error', message: res.error || 'Gagal memproses penjualan.' });
+          toast.error('Gagal Order Jual', { description: res.error || 'Jumlah lot/koin tidak valid atau posisi tidak ditemukan.' });
         }
       }
     } finally {
@@ -642,6 +660,21 @@ export default function PortfolioPage() {
           holdings.forEach((h) => {
             if (!h.currentPrice || h.currentPrice <= 0) {
               const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').toUpperCase();
+              const isCrypto =
+                h.assetClass === 'CRYPTO' ||
+                h.currency === 'USDT' ||
+                h.symbol.endsWith('USDT') ||
+                isCryptoSymbol(cleanSym);
+
+              if (isCrypto) {
+                const bench = getVerifiedBenchmarkPrice(`${cleanSym.replace(/USDT$/i, '')}USDT`);
+                if (bench && bench.price > 0) {
+                  map[h.symbol] = bench.price;
+                  map[h.displaySymbol] = bench.price;
+                }
+                return;
+              }
+
               const found = ALL_ID_HEATMAP_UNIVERSE.find(
                 (s) => s.displaySymbol === cleanSym || s.symbol.toUpperCase() === `${cleanSym}.JK`
               );
@@ -668,7 +701,7 @@ export default function PortfolioPage() {
     };
 
     syncPrices();
-    const interval = setInterval(syncPrices, 30000); // Sinkronisasi otomatis tiap 30 detik
+    const interval = setInterval(syncPrices, 8000); // Sinkronisasi otomatis tiap 8 detik agar pergerakan tick saham terasa live
     return () => clearInterval(interval);
   }, [holdings.length, updateHoldingPrices]);
 
@@ -790,7 +823,7 @@ export default function PortfolioPage() {
   const handleResetTotal = async () => {
     if (
       window.confirm(
-        'Apakah Anda yakin ingin me-reset seluruh akun & portofolio kembali ke kondisi awal bersih Rp 100.000.000 (0 Saham, 0 Kripto)?'
+        'Apakah Anda yakin ingin me-reset seluruh akun & portofolio kembali ke kondisi awal bersih Rp 0 (0 Saham, 0 Kripto)?'
       )
     ) {
       resetPortfolio();
@@ -799,7 +832,7 @@ export default function PortfolioPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nominal: 100000000,
+            nominal: 0,
             email: user?.email,
             userId: user?.id,
           }),
@@ -810,7 +843,7 @@ export default function PortfolioPage() {
       if (user && isConfigured) {
         await resetPortfolioInDatabase();
       }
-      setDividendMsg('✨ Seluruh akun dan portofolio berhasil di-reset kembali ke awal murni (Saldo Rp 100.000.000, 0 saham, 0 koin)!');
+      setDividendMsg('✨ Seluruh akun dan portofolio berhasil di-reset kembali ke saldo Rp 0 (0 saham, 0 koin)!');
       setTimeout(() => setDividendMsg(null), 5000);
     }
   };
@@ -832,6 +865,50 @@ export default function PortfolioPage() {
       ],
       'Portofolio_Holdings'
     );
+    toast.success('File CSV Portofolio berhasil diunduh!');
+  };
+
+  const handleExportExcelAll = () => {
+    if (holdings.length === 0 && orders.length === 0) {
+      toast.error('Portofolio masih kosong, belum ada data untuk diekspor.');
+      return;
+    }
+    exportPortfolioToExcel(
+      holdings.map((h) => ({
+        symbol: h.symbol,
+        displaySymbol: h.displaySymbol,
+        name: h.name,
+        avgPrice: h.avgPrice,
+        currentPrice: h.currentPrice,
+        lots: h.lots,
+        unrealizedPL: h.unrealizedPL || 0,
+        unrealizedPLPercent: h.unrealizedPLPercent || 0,
+      })),
+      orders.map((o) => ({
+        id: o.id,
+        symbol: o.symbol,
+        type: o.type,
+        orderType: o.orderType,
+        price: o.price,
+        lots: o.lots,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt,
+      })),
+      cash,
+      user?.fullName || user?.email || 'Fincept Trader'
+    );
+    toast.success('📊 Laporan Excel (.xlsx) resmi Fincept Capital berhasil diunduh!');
+  };
+
+  const handleExportPdfReport = async () => {
+    try {
+      toast.info('Sedang merender laporan PDF...');
+      await exportElementToPDF('portfolio-summary-card', 'Fincept_Portfolio_Report.pdf');
+      toast.success('📑 Laporan PDF berhasil diunduh!');
+    } catch (e: any) {
+      toast.error('Gagal mencetak PDF', { description: e?.message });
+    }
   };
 
   const handleExportOrdersCsv = () => {
@@ -1025,6 +1102,26 @@ export default function PortfolioPage() {
 
           <button
             type="button"
+            onClick={handleExportExcelAll}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
+            title="Ekspor seluruh data portofolio & riwayat order ke Excel (.xlsx)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Excel (.xlsx)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPdfReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-blue-400 border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20"
+            title="Unduh ringkasan portofolio ke format PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Unduh PDF</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleResetTotal}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-red-400 border-red-500/40 bg-red-500/10 hover:bg-red-500/20"
             title="Reset seluruh portofolio & transaksi ke kondisi awal demo"
@@ -1046,7 +1143,7 @@ export default function PortfolioPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div id="portfolio-summary-card" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
           <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Total Nilai Aset</div>
           <div className="text-lg font-bold font-mono-num" style={{ color: 'var(--text-primary)' }}>
@@ -1232,9 +1329,20 @@ export default function PortfolioPage() {
                           const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym));
                           const rate = h.exchangeRate || 16000;
                           const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
-                        const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
-                        const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - h.avgPrice) * units * rate) : (h.unrealizedPL || Math.round((h.currentPrice - h.avgPrice) * units));
-                        const isPositive = (pl || 0) >= 0;
+                          let effectiveAvg = h.avgPrice;
+                          if (isCrypto && h.currentPrice > 0) {
+                            if (effectiveAvg > h.currentPrice * 100) {
+                              effectiveAvg = effectiveAvg / 16000 >= h.currentPrice * 0.2 ? Number((effectiveAvg / 16000).toFixed(h.currentPrice < 1 ? 6 : 4)) : h.currentPrice;
+                            } else if (effectiveAvg <= 0.0000001 || h.currentPrice > effectiveAvg * 50) {
+                              effectiveAvg = h.currentPrice;
+                            }
+                          }
+                          const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
+                          const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - effectiveAvg) * units * rate) : (h.unrealizedPL || Math.round((h.currentPrice - effectiveAvg) * units));
+                          const isPositive = (pl || 0) >= 0;
+                          let plPct = effectiveAvg > 0 ? ((h.currentPrice - effectiveAvg) / effectiveAvg) * 100 : (h.unrealizedPLPercent || 0);
+                          if (plPct > 500) plPct = 500;
+                          if (plPct < -98) plPct = -98;
                         const divInfo = KNOWN_DIVIDENDS[cleanSym];
                         const totalDividend = divInfo && divInfo.dps > 0 ? divInfo.dps * units : 0;
                         return (
@@ -1325,7 +1433,7 @@ export default function PortfolioPage() {
                               className="text-right font-mono-num text-xs font-semibold"
                               style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}
                             >
-                              {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({h.unrealizedPLPercent || 0}%)
+                              {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({plPct.toFixed(2)}%)
                             </td>
                             <td className="text-center">
                               {isCrypto ? (

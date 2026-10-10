@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : undefined;
     const userId = typeof body.userId === 'string' ? body.userId.trim() : undefined;
-    const resetNominal = typeof body.nominal === 'number' && body.nominal >= 0 ? body.nominal : 100_000_000;
+    const resetNominal = typeof body.nominal === 'number' && body.nominal >= 0 ? body.nominal : 0;
 
     // Proteksi Keamanan: Wajib menyertakan identitas pengguna untuk reset portofolio pribadi.
     if (!email && !userId) {

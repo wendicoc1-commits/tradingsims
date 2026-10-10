@@ -25,6 +25,8 @@ import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
 import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
 import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
 import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -434,7 +436,15 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
                   : 'bg-[#0f0f12] border border-[#27272a] text-[#e4e4e7] space-y-3'
               }`}
             >
-              <div className="whitespace-pre-line">{m.text}</div>
+              {m.sender === 'user' ? (
+                <div className="whitespace-pre-line">{m.text}</div>
+              ) : (
+                <div className="prose prose-invert max-w-none text-xs leading-relaxed prose-p:my-1 prose-headings:my-1.5 prose-strong:text-amber-400">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.text}
+                  </ReactMarkdown>
+                </div>
+              )}
 
               {/* Optional Table */}
               {m.tableData && (

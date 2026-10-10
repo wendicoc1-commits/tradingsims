@@ -133,16 +133,29 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const wipeAll = searchParams.get('wipeAll') === 'true';
+
+    if (wipeAll) {
+      const { wipeAllAccountsAndPortfolios } = await import('@/lib/server/portfolioStorage');
+      const result = await wipeAllAccountsAndPortfolios();
+      return NextResponse.json({
+        success: true,
+        wiped: true,
+        result,
+        timestamp: Date.now(),
+      });
+    }
+
     const rawEmail = searchParams.get('email');
     const rawUserId = searchParams.get('userId');
 
     const email = rawEmail ? rawEmail.trim().toLowerCase() : undefined;
     const userId = rawUserId ? rawUserId.trim() : undefined;
 
-    const nominalParam = parseInt(searchParams.get('nominal') || '100000000', 10);
+    const nominalParam = parseInt(searchParams.get('nominal') || '0', 10);
     const nominal = Number.isFinite(nominalParam) && nominalParam >= 0 && nominalParam <= MAX_ALLOWED_CASH
       ? nominalParam
-      : 100_000_000;
+      : 0;
 
     if (!email && !userId) {
       return NextResponse.json({ success: false, error: 'Email atau userId wajib diisi' }, { status: 400 });

@@ -9,6 +9,7 @@ import FinceptRightDock from '@/components/layout/FinceptRightDock';
 import TradeSimAuthGate from '@/components/auth/TradeSimAuthGate';
 import GlobalAutonomousAgentRunner from '@/components/ai/GlobalAutonomousAgentRunner';
 import SkipToContent from '@/components/common/SkipToContent';
+import { Toaster } from 'sonner';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
@@ -22,6 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <TradeSimAuthGate>
+      <Toaster position="top-right" theme={theme === 'light' ? 'light' : 'dark'} richColors closeButton />
       {/* Skip link — keyboard a11y: skip nav to main content */}
       <SkipToContent />
       <GlobalAutonomousAgentRunner />

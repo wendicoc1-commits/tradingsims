@@ -214,8 +214,12 @@ export default function InstitutionalPortfolioDesk() {
     const curPrice = getLivePrice(h);
 
     let effectiveAvgPrice = h.avgPrice;
-    if (isCrypto && curPrice > 0 && effectiveAvgPrice > curPrice * 200) {
-      effectiveAvgPrice = curPrice;
+    if (isCrypto && curPrice > 0) {
+      if (effectiveAvgPrice > curPrice * 100) {
+        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(curPrice < 1 ? 6 : 4)) : curPrice;
+      } else if (effectiveAvgPrice <= 0.0000001 || curPrice > effectiveAvgPrice * 50) {
+        effectiveAvgPrice = curPrice;
+      }
     }
 
     if (isCrypto || isUS) {
@@ -579,8 +583,12 @@ export default function InstitutionalPortfolioDesk() {
 
                     // Kalibrasi real-time harga beli jika holding membawa seed anomali lama
                     let effectiveAvgPrice = h.avgPrice;
-                    if (isCrypto && curPrice > 0 && effectiveAvgPrice > curPrice * 200) {
-                      effectiveAvgPrice = curPrice;
+                    if (isCrypto && curPrice > 0) {
+                      if (effectiveAvgPrice > curPrice * 100) {
+                        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(curPrice < 1 ? 6 : 4)) : curPrice;
+                      } else if (effectiveAvgPrice <= 0.0000001 || curPrice > effectiveAvgPrice * 50) {
+                        effectiveAvgPrice = curPrice;
+                      }
                     }
 
                     // Sanitasi TP / SL kripto agar tidak bocor dari target saham IDR (misal $3640)
@@ -599,9 +607,13 @@ export default function InstitutionalPortfolioDesk() {
                     const pl = (isCrypto || isUS)
                       ? (curPrice - effectiveAvgPrice) * units * rate
                       : (h.unrealizedPL || (curPrice - effectiveAvgPrice) * units);
-                    const plPct = effectiveAvgPrice > 0
+                    let plPct = effectiveAvgPrice > 0
                       ? ((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100
                       : (h.unrealizedPLPercent || 0);
+
+                    // Hard-cap pengaman agar tidak meledak ke ribuan persen
+                    if (plPct > 500) plPct = 500;
+                    if (plPct < -98) plPct = -98;
 
                     const tpPct = effectiveTP && effectiveAvgPrice > 0
                       ? (((effectiveTP - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(1)

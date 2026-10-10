@@ -128,14 +128,14 @@ export const useAuthStore = create<AuthState>()(
               ? apiData.portfolio
               : null;
 
-            // Jika server cloud belum membalas, ATAU mengembalikan 100 Juta kosong padahal akun punya aset di backup/seed:
+            // Jika server cloud belum membalas, ATAU mengembalikan kosong padahal akun punya aset di backup lokal:
             const localBackup = loadLocalUserBackup(apiData.user.email);
             if (
               !resolvedPortfolio ||
-              (resolvedPortfolio.cash === 100_000_000 &&
+              (resolvedPortfolio.cash === 0 &&
                 (!resolvedPortfolio.holdings || resolvedPortfolio.holdings.length === 0) &&
                 localBackup &&
-                (localBackup.holdings?.length > 0 || localBackup.cash !== 100_000_000))
+                (localBackup.holdings?.length > 0 || localBackup.cash > 0))
             ) {
               if (localBackup && typeof localBackup.cash === 'number') {
                 resolvedPortfolio = localBackup;
@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthState>()(
             if (resolvedPortfolio && typeof resolvedPortfolio.cash === 'number') {
               const sPort = resolvedPortfolio;
               usePortfolioStore.setState({
-                cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
+                cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
                 realizedPL: sPort.realizedPL || 0,
                 holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
                 orders: Array.isArray(sPort.orders) ? sPort.orders : [],
@@ -157,9 +157,9 @@ export const useAuthStore = create<AuthState>()(
               saveLocalUserBackup(apiData.user.email, apiData.user.id, sPort);
               await get().syncPortfolioToDatabase();
             } else {
-              // Jika ini akun baru pertama kali, beri modal awal bersih Rp 100 Juta
+              // Jika ini akun baru pertama kali, beri modal awal bersih Rp 0
               const initialNewPort = {
-                cash: 100_000_000,
+                cash: 0,
                 realizedPL: 0,
                 holdings: [],
                 orders: [],
@@ -207,9 +207,9 @@ export const useAuthStore = create<AuthState>()(
           const apiData = await apiRes.json();
 
           if (apiData.success && apiData.user) {
-            // Bersihkan portofolio lokal lama dan berikan modal awal murni Rp 100 Juta untuk member baru
+            // Bersihkan portofolio lokal lama dan berikan modal awal murni Rp 0 untuk member baru
             usePortfolioStore.setState({
-              cash: 100_000_000,
+              cash: 0,
               realizedPL: 0,
               holdings: [],
               orders: [],
@@ -340,12 +340,12 @@ export const useAuthStore = create<AuthState>()(
 
       loginAsGuest: (guestName = 'Tamu Demo') => {
         const currentPort = usePortfolioStore.getState();
-        const hasExistingAssets = currentPort.holdings.length > 0 || (currentPort.cash > 0 && currentPort.cash !== 100_000_000) || currentPort.orders.length > 0;
+        const hasExistingAssets = currentPort.holdings.length > 0 || (currentPort.cash > 0) || currentPort.orders.length > 0;
 
-        // Hanya beri modal awal 100 Juta jika browser benar-benar belum memiliki portofolio/transaksi sama sekali
+        // Beri modal awal Rp 0 jika browser belum memiliki transaksi
         if (!hasExistingAssets && (currentPort.cash <= 0 || currentPort.holdings.length === 0)) {
           usePortfolioStore.setState({
-            cash: 100_000_000,
+            cash: 0,
             realizedPL: 0,
             holdings: [],
             orders: [],
@@ -666,19 +666,19 @@ export const useAuthStore = create<AuthState>()(
                   const serverTime = sPort.lastUpdated || 0;
 
                   // Cek apakah browser saat ini adalah "fresh device" (misal baru buka/login di HP atau browser lain)
-                  const isLocalFresh = !hasLocalHoldings && (!hasLocalOrders || localStore.cash <= 0 || (localStore.cash === 100_000_000 && !hasLocalOrders));
+                  const isLocalFresh = !hasLocalHoldings && (!hasLocalOrders || localStore.cash <= 0);
 
                   // KASUS 1: Browser saat ini adalah perangkat baru / belum punya transaksi riil
                   // Atau server memiliki kepemilikan saham aktif sedangkan lokal belum punya
                   if (isLocalFresh || (hasServerHoldings && !hasLocalHoldings)) {
-                    // Jika server kosong 100M tapi kita punya data riil di backup lokal / seed, prioritaskan backup lokal
+                    // Jika server kosong tapi kita punya data riil di backup lokal / seed, prioritaskan backup lokal
                     const fallbackBackup = loadLocalUserBackup(user.email);
-                    const effectivePort = (!hasServerHoldings && sPort.cash === 100_000_000 && fallbackBackup && (fallbackBackup.holdings?.length > 0 || fallbackBackup.cash !== 100_000_000))
+                    const effectivePort = (!hasServerHoldings && sPort.cash === 0 && fallbackBackup && (fallbackBackup.holdings?.length > 0 || fallbackBackup.cash !== 0))
                       ? fallbackBackup
                       : sPort;
 
                     usePortfolioStore.setState({
-                      cash: typeof effectivePort.cash === 'number' ? effectivePort.cash : 100_000_000,
+                      cash: typeof effectivePort.cash === 'number' ? effectivePort.cash : 0,
                       realizedPL: effectivePort.realizedPL || 0,
                       holdings: sanitizeHoldings(Array.isArray(effectivePort.holdings) ? effectivePort.holdings : []),
                       orders: Array.isArray(effectivePort.orders) ? effectivePort.orders : [],
@@ -725,7 +725,7 @@ export const useAuthStore = create<AuthState>()(
                   if (!hasServerHoldings && !hasLocalHoldings) {
                     if (serverTime >= localTime || isLocalFresh || localStore.cash <= 0) {
                       usePortfolioStore.setState({
-                        cash: typeof sPort.cash === 'number' ? sPort.cash : 100_000_000,
+                        cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
                         realizedPL: sPort.realizedPL || 0,
                         orders: Array.isArray(sPort.orders) ? sPort.orders : localStore.orders,
                         conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : localStore.conditionalOrders,
@@ -770,7 +770,7 @@ export const useAuthStore = create<AuthState>()(
 
                   const currentHoldings = usePortfolioStore.getState().holdings;
                   // Pulihkan jika lokal masih kosong atau data cloud lebih mutakhir
-                  if ((rawHoldings.length > 0 || dbCash !== 100_000_000 || rawOrders.length > 0) && currentHoldings.length === 0) {
+                  if ((rawHoldings.length > 0 || dbCash !== 0 || rawOrders.length > 0) && currentHoldings.length === 0) {
                     usePortfolioStore.setState({
                       cash: dbCash,
                       realizedPL: dbRealizedPL,
@@ -792,7 +792,7 @@ export const useAuthStore = create<AuthState>()(
             if (localUserBackup && typeof localUserBackup.cash === 'number') {
               const currentHoldings = usePortfolioStore.getState().holdings;
               const currentCash = usePortfolioStore.getState().cash;
-              if (currentHoldings.length === 0 && (currentCash <= 0 || currentCash === 100_000_000)) {
+              if (currentHoldings.length === 0 && currentCash <= 0) {
                 usePortfolioStore.setState({
                   cash: localUserBackup.cash,
                   realizedPL: localUserBackup.realizedPL || 0,

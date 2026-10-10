@@ -250,10 +250,10 @@ export function registerOrUpdateUser(email: string, password?: string, fullName?
 
   db.users[normEmail] = user;
 
-  // Jika portofolio belum ada untuk akun ini, beri modal awal standar Rp 100 Juta
+  // Jika portofolio belum ada untuk akun ini, beri modal awal standar Rp 0
   if (!db.portfolios[normEmail] && !db.portfolios[user.id]) {
     const initialPortfolio: UserPortfolioData = {
-      cash: 100_000_000,
+      cash: 0,
       realizedPL: 0,
       holdings: [],
       orders: [],
@@ -359,7 +359,7 @@ export function saveUserPortfolio(
     const resolvedEmailKey = identifier.email ? identifier.email.trim().toLowerCase() : null;
 
     const payload: UserPortfolioData = {
-      cash: typeof data.cash === 'number' ? data.cash : 100_000_000,
+      cash: typeof data.cash === 'number' ? data.cash : 0,
       realizedPL: typeof data.realizedPL === 'number' ? data.realizedPL : 0,
       holdings: Array.isArray(data.holdings) ? data.holdings : [],
       orders: Array.isArray(data.orders) ? data.orders : [],
@@ -456,7 +456,7 @@ export async function getUserPortfolioAsync(identifier: { userId?: string; email
     const { data } = await query.maybeSingle();
     if (data) {
       const cloudPortfolio: UserPortfolioData = {
-        cash: Number(data.cash) || 100_000_000,
+        cash: typeof data.cash === 'number' ? data.cash : (Number(data.cash) || 0),
         realizedPL: Number(data.realized_pl) || 0,
         holdings: Array.isArray(data.holdings) ? data.holdings : [],
         orders: Array.isArray(data.orders) ? data.orders : [],
@@ -476,7 +476,7 @@ export async function getUserPortfolioAsync(identifier: { userId?: string; email
   return null;
 }
 
-export function resetUserPortfolio(identifier: { userId?: string; email?: string }, targetCash: number = 100_000_000): boolean {
+export function resetUserPortfolio(identifier: { userId?: string; email?: string }, targetCash: number = 0): boolean {
   return saveUserPortfolio(identifier, {
     cash: targetCash,
     realizedPL: 0,

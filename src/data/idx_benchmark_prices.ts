@@ -104,10 +104,15 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
   const clean = ticker.trim().toUpperCase().replace('.JK', '').replace('^', '');
   
   // 1. Check Crypto benchmarks (e.g. BTC, BTCUSDT, BTC-USD)
+  const isExplicitCrypto = ticker.toUpperCase().endsWith('USDT') || ticker.toUpperCase().endsWith('-USD');
   const cryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
-  if (CRYPTO_BENCHMARK_PRICES[cryptoKey]) {
-    const c = CRYPTO_BENCHMARK_PRICES[cryptoKey];
+  if (CRYPTO_BENCHMARK_PRICES[cryptoKey] || CRYPTO_BENCHMARK_PRICES[clean]) {
+    const c = CRYPTO_BENCHMARK_PRICES[cryptoKey] || CRYPTO_BENCHMARK_PRICES[clean];
     return { price: c.price, currency: 'USD', name: c.name };
+  }
+
+  if (isExplicitCrypto) {
+    return { price: 1.0, currency: 'USD', name: `${cryptoKey}/USDT` };
   }
 
   // 2. Check IDX benchmarks FIRST for Indonesian stocks
@@ -126,8 +131,8 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
     return { price: g.price, currency: g.currency, name: g.name };
   }
 
-  // 4. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters)
-  if (/^[A-Z]{4}$/.test(clean)) {
+  // 4. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters, only if clearly not crypto or foreign)
+  if (/^[A-Z]{4}$/.test(clean) && !isExplicitCrypto) {
     const hash = clean.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const estimatedPrice = 500 + (hash % 40) * 100;
     return { price: estimatedPrice, currency: 'IDR', name: `${clean} Tbk` };
