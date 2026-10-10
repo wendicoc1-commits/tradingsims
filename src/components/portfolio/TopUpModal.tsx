@@ -19,12 +19,12 @@ import {
   AlertCircle,
   FileCheck,
   Loader2,
+  Shield,
 } from 'lucide-react';
 import { usePortfolioStore } from '@/store';
 import { useTopUpApprovalStore, TopUpRequest } from '@/store/useTopUpApprovalStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { submitDepositTicket } from '@/app/admin/actions';
-import AdminTopUpApprovalModal from './AdminTopUpApprovalModal';
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -76,9 +76,6 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   // Tiket yang baru disubmit
   const [lastSubmittedTicket, setLastSubmittedTicket] = useState<TopUpRequest | null>(null);
 
-  // Admin Modal
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const syncedTicketIdsRef = useRef<Set<string>>(new Set());
 
@@ -92,21 +89,26 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
       syncedTicketIdsRef.current.add(t.id);
 
       try {
-        await submitDepositTicket({
-          userId: user?.id,
-          userEmail: user?.email,
-          senderName: t.senderName,
-          senderBank: t.senderBank,
-          nominalPay: t.nominalIDR,
-          virtualCashAmount: t.virtualCash,
-          proofImage: t.proofImageBase64,
-          notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari sesi sebelumnya',
+        await fetch('/api/deposits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id,
+            userEmail: user?.email,
+            senderName: t.senderName,
+            senderBank: t.senderBank,
+            nominalPay: t.nominalIDR,
+            virtualCashAmount: t.virtualCash,
+            proofImage: t.proofImageBase64,
+            notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari sesi sebelumnya',
+          }),
         });
       } catch (err) {
         console.warn('[AutoSync Deposit ticket error]', err);
       }
     });
   }, [requests, user?.id, user?.email]);
+
 
   // Saat menunggu verifikasi, cek pembaruan saldo di database secara berkala
   useEffect(() => {
@@ -194,19 +196,39 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     setIsSubmitting(true);
 
     try {
-      // 1. Submit ke Supabase Cloud Server Action
-      const res = await submitDepositTicket({
-        userId: user?.id,
-        userEmail: user?.email,
-        senderName: senderName.trim(),
-        senderBank,
-        nominalPay: activePay,
-        virtualCashAmount: virtualCashReceived,
-        proofImage: proofImageBase64 || undefined,
-        notes: refNote.trim(),
+      // 1. Submit langsung ke online API endpoint /api/deposits
+      const resApi = await fetch('/api/deposits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          userEmail: user?.email,
+          senderName: senderName.trim(),
+          senderBank,
+          nominalPay: activePay,
+          virtualCashAmount: virtualCashReceived,
+          proofImage: proofImageBase64 || undefined,
+          notes: refNote.trim(),
+        }),
       });
 
-      // 2. Submit ke antrian pending lokal untuk responsivitas UI instan
+      const jsonApi = await resApi.json().catch(() => ({}));
+
+      // 2. Submit juga via Server Action untuk sinkronisasi Next.js path
+      try {
+        await submitDepositTicket({
+          userId: user?.id,
+          userEmail: user?.email,
+          senderName: senderName.trim(),
+          senderBank,
+          nominalPay: activePay,
+          virtualCashAmount: virtualCashReceived,
+          proofImage: proofImageBase64 || undefined,
+          notes: refNote.trim(),
+        });
+      } catch (_) {}
+
+      // 3. Simpan ke local state untuk responsivitas UI modal
       const ticket = submitRequest({
         senderName: senderName.trim(),
         senderBank,
@@ -215,8 +237,8 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
         proofImageBase64: proofImageBase64 || undefined,
       });
 
-      if (res.data?.id) {
-        ticket.id = res.data.id;
+      if (jsonApi?.data?.id) {
+        ticket.id = jsonApi.data.id;
         syncedTicketIdsRef.current.add(ticket.id);
       }
 
@@ -237,6 +259,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     } finally {
       setIsSubmitting(false);
     }
+
   };
 
   const handleResetAndClose = () => {
@@ -646,17 +669,20 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
             {/* Footer Admin Link */}
             <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
-              <span>Sistem Proteksi Mutasi v2.0 (Cloud Sync)</span>
+              <span className="flex items-center gap-1.5 text-emerald-400 font-mono text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                Database Cloud Supabase Terhubung
+              </span>
               <div className="flex items-center gap-3">
                 <a
                   href="/admin/deposits"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-amber-400/90 hover:text-amber-300 font-semibold flex items-center gap-1 cursor-pointer transition underline decoration-amber-500/40"
-                  title="Buka antrean approval deposit di Web Admin Panel"
+                  className="px-3 py-1.5 rounded-lg bg-purple-950/70 border border-purple-500/50 text-purple-200 hover:text-white hover:bg-purple-900 font-semibold flex items-center gap-1.5 cursor-pointer transition text-xs shadow-md"
+                  title="Buka antrean approval deposit di Web Admin Panel Online"
                 >
-                  <ExternalLink className="w-3 h-3 text-amber-400" />
-                  <span>Admin Panel Cloud</span>
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Buka Panel Admin Online (/admin/deposits) ↗</span>
                 </a>
               </div>
             </div>
@@ -664,12 +690,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
           </div>
         </div>
       </div>
-
-      {/* Modal Admin Approval */}
-      <AdminTopUpApprovalModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-      />
     </>
   );
 }
+

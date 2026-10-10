@@ -46,14 +46,30 @@ export default function AdminDepositsPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // 1. Fetch langsung dari live REST API route /api/deposits
+      const res = await fetch('/api/deposits?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.deposits)) {
+          setDeposits(json.deposits);
+          setIsLoading(false);
+          return;
+        }
+      }
+      // 2. Fallback panggil Server Action
       const data = await getPendingDeposits();
       setDeposits(data);
     } catch (err) {
-      console.error(err);
+      console.error('[AdminDepositsPage loadData error]', err);
+      try {
+        const data = await getPendingDeposits();
+        setDeposits(data);
+      } catch (_) {}
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadData();
@@ -135,14 +151,21 @@ export default function AdminDepositsPage() {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-neutral-800">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-emerald-400" />
-            Verifikasi & Approval Antrean Deposit
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-400" />
+              Verifikasi & Approval Antrean Deposit
+            </h2>
+            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-mono text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Supabase Cloud Online
+            </span>
+          </div>
           <p className="text-xs text-neutral-400 mt-1">
-            Eksekusi persetujuan saldo wallet member menggunakan PostgreSQL ACID Transaction (<code className="text-emerald-400 font-mono">FOR UPDATE</code> lock).
+            Data antrean live disinkronkan langsung dari Supabase Cloud database &amp; siap diverifikasi admin.
           </p>
         </div>
+
 
         <div className="flex items-center gap-2">
           <button

@@ -32,7 +32,6 @@ import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividend
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { tradeSimAudio } from '@/lib/tradeSimAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
-import AdminTopUpApprovalModal from '@/components/portfolio/AdminTopUpApprovalModal';
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAIAgentStore } from '@/store/aiAgentStore';
@@ -99,7 +98,6 @@ export default function TradeSimHeader() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -118,21 +116,26 @@ export default function TradeSimHeader() {
       syncedTicketsRef.current.add(t.id);
 
       try {
-        await submitDepositTicket({
-          userId: user?.id,
-          userEmail: user?.email,
-          senderName: t.senderName,
-          senderBank: t.senderBank,
-          nominalPay: t.nominalIDR,
-          virtualCashAmount: t.virtualCash,
-          proofImage: t.proofImageBase64,
-          notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari browser',
+        await fetch('/api/deposits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id,
+            userEmail: user?.email,
+            senderName: t.senderName,
+            senderBank: t.senderBank,
+            nominalPay: t.nominalIDR,
+            virtualCashAmount: t.virtualCash,
+            proofImage: t.proofImageBase64,
+            notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari browser',
+          }),
         });
       } catch (err) {
         console.warn('[Header auto-sync deposit ticket error]', err);
       }
     });
   }, [pendingTopUpRequests, user?.id, user?.email]);
+
 
   useEffect(() => {
     checkSession();
@@ -223,7 +226,7 @@ export default function TradeSimHeader() {
 
     if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
     else if (cmd === 'TOPUP' || cmd === 'DEPOSIT') setIsTopUpOpen(true);
-    else if (cmd === 'ADMIN' || cmd === 'APPROVAL') setIsAdminOpen(true);
+    else if (cmd === 'ADMIN' || cmd === 'APPROVAL') router.push('/admin/deposits');
     else if (cmd === 'LOGIN' || cmd === 'AUTH') setIsAuthModalOpen(true);
     else if (cmd === 'SOUND' || cmd === 'AUDIO') handleToggleSound();
     else if (cmd === 'NEWS' || cmd === 'STREAM') router.push('/stream');
@@ -558,13 +561,13 @@ export default function TradeSimHeader() {
 
       {/* Modals */}
       <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
-      <AdminTopUpApprovalModal isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         defaultMode={authModalMode}
         initialEmail={user?.email || ''}
       />
+
     </header>
   );
 }
