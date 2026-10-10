@@ -89,15 +89,15 @@ export default function ArchitecturePage() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 uppercase tracking-wider mb-1">
-                <Sparkles className="w-3 h-3 text-purple-400" />
-                <span>Obsidian Graph View &amp; Graphify Engine</span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-gradient-to-r from-purple-500/20 to-cyan-500/20 text-purple-200 border border-purple-500/40 uppercase tracking-wider mb-1">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                <span>Obsidian Graph View • Grand Unified Knowledge Universe</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                <span>Interactive Obsidian Knowledge Graph (Arsitektur &amp; Pasar BEI)</span>
+                <span>Grand Unified Architecture, AI Trading Office &amp; Market Knowledge Graph</span>
               </h2>
               <p className="text-xs text-neutral-400">
-                Visualisasi graf berformat Obsidian Graph View dengan fisika pegas kosmik. Jelajahi simpul arsitektur kode, kepemilikan konglomerasi saham IDX, smart money, hingga semesta master terpadu.
+                Semesta graf tunggal terpadu berformat Obsidian Graph View: menghubungkan arsitektur reaktif TradeSim, struktur organisasi 50 pejabat AI hedge fund (10 departemen), 11 klaster sektor industri, dan seluruh emiten saham BEI.
               </p>
             </div>
             <div className="flex items-center gap-2 self-start">

@@ -1,37 +1,31 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 import {
   Search,
   RotateCcw,
   Play,
   Pause,
-  Maximize2,
   Sliders,
   Sparkles,
   Download,
-  Share2,
-  Bot,
-  Database,
-  Cpu,
-  Globe,
-  Radio,
   X,
-  FileCode2,
   Layers,
   Building2,
   TrendingUp,
   Coins,
-  Compass,
-  ArrowRight,
-  ExternalLink,
   ShieldCheck,
-  Zap,
   Eye,
   EyeOff,
   Filter,
+  Users,
+  Compass,
+  Cpu,
+  Database,
+  Radio,
+  FileCode2,
   CheckCircle2,
+  Maximize2,
 } from 'lucide-react';
 import {
   TRADESIMS_KNOWLEDGE_NODES,
@@ -39,23 +33,34 @@ import {
   KNOWLEDGE_GRAPH_CLUSTERS,
 } from '@/data/tradesims_knowledge_graph';
 import {
+  FIRM_AGENTS,
+  DEPARTMENTS,
+  type FirmAgent,
+  type Department,
+} from '@/lib/hedgefund/firmRoster';
+import {
+  MASTER_ASSETS,
+  type UnifiedAsset,
+} from '@/lib/universe/masterAssetUniverse';
+import {
   MARKET_NETWORK_DATASETS,
-  FIRM_AI_EMPLOYEES,
 } from '@/data/market_network_universe';
 
-// ── Types & Interfaces ──
-export type GraphDatasetKey = 'architecture' | 'conglomerates' | 'smartMoney' | 'crypto' | 'master';
+// ── Types & Scopes ──
+export type MegaUniverseScope = 'mega' | 'ai_office' | 'architecture' | 'stocks_market';
 
 export interface ObsidianNode {
   id: string;
   label: string;
   sublabel?: string;
-  category: string;
+  category: 'ARCHITECTURE' | 'AI_AGENT' | 'AI_DEPT' | 'SECTOR_HUB' | 'STOCK_IDX' | 'CRYPTO' | 'GLOBAL';
   cluster: string;
   color: string;
   description: string;
   filePath?: string;
   metric?: string;
+  parentHubId?: string;
+  isMajor: boolean;
   // Simulation physics
   x: number;
   y: number;
@@ -79,208 +84,302 @@ export interface ClusterMeta {
   id: string;
   name: string;
   color: string;
-  description: string;
+  count: number;
 }
 
-// ── Dataset Builder Helper ──
-function buildGraphDataset(key: GraphDatasetKey, centerX: number, centerY: number): {
+// ── 11 Sektor Utama Bursa Efek Indonesia (BEI) ──
+const IDX_SECTOR_HUBS: { id: string; name: string; color: string; keywords: string[] }[] = [
+  { id: 'sec_fin', name: 'Sektor Keuangan & Perbankan', color: '#3b82f6', keywords: ['bank', 'finance', 'financial', 'insurance', 'keuangan'] },
+  { id: 'sec_energy', name: 'Sektor Energi & Panas Bumi', color: '#eab308', keywords: ['energy', 'coal', 'oil', 'gas', 'tambang', 'energi', 'geothermal'] },
+  { id: 'sec_basic', name: 'Sektor Bahan Baku & Mineral', color: '#06b6d4', keywords: ['basic', 'materials', 'metal', 'nickel', 'copper', 'petrochemical', 'kimia'] },
+  { id: 'sec_consumer_nc', name: 'Sektor Konsumer Primer (F&B)', color: '#10b981', keywords: ['consumer non-cyclical', 'food', 'beverage', 'retail', 'agri'] },
+  { id: 'sec_consumer_cy', name: 'Sektor Konsumer Non-Primer', color: '#f59e0b', keywords: ['consumer cyclical', 'automotive', 'garment', 'retail', 'media'] },
+  { id: 'sec_tech', name: 'Sektor Teknologi & Digital', color: '#a855f7', keywords: ['tech', 'technology', 'digital', 'software', 'e-commerce'] },
+  { id: 'sec_infra', name: 'Sektor Infrastruktur & Telko', color: '#ec4899', keywords: ['infra', 'infrastructure', 'telecom', 'tower', 'toll', 'telko'] },
+  { id: 'sec_prop', name: 'Sektor Properti & Real Estat', color: '#8b5cf6', keywords: ['property', 'properties', 'real estate', 'estate'] },
+  { id: 'sec_health', name: 'Sektor Kesehatan & Farmasi', color: '#14b8a6', keywords: ['health', 'healthcare', 'pharma', 'hospital', 'farmasi'] },
+  { id: 'sec_indus', name: 'Sektor Perindustrian & Alat Berat', color: '#64748b', keywords: ['industrials', 'industrial', 'heavy equipment', 'machinery'] },
+  { id: 'sec_trans', name: 'Sektor Transportasi & Logistik', color: '#f43f5e', keywords: ['transportation', 'logistic', 'shipping', 'delivery'] },
+];
+
+// Helper penentu sektor saham
+function resolveStockSectorHub(sectorName: string): string {
+  const s = (sectorName || '').toLowerCase();
+  for (const hub of IDX_SECTOR_HUBS) {
+    if (hub.keywords.some((k) => s.includes(k))) return hub.id;
+  }
+  return 'sec_fin';
+}
+
+// ── Mega Universe Dataset Builder (Memadukan Seluruh Sistem, Pejabat AI, dan Saham) ──
+function buildMegaUniverseDataset(
+  scope: MegaUniverseScope,
+  centerX: number,
+  centerY: number,
+  includeAllStocks: boolean = false
+): {
   nodes: ObsidianNode[];
   edges: ObsidianEdge[];
   clusters: ClusterMeta[];
 } {
   const rawNodes: Omit<ObsidianNode, 'x' | 'y' | 'vx' | 'vy' | 'radius' | 'degree'>[] = [];
   const rawEdges: { source: string; target: string; label?: string; relation?: string }[] = [];
-  const clusterMap = new Map<string, ClusterMeta>();
+  const clusterCountMap = new Map<string, { name: string; color: string; count: number }>();
 
-  if (key === 'architecture' || key === 'master') {
-    KNOWLEDGE_GRAPH_CLUSTERS.forEach((c) => {
-      clusterMap.set(c.id, { id: c.id, name: c.name, color: c.color, description: c.description });
-    });
+  const registerCluster = (id: string, name: string, color: string) => {
+    if (!clusterCountMap.has(id)) {
+      clusterCountMap.set(id, { name, color, count: 0 });
+    }
+    clusterCountMap.get(id)!.count++;
+  };
 
-    TRADESIMS_KNOWLEDGE_NODES.forEach((n) => {
+  // ── 1. PILAR ARSITEKTUR SISTEM TRADESIM (CORE ENGINE) ──
+  if (scope === 'mega' || scope === 'architecture') {
+    TRADESIMS_KNOWLEDGE_NODES.forEach((an) => {
+      registerCluster(an.cluster, an.cluster, an.color || '#38bdf8');
       rawNodes.push({
-        id: n.id,
-        label: n.label,
-        sublabel: n.category,
-        category: n.category,
-        cluster: n.cluster,
-        color: n.color || '#38bdf8',
-        description: n.description,
-        filePath: n.filePath,
-        metric: n.category === 'STORE' ? 'Zustand State' : n.category === 'DATABASE' ? 'ACID Postgres' : 'React 19',
-        baseRadius: n.category === 'STORE' || n.category === 'DATABASE' ? 22 : 16,
+        id: an.id,
+        label: an.label,
+        sublabel: `Arsitektur • ${an.category}`,
+        category: 'ARCHITECTURE',
+        cluster: an.cluster,
+        color: an.color || '#38bdf8',
+        description: an.description,
+        filePath: an.filePath,
+        metric: an.category === 'STORE' ? 'Zustand State Engine' : an.category === 'DATABASE' ? 'ACID Postgres RPC' : 'Next.js App Router',
+        baseRadius: an.category === 'STORE' || an.category === 'DATABASE' ? 22 : 18,
+        isMajor: true,
       });
     });
 
-    TRADESIMS_KNOWLEDGE_EDGES.forEach((e) => {
+    TRADESIMS_KNOWLEDGE_EDGES.forEach((ae) => {
       rawEdges.push({
-        source: e.source,
-        target: e.target,
-        label: e.label || e.relation,
-        relation: e.relation,
+        source: ae.source,
+        target: ae.target,
+        label: ae.label || ae.relation,
+        relation: ae.relation,
       });
     });
   }
 
-  if (key === 'conglomerates' || key === 'master') {
-    const cong = MARKET_NETWORK_DATASETS.conglomerates;
-    cong.clusters.forEach((c) => {
-      clusterMap.set(c.id, { id: c.id, name: c.name, color: c.color, description: c.description });
-    });
-
-    cong.nodes.forEach((n) => {
-      const clusterObj = cong.clusters.find((c) => c.id === n.cluster);
+  // ── 2. PILAR AI TRADING OFFICE (10 DEPARTEMEN & 50 PEJABAT LENGKAP) ──
+  if (scope === 'mega' || scope === 'ai_office') {
+    // A. 10 Departemen Hub
+    DEPARTMENTS.forEach((dept) => {
+      registerCluster(`dept_${dept.id}`, `${dept.emoji} ${dept.name}`, dept.color);
       rawNodes.push({
-        id: n.id,
-        label: n.label,
-        sublabel: n.name,
-        category: 'SAHAM_IDX',
-        cluster: n.cluster,
-        color: clusterObj?.color || '#10b981',
-        description: `${n.name} • Sektor ${n.sector}. ${n.notes || ''}`,
-        metric: `Rp ${(n.marketCap / 1e12).toFixed(1)} T`,
-        baseRadius: Math.min(Math.max(14 + Math.log10(n.marketCap || 1e12) * 2, 14), 26),
+        id: `dept_${dept.id}`,
+        label: `${dept.emoji} ${dept.name}`,
+        sublabel: `Departemen Hedge Fund`,
+        category: 'AI_DEPT',
+        cluster: `dept_${dept.id}`,
+        color: dept.color,
+        description: dept.mission,
+        metric: `Ruang Kerja Utama`,
+        baseRadius: 24,
+        isMajor: true,
       });
+
+      // Hubungkan Departemen ke Arsitektur
+      if (scope === 'mega') {
+        if (dept.id === 'EXEC') rawEdges.push({ source: 'header', target: `dept_${dept.id}`, label: 'Governance' });
+        if (dept.id === 'PM') rawEdges.push({ source: 'portfolio_desk', target: `dept_${dept.id}`, label: 'Buku Portofolio' });
+        if (dept.id === 'QUANT') rawEdges.push({ source: 'quant_agent', target: `dept_${dept.id}`, label: 'Model Machine Learning' });
+        if (dept.id === 'TECH') rawEdges.push({ source: 'api_hub_view', target: `dept_${dept.id}`, label: 'Data Feed Ingestion' });
+        if (dept.id === 'RISK') rawEdges.push({ source: 'topup_modal', target: `dept_${dept.id}`, label: 'Audit Struk & Idempotency' });
+      }
     });
 
-    cong.edges.forEach((e) => {
-      rawEdges.push({
-        source: e.source,
-        target: e.target,
-        label: e.label,
-        relation: e.type || 'relasi_grup',
-      });
-    });
-  }
+    // B. 50 Pejabat & Agen Lengkap
+    FIRM_AGENTS.forEach((agent) => {
+      const deptObj = DEPARTMENTS.find((d) => d.id === agent.dept);
+      const color = deptObj?.color || '#a855f7';
+      registerCluster(`dept_${agent.dept}`, deptObj ? `${deptObj.emoji} ${deptObj.name}` : agent.dept, color);
 
-  if (key === 'smartMoney') {
-    const sm = MARKET_NETWORK_DATASETS.smartMoney;
-    sm.clusters.forEach((c) => {
-      clusterMap.set(c.id, { id: c.id, name: c.name, color: c.color, description: c.description });
-    });
-
-    sm.nodes.forEach((n) => {
-      const clusterObj = sm.clusters.find((c) => c.id === n.cluster);
       rawNodes.push({
-        id: n.id,
-        label: n.label,
-        sublabel: n.name,
-        category: 'SMART_MONEY',
-        cluster: n.cluster,
-        color: clusterObj?.color || '#f59e0b',
-        description: `${n.name} • ${n.notes || 'Smart money fund & bandarmology node'}`,
-        metric: `Volume Rp ${(n.volume24h / 1e9).toFixed(0)} M`,
-        baseRadius: 18,
-      });
-    });
-
-    sm.edges.forEach((e) => {
-      rawEdges.push({
-        source: e.source,
-        target: e.target,
-        label: e.label,
-        relation: 'aliran_dana',
-      });
-    });
-
-    // Masukkan Firm AI Employees
-    FIRM_AI_EMPLOYEES.forEach((emp) => {
-      clusterMap.set('ai_agent', { id: 'ai_agent', name: 'AI Hedge Fund Council', color: '#a855f7', description: 'Dewan konsensus AI Otonom' });
-      rawNodes.push({
-        id: emp.id,
-        label: `${emp.emoji} ${emp.name}`,
-        sublabel: emp.role,
+        id: `agent_${agent.id}`,
+        label: `${agent.emoji} ${agent.name}`,
+        sublabel: `${agent.title}`,
         category: 'AI_AGENT',
-        cluster: 'ai_agent',
-        color: emp.avatarColor || '#a855f7',
-        description: `${emp.role} (${emp.dept}). Tesis: ${emp.thesis}`,
-        metric: `Target: ${emp.targetSymbol} (${emp.vote})`,
-        baseRadius: 20,
+        cluster: `dept_${agent.dept}`,
+        color,
+        description: `${agent.title} • Tugas: ${agent.duties.join('; ')}`,
+        metric: agent.committee ? 'Dewan Investment Committee' : 'Divisi Spesialis',
+        baseRadius: agent.committee ? 20 : 16,
+        isMajor: true,
+        parentHubId: `dept_${agent.dept}`,
       });
 
+      // Relasi Pejabat ke Departemen Induk
       rawEdges.push({
-        source: emp.id,
-        target: emp.targetSymbol,
-        label: `${emp.vote} (${(emp.weight * 100).toFixed(0)}% weight)`,
-        relation: 'keputusan_ai',
+        source: `dept_${agent.dept}`,
+        target: `agent_${agent.id}`,
+        label: 'Anggota Departemen',
+        relation: 'struktur_organisasi',
+      });
+
+      // Relasi Kolaborator Antar Pejabat
+      agent.collaborators.forEach((collabId) => {
+        rawEdges.push({
+          source: `agent_${agent.id}`,
+          target: `agent_${collabId}`,
+          label: 'Konsultasi Rutin',
+          relation: 'kolaborasi_hedge_fund',
+        });
       });
     });
   }
 
-  if (key === 'crypto') {
-    const cryp = MARKET_NETWORK_DATASETS.crypto;
-    cryp.clusters.forEach((c) => {
-      clusterMap.set(c.id, { id: c.id, name: c.name, color: c.color, description: c.description });
-    });
-
-    cryp.nodes.forEach((n) => {
-      const clusterObj = cryp.clusters.find((c) => c.id === n.cluster);
+  // ── 3. PILAR PASAR SAHAM BEI, SEKTOR HUBS & EMITEN ──
+  if (scope === 'mega' || scope === 'stocks_market') {
+    // A. 11 Sektor Hubs
+    IDX_SECTOR_HUBS.forEach((sec) => {
+      registerCluster(sec.id, sec.name, sec.color);
       rawNodes.push({
-        id: n.id,
-        label: n.label,
-        sublabel: n.name,
-        category: 'CRYPTO_SPOT',
-        cluster: n.cluster,
-        color: clusterObj?.color || '#06b6d4',
-        description: `${n.name} • ${n.sector}. ${n.notes || ''}`,
-        metric: `$${n.basePrice.toLocaleString()}`,
-        baseRadius: 18,
+        id: sec.id,
+        label: `🏢 ${sec.name}`,
+        sublabel: 'Klaster Industri Bursa',
+        category: 'SECTOR_HUB',
+        cluster: sec.id,
+        color: sec.color,
+        description: `Klaster emiten saham BEI kategori ${sec.name}. Mengelompokkan kapitalisasi pasar dan perputaran likuiditas.`,
+        metric: 'Hub Sektoral BEI',
+        baseRadius: 22,
+        isMajor: true,
       });
+
+      // Hubungkan Sektor ke Analis Riset AI yang Berwenang
+      if (scope === 'mega') {
+        if (sec.id === 'sec_fin') rawEdges.push({ source: 'agent_r_bank', target: sec.id, label: 'Cakupan Analis Bank' });
+        if (sec.id === 'sec_energy') rawEdges.push({ source: 'agent_r_energy', target: sec.id, label: 'Cakupan Analis Energi' });
+        if (sec.id === 'sec_tech') rawEdges.push({ source: 'agent_r_tech', target: sec.id, label: 'Cakupan Analis Teknologi' });
+        if (sec.id === 'sec_consumer_nc') rawEdges.push({ source: 'agent_r_consumer', target: sec.id, label: 'Cakupan Analis Konsumer' });
+        if (sec.id === 'sec_infra') rawEdges.push({ source: 'agent_r_infra', target: sec.id, label: 'Cakupan Analis Infrastruktur' });
+      }
     });
 
-    cryp.edges.forEach((e) => {
+    // B. Saham-saham BEI
+    // Tentukan universe: Seluruh 950+ saham atau 120 saham terpopuler/likuid
+    const stocksToInclude = includeAllStocks
+      ? MASTER_ASSETS.filter((a) => a.category === 'IDX')
+      : MASTER_ASSETS.filter((a) => a.category === 'IDX' && (a.isPopular || a.defaultPrice > 1000)).slice(0, 160);
+
+    stocksToInclude.forEach((stk) => {
+      const sectorHubId = resolveStockSectorHub(stk.sector);
+      const hub = IDX_SECTOR_HUBS.find((h) => h.id === sectorHubId) || IDX_SECTOR_HUBS[0];
+      registerCluster(hub.id, hub.name, hub.color);
+
+      rawNodes.push({
+        id: `stk_${stk.symbol}`,
+        label: stk.symbol,
+        sublabel: stk.name,
+        category: 'STOCK_IDX',
+        cluster: hub.id,
+        color: hub.color,
+        description: `${stk.name} • Sektor: ${stk.sector}. Papan: ${stk.board || 'Utama'}. Harga Wajar: Rp ${stk.defaultPrice.toLocaleString()}`,
+        metric: `Rp ${stk.defaultPrice.toLocaleString()}`,
+        baseRadius: stk.isPopular ? 16 : 10,
+        isMajor: !!stk.isPopular,
+        parentHubId: sectorHubId,
+      });
+
+      // Relasi Saham ke Sektor Hub
       rawEdges.push({
-        source: e.source,
-        target: e.target,
-        label: e.label,
-        relation: 'likuiditas_kripto',
+        source: sectorHubId,
+        target: `stk_${stk.symbol}`,
+        label: 'Anggota Sektor',
+        relation: 'anggota_sektor',
+      });
+    });
+
+    // C. Top Kripto & Global (BTC, ETH, SOL, NVDA, AAPL)
+    const cryptoAndGlobal = MASTER_ASSETS.filter((a) => a.isPopular && a.category !== 'IDX').slice(0, 20);
+    cryptoAndGlobal.forEach((cg) => {
+      const clusterId = cg.category === 'CRYPTO' ? 'sec_crypto' : 'sec_global';
+      const color = cg.category === 'CRYPTO' ? '#f59e0b' : '#ec4899';
+      registerCluster(clusterId, cg.category === 'CRYPTO' ? '⚡ Kripto Spot Binance' : '🌐 Saham Global Wall St', color);
+
+      rawNodes.push({
+        id: `cg_${cg.symbol}`,
+        label: cg.symbol,
+        sublabel: cg.name,
+        category: cg.category === 'CRYPTO' ? 'CRYPTO' : 'GLOBAL',
+        cluster: clusterId,
+        color,
+        description: `${cg.name} • Kategori: ${cg.category}. Harga: $${cg.defaultPrice.toLocaleString()}`,
+        metric: `$${cg.defaultPrice.toLocaleString()}`,
+        baseRadius: 15,
+        isMajor: true,
+      });
+
+      if (scope === 'mega') {
+        if (cg.category === 'CRYPTO') {
+          rawEdges.push({ source: 'jesse_desk', target: `cg_${cg.symbol}`, label: 'Feed Binance' });
+        } else {
+          rawEdges.push({ source: 'agent_pm_global', target: `cg_${cg.symbol}`, label: 'Buku Saham Global' });
+        }
+      }
+    });
+
+    // D. Konglomerasi Cross-Holdings Links (Salim, Astra, Barito, Djarum)
+    const congEdges = MARKET_NETWORK_DATASETS.conglomerates.edges;
+    congEdges.forEach((ce) => {
+      rawEdges.push({
+        source: `stk_${ce.source}`,
+        target: `stk_${ce.target}`,
+        label: ce.label,
+        relation: ce.type,
       });
     });
   }
 
-  // Jika master mode, hubungkan simpul arsitektur ke emiten bursa nyata
-  if (key === 'master') {
-    rawEdges.push(
-      { source: 'jesse_desk', target: 'BTC', label: 'Feed Kripto Binance' },
-      { source: 'network_view', target: 'BBCA', label: 'Analisis Konglomerasi' },
-      { source: 'portfolio_desk', target: 'BBRI', label: 'Eksekusi Portofolio' },
-      { source: 'quant_agent', target: 'BREN', label: 'Sinyal Algoritmik' },
-      { source: 'api_hub_view', target: 'TLKM', label: 'Integrasi Data API' }
-    );
-  }
+  // ── 4. GEOMETRI ORBIT KOSMIK (Galactic Orbit Initial Placement) ──
+  const goldenRatio = 2.3999632;
+  const simNodes: ObsidianNode[] = rawNodes.map((n, idx) => {
+    let r = 50;
+    let theta = idx * goldenRatio;
 
-  // Hitung degree & atur koordinat awal (Fibonacci Spiral / Sunflower agar tidak pernah tumpang tindih)
-  const degreeMap = new Map<string, number>();
-  rawEdges.forEach((e) => {
-    degreeMap.set(e.source, (degreeMap.get(e.source) || 0) + 1);
-    degreeMap.set(e.target, (degreeMap.get(e.target) || 0) + 1);
-  });
+    if (n.category === 'ARCHITECTURE') {
+      // Pusat Galaksi: Arsitektur Sistem (Radius 40 - 130px)
+      r = 45 + Math.sqrt(idx) * 25;
+    } else if (n.category === 'AI_DEPT') {
+      // Lingkaran Pertama: 10 Departemen Head (Radius 180 - 240px)
+      r = 210;
+      theta = (idx % 10) * ((Math.PI * 2) / 10);
+    } else if (n.category === 'AI_AGENT') {
+      // Lingkaran Kedua: 50 Agen Pejabat AI (Radius 270 - 380px)
+      r = 280 + Math.sqrt(idx) * 20;
+    } else if (n.category === 'SECTOR_HUB') {
+      // Lingkaran Ketiga: 11 Sektor Hub BEI (Radius 440 - 520px)
+      r = 480;
+      theta = (idx % 11) * ((Math.PI * 2) / 11);
+    } else {
+      // Lingkaran Luar: Ratusan Saham BEI (Radius 560 - 850px)
+      r = 580 + Math.sqrt(idx) * 22;
+    }
 
-  const goldenAngle = 2.3999632;
-  const simNodes: ObsidianNode[] = rawNodes.map((rn, idx) => {
-    const r = 50 + Math.sqrt(idx) * 62;
-    const theta = idx * goldenAngle;
-    const deg = degreeMap.get(rn.id) || 1;
     return {
-      ...rn,
+      ...n,
       x: centerX + r * Math.cos(theta),
       y: centerY + r * Math.sin(theta),
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
-      degree: deg,
-      radius: rn.baseRadius,
+      vx: 0,
+      vy: 0,
+      radius: n.baseRadius,
+      degree: 1,
     };
   });
 
   const nodeMap = new Map<string, ObsidianNode>();
   simNodes.forEach((n) => nodeMap.set(n.id, n));
 
-  const simEdges: ObsidianEdge[] = [];
+  const validEdges: ObsidianEdge[] = [];
   rawEdges.forEach((e) => {
     const src = nodeMap.get(e.source);
     const tgt = nodeMap.get(e.target);
     if (src && tgt) {
-      simEdges.push({
+      src.degree++;
+      tgt.degree++;
+      validEdges.push({
         source: e.source,
         target: e.target,
         label: e.label,
@@ -291,10 +390,17 @@ function buildGraphDataset(key: GraphDatasetKey, centerX: number, centerY: numbe
     }
   });
 
+  const clusterList: ClusterMeta[] = Array.from(clusterCountMap.entries()).map(([id, meta]) => ({
+    id,
+    name: meta.name,
+    color: meta.color,
+    count: meta.count,
+  }));
+
   return {
     nodes: simNodes,
-    edges: simEdges,
-    clusters: Array.from(clusterMap.values()),
+    edges: validEdges,
+    clusters: clusterList,
   };
 }
 
@@ -302,34 +408,31 @@ export default function TradeSimKnowledgeGraphViewer() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // ── Dataset Switcher State (Penggabungan Network & Arsitektur) ──
-  const [activeDataset, setActiveDataset] = useState<GraphDatasetKey>('architecture');
+  // ── Scopes & Toggle Seluruh Saham ──
+  const [currentScope, setCurrentScope] = useState<MegaUniverseScope>('mega');
+  const [includeAllStocks, setIncludeAllStocks] = useState<boolean>(false);
 
-  // ── Obsidian Controls & Graph Settings ──
+  // ── Obsidian Controls ──
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCluster, setActiveCluster] = useState<string>('ALL');
   const [physicsActive, setPhysicsActive] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
-  const [nodeScale, setNodeScale] = useState<number>(1.0); // 0.6 to 1.8
-  const [linkDistance, setLinkDistance] = useState<number>(120); // 70 to 240
-  const [repelForce, setRepelForce] = useState<number>(2000); // 800 to 4500
-  const [centerGravity, setCenterGravity] = useState<number>(0.0035); // 0.001 to 0.008
+  const [nodeScale, setNodeScale] = useState<number>(1.0);
+  const [repelForce, setRepelForce] = useState<number>(1800);
+  const [centerGravity, setCenterGravity] = useState<number>(0.003);
 
-  // ── Hover & Selection Interactivity (Obsidian-Style Dimming) ──
+  // ── Hover & Selection ──
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<ObsidianNode | null>(null);
-  const [pathSourceId, setPathSourceId] = useState<string | null>(null);
-  const [pathTargetId, setPathTargetId] = useState<string | null>(null);
-  const [pathNodes, setPathNodes] = useState<Set<string>>(new Set());
 
   // ── Camera Transform ──
-  const cameraRef = useRef({ x: 0, y: 0, scale: 1 });
+  const cameraRef = useRef({ x: 0, y: 0, scale: 0.95 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const draggedNodeRef = useRef<ObsidianNode | null>(null);
 
-  // ── Nodes & Edges Simulation Storage ──
+  // ── Simulation Storage ──
   const nodesRef = useRef<ObsidianNode[]>([]);
   const edgesRef = useRef<ObsidianEdge[]>([]);
   const clustersRef = useRef<ClusterMeta[]>([]);
@@ -337,25 +440,21 @@ export default function TradeSimKnowledgeGraphViewer() {
   const pulseOffsetRef = useRef<number>(0);
 
   // Load dataset into simulation
-  const loadDataset = useCallback((key: GraphDatasetKey) => {
+  const loadDataset = useCallback((scope: MegaUniverseScope, allStocks: boolean) => {
     const w = containerRef.current?.clientWidth || 1000;
-    const h = containerRef.current?.clientHeight || 620;
-    const built = buildGraphDataset(key, w / 2, h / 2);
+    const h = containerRef.current?.clientHeight || 640;
+    const built = buildMegaUniverseDataset(scope, w / 2, h / 2, allStocks);
     nodesRef.current = built.nodes;
     edgesRef.current = built.edges;
     clustersRef.current = built.clusters;
     setSelectedNode(null);
     setHoveredNodeId(null);
-    setPathSourceId(null);
-    setPathTargetId(null);
-    setPathNodes(new Set());
-    cameraRef.current = { x: 0, y: 0, scale: 1 };
+    cameraRef.current = { x: 0, y: 0, scale: scope === 'mega' ? 0.75 : 0.95 };
   }, []);
 
-  // Inisialisasi awal saat mount & saat dataset berubah
   useEffect(() => {
-    loadDataset(activeDataset);
-  }, [activeDataset, loadDataset]);
+    loadDataset(currentScope, includeAllStocks);
+  }, [currentScope, includeAllStocks, loadDataset]);
 
   // Handle Resize Canvas dengan ResizeObserver
   useEffect(() => {
@@ -367,7 +466,7 @@ export default function TradeSimKnowledgeGraphViewer() {
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       const w = Math.max(rect.width, 800);
-      const h = Math.max(rect.height, 620);
+      const h = Math.max(rect.height, 640);
       if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
         canvas.width = w * dpr;
         canvas.height = h * dpr;
@@ -406,7 +505,7 @@ export default function TradeSimKnowledgeGraphViewer() {
     return set;
   }, [searchQuery, activeCluster]);
 
-  // Neighborhood map untuk Obsidian hover focus (1-hop neighbors)
+  // 1-hop Neighborhood Map untuk Obsidian Hover Focus
   const neighborhoodMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     edgesRef.current.forEach((e) => {
@@ -416,36 +515,9 @@ export default function TradeSimKnowledgeGraphViewer() {
       map.get(e.target)!.add(e.source);
     });
     return map;
-  }, [activeDataset]);
+  }, [currentScope, includeAllStocks]);
 
-  // BFS Shortest Path (Graphify Path Finder)
-  useEffect(() => {
-    if (!pathSourceId || !pathTargetId) {
-      setPathNodes(new Set());
-      return;
-    }
-    const queue: string[][] = [[pathSourceId]];
-    const visited = new Set<string>([pathSourceId]);
-
-    while (queue.length > 0) {
-      const cur = queue.shift()!;
-      const last = cur[cur.length - 1];
-      if (last === pathTargetId) {
-        setPathNodes(new Set(cur));
-        return;
-      }
-      const neighbors = neighborhoodMap.get(last) || new Set();
-      neighbors.forEach((nbr) => {
-        if (!visited.has(nbr)) {
-          visited.add(nbr);
-          queue.push([...cur, nbr]);
-        }
-      });
-    }
-    setPathNodes(new Set());
-  }, [pathSourceId, pathTargetId, neighborhoodMap]);
-
-  // ── 60FPS Obsidian Physics & Canvas Render Loop ──
+  // ── 60FPS Obsidian High-Density Physics & Render Loop ──
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -465,22 +537,23 @@ export default function TradeSimKnowledgeGraphViewer() {
 
       pulseOffsetRef.current = (pulseOffsetRef.current + 0.015) % 1;
 
-      // ── 1. OBSIDIAN FORCE SIMULATION STEP (Stabil, Tanpa Ledakan) ──
+      // ── 1. HIGH-PERFORMANCE CLUSTERED SIMULATION STEP ──
       const nodes = nodesRef.current;
       const edges = edgesRef.current;
 
       if (physicsActive) {
-        // A. Repulsion (Coulomb Law dengan clamp pelindung)
-        for (let i = 0; i < nodes.length; i++) {
-          for (let j = i + 1; j < nodes.length; j++) {
-            const n1 = nodes[i];
-            const n2 = nodes[j];
+        // A. Repulsion antar Major Nodes (Hubs & Agen Utama)
+        const majorNodes = nodes.filter((n) => n.isMajor);
+        for (let i = 0; i < majorNodes.length; i++) {
+          for (let j = i + 1; j < majorNodes.length; j++) {
+            const n1 = majorNodes[i];
+            const n2 = majorNodes[j];
             const dx = n2.x - n1.x;
             const dy = n2.y - n1.y;
-            const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 14);
+            const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 16);
 
             if (dist < 380) {
-              const force = Math.min(repelForce / (dist * dist), 3.2);
+              const force = Math.min(repelForce / (dist * dist), 3.0);
               const fx = (dx / dist) * force;
               const fy = (dy / dist) * force;
 
@@ -496,37 +569,28 @@ export default function TradeSimKnowledgeGraphViewer() {
           }
         }
 
-        // B. Spring Attraction along Edges (Hooke's Law)
-        for (let i = 0; i < edges.length; i++) {
-          const e = edges[i];
-          const dx = e.targetNode.x - e.sourceNode.x;
-          const dy = e.targetNode.y - e.sourceNode.y;
-          const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-
-          const force = (dist - linkDistance) * 0.038;
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-
-          if (e.sourceNode !== draggedNodeRef.current) {
-            e.sourceNode.vx += fx;
-            e.sourceNode.vy += fy;
-          }
-          if (e.targetNode !== draggedNodeRef.current) {
-            e.targetNode.vx -= fx;
-            e.targetNode.vy -= fy;
-          }
-        }
-
-        // C. Center Gravity & Velocity Damping
+        // B. Spring Attraction & Parent Orbiting
         nodes.forEach((n) => {
           if (n === draggedNodeRef.current) return;
+
+          // Jika memiliki Parent Hub (misal saham ke Sektor Hub), tarik lembut ke orbit parent
+          if (n.parentHubId) {
+            const parent = nodes.find((p) => p.id === n.parentHubId);
+            if (parent) {
+              const dx = parent.x - n.x;
+              const dy = parent.y - n.y;
+              n.vx += dx * 0.005;
+              n.vy += dy * 0.005;
+            }
+          }
+
+          // Gravitasi Pusat ke Tengah Layar
           n.vx += (centerX - n.x) * centerGravity;
           n.vy += (centerY - n.y) * centerGravity;
 
-          n.vx *= 0.86;
-          n.vy *= 0.86;
+          n.vx *= 0.85;
+          n.vy *= 0.85;
 
-          // Velocity cap agar simpul tidak melonjak keluar layar
           const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
           if (speed > 8) {
             n.vx = (n.vx / speed) * 8;
@@ -538,61 +602,55 @@ export default function TradeSimKnowledgeGraphViewer() {
         });
       }
 
-      // ── 2. CANVAS DRAWING (Authentic Obsidian Graph View Look) ──
+      // ── 2. CANVAS DRAWING (Obsidian Dark Cosmic Canvas) ──
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, w, h);
 
-      // Background Obsidian Dark Void Canvas
-      ctx.fillStyle = '#090b10';
+      // Dark Void Background
+      ctx.fillStyle = '#080a0f';
       ctx.fillRect(0, 0, w, h);
 
-      // Faint subtle cosmic dot grid (Obsidian style dots)
-      const dotSpacing = 42;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      // Faint subtle cosmic dot grid
+      const dotSpacing = 48;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
       for (let x = dotSpacing; x < w; x += dotSpacing) {
         for (let y = dotSpacing; y < h; y += dotSpacing) {
           ctx.beginPath();
-          ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+          ctx.arc(x, y, 0.75, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      // Camera pan and zoom
+      // Camera Transform
       ctx.save();
       ctx.translate(centerX + cameraRef.current.x, centerY + cameraRef.current.y);
       ctx.scale(cameraRef.current.scale, cameraRef.current.scale);
       ctx.translate(-centerX, -centerY);
 
-      // Hitung neighborhood untuk hover
       const isAnyHovered = hoveredNodeId !== null;
       const hoveredNeighbors = hoveredNodeId ? neighborhoodMap.get(hoveredNodeId) || new Set() : new Set();
 
       // ── 3. RENDER EDGES ──
       edges.forEach((e) => {
         const isConnectedToHover = hoveredNodeId === e.source || hoveredNodeId === e.target;
-        const isPath = pathNodes.has(e.source) && pathNodes.has(e.target);
         const isConnectedToSelected = selectedNode && (selectedNode.id === e.source || selectedNode.id === e.target);
 
-        let alpha = 0.16;
-        let strokeColor = 'rgba(255, 255, 255, 0.16)';
-        let lineWidth = 1;
+        let alpha = 0.12;
+        let strokeColor = 'rgba(255, 255, 255, 0.12)';
+        let lineWidth = 0.8;
 
-        if (isPath) {
-          alpha = 1.0;
-          strokeColor = '#f59e0b';
-          lineWidth = 3.2;
-        } else if (isConnectedToHover) {
+        if (isConnectedToHover) {
           alpha = 1.0;
           strokeColor = e.sourceNode.color || '#38bdf8';
           lineWidth = 2.4;
         } else if (isConnectedToSelected) {
           alpha = 0.9;
           strokeColor = '#38bdf8';
-          lineWidth = 2.0;
+          lineWidth = 1.8;
         } else if (isAnyHovered) {
-          alpha = 0.04;
-          strokeColor = 'rgba(255, 255, 255, 0.04)';
+          alpha = 0.03;
+          strokeColor = 'rgba(255, 255, 255, 0.03)';
         }
 
         ctx.save();
@@ -605,15 +663,13 @@ export default function TradeSimKnowledgeGraphViewer() {
         ctx.lineTo(e.targetNode.x, e.targetNode.y);
         ctx.stroke();
 
-        // Animated Obsidian Particle pulse along connected edges
-        if (isConnectedToHover || isPath) {
+        // Traveling pulse on hover
+        if (isConnectedToHover) {
           const px = e.sourceNode.x + (e.targetNode.x - e.sourceNode.x) * pulseOffsetRef.current;
           const py = e.sourceNode.y + (e.targetNode.y - e.sourceNode.y) * pulseOffsetRef.current;
           ctx.beginPath();
-          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
           ctx.fillStyle = strokeColor;
-          ctx.shadowColor = strokeColor;
-          ctx.shadowBlur = 8;
           ctx.fill();
         }
 
@@ -625,14 +681,13 @@ export default function TradeSimKnowledgeGraphViewer() {
         const isHovered = hoveredNodeId === n.id;
         const isSelected = selectedNode?.id === n.id;
         const isNeighbor = hoveredNeighbors.has(n.id);
-        const isPath = pathNodes.has(n.id);
         const isMatchFilter = visibleNodeIds.has(n.id);
 
         let alpha = 1.0;
         if (!isMatchFilter) {
-          alpha = 0.15;
+          alpha = 0.12;
         } else if (isAnyHovered) {
-          alpha = isHovered || isNeighbor ? 1.0 : 0.14;
+          alpha = isHovered || isNeighbor ? 1.0 : 0.12;
         }
 
         const effectiveRadius = n.radius * nodeScale;
@@ -640,56 +695,57 @@ export default function TradeSimKnowledgeGraphViewer() {
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Outer Glow Halo saat Hover / Select (Obsidian Signature Effect)
-        if (isHovered || isSelected || isPath) {
+        // Outer Glow Halo
+        if (isHovered || isSelected || (n.isMajor && isNeighbor)) {
           ctx.beginPath();
           ctx.arc(n.x, n.y, effectiveRadius + 8, 0, Math.PI * 2);
-          ctx.fillStyle = isPath ? 'rgba(245, 158, 11, 0.35)' : `${n.color}40`;
-          ctx.shadowColor = isPath ? '#f59e0b' : n.color;
-          ctx.shadowBlur = 18;
+          ctx.fillStyle = `${n.color}40`;
+          ctx.shadowColor = n.color;
+          ctx.shadowBlur = 16;
           ctx.fill();
           ctx.shadowBlur = 0;
         }
 
-        // Main Node Body (Vibrant Circle)
+        // Node Body
         ctx.beginPath();
         ctx.arc(n.x, n.y, effectiveRadius, 0, Math.PI * 2);
         ctx.fillStyle = n.color;
         ctx.fill();
 
-        // Node Inner Core & Border
+        // Node Border Ring
         ctx.beginPath();
         ctx.arc(n.x, n.y, effectiveRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = isSelected ? '#ffffff' : isHovered ? '#f4f4f5' : 'rgba(10, 13, 20, 0.85)';
-        ctx.lineWidth = isSelected ? 2.8 : isHovered ? 2.2 : 1.8;
+        ctx.strokeStyle = isSelected ? '#ffffff' : isHovered ? '#f4f4f5' : 'rgba(8, 10, 15, 0.9)';
+        ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2.0 : 1.4;
         ctx.stroke();
 
-        // ── 5. NODE LABELS (Obsidian Typography) ──
-        if (showLabels || isHovered || isSelected || isNeighbor) {
-          const fontSize = isHovered || isSelected ? 12 : 11;
+        // ── 5. LABELS (High-Legibility Backing Pill) ──
+        const shouldShowLabel =
+          showLabels &&
+          (n.isMajor || isHovered || isSelected || isNeighbor || cameraRef.current.scale > 1.3);
+
+        if (shouldShowLabel) {
+          const fontSize = isHovered || isSelected ? 12 : n.isMajor ? 11 : 9.5;
           ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
           ctx.textAlign = 'center';
 
-          // Text Backing Pill untuk keterbacaan tinggi di atas garis
-          const labelText = n.label;
-          const textMetrics = ctx.measureText(labelText);
-          const pillWidth = textMetrics.width + 10;
-          const pillHeight = fontSize + 6;
-          const pillY = n.y + effectiveRadius + 10;
+          const textMetrics = ctx.measureText(n.label);
+          const pillWidth = textMetrics.width + 8;
+          const pillHeight = fontSize + 5;
+          const pillY = n.y + effectiveRadius + 9;
 
-          ctx.fillStyle = 'rgba(9, 11, 16, 0.82)';
+          ctx.fillStyle = 'rgba(8, 10, 15, 0.85)';
           ctx.beginPath();
-          ctx.roundRect(n.x - pillWidth / 2, pillY - fontSize + 2, pillWidth, pillHeight, 4);
+          ctx.roundRect(n.x - pillWidth / 2, pillY - fontSize + 2, pillWidth, pillHeight, 3);
           ctx.fill();
 
-          ctx.fillStyle = isSelected ? '#ffffff' : isHovered ? '#e4e4e7' : '#d4d4d8';
-          ctx.fillText(labelText, n.x, pillY + 2);
+          ctx.fillStyle = isSelected ? '#ffffff' : isHovered ? '#f4f4f5' : '#e4e4e7';
+          ctx.fillText(n.label, n.x, pillY + 1.5);
 
-          // Sublabel / Metric Tag
           if (isHovered || isSelected) {
             ctx.font = '9px monospace';
             ctx.fillStyle = '#a1a1aa';
-            ctx.fillText(n.sublabel || n.metric || n.cluster, n.x, pillY + 14);
+            ctx.fillText(n.sublabel || n.metric || n.cluster, n.x, pillY + 13);
           }
         }
 
@@ -711,7 +767,6 @@ export default function TradeSimKnowledgeGraphViewer() {
   }, [
     physicsActive,
     repelForce,
-    linkDistance,
     centerGravity,
     nodeScale,
     showLabels,
@@ -719,10 +774,9 @@ export default function TradeSimKnowledgeGraphViewer() {
     selectedNode,
     visibleNodeIds,
     neighborhoodMap,
-    pathNodes,
   ]);
 
-  // ── Mouse Interactivity: Pan, Zoom, Hover, Drag Node ──
+  // ── Mouse & Touch Event Handlers ──
   const getCanvasMouse = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { worldX: 0, worldY: 0, clientX: 0, clientY: 0 };
@@ -748,11 +802,10 @@ export default function TradeSimKnowledgeGraphViewer() {
     const { worldX, worldY } = getCanvasMouse(e);
     const nodes = nodesRef.current;
 
-    // Cek apakah mengklik simpul
     const clicked = nodes.find((n) => {
       const dx = n.x - worldX;
       const dy = n.y - worldY;
-      return Math.sqrt(dx * dx + dy * dy) <= n.radius * nodeScale + 6;
+      return Math.sqrt(dx * dx + dy * dy) <= n.radius * nodeScale + 5;
     });
 
     if (clicked) {
@@ -779,7 +832,6 @@ export default function TradeSimKnowledgeGraphViewer() {
       cameraRef.current.x += dx;
       cameraRef.current.y += dy;
     } else {
-      // Hover detection
       const nodes = nodesRef.current;
       const hovered = nodes.find((n) => {
         const dx = n.x - worldX;
@@ -798,36 +850,39 @@ export default function TradeSimKnowledgeGraphViewer() {
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-    cameraRef.current.scale = Math.min(Math.max(cameraRef.current.scale * zoomFactor, 0.3), 3.5);
+    cameraRef.current.scale = Math.min(Math.max(cameraRef.current.scale * zoomFactor, 0.25), 4.0);
   };
 
   const resetCamera = () => {
-    cameraRef.current = { x: 0, y: 0, scale: 1 };
+    cameraRef.current = { x: 0, y: 0, scale: currentScope === 'mega' ? 0.75 : 0.95 };
     setSelectedNode(null);
     setHoveredNodeId(null);
   };
 
-  // Download Obsidian Markdown Note or Vault
+  // Export Obsidian Vault Markdown
   const handleExportMarkdown = () => {
     const lines = [
-      `# TradeSim Pro — Obsidian Knowledge Graph Export`,
-      `Tanggal Ekspor: ${new Date().toLocaleString()}`,
-      `Semesta: ${activeDataset.toUpperCase()}`,
+      `# TradeSim Pro — Grand Unified Knowledge Graph Vault`,
+      `Tanggal: ${new Date().toLocaleString()}`,
+      `Cakupan: ${currentScope.toUpperCase()}`,
       `Total Simpul: ${nodesRef.current.length} • Total Relasi: ${edgesRef.current.length}`,
       '',
-      '## Daftar Simpul & Koneksi WikiLinks',
+      '## Entitas & Tautan WikiLinks Terhubung',
       '',
     ];
 
     nodesRef.current.forEach((n) => {
       const neighbors = Array.from(neighborhoodMap.get(n.id) || []);
       lines.push(`### [[${n.label}]]`);
-      lines.push(`- **Kategori**: \`#${n.cluster}\` (${n.category})`);
-      lines.push(`- **Keterangan**: ${n.description}`);
+      lines.push(`- **Kategori**: \`#${n.category}\` (${n.cluster})`);
+      lines.push(`- **Deskripsi**: ${n.description}`);
       if (n.metric) lines.push(`- **Metrik**: ${n.metric}`);
-      if (n.filePath) lines.push(`- **File**: \`${n.filePath}\``);
+      if (n.filePath) lines.push(`- **Berkas**: \`${n.filePath}\``);
       lines.push('- **Koneksi Terhubung**:');
-      neighbors.forEach((nbr) => lines.push(`  - [[${nbr}]]`));
+      neighbors.forEach((nbr) => {
+        const targetNode = nodesRef.current.find((tn) => tn.id === nbr);
+        lines.push(`  - [[${targetNode ? targetNode.label : nbr}]]`);
+      });
       lines.push('');
     });
 
@@ -835,7 +890,7 @@ export default function TradeSimKnowledgeGraphViewer() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tradesim-${activeDataset}-graph-vault.md`;
+    a.download = `tradesim-mega-universe-vault.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -849,75 +904,86 @@ export default function TradeSimKnowledgeGraphViewer() {
   }, [selectedNode]);
 
   return (
-    <div className="relative w-full h-[640px] rounded-2xl bg-[#090b10] border border-zinc-800/90 overflow-hidden flex flex-col shadow-2xl font-sans select-none">
-      {/* ── Top Obsidian Toolbar ── */}
+    <div className="relative w-full h-[650px] rounded-2xl bg-[#080a0f] border border-zinc-800/90 overflow-hidden flex flex-col shadow-2xl font-sans select-none">
+      {/* ── Top Bar: Scope Selector & Live HUD Metrics ── */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
-        {/* Left: Dataset Switcher Pills (Penggabungan Arsitektur & Network Graph) */}
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-950/90 border border-zinc-800 rounded-xl shadow-xl backdrop-blur-md pointer-events-auto overflow-x-auto no-scrollbar max-w-[70vw]">
+        {/* Left: Universe Scope Pills */}
+        <div className="flex items-center gap-1.5 p-1 bg-zinc-950/90 border border-zinc-800 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto overflow-x-auto no-scrollbar max-w-[70vw]">
           <button
-            onClick={() => setActiveDataset('architecture')}
+            onClick={() => setCurrentScope('mega')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeDataset === 'architecture'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-            }`}
-          >
-            <span>🏗️ Arsitektur Graphify</span>
-          </button>
-          <button
-            onClick={() => setActiveDataset('conglomerates')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeDataset === 'conglomerates'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-            }`}
-          >
-            <span>🏢 Konglomerasi BEI</span>
-          </button>
-          <button
-            onClick={() => setActiveDataset('smartMoney')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeDataset === 'smartMoney'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-            }`}
-          >
-            <span>🧠 AI & Smart Money</span>
-          </button>
-          <button
-            onClick={() => setActiveDataset('crypto')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeDataset === 'crypto'
-                ? 'bg-cyan-600 text-white shadow-md'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-            }`}
-          >
-            <span>⚡ Kripto Spot</span>
-          </button>
-          <button
-            onClick={() => setActiveDataset('master')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeDataset === 'master'
-                ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md'
+              currentScope === 'mega'
+                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 text-white shadow-lg'
                 : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>🌌 Master Universe</span>
+            <span>🌌 MEGA UNIVERSE (SEMUA TERGABUNG)</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentScope('ai_office')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              currentScope === 'ai_office'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>👔 AI Trading Office (50 Pejabat)</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentScope('architecture')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              currentScope === 'architecture'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>🏗️ Arsitektur TradeSim</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentScope('stocks_market')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              currentScope === 'stocks_market'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>🏢 Sektor Saham BEI</span>
           </button>
         </div>
 
-        {/* Right: Search, Obsidian Controls & Action Buttons */}
+        {/* Right: Search, All Stocks Toggle, Settings & Reset */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Quick Search Input */}
-          <div className="relative hidden sm:block">
+          {/* Toggle All 950+ Stocks */}
+          {(currentScope === 'mega' || currentScope === 'stocks_market') && (
+            <button
+              onClick={() => setIncludeAllStocks(!includeAllStocks)}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer backdrop-blur-md shadow-md ${
+                includeAllStocks
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                  : 'bg-zinc-950/90 text-zinc-400 border-zinc-800 hover:text-white'
+              }`}
+              title="Muat seluruh 950+ emiten bursa BEI ke dalam kanvas"
+            >
+              <span>{includeAllStocks ? '✓ Seluruh 950+ Saham Aktif' : '+ Muat 950+ Saham BEI'}</span>
+            </button>
+          )}
+
+          {/* Quick Search */}
+          <div className="relative hidden md:block">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari simpul Obsidian..."
-              className="pl-8 pr-7 py-1.5 bg-zinc-950/90 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 outline-none w-48 lg:w-56 focus:border-purple-500 shadow-md backdrop-blur-md"
+              placeholder="Cari simpul (BBCA, Evelyn, Zustand)..."
+              className="pl-8 pr-7 py-1.5 bg-zinc-950/90 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 outline-none w-52 focus:border-purple-500 shadow-md backdrop-blur-md"
             />
             {searchQuery && (
               <button
@@ -929,7 +995,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             )}
           </div>
 
-          {/* Toggle Obsidian Settings Drawer Button */}
+          {/* Obsidian Settings Drawer Toggle */}
           <button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition shadow-lg cursor-pointer backdrop-blur-md ${
@@ -937,13 +1003,12 @@ export default function TradeSimKnowledgeGraphViewer() {
                 ? 'bg-purple-600 text-white border-purple-500'
                 : 'bg-zinc-950/90 text-zinc-300 border-zinc-800 hover:text-white hover:bg-zinc-900'
             }`}
-            title="Buka Pengaturan Graf Obsidian"
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Obsidian Settings</span>
+            <span className="hidden sm:inline">Obsidian Controls</span>
           </button>
 
-          {/* Play/Pause Physics */}
+          {/* Physics Play/Pause */}
           <button
             onClick={() => setPhysicsActive(!physicsActive)}
             className={`p-2 rounded-xl border text-xs transition cursor-pointer backdrop-blur-md ${
@@ -951,7 +1016,7 @@ export default function TradeSimKnowledgeGraphViewer() {
                 ? 'bg-zinc-950/90 text-emerald-400 border-zinc-800 hover:bg-zinc-900'
                 : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
             }`}
-            title={physicsActive ? 'Jeda Simulasi Fisika' : 'Lanjutkan Simulasi Fisika'}
+            title={physicsActive ? 'Jeda Simulasi' : 'Lanjutkan Simulasi'}
           >
             {physicsActive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           </button>
@@ -960,15 +1025,15 @@ export default function TradeSimKnowledgeGraphViewer() {
           <button
             onClick={resetCamera}
             className="p-2 rounded-xl bg-zinc-950/90 border border-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition backdrop-blur-md shadow-md"
-            title="Reset Posisi Kamera ke Tengah"
+            title="Reset Posisi Kamera"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* ── Cluster Filter Pills (Bottom Left) ── */}
-      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 overflow-x-auto max-w-[80%] no-scrollbar pointer-events-auto">
+      {/* ── Cluster / Sektor Filter Pills (Bottom Left) ── */}
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 overflow-x-auto max-w-[85%] no-scrollbar pointer-events-auto">
         <button
           onClick={() => setActiveCluster('ALL')}
           className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition border backdrop-blur-md ${
@@ -977,9 +1042,9 @@ export default function TradeSimKnowledgeGraphViewer() {
               : 'bg-zinc-950/80 text-zinc-400 border-zinc-800 hover:text-white'
           }`}
         >
-          Semua ({nodesRef.current.length})
+          Semua Simpul ({nodesRef.current.length})
         </button>
-        {clustersRef.current.map((cl) => (
+        {clustersRef.current.slice(0, 14).map((cl) => (
           <button
             key={cl.id}
             onClick={() => setActiveCluster(cl.id)}
@@ -991,6 +1056,7 @@ export default function TradeSimKnowledgeGraphViewer() {
           >
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cl.color }} />
             <span>{cl.name}</span>
+            <span className="text-[9px] text-zinc-500">({cl.count})</span>
           </button>
         ))}
       </div>
@@ -998,8 +1064,8 @@ export default function TradeSimKnowledgeGraphViewer() {
       {/* ── Main Canvas Viewport ── */}
       <div
         ref={containerRef}
-        className="relative flex-1 w-full min-h-[640px] cursor-grab active:cursor-grabbing"
-        style={{ width: '100%', minHeight: '640px', height: '100%' }}
+        className="relative flex-1 w-full min-h-[650px] cursor-grab active:cursor-grabbing"
+        style={{ width: '100%', minHeight: '650px', height: '100%' }}
       >
         <canvas
           ref={canvasRef}
@@ -1012,13 +1078,13 @@ export default function TradeSimKnowledgeGraphViewer() {
         />
       </div>
 
-      {/* ── Floating Obsidian Settings Panel (Classic Graph View Drawer) ── */}
+      {/* ── Floating Obsidian Controls Drawer ── */}
       {isSettingsOpen && (
         <div className="absolute top-16 right-3 z-30 w-72 sm:w-80 max-h-[80%] overflow-y-auto bg-zinc-950/95 border border-zinc-800 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl space-y-4 animate-in slide-in-from-right-3 duration-150">
           <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-bold text-white tracking-wide">Graph View Settings</span>
+              <span className="text-xs font-bold text-white tracking-wide">Graph View Controls</span>
             </div>
             <button
               onClick={() => setIsSettingsOpen(false)}
@@ -1028,13 +1094,12 @@ export default function TradeSimKnowledgeGraphViewer() {
             </button>
           </div>
 
-          {/* Section: Display Parameters */}
+          {/* Section: Display Settings */}
           <div className="space-y-3">
             <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
-              Display &amp; Appearance
+              Display &amp; Typography
             </span>
 
-            {/* Toggle Labels */}
             <div className="flex items-center justify-between text-xs text-zinc-300">
               <span>Tampilkan Label Teks</span>
               <button
@@ -1047,7 +1112,6 @@ export default function TradeSimKnowledgeGraphViewer() {
               </button>
             </div>
 
-            {/* Node Size Slider */}
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
                 <span>Ukuran Simpul</span>
@@ -1055,7 +1119,7 @@ export default function TradeSimKnowledgeGraphViewer() {
               </div>
               <input
                 type="range"
-                min="0.6"
+                min="0.5"
                 max="1.8"
                 step="0.1"
                 value={nodeScale}
@@ -1063,32 +1127,14 @@ export default function TradeSimKnowledgeGraphViewer() {
                 className="w-full accent-purple-500 cursor-pointer"
               />
             </div>
-
-            {/* Link Distance Slider */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
-                <span>Panjang Relasi</span>
-                <span>{linkDistance}px</span>
-              </div>
-              <input
-                type="range"
-                min="70"
-                max="240"
-                step="10"
-                value={linkDistance}
-                onChange={(e) => setLinkDistance(parseInt(e.target.value))}
-                className="w-full accent-purple-500 cursor-pointer"
-              />
-            </div>
           </div>
 
-          {/* Section: Forces Simulation */}
+          {/* Section: Physics & Forces */}
           <div className="space-y-3 border-t border-zinc-800/80 pt-3">
             <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
               Physics &amp; Forces
             </span>
 
-            {/* Repulsion Force */}
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
                 <span>Gaya Tolak Simpul</span>
@@ -1096,8 +1142,8 @@ export default function TradeSimKnowledgeGraphViewer() {
               </div>
               <input
                 type="range"
-                min="800"
-                max="4500"
+                min="600"
+                max="4000"
                 step="200"
                 value={repelForce}
                 onChange={(e) => setRepelForce(parseInt(e.target.value))}
@@ -1105,7 +1151,6 @@ export default function TradeSimKnowledgeGraphViewer() {
               />
             </div>
 
-            {/* Center Gravity */}
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
                 <span>Gravitasi Pusat</span>
@@ -1114,7 +1159,7 @@ export default function TradeSimKnowledgeGraphViewer() {
               <input
                 type="range"
                 min="0.001"
-                max="0.008"
+                max="0.007"
                 step="0.0005"
                 value={centerGravity}
                 onChange={(e) => setCenterGravity(parseFloat(e.target.value))}
@@ -1123,10 +1168,10 @@ export default function TradeSimKnowledgeGraphViewer() {
             </div>
           </div>
 
-          {/* Section: Vault Export */}
+          {/* Section: Export Vault */}
           <div className="border-t border-zinc-800/80 pt-3 space-y-2">
             <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
-              Obsidian Export
+              Obsidian Vault Export
             </span>
             <button
               onClick={handleExportMarkdown}
@@ -1139,10 +1184,9 @@ export default function TradeSimKnowledgeGraphViewer() {
         </div>
       )}
 
-      {/* ── Node Inspector Panel (Obsidian Side Pane saat Simpul Diklik) ── */}
+      {/* ── Node Inspector Panel (Obsidian Backlinks & Detail) ── */}
       {selectedNode && (
-        <div className="absolute top-16 left-3 z-30 w-72 sm:w-80 max-h-[80%] overflow-y-auto bg-zinc-950/95 border border-zinc-800 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl space-y-3.5 animate-in slide-in-from-left-3 duration-150">
-          {/* Header */}
+        <div className="absolute top-16 left-3 z-30 w-72 sm:w-84 max-h-[80%] overflow-y-auto bg-zinc-950/95 border border-zinc-800 rounded-2xl p-4 shadow-2xl backdrop-blur-2xl space-y-3.5 animate-in slide-in-from-left-3 duration-150">
           <div className="flex items-start justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
@@ -1154,7 +1198,7 @@ export default function TradeSimKnowledgeGraphViewer() {
                   {selectedNode.category}
                 </span>
               </div>
-              <h3 className="text-sm font-extrabold text-white leading-tight">
+              <h3 className="text-sm font-black text-white leading-tight">
                 {selectedNode.label}
               </h3>
               {selectedNode.sublabel && (
@@ -1169,15 +1213,13 @@ export default function TradeSimKnowledgeGraphViewer() {
             </button>
           </div>
 
-          {/* Description */}
           <div className="text-xs text-zinc-300 leading-relaxed bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/80">
             {selectedNode.description}
           </div>
 
-          {/* Metric / File Info */}
           {selectedNode.metric && (
             <div className="flex items-center justify-between text-xs font-mono bg-zinc-900/40 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-              <span className="text-zinc-500">Nilai / Metrik:</span>
+              <span className="text-zinc-500">Metrik / Valuasi:</span>
               <span className="text-cyan-300 font-bold">{selectedNode.metric}</span>
             </div>
           )}
@@ -1191,7 +1233,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             </div>
           )}
 
-          {/* Connected Links (Obsidian WikiLinks Style) */}
+          {/* Connected WikiLinks List */}
           <div className="space-y-2 border-t border-zinc-800/80 pt-2.5">
             <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
               Tautan Terhubung ({nodeConnections.outgoing.length + nodeConnections.incoming.length})
@@ -1224,30 +1266,6 @@ export default function TradeSimKnowledgeGraphViewer() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Path Finding Controls */}
-          <div className="border-t border-zinc-800/80 pt-2.5 flex items-center gap-1.5">
-            <button
-              onClick={() => setPathSourceId(selectedNode.id)}
-              className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                pathSourceId === selectedNode.id
-                  ? 'bg-amber-500 text-black border-amber-400'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:text-white'
-              }`}
-            >
-              Set Titik Awal
-            </button>
-            <button
-              onClick={() => setPathTargetId(selectedNode.id)}
-              className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                pathTargetId === selectedNode.id
-                  ? 'bg-amber-500 text-black border-amber-400'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:text-white'
-              }`}
-            >
-              Set Titik Akhir
-            </button>
           </div>
         </div>
       )}
