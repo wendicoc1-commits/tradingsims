@@ -60,6 +60,7 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'NEWS', desc: 'Breaking News Wire & Sentimen Pasar Riil', cat: 'riset' },
   { cmd: 'PORTFOLIO', desc: 'Portofolio Investasi & Trade Blotter', cat: 'alat' },
   { cmd: 'CRYPTO', desc: 'AI Quant Cryptocurrency Trading Desk', cat: 'pasar' },
+  { cmd: 'ADMIN', desc: 'Panel Administrator (Approval Deposit & Portofolio)', cat: 'alat' },
   { cmd: 'TOPUP', desc: 'Top Up Saldo Kas Virtual via QRIS', cat: 'alat' },
   { cmd: 'HELP', desc: 'Buka Panduan & Shortcuts TradeSim Pro', cat: 'alat' },
 ];
@@ -510,6 +511,17 @@ export default function TradeSimHeader() {
           }`}
         >
           <span>🌐 Makro &amp; Suku Bunga</span>
+        </Link>
+        <Link
+          href="/admin/portfolios"
+          aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
+          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ml-auto ${
+            pathname.startsWith('/admin')
+              ? 'bg-purple-900/40 text-purple-300 border border-purple-500/40 font-bold'
+              : 'text-purple-400 hover:text-purple-300 hover:bg-purple-950/40'
+          }`}
+        >
+          <span>🛡️ Admin Panel</span>
         </Link>
       </nav>
 
