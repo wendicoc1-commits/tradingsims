@@ -304,37 +304,6 @@ export const MASTER_GLOBAL_CRYPTO: GlobalCrypto[] = [
   { rank: 65, symbol: 'JTOUSDT', name: 'Jito (Solana MEV Liquid Stake)', category: 'INFRA', price: 0.5616, change24h: 2.80, high24h: 0.6200, low24h: 0.5100, volume24h: '$95M', marketCap: '$75M' },
   { rank: 66, symbol: 'STXUSDT', name: 'Stacks (Bitcoin L2/Smart Contracts)', category: 'INFRA', price: 0.378, change24h: 2.10, high24h: 0.410, low24h: 0.350, volume24h: '$110M', marketCap: '$580M' },
   { rank: 67, symbol: 'CHZUSDT', name: 'Chiliz (Sports Fan Tokens)', category: 'INFRA', price: 0.0151, change24h: 1.10, high24h: 0.0165, low24h: 0.0140, volume24h: '$65M', marketCap: '$135M' },
-  { rank: 68, symbol: 'ENSUSDT', name: 'Ethereum Name Service', category: 'INFRA', price: 6.21, change24h: 5.40, high24h: 6.63, low24h: 5.41, volume24h: '$88M', marketCap: '$200M' },
-  { rank: 69, symbol: 'GALAUSDT', name: 'GALA Games', category: 'INFRA', price: 0.0022, change24h: 6.20, high24h: 0.0025, low24h: 0.0021, volume24h: '$140M', marketCap: '$80M' },
-
-  // ── AI & DEPIN (DECENTRALIZED PHYSICAL INFRASTRUCTURE) ──
-  { rank: 45, symbol: 'TAOUSDT', name: 'Bittensor (Decentralized AI)', category: 'AI', price: 273.00, change24h: 1.80, high24h: 285.00, low24h: 265.00, volume24h: '$190M', marketCap: '$3.1B' },
-  { rank: 46, symbol: 'RENDERUSDT', name: 'Render Network (GPU Compute)', category: 'AI', price: 1.862, change24h: 1.50, high24h: 1.92, low24h: 1.78, volume24h: '$240M', marketCap: '$2.4B' },
-  { rank: 47, symbol: 'FETUSDT', name: 'Artificial Superintelligence (ASI)', category: 'AI', price: 0.2134, change24h: 1.20, high24h: 0.225, low24h: 0.198, volume24h: '$150M', marketCap: '$650M' },
-  { rank: 48, symbol: 'AKTUSDT', name: 'Akash Network (Cloud GPU)', category: 'AI', price: 0.719, change24h: 2.30, high24h: 0.780, low24h: 0.680, volume24h: '$48M', marketCap: '$215M' },
-  { rank: 49, symbol: 'ARUSDT', name: 'Arweave Permanent Storage', category: 'AI', price: 4.074, change24h: 1.40, high24h: 4.250, low24h: 3.900, volume24h: '$78M', marketCap: '$270M' },
-  { rank: 50, symbol: 'FILUSDT', name: 'Filecoin (Decentralized Storage)', category: 'AI', price: 1.080, change24h: 1.20, high24h: 1.150, low24h: 1.020, volume24h: '$110M', marketCap: '$680M' },
-  { rank: 51, symbol: 'GRTUSDT', name: 'The Graph (Indexing)', category: 'AI', price: 0.0270, change24h: 1.80, high24h: 0.0290, low24h: 0.0250, volume24h: '$82M', marketCap: '$260M' },
-  { rank: 52, symbol: 'THETAUSDT', name: 'Theta Network (Video & AI)', category: 'AI', price: 0.220, change24h: 1.10, high24h: 0.240, low24h: 0.200, volume24h: '$45M', marketCap: '$220M' },
-
-  // ── MEMECOINS & CULTURE ──
-  { rank: 53, symbol: 'DOGEUSDT', name: 'Dogecoin', category: 'MEME', price: 0.154, change24h: 1.20, high24h: 0.165, low24h: 0.145, volume24h: '$1.5B', marketCap: '$22.5B' },
-  { rank: 54, symbol: 'SHIBUSDT', name: 'Shiba Inu', category: 'MEME', price: 0.000018, change24h: 1.20, high24h: 0.0000188, low24h: 0.0000174, volume24h: '$310M', marketCap: '$10.6B' },
-  { rank: 55, symbol: 'PEPEUSDT', name: 'Pepe', category: 'MEME', price: 0.00000395, change24h: 1.80, high24h: 0.00000410, low24h: 0.00000380, volume24h: '$780M', marketCap: '$3.8B' },
-  { rank: 56, symbol: 'WIFUSDT', name: 'dogwifhat (Solana)', category: 'MEME', price: 0.2133, change24h: 2.10, high24h: 0.2350, low24h: 0.1950, volume24h: '$555M', marketCap: '$210M' },
-  { rank: 57, symbol: 'BONKUSDT', name: 'Bonk (Solana)', category: 'MEME', price: 0.00000332, change24h: 2.10, high24h: 0.00000355, low24h: 0.00000315, volume24h: '$210M', marketCap: '$240M' },
-  { rank: 58, symbol: 'FLOKIUSDT', name: 'Floki', category: 'MEME', price: 0.0000270, change24h: 2.20, high24h: 0.0000290, low24h: 0.0000250, volume24h: '$180M', marketCap: '$260M' },
-  { rank: 59, symbol: 'POPCATUSDT', name: 'Popcat (Solana)', category: 'MEME', price: 0.0554, change24h: 3.40, high24h: 0.0600, low24h: 0.0500, volume24h: '$195M', marketCap: '$55M' },
-  { rank: 60, symbol: 'MEWUSDT', name: 'cat in a dogs world', category: 'MEME', price: 0.00047, change24h: 3.20, high24h: 0.00052, low24h: 0.00043, volume24h: '$140M', marketCap: '$45M' },
-  { rank: 61, symbol: 'BOMEUSDT', name: 'BOOK OF MEME', category: 'MEME', price: 0.001033, change24h: 2.20, high24h: 0.001150, low24h: 0.000950, volume24h: '$120M', marketCap: '$72M' },
-  { rank: 62, symbol: 'NEIROUSDT', name: 'First Neiro on Ethereum', category: 'MEME', price: 0.000082, change24h: 4.50, high24h: 0.000090, low24h: 0.000075, volume24h: '$380M', marketCap: '$35M' },
-
-  // ── INFRASTRUCTURE, ORACLE & GAMING ──
-  { rank: 63, symbol: 'PYTHUSDT', name: 'Pyth Network (High-Freq Oracle)', category: 'INFRA', price: 0.0860, change24h: 4.20, high24h: 0.0950, low24h: 0.0780, volume24h: '$120M', marketCap: '$310M' },
-  { rank: 64, symbol: 'WUSDT', name: 'Wormhole Cross-Chain', category: 'INFRA', price: 0.0175, change24h: 1.20, high24h: 0.0185, low24h: 0.0165, volume24h: '$85M', marketCap: '$750M' },
-  { rank: 65, symbol: 'JTOUSDT', name: 'Jito (Solana MEV Liquid Stake)', category: 'INFRA', price: 0.5616, change24h: 2.80, high24h: 0.6200, low24h: 0.5100, volume24h: '$95M', marketCap: '$75M' },
-  { rank: 66, symbol: 'STXUSDT', name: 'Stacks (Bitcoin L2/Smart Contracts)', category: 'INFRA', price: 0.378, change24h: 2.10, high24h: 0.410, low24h: 0.350, volume24h: '$110M', marketCap: '$580M' },
-  { rank: 67, symbol: 'CHZUSDT', name: 'Chiliz (Sports Fan Tokens)', category: 'INFRA', price: 0.0151, change24h: 1.10, high24h: 0.0165, low24h: 0.0140, volume24h: '$65M', marketCap: '$135M' },
   { rank: 68, symbol: 'ENSUSDT', name: 'Ethereum Name Service', category: 'INFRA', price: 17.50, change24h: 5.40, high24h: 18.40, low24h: 16.20, volume24h: '$88M', marketCap: '$560M' },
   { rank: 69, symbol: 'GALAUSDT', name: 'GALA Games', category: 'INFRA', price: 0.0225, change24h: 6.20, high24h: 0.0240, low24h: 0.0210, volume24h: '$140M', marketCap: '$810M' },
   { rank: 70, symbol: 'SANDUSDT', name: 'The Sandbox (Metaverse)', category: 'INFRA', price: 0.0670, change24h: 1.80, high24h: 0.0720, low24h: 0.0620, volume24h: '$75M', marketCap: '$160M' },
