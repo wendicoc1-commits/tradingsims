@@ -232,7 +232,44 @@ export const INITIAL_DIVIDENDS: DividendRecord[] = []
  */
 export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHolding[] {
   if (!Array.isArray(rawHoldings)) return []
-  return rawHoldings
+
+  // 1. KONSOLIDASI & DEDUPLIKASI: Gabungkan entri duplikat dengan simbol sama menjadi 1 holding terpadu
+  const consolidatedMap = new Map<string, PortfolioHolding>()
+  for (const h of rawHoldings) {
+    if (!h || !h.symbol) continue
+    const rawClean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
+    const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
+    const isCrypto = h.assetClass === 'CRYPTO' || h.currency === 'USDT' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym)
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym))
+    const uniqueKey = isCrypto ? `CRYPTO:${cleanSym}` : isUS ? `US:${cleanSym}` : `IDX:${cleanSym}`
+
+    const existing = consolidatedMap.get(uniqueKey)
+    if (!existing) {
+      consolidatedMap.set(uniqueKey, { ...h, displaySymbol: cleanSym })
+    } else {
+      const exLots = existing.lots || 0
+      const newLots = h.lots || 0
+      const totalLots = exLots + newLots
+      const exUnits = (existing.cryptoUnits && existing.cryptoUnits > 0) ? existing.cryptoUnits : exLots
+      const newUnits = (h.cryptoUnits && h.cryptoUnits > 0) ? h.cryptoUnits : newLots
+      const totalUnits = exUnits + newUnits
+
+      let combinedAvg = existing.avgPrice
+      if (totalLots > 0) {
+        combinedAvg = ((existing.avgPrice * exLots) + (h.avgPrice * newLots)) / totalLots
+      }
+
+      consolidatedMap.set(uniqueKey, {
+        ...existing,
+        avgPrice: combinedAvg,
+        lots: totalLots,
+        shares: (existing.shares || 0) + (h.shares || 0),
+        cryptoUnits: isCrypto ? totalUnits : undefined,
+      })
+    }
+  }
+
+  return Array.from(consolidatedMap.values())
     .filter((h) => {
       const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
       const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)

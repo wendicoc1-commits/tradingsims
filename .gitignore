@@ -46,3 +46,6 @@ trading_agent_backend/venv/
 trading_agent_backend/data/
 __pycache__/
 *.pyc
+
+# Local runtime data
+src/data/server_user_portfolios.json
