@@ -222,7 +222,7 @@ export default function PublicApiHubPage() {
           </div>
         )}
 
-        {/* ── Search Bar & Filter Controls ── */}
+        {/* ── Search Bar & Filter Controls (Tanpa Tab Terpisah, Fungsi Kategori 100% Terjaga) ── */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
           {/* Search Input */}
           <div className="relative flex-1">
@@ -236,62 +236,52 @@ export default function PublicApiHubPage() {
             />
           </div>
 
-          {/* Filter Checkboxes */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Category Dropdown & Quick Filters */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="relative">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value as CategoryFilter)}
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-zinc-900 border border-zinc-800 text-amber-300 focus:border-amber-500 outline-none cursor-pointer pr-7"
+                title="Filter Kategori API"
+              >
+                <option value="ALL">🌐 Semua Kategori ({PUBLIC_APIS_CATALOG.length})</option>
+                <option value="Finance">📈 Pasar Saham</option>
+                <option value="Crypto">🪙 Kripto & Web3</option>
+                <option value="Forex">💱 Forex & Valas</option>
+                <option value="Macro">🏦 Makro & Bank Sentral</option>
+                <option value="News">📰 Berita & Sentimen</option>
+                <option value="Commodities">🛢️ Komoditas & Energi</option>
+                <option value="AI">🤖 AI & Kuantitatif</option>
+              </select>
+            </div>
+
             <button
               type="button"
               onClick={() => setCorsOnly(!corsOnly)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
                 corsOnly
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
               }`}
             >
               <Zap className="w-3.5 h-3.5 text-emerald-400" />
-              <span>CORS Ready (Browser)</span>
+              <span>CORS Ready</span>
             </button>
 
             <button
               type="button"
               onClick={() => setNoAuthOnly(!noAuthOnly)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
                 noAuthOnly
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                   : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>No Auth (Tanpa Key)</span>
+              <span>No Auth</span>
             </button>
           </div>
-        </div>
-
-        {/* ── Category Navigation Tabs ── */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar border-b border-zinc-800/80">
-          {(
-            [
-              { id: 'ALL', label: '🌐 Semua Kategori' },
-              { id: 'Finance', label: '📈 Pasar Saham' },
-              { id: 'Crypto', label: '🪙 Kripto & Web3' },
-              { id: 'Forex', label: '💱 Forex & Valas' },
-              { id: 'Macro', label: '🏦 Makro & Bank Sentral' },
-              { id: 'News', label: '📰 Berita & Sentimen' },
-              { id: 'Commodities', label: '🛢️ Komoditas & Energi' },
-              { id: 'AI', label: '🤖 AI & Kuantitatif' },
-            ] as const
-          ).map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                selectedCategory === cat.id
-                  ? 'bg-amber-500 text-black shadow-md'
-                  : 'bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-850'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
         </div>
 
         {/* ── API Grid List ── */}
