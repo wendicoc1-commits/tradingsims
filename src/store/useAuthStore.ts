@@ -575,12 +575,11 @@ export const useAuthStore = create<AuthState>()(
       // Simpan riwayat transaksi order individual ke tabel orders Supabase dengan antrean offline otomatis
       recordOrderToDatabase: async (order: any) => {
         const user = get().user;
-        if (!user || user.provider === 'guest') return;
+        const isUUID = (str?: string) => !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+        if (!user || user.provider === 'guest' || !isUUID(user.id)) return;
 
         // Sinkronkan ke cloud
         await get().syncPortfolioToDatabase();
-
-        const isUUID = (str?: string) => !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
         const orderPayload: Record<string, any> = {
           user_id: user.id,
