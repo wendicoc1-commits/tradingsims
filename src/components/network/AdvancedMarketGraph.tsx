@@ -30,7 +30,9 @@ import {
   Building2,
   DollarSign,
   Maximize2,
+  Box,
 } from 'lucide-react';
+import MarketGraph3D from './MarketGraph3D';
 
 interface SimulatedNode extends NetworkNode {
   x: number;
@@ -58,6 +60,7 @@ export default function AdvancedMarketGraph() {
 
   // States
   const [activePresetKey, setActivePresetKey] = useState<'conglomerates' | 'smartMoney' | 'crypto'>('conglomerates');
+  const [viewDimension, setViewDimension] = useState<'3D' | '2D'>('3D');
   const [physicsActive, setPhysicsActive] = useState<boolean>(true);
   const [sizeMetric, setSizeMetric] = useState<'marketCap' | 'volume' | 'connections'>('marketCap');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -622,6 +625,30 @@ export default function AdvancedMarketGraph() {
           </button>
         </div>
 
+        {/* 2D / 3D Dimension Switcher */}
+        <div className="flex items-center p-0.5 rounded-xl bg-slate-900/90 border border-white/10">
+          <button
+            onClick={() => setViewDimension('3D')}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              viewDimension === '3D'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5" /> 3D Galaxy
+          </button>
+          <button
+            onClick={() => setViewDimension('2D')}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              viewDimension === '2D'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" /> 2D Planar
+          </button>
+        </div>
+
         {/* Actions & Metrics */}
         <div className="flex items-center gap-2">
           <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400 font-mono mr-2">
@@ -654,15 +681,29 @@ export default function AdvancedMarketGraph() {
 
       {/* WORKSPACE & CANVAS */}
       <div ref={containerRef} className="flex-1 relative overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onDoubleClick={handleDoubleClick}
-          onWheel={handleWheel}
-          className="w-full h-full cursor-grab active:cursor-grabbing bg-[radial-gradient(circle_at_50%_50%,#0e1424_0%,#07090e_75%,#040508_100%)]"
-        />
+        {viewDimension === '3D' ? (
+          <MarketGraph3D
+            preset={activePreset}
+            sizeMetric={sizeMetric}
+            searchQuery={searchQuery}
+            focusedNodeId={focusedNodeId}
+            selectedNodeId={selectedNode ? selectedNode.id : null}
+            onSelectNode={(node) => setSelectedNode(node as SimulatedNode | null)}
+            onFocusNode={(nodeId) => setFocusedNodeId(nodeId)}
+            userHoldingsMap={userHoldingsMap}
+            physicsActive={physicsActive}
+          />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onDoubleClick={handleDoubleClick}
+            onWheel={handleWheel}
+            className="w-full h-full cursor-grab active:cursor-grabbing bg-[radial-gradient(circle_at_50%_50%,#0e1424_0%,#07090e_75%,#040508_100%)]"
+          />
+        )}
 
         {/* FLOATING SEARCH & FILTER BAR (TOP LEFT) */}
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 max-w-xs w-full">
