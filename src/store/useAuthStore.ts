@@ -580,8 +580,9 @@ export const useAuthStore = create<AuthState>()(
         // Sinkronkan ke cloud
         await get().syncPortfolioToDatabase();
 
-        const orderPayload = {
-          id: order.id,
+        const isUUID = (str?: string) => !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+        const orderPayload: Record<string, any> = {
           user_id: user.id,
           symbol: order.symbol,
           display_symbol: order.displaySymbol,
@@ -599,6 +600,10 @@ export const useAuthStore = create<AuthState>()(
           created_at: order.createdAt || new Date().toISOString(),
         };
 
+        if (isUUID(order.id)) {
+          orderPayload.id = order.id;
+        }
+
         if (isSupabaseConfigured) {
           try {
             const supabase = getSupabaseBrowserClient();
@@ -612,8 +617,11 @@ export const useAuthStore = create<AuthState>()(
                 if (Array.isArray(pending) && pending.length > 0) {
                   const remaining: any[] = [];
                   for (const p of pending) {
-                    const { error } = await supabase.from('orders').insert(p);
-                    if (error) remaining.push(p);
+                    const cleanP = { ...p };
+                    delete cleanP.filled_at;
+                    if (!isUUID(cleanP.id)) delete cleanP.id;
+                    const { error } = await supabase.from('orders').insert(cleanP);
+                    if (error && error.code !== '22P02' && error.code !== 'PGRST204') remaining.push(cleanP);
                   }
                   localStorage.setItem('tradesim_failed_orders', JSON.stringify(remaining));
                 }
