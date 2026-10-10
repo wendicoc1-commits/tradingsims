@@ -33,6 +33,18 @@ const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const DB_FILE = path.join(DATA_DIR, 'server_user_portfolios.json');
 const SALT = 'tradingsims_cloud_sync_salt_v1';
 
+export function hashPassword(password: string): string {
+  if (!password) return '';
+  return crypto.pbkdf2Sync(password, SALT, 1000, 64, 'sha512').toString('hex');
+}
+
+export function verifyPasswordHash(password: string, storedHash: string): boolean {
+  if (!password || !storedHash) return false;
+  const computed = hashPassword(password);
+  if (computed === storedHash) return true;
+  return password === storedHash;
+}
+
 // CLOUD-FIRST ARCHITECTURE:
 // Seluruh data pengguna & portofolio ditulis dan dibaca langsung dari Supabase Cloud.
 // TIDAK ADA penulisan ke disk file lokal (server_user_portfolios.json) untuk mencegah
