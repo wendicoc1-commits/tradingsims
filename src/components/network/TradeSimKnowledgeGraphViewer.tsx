@@ -60,6 +60,8 @@ export interface ObsidianNode {
   filePath?: string;
   metric?: string;
   parentHubId?: string;
+  targetOrbitRadius?: number;
+  orbitAngle?: number;
   isMajor: boolean;
   // Simulation physics
   x: number;
@@ -258,16 +260,21 @@ function buildMegaUniverseDataset(
       }
     });
 
-    // B. Saham-saham BEI
-    // Tentukan universe: Seluruh 950+ saham atau 120 saham terpopuler/likuid
+    // B. Saham-saham BEI (Tampilkan seluruh 951 emiten aktif BEI sebagai butiran-butiran individual)
     const stocksToInclude = includeAllStocks
       ? MASTER_ASSETS.filter((a) => a.category === 'IDX')
-      : MASTER_ASSETS.filter((a) => a.category === 'IDX' && (a.isPopular || a.defaultPrice > 1000)).slice(0, 160);
+      : MASTER_ASSETS.filter((a) => a.category === 'IDX' && (a.isPopular || a.defaultPrice > 1000)).slice(0, 360);
 
-    stocksToInclude.forEach((stk) => {
+    const goldenRatio = 2.3999632;
+    stocksToInclude.forEach((stk, sIdx) => {
       const sectorHubId = resolveStockSectorHub(stk.sector);
       const hub = IDX_SECTOR_HUBS.find((h) => h.id === sectorHubId) || IDX_SECTOR_HUBS[0];
       registerCluster(hub.id, hub.name, hub.color);
+
+      // Setiap butiran saham memiliki cincin orbit terpisah agar tidak menggumpal
+      const orbitBand = sIdx % 8;
+      const targetOrbitRadius = 75 + orbitBand * 24 + (sIdx % 5) * 7; // rentang orbit 75px - 275px
+      const orbitAngle = sIdx * goldenRatio;
 
       rawNodes.push({
         id: `stk_${stk.symbol}`,
@@ -278,9 +285,11 @@ function buildMegaUniverseDataset(
         color: hub.color,
         description: `${stk.name} • Sektor: ${stk.sector}. Papan: ${stk.board || 'Utama'}. Harga Wajar: Rp ${stk.defaultPrice.toLocaleString()}`,
         metric: `Rp ${stk.defaultPrice.toLocaleString()}`,
-        baseRadius: stk.isPopular ? 16 : 10,
+        baseRadius: stk.isPopular ? 7.5 : 3.8, // Butiran halus bintang Obsidian
         isMajor: !!stk.isPopular,
         parentHubId: sectorHubId,
+        targetOrbitRadius,
+        orbitAngle,
       });
 
       // Relasi Saham ke Sektor Hub
@@ -308,7 +317,7 @@ function buildMegaUniverseDataset(
         color,
         description: `${cg.name} • Kategori: ${cg.category}. Harga: $${cg.defaultPrice.toLocaleString()}`,
         metric: `$${cg.defaultPrice.toLocaleString()}`,
-        baseRadius: 15,
+        baseRadius: 11,
         isMajor: true,
       });
 
@@ -334,36 +343,67 @@ function buildMegaUniverseDataset(
   }
 
   // ── 4. GEOMETRI ORBIT KOSMIK (Galactic Orbit Initial Placement) ──
+  const sectorHubPosMap = new Map<string, { x: number; y: number }>();
+  IDX_SECTOR_HUBS.forEach((sec, idx) => {
+    const theta = (idx % 11) * ((Math.PI * 2) / 11);
+    const r = 500;
+    sectorHubPosMap.set(sec.id, {
+      x: centerX + r * Math.cos(theta),
+      y: centerY + r * Math.sin(theta),
+    });
+  });
+
   const goldenRatio = 2.3999632;
   const simNodes: ObsidianNode[] = rawNodes.map((n, idx) => {
-    let r = 50;
-    let theta = idx * goldenRatio;
+    let initX = centerX;
+    let initY = centerY;
 
     if (n.category === 'ARCHITECTURE') {
       // Pusat Galaksi: Arsitektur Sistem (Radius 40 - 130px)
-      r = 45 + Math.sqrt(idx) * 25;
+      const r = 40 + Math.sqrt(idx) * 25;
+      const theta = idx * goldenRatio;
+      initX = centerX + r * Math.cos(theta);
+      initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'AI_DEPT') {
-      // Lingkaran Pertama: 10 Departemen Head (Radius 180 - 240px)
-      r = 210;
-      theta = (idx % 10) * ((Math.PI * 2) / 10);
+      // Lingkaran Pertama: 10 Departemen Head (Radius 200px)
+      const r = 200;
+      const theta = (idx % 10) * ((Math.PI * 2) / 10);
+      initX = centerX + r * Math.cos(theta);
+      initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'AI_AGENT') {
-      // Lingkaran Kedua: 50 Agen Pejabat AI (Radius 270 - 380px)
-      r = 280 + Math.sqrt(idx) * 20;
+      // Lingkaran Kedua: 50 Agen Pejabat AI (Radius 270 - 370px)
+      const r = 270 + Math.sqrt(idx) * 18;
+      const theta = idx * goldenRatio;
+      initX = centerX + r * Math.cos(theta);
+      initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'SECTOR_HUB') {
-      // Lingkaran Ketiga: 11 Sektor Hub BEI (Radius 440 - 520px)
-      r = 480;
-      theta = (idx % 11) * ((Math.PI * 2) / 11);
+      // Lingkaran Ketiga: 11 Sektor Hub BEI (Radius 500px)
+      const hubPos = sectorHubPosMap.get(n.id);
+      if (hubPos) {
+        initX = hubPos.x;
+        initY = hubPos.y;
+      }
+    } else if (n.category === 'STOCK_IDX' && n.parentHubId && sectorHubPosMap.has(n.parentHubId)) {
+      // Butiran Saham: Tersebar melingkari Sektor Hub dalam orbit luas (tidak bertumpuk!)
+      const hubPos = sectorHubPosMap.get(n.parentHubId)!;
+      const r = n.targetOrbitRadius || 120;
+      const theta = n.orbitAngle || (idx * goldenRatio);
+      initX = hubPos.x + r * Math.cos(theta);
+      initY = hubPos.y + r * Math.sin(theta);
     } else {
-      // Lingkaran Luar: Ratusan Saham BEI (Radius 560 - 850px)
-      r = 580 + Math.sqrt(idx) * 22;
+      // Lingkaran Luar Aset Lainnya
+      const r = 580 + Math.sqrt(idx) * 22;
+      const theta = idx * goldenRatio;
+      initX = centerX + r * Math.cos(theta);
+      initY = centerY + r * Math.sin(theta);
     }
 
     return {
       ...n,
-      x: centerX + r * Math.cos(theta),
-      y: centerY + r * Math.sin(theta),
-      vx: 0,
-      vy: 0,
+      x: initX,
+      y: initY,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
       radius: n.baseRadius,
       degree: 1,
     };
@@ -410,7 +450,7 @@ export default function TradeSimKnowledgeGraphViewer() {
 
   // ── Scopes & Toggle Seluruh Saham ──
   const [currentScope, setCurrentScope] = useState<MegaUniverseScope>('mega');
-  const [includeAllStocks, setIncludeAllStocks] = useState<boolean>(false);
+  const [includeAllStocks, setIncludeAllStocks] = useState<boolean>(true);
 
   // ── Obsidian Controls ──
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -427,7 +467,7 @@ export default function TradeSimKnowledgeGraphViewer() {
   const [selectedNode, setSelectedNode] = useState<ObsidianNode | null>(null);
 
   // ── Camera Transform ──
-  const cameraRef = useRef({ x: 0, y: 0, scale: 0.95 });
+  const cameraRef = useRef({ x: 0, y: 0, scale: 0.58 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const draggedNodeRef = useRef<ObsidianNode | null>(null);
@@ -449,7 +489,7 @@ export default function TradeSimKnowledgeGraphViewer() {
     clustersRef.current = built.clusters;
     setSelectedNode(null);
     setHoveredNodeId(null);
-    cameraRef.current = { x: 0, y: 0, scale: scope === 'mega' ? 0.75 : 0.95 };
+    cameraRef.current = { x: 0, y: 0, scale: scope === 'mega' ? 0.58 : 0.85 };
   }, []);
 
   useEffect(() => {
@@ -542,7 +582,10 @@ export default function TradeSimKnowledgeGraphViewer() {
       const edges = edgesRef.current;
 
       if (physicsActive) {
-        // A. Repulsion antar Major Nodes (Hubs & Agen Utama)
+        const nodeMap = new Map<string, ObsidianNode>();
+        nodes.forEach((n) => nodeMap.set(n.id, n));
+
+        // A. Repulsion antar Major Nodes (Hubs Sektoral & Pejabat AI)
         const majorNodes = nodes.filter((n) => n.isMajor);
         for (let i = 0; i < majorNodes.length; i++) {
           for (let j = i + 1; j < majorNodes.length; j++) {
@@ -552,7 +595,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             const dy = n2.y - n1.y;
             const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 16);
 
-            if (dist < 380) {
+            if (dist < 360) {
               const force = Math.min(repelForce / (dist * dist), 3.0);
               const fx = (dx / dist) * force;
               const fy = (dy / dist) * force;
@@ -569,32 +612,85 @@ export default function TradeSimKnowledgeGraphViewer() {
           }
         }
 
-        // B. Spring Attraction & Parent Orbiting
+        // B. Spatial Grid Repulsion: Menjamin 100% seluruh butiran saham tersebar dan tidak saling menumpuk
+        const cellSize = 54;
+        const grid = new Map<number, ObsidianNode[]>();
+        for (let i = 0; i < nodes.length; i++) {
+          const n = nodes[i];
+          const cx = Math.floor(n.x / cellSize);
+          const cy = Math.floor(n.y / cellSize);
+          const key = cx * 10000 + cy;
+          let cell = grid.get(key);
+          if (!cell) {
+            cell = [];
+            grid.set(key, cell);
+          }
+          cell.push(n);
+        }
+
+        for (let i = 0; i < nodes.length; i++) {
+          const n1 = nodes[i];
+          if (n1 === draggedNodeRef.current) continue;
+          const cx = Math.floor(n1.x / cellSize);
+          const cy = Math.floor(n1.y / cellSize);
+
+          for (let ox = -1; ox <= 1; ox++) {
+            for (let oy = -1; oy <= 1; oy++) {
+              const key = (cx + ox) * 10000 + (cy + oy);
+              const cell = grid.get(key);
+              if (!cell) continue;
+
+              for (let j = 0; j < cell.length; j++) {
+                const n2 = cell[j];
+                if (n1 === n2) continue;
+
+                const dx = n2.x - n1.x;
+                const dy = n2.y - n1.y;
+                const distSq = dx * dx + dy * dy;
+                const minDist = (n1.radius + n2.radius) * 1.6 + 8;
+                const minDistSq = minDist * minDist;
+
+                if (distSq < minDistSq && distSq > 0.001) {
+                  const dist = Math.sqrt(distSq);
+                  const push = ((minDist - dist) / dist) * 0.35;
+                  n1.vx -= dx * push;
+                  n1.vy -= dy * push;
+                }
+              }
+            }
+          }
+        }
+
+        // C. Orbital Ring Guidance & Soft Center Gravity
         nodes.forEach((n) => {
           if (n === draggedNodeRef.current) return;
 
-          // Jika memiliki Parent Hub (misal saham ke Sektor Hub), tarik lembut ke orbit parent
+          // Jarak orbit terhadap Sektor Hub: Memandu ke cincin targetOrbitRadius (TIDAK pernah jatuh ke titik 0)
           if (n.parentHubId) {
-            const parent = nodes.find((p) => p.id === n.parentHubId);
+            const parent = nodeMap.get(n.parentHubId);
             if (parent) {
-              const dx = parent.x - n.x;
-              const dy = parent.y - n.y;
-              n.vx += dx * 0.005;
-              n.vy += dy * 0.005;
+              const dx = n.x - parent.x;
+              const dy = n.y - parent.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const targetOrbit = n.targetOrbitRadius || 120;
+              const delta = targetOrbit - dist;
+              const radialForce = delta * 0.0008; // jika terlalu dekat didorong keluar, jika terlalu jauh ditarik masuk
+              n.vx += (dx / dist) * radialForce;
+              n.vy += (dy / dist) * radialForce;
             }
           }
 
-          // Gravitasi Pusat ke Tengah Layar
-          n.vx += (centerX - n.x) * centerGravity;
-          n.vy += (centerY - n.y) * centerGravity;
+          // Gravitasi Pusat ke Tengah Layar (sangat halus agar konstelasi tetap mekar luas)
+          n.vx += (centerX - n.x) * (centerGravity * 0.2);
+          n.vy += (centerY - n.y) * (centerGravity * 0.2);
 
-          n.vx *= 0.85;
-          n.vy *= 0.85;
+          n.vx *= 0.88;
+          n.vy *= 0.88;
 
           const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
-          if (speed > 8) {
-            n.vx = (n.vx / speed) * 8;
-            n.vy = (n.vy / speed) * 8;
+          if (speed > 6) {
+            n.vx = (n.vx / speed) * 6;
+            n.vy = (n.vy / speed) * 6;
           }
 
           n.x += n.vx;
@@ -631,14 +727,14 @@ export default function TradeSimKnowledgeGraphViewer() {
       const isAnyHovered = hoveredNodeId !== null;
       const hoveredNeighbors = hoveredNodeId ? neighborhoodMap.get(hoveredNodeId) || new Set() : new Set();
 
-      // ── 3. RENDER EDGES ──
+      // ── 3. RENDER EDGES (Faint Constellation Web) ──
       edges.forEach((e) => {
         const isConnectedToHover = hoveredNodeId === e.source || hoveredNodeId === e.target;
         const isConnectedToSelected = selectedNode && (selectedNode.id === e.source || selectedNode.id === e.target);
 
-        let alpha = 0.12;
-        let strokeColor = 'rgba(255, 255, 255, 0.12)';
-        let lineWidth = 0.8;
+        let alpha = 0.045; // Garis konstelasi halus agar butiran saham terlihat jelas & dominan
+        let strokeColor = 'rgba(255, 255, 255, 0.06)';
+        let lineWidth = 0.6;
 
         if (isConnectedToHover) {
           alpha = 1.0;
@@ -648,9 +744,13 @@ export default function TradeSimKnowledgeGraphViewer() {
           alpha = 0.9;
           strokeColor = '#38bdf8';
           lineWidth = 1.8;
+        } else if (e.relation === 'subsidiary' || e.relation === 'sister' || e.relation === 'jv') {
+          alpha = 0.25;
+          strokeColor = e.sourceNode.color || '#f59e0b';
+          lineWidth = 0.9;
         } else if (isAnyHovered) {
-          alpha = 0.03;
-          strokeColor = 'rgba(255, 255, 255, 0.03)';
+          alpha = 0.015;
+          strokeColor = 'rgba(255, 255, 255, 0.015)';
         }
 
         ctx.save();
@@ -854,7 +954,7 @@ export default function TradeSimKnowledgeGraphViewer() {
   };
 
   const resetCamera = () => {
-    cameraRef.current = { x: 0, y: 0, scale: currentScope === 'mega' ? 0.75 : 0.95 };
+    cameraRef.current = { x: 0, y: 0, scale: currentScope === 'mega' ? 0.58 : 0.85 };
     setSelectedNode(null);
     setHoveredNodeId(null);
   };
@@ -904,7 +1004,7 @@ export default function TradeSimKnowledgeGraphViewer() {
   }, [selectedNode]);
 
   return (
-    <div className="relative w-full h-[650px] rounded-2xl bg-[#080a0f] border border-zinc-800/90 overflow-hidden flex flex-col shadow-2xl font-sans select-none">
+    <div className="relative w-full h-[760px] rounded-2xl bg-[#080a0f] border border-zinc-800/90 overflow-hidden flex flex-col shadow-2xl font-sans select-none">
       {/* ── Top Bar: Scope Selector & Live HUD Metrics ── */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
         {/* Left: Universe Scope Pills */}
@@ -918,7 +1018,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>🌌 MEGA UNIVERSE (SEMUA TERGABUNG)</span>
+            <span>🌌 MEGA UNIVERSE (1.000+ BUTIRAN)</span>
           </button>
 
           <button
@@ -971,7 +1071,7 @@ export default function TradeSimKnowledgeGraphViewer() {
               }`}
               title="Muat seluruh 950+ emiten bursa BEI ke dalam kanvas"
             >
-              <span>{includeAllStocks ? '✓ Seluruh 950+ Saham Aktif' : '+ Muat 950+ Saham BEI'}</span>
+              <span>{includeAllStocks ? '✓ Seluruh 950+ Butiran Saham' : '+ Muat 950+ Butiran'}</span>
             </button>
           )}
 
@@ -1064,8 +1164,8 @@ export default function TradeSimKnowledgeGraphViewer() {
       {/* ── Main Canvas Viewport ── */}
       <div
         ref={containerRef}
-        className="relative flex-1 w-full min-h-[650px] cursor-grab active:cursor-grabbing"
-        style={{ width: '100%', minHeight: '650px', height: '100%' }}
+        className="relative flex-1 w-full min-h-[760px] cursor-grab active:cursor-grabbing"
+        style={{ width: '100%', minHeight: '760px', height: '100%' }}
       >
         <canvas
           ref={canvasRef}
