@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAssetBySymbol, isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
+import { getAssetBySymbol, isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
 import { fetchYahooQuote } from '../realtime/route';
 import type { StockQuote } from '@/types';
@@ -22,31 +22,36 @@ export async function GET(request: Request) {
       const cleanCryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
 
       const isCrypto = rawSymbol.toUpperCase().endsWith('USDT') || isCryptoSymbol(clean) || isCryptoSymbol(cleanCryptoKey);
+      const isUS = !isCrypto && (isUSSymbol(clean) || isUSSymbol(rawSymbol));
       const asset = getAssetBySymbol(clean) || getAssetBySymbol(cleanCryptoKey) || getAssetBySymbol(`${cleanCryptoKey}USDT`);
 
       const liveQuote = await fetchYahooQuote(rawSymbol).catch(() => null);
       const fallbackBench = getVerifiedBenchmarkPrice(isCrypto ? `${cleanCryptoKey}USDT` : clean);
 
       const basePrice = liveQuote?.price || asset?.defaultPrice || fallbackBench.price;
-      const currency = isCrypto ? 'USDT' : (liveQuote?.currency || asset?.currency || fallbackBench.currency);
-      const isUSD = currency === 'USD' || currency === 'USDT' || isCrypto;
+      const currency = isCrypto ? 'USDT' : (liveQuote?.currency || asset?.currency || (isUS ? 'USD' : fallbackBench.currency));
+      const isUSD = currency === 'USD' || currency === 'USDT' || isCrypto || isUS;
 
-      // Jika live quote dari Yahoo tidak tersedia (weekend / bursa tutup / offline),
-      // simulasikan fraksi tick dinamis realistis agar P/L saham tidak macet di 0%
+      // Jika live quote dari Yahoo tidak tersedia atau bursa sedang tutup (weekend / after-hours),
+      // simulasikan fraksi tick dinamis realistis agar P/L saham di mode paper trading tidak membeku di 0%
       let price = basePrice;
       let changePct = liveQuote?.changePct ?? (isCrypto ? 1.85 : 0.45);
 
-      if (!liveQuote && !isCrypto && basePrice > 0) {
-        const now = Date.now();
-        const timeSlice = Math.floor(now / 10000); // Bergerak setiap 10 detik
+      const now = new Date();
+      const dayOfWeek = now.getUTCDay(); // 0 = Minggu, 6 = Sabtu
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isMarketOffline = !liveQuote || isWeekend || (liveQuote?.marketState && liveQuote.marketState !== 'REGULAR');
+
+      if (isMarketOffline && !isCrypto && basePrice > 0) {
+        const timeSlice = Math.floor(Date.now() / 8000); // Bergerak halus setiap 8 detik
         const hash = clean.split('').reduce((acc, c, idx) => acc + c.charCodeAt(0) * (idx + 1), 0);
         const angle1 = ((timeSlice * 17 + hash) % 360) * (Math.PI / 180);
         const angle2 = ((timeSlice * 7 + hash * 3) % 360) * (Math.PI / 180);
-        const pctJitter = (Math.sin(angle1) * 0.012) + (Math.cos(angle2) * 0.006);
+        const pctJitter = (Math.sin(angle1) * 0.008) + (Math.cos(angle2) * 0.004);
 
         if (isUSD) {
           price = Math.round(basePrice * (1 + pctJitter) * 100) / 100;
-          changePct = Math.round(pctJitter * 10000) / 100;
+          changePct = Math.round(((liveQuote?.changePct || 0) + pctJitter * 100) * 100) / 100;
         } else {
           const raw = basePrice * (1 + pctJitter);
           const tick = raw >= 5000 ? 25 : raw >= 2000 ? 10 : raw >= 500 ? 5 : raw >= 200 ? 2 : 1;
@@ -76,9 +81,9 @@ export async function GET(request: Request) {
       ];
 
       return {
-        symbol: isCrypto ? `${cleanCryptoKey}USDT` : rawSymbol.includes('.') ? rawSymbol : `${clean}.JK`,
+        symbol: isCrypto ? `${cleanCryptoKey}USDT` : isUS ? clean : rawSymbol.includes('.') ? rawSymbol : `${clean}.JK`,
         displaySymbol: cleanCryptoKey,
-        name: asset?.name || fallbackBench.name || `${clean} Tbk`,
+        name: asset?.name || fallbackBench.name || `${clean} Inc.`,
         market: isCrypto ? 'CRYPTO' : asset?.market || (isUSD ? 'US' : 'IDX'),
         country: isCrypto ? 'CRYPTO' : isUSD ? 'US' : 'ID',
         currency: isCrypto ? 'USDT' : currency,
