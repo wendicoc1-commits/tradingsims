@@ -89,20 +89,20 @@ export default function ArchitecturePage() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-wider mb-1">
-                <Sparkles className="w-3 h-3 text-cyan-400" />
-                <span>Graphify &amp; Obsidian GraphView Engine</span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 uppercase tracking-wider mb-1">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                <span>Obsidian Graph View &amp; Graphify Engine</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                <span>Interactive Holographic Architecture Knowledge Graph</span>
+                <span>Interactive Obsidian Knowledge Graph (Arsitektur &amp; Pasar BEI)</span>
               </h2>
               <p className="text-xs text-neutral-400">
-                Eksplorasi graf interaktif ketergantungan simpul kode, store Zustand, Supabase Cloud, dan AI Engine dengan visualisasi blueprint HUD.
+                Visualisasi graf berformat Obsidian Graph View dengan fisika pegas kosmik. Jelajahi simpul arsitektur kode, kepemilikan konglomerasi saham IDX, smart money, hingga semesta master terpadu.
               </p>
             </div>
             <div className="flex items-center gap-2 self-start">
               <span className="text-[11px] font-mono text-zinc-500">
-                Drag, scroll zoom, atau klik simpul untuk melacak dependensi
+                Drag untuk menggeser, scroll untuk zoom, hover untuk isolasi koneksi
               </span>
             </div>
           </div>
