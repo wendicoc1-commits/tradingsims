@@ -64,6 +64,9 @@ import type { ChartAnnotationOverlay, PineScriptResult } from '@/lib/charting/ai
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'IDR') return price.toLocaleString('id-ID');
+  if (price < 0.00001) return price.toFixed(8);
+  if (price < 0.01) return price.toFixed(6);
+  if (price < 1) return price.toFixed(4);
   return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -79,17 +82,20 @@ function formatMarketCap(mc: number) {
 function generateFallbackStockCandles(basePrice: number, count = 60): HistoryCandle[] {
   const candles: HistoryCandle[] = [];
   const now = new Date();
-  let price = Math.max(50, basePrice * 0.92);
+  const minFloor = basePrice < 0.001 ? basePrice * 0.1 : basePrice < 1 ? basePrice * 0.2 : basePrice < 50 ? basePrice * 0.5 : 50;
+  let price = Math.max(minFloor, basePrice * 0.92);
+  const prec = basePrice < 0.00001 ? 8 : basePrice < 0.01 ? 6 : basePrice < 1 ? 4 : basePrice < 100 ? 2 : 0;
+  const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
 
   for (let i = count; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400000);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
     const timeSec = Math.floor(d.getTime() / 1000);
     const change = (Math.random() - 0.48) * 0.03 * price;
-    const open = Math.round(price);
-    const close = Math.round(Math.max(50, price + change));
-    const high = Math.round(Math.max(open, close) + Math.random() * 0.015 * price);
-    const low = Math.round(Math.max(50, Math.min(open, close) - Math.random() * 0.015 * price));
+    const open = roundP(price);
+    const close = roundP(Math.max(minFloor, price + change));
+    const high = roundP(Math.max(open, close) + Math.random() * 0.015 * price);
+    const low = roundP(Math.max(minFloor, Math.min(open, close) - Math.random() * 0.015 * price));
     const volume = Math.floor(Math.random() * 500000) + 10000;
     price = close;
     candles.push({ time: timeSec, open, high, low, close, volume });
@@ -668,18 +674,23 @@ function KeyStatsPanel({ quote }: { quote: StockQuote }) {
 
 /* ─── Bandar Detector / Broker Summary (Simulated) ─── */
 function BrokerSummaryPanel({ quote }: { quote: StockQuote }) {
+  const isCrypto = quote.market === 'CRYPTO' || quote.currency === 'USDT';
+  const isUS = !isCrypto && quote.currency === 'USD';
+  const tickStep = isCrypto ? quote.price * 0.004 : isUS ? quote.price * 0.002 : 25;
+  const unitLabel = isCrypto ? 'koin' : isUS ? 'shares' : 'lot';
+
   const topBuyers = [
-    { code: 'YP', netLot: 48200, avg: quote.price - 25 },
-    { code: 'PD', netLot: 32150, avg: quote.price - 10 },
-    { code: 'CC', netLot: 28900, avg: quote.price },
-    { code: 'KZ', netLot: 19400, avg: quote.price + 15 },
+    { code: isCrypto ? 'Binance Whales' : 'YP', netLot: 48200, avg: Math.max(tickStep, quote.price - tickStep) },
+    { code: isCrypto ? 'Coinbase Inst' : 'PD', netLot: 32150, avg: Math.max(tickStep, quote.price - tickStep * 0.4) },
+    { code: isCrypto ? 'Wintermute MM' : 'CC', netLot: 28900, avg: quote.price },
+    { code: isCrypto ? 'Jump Trading' : 'KZ', netLot: 19400, avg: quote.price + tickStep * 0.6 },
   ];
 
   const topSellers = [
-    { code: 'AK', netLot: 54100, avg: quote.price + 20 },
-    { code: 'BK', netLot: 36700, avg: quote.price + 35 },
-    { code: 'ZP', netLot: 21300, avg: quote.price - 5 },
-    { code: 'GR', netLot: 15800, avg: quote.price - 15 },
+    { code: isCrypto ? 'Bybit Outflow' : 'AK', netLot: 54100, avg: quote.price + tickStep * 0.8 },
+    { code: isCrypto ? 'Kraken Desk' : 'BK', netLot: 36700, avg: quote.price + tickStep * 1.4 },
+    { code: isCrypto ? 'OKX Flow' : 'ZP', netLot: 21300, avg: Math.max(tickStep, quote.price - tickStep * 0.2) },
+    { code: isCrypto ? 'Retail Panic' : 'GR', netLot: 15800, avg: Math.max(tickStep, quote.price - tickStep * 0.6) },
   ];
 
   return (
@@ -688,11 +699,11 @@ function BrokerSummaryPanel({ quote }: { quote: StockQuote }) {
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Broker Summary (Bandar Detector)
+            {isCrypto ? 'On-Chain Flow / Whale Detector' : 'Broker Summary (Bandar Detector)'}
           </span>
         </div>
         <span className="text-[10px] px-2 py-0.5 rounded font-semibold font-mono" style={{ backgroundColor: 'var(--positive-bg)', color: 'var(--positive)' }}>
-          Net Foreign: +Rp 14.8 B (Akumulasi)
+          {isCrypto ? 'Net Inflow: +$14.8M (Akumulasi)' : 'Net Foreign: +Rp 14.8 B (Akumulasi)'}
         </span>
       </div>
       <div className="grid grid-cols-2">
@@ -701,7 +712,7 @@ function BrokerSummaryPanel({ quote }: { quote: StockQuote }) {
           {topBuyers.map((b) => (
             <div key={b.code} className="flex justify-between items-center text-xs py-1 font-mono-num">
               <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{b.code}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>+{b.netLot.toLocaleString()} lot</span>
+              <span style={{ color: 'var(--text-secondary)' }}>+{b.netLot.toLocaleString()} {unitLabel}</span>
               <span style={{ color: 'var(--text-muted)' }}>@{formatPrice(b.avg, quote.currency)}</span>
             </div>
           ))}
@@ -711,7 +722,7 @@ function BrokerSummaryPanel({ quote }: { quote: StockQuote }) {
           {topSellers.map((s) => (
             <div key={s.code} className="flex justify-between items-center text-xs py-1 font-mono-num">
               <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{s.code}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>-{s.netLot.toLocaleString()} lot</span>
+              <span style={{ color: 'var(--text-secondary)' }}>-{s.netLot.toLocaleString()} {unitLabel}</span>
               <span style={{ color: 'var(--text-muted)' }}>@{formatPrice(s.avg, quote.currency)}</span>
             </div>
           ))}

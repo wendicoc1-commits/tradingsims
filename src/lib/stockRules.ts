@@ -30,10 +30,14 @@ export function getIDXTickSize(price: number): number {
 
 /**
  * Mengambil fraksi harga yang wajar untuk aset Crypto (USDT) & US Equities (USD)
+ * Mendukung koin mikro sub-rupiah (seperti PEPE, SHIB, BONK) hingga 8 desimal
  */
 export function getForeignTick(val: number): number {
-  if (val <= 0) return 0.0001;
-  if (val < 0.01) return 0.00001;
+  if (val <= 0) return 0.00000001;
+  if (val < 0.00001) return 0.00000001; // PEPE, SHIB (8 desimal)
+  if (val < 0.001) return 0.0000001;
+  if (val < 0.01) return 0.000001;
+  if (val < 0.1) return 0.00001;
   if (val < 1) return 0.0001;
   if (val < 10) return 0.001;
   if (val < 100) return 0.01;

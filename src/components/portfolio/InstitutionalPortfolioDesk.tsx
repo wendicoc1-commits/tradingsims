@@ -215,9 +215,10 @@ export default function InstitutionalPortfolioDesk() {
 
     let effectiveAvgPrice = h.avgPrice;
     if (isCrypto && curPrice > 0) {
+      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
       if (effectiveAvgPrice > curPrice * 100) {
-        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(curPrice < 1 ? 6 : 4)) : curPrice;
-      } else if (effectiveAvgPrice <= 0.0000001 || curPrice > effectiveAvgPrice * 50) {
+        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
+      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
         effectiveAvgPrice = curPrice;
       }
     }
@@ -584,9 +585,10 @@ export default function InstitutionalPortfolioDesk() {
                     // Kalibrasi real-time harga beli jika holding membawa seed anomali lama
                     let effectiveAvgPrice = h.avgPrice;
                     if (isCrypto && curPrice > 0) {
+                      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
                       if (effectiveAvgPrice > curPrice * 100) {
-                        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(curPrice < 1 ? 6 : 4)) : curPrice;
-                      } else if (effectiveAvgPrice <= 0.0000001 || curPrice > effectiveAvgPrice * 50) {
+                        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
+                      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
                         effectiveAvgPrice = curPrice;
                       }
                     }
@@ -595,11 +597,12 @@ export default function InstitutionalPortfolioDesk() {
                     let effectiveTP = h.takeProfitPrice;
                     let effectiveSL = h.stopLossPrice;
                     if (isCrypto && curPrice > 0) {
+                      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
                       if (effectiveTP && (effectiveTP > effectiveAvgPrice * 2.5 || (effectiveAvgPrice < 100 && effectiveTP >= 500))) {
-                        effectiveTP = Number((effectiveAvgPrice * 1.15).toFixed(effectiveAvgPrice < 1 ? 8 : 4));
+                        effectiveTP = Number((effectiveAvgPrice * 1.15).toFixed(prec));
                       }
-                      if (effectiveSL && (effectiveSL < effectiveAvgPrice * 0.5 || effectiveSL > effectiveAvgPrice)) {
-                        effectiveSL = Number((effectiveAvgPrice * 0.94).toFixed(effectiveAvgPrice < 1 ? 8 : 4));
+                      if (effectiveSL && ((effectiveAvgPrice < 100 && effectiveSL >= 500) || effectiveSL <= 0)) {
+                        effectiveSL = Number((effectiveAvgPrice * 0.94).toFixed(prec));
                       }
                     }
 

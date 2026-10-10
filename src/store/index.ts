@@ -1252,7 +1252,9 @@ export const usePortfolioStore = create<PortfolioState>()(
 
           // Proteksi: jika candidatePrice adalah angka IDR ribuan padahal crypto, konversi ke USD
           if (isCrypto && candidatePrice && candidatePrice > 500 && candidatePrice / 16000 <= 150000) {
-            candidatePrice = Number((candidatePrice / 16000).toFixed(candidatePrice < 16 ? 6 : 4))
+            const p = candidatePrice / 16000
+            const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
+            candidatePrice = Number(p.toFixed(prec))
           }
 
           const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice
@@ -1267,16 +1269,18 @@ export const usePortfolioStore = create<PortfolioState>()(
 
           // Proteksi dua arah untuk crypto:
           if (isCrypto && newPrice > 0) {
+            const prec = newPrice < 0.00001 ? 8 : newPrice < 0.01 ? 6 : newPrice < 1 ? 4 : 2
             // Kasus 1: avgPrice format IDR (> 100x newPrice)
             if (effectiveAvgPrice > newPrice * 100) {
-              if (effectiveAvgPrice / 16000 >= newPrice * 0.2 && effectiveAvgPrice / 16000 <= newPrice * 5) {
-                effectiveAvgPrice = Number((effectiveAvgPrice / 16000).toFixed(newPrice < 1 ? 6 : 4))
+              const p = effectiveAvgPrice / 16000
+              if (p >= newPrice * 0.2 && p <= newPrice * 5) {
+                effectiveAvgPrice = Number(p.toFixed(prec))
               } else {
                 effectiveAvgPrice = newPrice
               }
               wasHealed = true
-            } else if (effectiveAvgPrice <= 0.0000001 || newPrice > effectiveAvgPrice * 50) {
-              // Kasus 2: avgPrice terpotong/hilang desimal/0 sehingga memicu cuan ratusan ribu %
+            } else if (effectiveAvgPrice <= 0.0000000001 || newPrice > effectiveAvgPrice * 50) {
+              // Kasus 2: avgPrice terpotong/0 sehingga memicu cuan ratusan ribu %
               effectiveAvgPrice = newPrice
               wasHealed = true
             }
@@ -1284,12 +1288,14 @@ export const usePortfolioStore = create<PortfolioState>()(
 
           // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
           if (isCrypto && newPrice > 0) {
+            const prec = newPrice < 0.00001 ? 8 : newPrice < 0.01 ? 6 : newPrice < 1 ? 4 : 2
             if (effectiveTakeProfit && (effectiveTakeProfit > newPrice * 2.5 || (newPrice < 100 && effectiveTakeProfit >= 500))) {
-              effectiveTakeProfit = Number((newPrice * 1.15).toFixed(newPrice < 1 ? 8 : 4))
+              effectiveTakeProfit = Number((newPrice * 1.15).toFixed(prec))
               wasHealed = true
             }
-            if (effectiveStopLoss && (effectiveStopLoss < newPrice * 0.5 || effectiveStopLoss > newPrice)) {
-              effectiveStopLoss = Number((newPrice * 0.94).toFixed(newPrice < 1 ? 8 : 4))
+            // Stop loss hanya diperbaiki jika bocor dari angka IDR ratusan/ribuan atau nol, BUKAN jika harga jatuh wajar di bawah SL!
+            if (effectiveStopLoss && ((newPrice < 100 && effectiveStopLoss >= 500) || effectiveStopLoss <= 0)) {
+              effectiveStopLoss = Number((newPrice * 0.94).toFixed(prec))
               wasHealed = true
             }
           }

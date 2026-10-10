@@ -1331,9 +1331,10 @@ export default function PortfolioPage() {
                           const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                           let effectiveAvg = h.avgPrice;
                           if (isCrypto && h.currentPrice > 0) {
+                            const prec = h.currentPrice < 0.00001 ? 8 : h.currentPrice < 0.01 ? 6 : h.currentPrice < 1 ? 4 : 2;
                             if (effectiveAvg > h.currentPrice * 100) {
-                              effectiveAvg = effectiveAvg / 16000 >= h.currentPrice * 0.2 ? Number((effectiveAvg / 16000).toFixed(h.currentPrice < 1 ? 6 : 4)) : h.currentPrice;
-                            } else if (effectiveAvg <= 0.0000001 || h.currentPrice > effectiveAvg * 50) {
+                              effectiveAvg = effectiveAvg / 16000 >= h.currentPrice * 0.2 ? Number((effectiveAvg / 16000).toFixed(prec)) : h.currentPrice;
+                            } else if (effectiveAvg <= 0.0000000001 || h.currentPrice > effectiveAvg * 50) {
                               effectiveAvg = h.currentPrice;
                             }
                           }

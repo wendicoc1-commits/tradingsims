@@ -127,15 +127,19 @@ export default function ChartbitTradingPanel({
 
   // Realisme Mekanisme Pasar: Bid/Ask Spread (Gunakan fraksi harga sesuai kelas aset)
   const currentTick = isForeign ? getForeignTick(currentPrice) : getIDXTickSize(currentPrice);
+  const getCryptoPrecision = (p: number) => (p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2);
+  const foreignPrec = isForeign ? getCryptoPrecision(currentPrice) : 0;
   const bestBidPrice = isForeign
-    ? Number(Math.max(currentTick, currentPrice - currentTick).toFixed(currentPrice < 1 ? 6 : 4))
+    ? Number(Math.max(currentTick, currentPrice - currentTick).toFixed(foreignPrec))
     : quote.low && quote.low < currentPrice
     ? Math.max(currentTick, currentPrice - currentTick)
     : Math.max(currentTick, currentPrice - currentTick);
   const bestAskPrice = isForeign
-    ? Number((currentPrice + currentTick).toFixed(currentPrice < 1 ? 6 : 4))
+    ? Number((currentPrice + currentTick).toFixed(foreignPrec))
     : currentPrice + currentTick;
-  const spreadPoints = Number((bestAskPrice - bestBidPrice).toFixed(currentPrice < 1 ? 6 : 4));
+  const spreadPoints = isForeign
+    ? Number((bestAskPrice - bestBidPrice).toFixed(foreignPrec))
+    : Number((bestAskPrice - bestBidPrice).toFixed(2));
   const spreadPercent = ((spreadPoints / (bestBidPrice || 1)) * 100).toFixed(2);
 
   // Jika MARKET order: Pembeli beli di harga ASK, Penjual jual di harga BID

@@ -131,45 +131,54 @@ export default function BandarmologyFlowEngine({ quote }: BandarmologyProps) {
   // Simulasi Transaksi Pasar Negosiasi (Crossing Trade Tape)
   const crossingTrades: CrossingTrade[] = useMemo(() => {
     const curPrice = quote.price || 5000;
+    const isCrypto = quote.market === 'CRYPTO' || quote.currency === 'USDT';
+    const isUS = !isCrypto && quote.currency === 'USD';
+    const tick = isCrypto ? curPrice * 0.005 : isUS ? curPrice * 0.002 : 25;
+    const rate = (isCrypto || isUS) ? 16000 : 1;
+    const mult = isCrypto ? 1 : 100;
+
+    const p1 = Math.max(tick, curPrice - tick);
+    const p3 = curPrice + tick;
+
     return [
       {
         id: 'cross-1',
         time: '11:42:05',
-        buyerBroker: 'BK',
+        buyerBroker: isCrypto ? 'Binance Prime' : 'BK',
         buyerType: 'ASING',
-        sellerBroker: 'YP',
+        sellerBroker: isCrypto ? 'OKX Desk' : 'YP',
         sellerType: 'DOMESTIK',
-        price: curPrice - 25,
+        price: p1,
         lots: 85000,
-        valueIDR: 85000 * 100 * (curPrice - 25),
+        valueIDR: Math.round(85000 * mult * p1 * rate),
         discountPremium: -0.42,
       },
       {
         id: 'cross-2',
         time: '10:15:30',
-        buyerBroker: 'CS',
+        buyerBroker: isCrypto ? 'Coinbase Custody' : 'CS',
         buyerType: 'ASING',
-        sellerBroker: 'CC',
+        sellerBroker: isCrypto ? 'Kraken OTC' : 'CC',
         sellerType: 'DOMESTIK',
         price: curPrice,
         lots: 120000,
-        valueIDR: 120000 * 100 * curPrice,
+        valueIDR: Math.round(120000 * mult * curPrice * rate),
         discountPremium: 0.0,
       },
       {
         id: 'cross-3',
         time: '09:34:12',
-        buyerBroker: 'RX',
+        buyerBroker: isCrypto ? 'FalconX' : 'RX',
         buyerType: 'ASING',
-        sellerBroker: 'PD',
+        sellerBroker: isCrypto ? 'Wintermute' : 'PD',
         sellerType: 'DOMESTIK',
-        price: curPrice + 25,
+        price: p3,
         lots: 45000,
-        valueIDR: 45000 * 100 * (curPrice + 25),
+        valueIDR: Math.round(45000 * mult * p3 * rate),
         discountPremium: 0.42,
       },
     ];
-  }, [quote.price]);
+  }, [quote.price, quote.market, quote.currency]);
 
   return (
     <div className="space-y-4 font-mono select-none">
