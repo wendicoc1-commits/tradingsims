@@ -51,6 +51,7 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'TLKM', desc: 'Detail Saham TLKM Telkom Indonesia', cat: 'saham' },
   { cmd: 'BTC', desc: 'Bitcoin Spot Trading & Analisis Realtime', cat: 'pasar' },
   { cmd: 'ETH', desc: 'Ethereum Spot Trading Desk', cat: 'pasar' },
+  { cmd: 'NETWORK', desc: 'Peta Jaringan Ekosistem & Konglomerasi (Advanced Graph)', cat: 'pasar' },
   { cmd: 'HEATMAP', desc: 'Peta Sektoral IHSG & Market Cap', cat: 'pasar' },
   { cmd: 'SCREENER', desc: 'Stock Screener & Filter Fundamental', cat: 'pasar' },
   { cmd: 'DIVIDEND', desc: 'Analisis Dividen & Kalender Cum-Date', cat: 'pasar' },
@@ -195,6 +196,7 @@ export default function TradeSimHeader() {
     else if (cmd === 'SOUND' || cmd === 'AUDIO') handleToggleSound();
     else if (cmd === 'NEWS' || cmd === 'STREAM') router.push('/stream');
     else if (cmd === 'CRYPTO' || cmd === 'BTC' || cmd === 'ETH') router.push('/crypto');
+    else if (cmd === 'NETWORK' || cmd === 'GRAPH') router.push('/network');
     else if (cmd === 'HEATMAP') router.push('/heatmap');
     else if (cmd === 'SCREENER') router.push('/screener');
     else if (cmd === 'DIVIDEND' || cmd === 'DIV') router.push('/dividend');
