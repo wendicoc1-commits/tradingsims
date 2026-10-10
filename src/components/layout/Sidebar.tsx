@@ -21,7 +21,6 @@ import {
   Rocket,
   Flame,
   Radio,
-  Network,
   Trophy,
   Compass,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ const coreDesks = [
 
 const researchDesks = [
   { href: '/crypto', label: 'Jesse Crypto Desk', icon: Coins },
-  { href: '/network', label: 'Network Graph View', icon: Network },
   { href: '/heatmap', label: 'Market Heatmap', icon: LayoutGrid },
   { href: '/screener', label: 'Screener Saham', icon: Filter },
   { href: '/dividend', label: 'Dividen Intelligence', icon: Layers },
@@ -48,7 +46,6 @@ const academyDesks = [
   { href: '/championship', label: 'Liga Trading Cuan', icon: Trophy },
   { href: '/roadmap', label: 'Roadmap Trader', icon: Compass },
   { href: '/architecture', label: 'Graphify Arsitektur', icon: Layers },
-  { href: '/api-hub', label: 'Public API Hub (1.4k)', icon: Globe },
 ];
 
 export default function Sidebar() {

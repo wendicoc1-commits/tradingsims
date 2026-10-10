@@ -566,17 +566,6 @@ export default function TradeSimHeader() {
           <span>🏗️ Graphify Arsitektur</span>
         </Link>
         <Link
-          href="/api-hub"
-          aria-current={pathname.startsWith('/api-hub') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
-            pathname.startsWith('/api-hub')
-              ? 'bg-cyan-600/30 text-cyan-200 border border-cyan-500/50 font-bold shadow-md'
-              : 'text-cyan-300 hover:text-white hover:bg-cyan-950/40 border border-cyan-500/20'
-          }`}
-        >
-          <span>🌐 1.400+ Public APIs</span>
-        </Link>
-        <Link
           href="/admin/portfolios"
           aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
           className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ml-auto ${
