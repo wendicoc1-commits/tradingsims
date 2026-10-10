@@ -35,8 +35,6 @@ import TopUpModal from '@/components/portfolio/TopUpModal';
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAIAgentStore } from '@/store/aiAgentStore';
-import { useTopUpApprovalStore } from '@/store/useTopUpApprovalStore';
-import { submitDepositTicket } from '@/app/admin/actions';
 
 interface CliSuggestion {
   cmd: string;
@@ -105,39 +103,6 @@ export default function TradeSimHeader() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-sync antrean top-up lokal yang tertunda ke Supabase Cloud
-  const { requests: pendingTopUpRequests } = useTopUpApprovalStore();
-  const syncedTicketsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const pendings = pendingTopUpRequests.filter((r) => r.status === 'PENDING');
-    if (pendings.length === 0) return;
-
-    pendings.forEach(async (t) => {
-      if (syncedTicketsRef.current.has(t.id)) return;
-      syncedTicketsRef.current.add(t.id);
-
-      try {
-        await fetch('/api/deposits', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user?.id,
-            userEmail: user?.email,
-            senderName: t.senderName,
-            senderBank: t.senderBank,
-            nominalPay: t.nominalIDR,
-            virtualCashAmount: t.virtualCash,
-            proofImage: t.proofImageBase64,
-            notes: t.refNote ? `${t.refNote} (Auto-sync)` : 'Auto-sync dari browser',
-          }),
-        });
-      } catch (err) {
-        console.warn('[Header auto-sync deposit ticket error]', err);
-      }
-    });
-  }, [pendingTopUpRequests, user?.id, user?.email]);
 
 
   useEffect(() => {
@@ -356,6 +321,17 @@ export default function TradeSimHeader() {
                   (Aset: Rp {Math.round(totalNav).toLocaleString('id-ID')})
                 </span>
               )}
+            </button>
+
+            {/* Dedicated High-Visibility Top Up Button */}
+            <button
+              type="button"
+              onClick={() => setIsTopUpOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-[11px] shadow-sm transition-all cursor-pointer shrink-0 active:scale-95"
+              title="Top Up Saldo Virtual (10k = 1 Juta Saldo)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-black shrink-0" />
+              <span>+ Top Up</span>
             </button>
 
             {/* AI Auto-Pilot Global Toggle */}

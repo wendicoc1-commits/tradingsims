@@ -30,6 +30,7 @@ import { usePortfolioStore } from '@/store';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 
 interface CorrelationStock {
   ticker: string;
@@ -72,6 +73,7 @@ export default function InstitutionalPortfolioDesk() {
   const { tickerMap } = useBinanceLivePrices();
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
 
   // State Modal Pengaturan TP & SL Manual Pengguna
   const [editingRiskHolding, setEditingRiskHolding] = useState<any | null>(null);
@@ -314,14 +316,25 @@ export default function InstitutionalPortfolioDesk() {
           </div>
         </div>
 
-        <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Cash Reserves</div>
-          <div className="text-sm md:text-base font-bold text-[#f59e0b]">
-            Rp {cash.toLocaleString('id-ID')}
+        <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] text-[#71717a] uppercase">Cash Reserves</div>
+              <span className="text-[9px] text-[#f59e0b] font-semibold">{cashPct}%</span>
+            </div>
+            <div className="text-sm md:text-base font-bold text-[#f59e0b]">
+              Rp {cash.toLocaleString('id-ID')}
+            </div>
           </div>
-          <div className="text-[10px] text-[#71717a]">
-            {cashPct}% of total assets
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsTopUpOpen(true)}
+            className="mt-1.5 w-full py-1 px-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
+            title="Top Up Saldo Kas RDN via QRIS"
+          >
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>+ Top Up Saldo</span>
+          </button>
         </div>
 
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
@@ -922,6 +935,9 @@ export default function InstitutionalPortfolioDesk() {
             </div>
           </div>
         )}
+
+        {/* Modal Top Up Kas RDN */}
+        <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
       </div>
     </div>
   );

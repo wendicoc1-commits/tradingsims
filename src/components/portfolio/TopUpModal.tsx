@@ -37,7 +37,7 @@ const PRESET_PACKAGES = [
   { payIDR: 50_000, virtualIDR: 5_000_000, badge: '🔥 POPULER' },
   { payIDR: 100_000, virtualIDR: 10_000_000, badge: '⭐ BEST VALUE' },
   { payIDR: 200_000, virtualIDR: 20_000_000, badge: 'Whale' },
-  { payIDR: 500_000, virtualIDR: 5_000_000, badge: 'Institusi' },
+  { payIDR: 500_000, virtualIDR: 50_000_000, badge: 'Institusi' },
 ];
 
 const BANK_OPTIONS = [
@@ -59,6 +59,8 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
   const { user } = useAuthStore();
   const { submitRequest, requests } = useTopUpApprovalStore();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [step, setStep] = useState<'FORM' | 'SUBMITTED'>('FORM');
   const [selectedPay, setSelectedPay] = useState<number>(20_000);
   const [customPay, setCustomPay] = useState<string>('');
@@ -75,6 +77,29 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
   // Tiket yang baru disubmit
   const [lastSubmittedTicket, setLastSubmittedTicket] = useState<TopUpRequest | null>(null);
+
+  // Reset form dan state setiap kali modal dibuka agar tombol dan form selalu siap ditekan
+  useEffect(() => {
+    if (isOpen) {
+      setStep('FORM');
+      setIsSubmitting(false);
+      setFormError(null);
+      if (user?.fullName && !senderName) {
+        setSenderName(user.fullName);
+      }
+    }
+  }, [isOpen, user?.fullName]);
+
+  // Handle ESC key untuk menutup modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Bersihkan stale pending requests di local storage saat modal dibuka agar tidak menumpuk
   useEffect(() => {
@@ -240,7 +265,12 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) handleResetAndClose();
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      >
         <div className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl text-zinc-100 flex flex-col">
           {/* Header */}
           <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
@@ -366,13 +396,28 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
 
-                      <button
-                        type="button"
-                        onClick={handleResetAndClose}
-                        className="w-full py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 text-xs font-semibold transition"
-                      >
-                        Tutup &amp; Tunggu Verifikasi
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStep('FORM');
+                            setProofImageBase64(null);
+                            setProofFileName(null);
+                            setFormError(null);
+                            setIsSubmitting(false);
+                          }}
+                          className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer"
+                        >
+                          + Top Up Lagi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetAndClose}
+                          className="flex-1 py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-xs font-semibold transition cursor-pointer"
+                        >
+                          Tutup
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

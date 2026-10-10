@@ -425,6 +425,19 @@ export default function FinceptRightDock() {
 
               {/* Fee & Total Summary */}
               <div className="p-2.5 rounded bg-[#121216] border border-[#27272a] space-y-1.5 text-[11px]">
+                <div className="flex justify-between items-center text-zinc-400">
+                  <span>Kas RDN Tersedia:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-white">Rp {Math.round(cash).toLocaleString('id-ID')}</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsTopUpOpen(true)}
+                      className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px] border border-amber-500/40 cursor-pointer transition"
+                    >
+                      + Top Up
+                    </button>
+                  </div>
+                </div>
                 <div className="flex justify-between text-zinc-400">
                   <span>Nilai Transaksi:</span>
                   <span className="font-mono text-white">Rp {Math.round(tradeValue).toLocaleString('id-ID')}</span>
