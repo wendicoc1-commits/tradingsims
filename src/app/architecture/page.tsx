@@ -16,7 +16,9 @@ import {
   GitBranch,
   CheckCircle2,
   FileCode2,
+  Sparkles,
 } from 'lucide-react';
+import TradeSimKnowledgeGraphViewer from '@/components/network/TradeSimKnowledgeGraphViewer';
 
 export default function ArchitecturePage() {
   return (
@@ -81,6 +83,31 @@ export default function ArchitecturePage() {
               Alur verifikasi QRIS dengan token idempotency unik, anti-spam debounce, dan notifikasi instan via Telegram Bot Webhook terenkripsi.
             </p>
           </div>
+        </div>
+
+        {/* Holographic Architecture Knowledge Graph (Graphify + Obsidian Skinning) */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-wider mb-1">
+                <Sparkles className="w-3 h-3 text-cyan-400" />
+                <span>Graphify &amp; Obsidian GraphView Engine</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <span>Interactive Holographic Architecture Knowledge Graph</span>
+              </h2>
+              <p className="text-xs text-neutral-400">
+                Eksplorasi graf interaktif ketergantungan simpul kode, store Zustand, Supabase Cloud, dan AI Engine dengan visualisasi blueprint HUD.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start">
+              <span className="text-[11px] font-mono text-zinc-500">
+                Drag, scroll zoom, atau klik simpul untuk melacak dependensi
+              </span>
+            </div>
+          </div>
+
+          <TradeSimKnowledgeGraphViewer />
         </div>
 
         {/* System Flow Diagram Box */}

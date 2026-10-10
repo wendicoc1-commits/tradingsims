@@ -1,0 +1,29 @@
+/* 
+ * Obsidian GraphView Custom Image & HUD Background
+ * Source: KayVeeG/obsidian-graphview-image
+ * Customized for TradeSims Pro FinTech Knowledge Graph
+ */
+
+.workspace-leaf-content[data-type="graph"] .view-content::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image: 
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.15) 0%, transparent 70%),
+    linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  background-position: center center;
+  filter: contrast(120%) brightness(110%);
+}
+
+.workspace-leaf-content[data-type="graph"] .view-content canvas {
+  position: relative;
+  z-index: 1;
+}
