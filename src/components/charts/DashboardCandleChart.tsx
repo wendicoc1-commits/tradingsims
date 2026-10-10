@@ -100,6 +100,14 @@ function calculateAutoSR(candles: { high: number; low: number; close: number }[]
   return { supports, resistances };
 }
 
+function formatFibPrice(val: number, refPrice: number): number {
+  if (refPrice < 0.00001) return Number(val.toFixed(8));
+  if (refPrice < 0.01) return Number(val.toFixed(6));
+  if (refPrice < 1) return Number(val.toFixed(4));
+  if (refPrice < 100) return Number(val.toFixed(2));
+  return Math.round(val);
+}
+
 // Helper: Calculate Fibonacci Retracement Levels
 function calculateFibonacciLevels(candles: { high: number; low: number }[]) {
   if (!candles || candles.length < 5) return [];
@@ -112,14 +120,15 @@ function calculateFibonacciLevels(candles: { high: number; low: number }[]) {
 
   const diff = maxHigh - minLow;
   if (diff <= 0) return [];
+  const refP = maxHigh;
 
   return [
-    { level: '100%', price: Math.round(maxHigh), color: '#ef4444' },
-    { level: '61.8% (Golden)', price: Math.round(minLow + diff * 0.618), color: '#f59e0b' },
-    { level: '50% (Mid)', price: Math.round(minLow + diff * 0.500), color: '#3b82f6' },
-    { level: '38.2%', price: Math.round(minLow + diff * 0.382), color: '#10b981' },
-    { level: '23.6%', price: Math.round(minLow + diff * 0.236), color: '#06b6d4' },
-    { level: '0%', price: Math.round(minLow), color: '#22c55e' },
+    { level: '100%', price: formatFibPrice(maxHigh, refP), color: '#ef4444' },
+    { level: '61.8% (Golden)', price: formatFibPrice(minLow + diff * 0.618, refP), color: '#f59e0b' },
+    { level: '50% (Mid)', price: formatFibPrice(minLow + diff * 0.500, refP), color: '#3b82f6' },
+    { level: '38.2%', price: formatFibPrice(minLow + diff * 0.382, refP), color: '#10b981' },
+    { level: '23.6%', price: formatFibPrice(minLow + diff * 0.236, refP), color: '#06b6d4' },
+    { level: '0%', price: formatFibPrice(minLow, refP), color: '#22c55e' },
   ];
 }
 
@@ -130,7 +139,7 @@ function generateFallbackCandles(
 ): { time: string; open: number; high: number; low: number; close: number; volume: number }[] {
   const candles: { time: string; open: number; high: number; low: number; close: number; volume: number }[] = [];
   const now = new Date();
-  const isFractional = basePrice < 200;
+  const minFloor = basePrice < 0.0001 ? basePrice * 0.1 : basePrice < 1 ? basePrice * 0.2 : basePrice < 200 ? 0.5 : 20;
 
   // Build random walk backwards from actual basePrice
   let currentP = basePrice;
@@ -138,10 +147,13 @@ function generateFallbackCandles(
   for (let i = 0; i < count; i++) {
     const dailyVol = 0.012 + Math.sin(i * 0.4) * 0.007;
     const delta = (Math.random() - 0.49) * dailyVol * currentP;
-    const prevP = Math.max(isFractional ? 0.5 : 20, currentP - delta);
+    const prevP = Math.max(minFloor, currentP - delta);
     path.unshift(prevP);
     currentP = prevP;
   }
+
+  const prec = basePrice < 0.00001 ? 8 : basePrice < 0.01 ? 6 : basePrice < 1 ? 4 : basePrice < 100 ? 2 : 0;
+  const roundFn = (val: number) => prec > 0 ? Number(val.toFixed(prec)) : Math.round(val);
 
   for (let i = 0; i < path.length - 1; i++) {
     const d = new Date(now.getTime() - (path.length - 1 - i) * 86400000);
@@ -153,7 +165,7 @@ function generateFallbackCandles(
     const maxOC = Math.max(open, close);
     const minOC = Math.min(open, close);
     const high = maxOC * (1 + Math.random() * 0.01);
-    const low = Math.max(isFractional ? 0.5 : 20, minOC * (1 - Math.random() * 0.01));
+    const low = Math.max(minFloor, minOC * (1 - Math.random() * 0.01));
     const volume = Math.floor(Math.random() * 7500000 + 1500000);
 
     const roundFn = (val: number) =>
@@ -309,10 +321,12 @@ export default function DashboardCandleChart({
   const addPriceRay = (type: 'SUPPORT' | 'RESISTANCE') => {
     if (!candleSeriesRef.current) return;
     const lastPrice = activeCandlesData[activeCandlesData.length - 1]?.close || currentPrice;
+    const prec = lastPrice < 0.00001 ? 8 : lastPrice < 0.01 ? 6 : lastPrice < 1 ? 4 : lastPrice < 100 ? 2 : 0;
+    const roundP = (v: number) => (prec > 0 ? Number(v.toFixed(prec)) : Math.round(v));
     const targetPrice =
       type === 'SUPPORT'
-        ? Math.round(lastPrice * 0.97)
-        : Math.round(lastPrice * 1.03);
+        ? roundP(lastPrice * 0.97)
+        : roundP(lastPrice * 1.03);
 
     const line = candleSeriesRef.current.createPriceLine({
       price: targetPrice,
@@ -428,6 +442,10 @@ export default function DashboardCandleChart({
 
           chartInstanceRef.current = chart;
 
+          const refP = rawCandles[0]?.close || currentPrice || 1;
+          const chartPrec = refP < 0.00001 ? 8 : refP < 0.01 ? 6 : refP < 1 ? 4 : refP < 100 ? 2 : 0;
+          const chartMinMove = refP < 0.00001 ? 0.00000001 : refP < 0.01 ? 0.000001 : refP < 1 ? 0.0001 : refP < 100 ? 0.01 : 1;
+
           // Add Candlestick Series
           const candleSeries = chart.addSeries(CandlestickSeries, {
             upColor: '#22c55e',
@@ -436,6 +454,11 @@ export default function DashboardCandleChart({
             borderDownColor: '#ef4444',
             wickUpColor: '#22c55e',
             wickDownColor: '#ef4444',
+            priceFormat: {
+              type: 'price',
+              precision: chartPrec,
+              minMove: chartMinMove,
+            },
           });
           candleSeriesRef.current = candleSeries;
 
@@ -517,9 +540,12 @@ export default function DashboardCandleChart({
               close,
             });
 
+            let vol = Number(c.volume || 1000000);
+            if (vol > 9e12) vol = Number((vol / 1e6).toFixed(0));
+            if (vol > 9e13) vol = 9e13;
             formattedVolumes.push({
               time: timeVal,
-              value: Number(c.volume || 1000000),
+              value: vol,
               color: isUp ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)',
             });
           });

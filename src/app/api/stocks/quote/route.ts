@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAssetBySymbol } from '@/lib/universe/masterAssetUniverse';
+import { getAssetBySymbol, isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
 import { fetchYahooQuote } from '../realtime/route';
 import type { StockQuote } from '@/types';
@@ -19,8 +19,14 @@ export async function GET(request: Request) {
   const fallbackBench = getVerifiedBenchmarkPrice(clean);
   const price = liveQuote?.price || asset?.defaultPrice || fallbackBench.price;
   const currency = liveQuote?.currency || asset?.currency || fallbackBench.currency;
-  const isCrypto = asset?.category === 'CRYPTO' || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(cleanCryptoKey);
-  const isUSD = currency === 'USD' || isCrypto;
+  const isCrypto =
+    asset?.category === 'CRYPTO' ||
+    isCryptoSymbol(cleanCryptoKey) ||
+    isCryptoSymbol(clean) ||
+    rawSymbol.toUpperCase().endsWith('USDT') ||
+    rawSymbol.toUpperCase().endsWith('-USD');
+  const isUS = !isCrypto && (currency === 'USD' || asset?.market === 'US' || isUSSymbol(clean));
+  const isUSD = currency === 'USD' || isCrypto || isUS;
 
   const changePct = liveQuote?.changePct ?? (isCrypto ? 1.85 : 0.45);
   const changePt = liveQuote?.changePoint ?? (price * (changePct / 100));
@@ -44,9 +50,9 @@ export async function GET(request: Request) {
   ];
 
   const result: StockQuote = {
-    symbol: isCrypto ? `${cleanCryptoKey}USDT` : rawSymbol.includes('.') ? rawSymbol : `${clean}.JK`,
+    symbol: isCrypto ? `${cleanCryptoKey}USDT` : isUS ? clean : rawSymbol.includes('.') ? rawSymbol : `${clean}.JK`,
     displaySymbol: cleanCryptoKey,
-    name: asset?.name || fallbackBench.name || `${clean} Tbk`,
+    name: asset?.name || fallbackBench.name || (isUS ? `${clean} Inc.` : `${clean} Tbk`),
     market: isCrypto ? 'CRYPTO' : asset?.market || (isUSD ? 'US' : 'IDX'),
     country: isCrypto ? 'CRYPTO' : isUSD ? 'US' : 'ID',
     currency: isCrypto ? 'USDT' : currency,

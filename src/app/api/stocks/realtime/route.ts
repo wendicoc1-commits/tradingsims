@@ -38,6 +38,7 @@ export const CRYPTO_SYMBOLS = new Set([
   ...MASTER_GLOBAL_CRYPTO.map((c) => c.symbol.replace(/USDT$/, '')),
   'BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE',
   'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'MATIC', 'POL', 'LTC', 'BCH', 'UNI', 'APT',
+  'S', 'SONIC',
 ]);
 
 // Map friendly tickers to Yahoo Finance symbols
@@ -48,6 +49,15 @@ export const US_STOCKS = new Set([
   'NFLX', 'BABA', 'ORCL', 'CRM', 'UBER', 'ABNB', 'AVGO', 'QCOM', 'PANW', 'NOW', 'SNOW',
   'PYPL', 'SQ', 'SHOP', 'BA', 'CAT', 'GE', 'GS', 'JPM', 'V', 'MA', 'WMT', 'COST', 'NKE',
 ]);
+
+export function roundPriceAdaptive(val: number): number {
+  if (val <= 0) return 0;
+  if (val < 0.00001) return Number(val.toFixed(8)); // Sub-cent meme coins (PEPE, SHIB, BONK)
+  if (val < 0.01) return Number(val.toFixed(6));    // Micro coins (BOME, MEW)
+  if (val < 1) return Number(val.toFixed(4));       // Sub-dollar (ADA, DOGE, TRX, SUI)
+  if (val < 1000) return Number(val.toFixed(2));    // Mid-tier (SOL, AVAX, AAVE)
+  return Math.round(val * 100) / 100;              // High-tier (BTC, ETH, MKR)
+}
 
 export function mapToYahooSymbol(ticker: string): string {
   const t = ticker.trim().toUpperCase().replace('.JK', '');
@@ -93,13 +103,13 @@ export async function fetchYahooQuote(symbol: string): Promise<LiveStockQuote | 
         if (curPrice > 0) {
           return {
             ticker: symbol.toUpperCase(),
-            price: curPrice,
+            price: roundPriceAdaptive(curPrice),
             changePct: Math.round(changePct * 100) / 100,
-            changePoint: Math.round((curPrice - prevClose) * 10000) / 10000,
-            high,
-            low,
-            volume: Math.round(volume),
-            prevClose,
+            changePoint: roundPriceAdaptive(curPrice - prevClose),
+            high: roundPriceAdaptive(high),
+            low: roundPriceAdaptive(low),
+            volume: Math.min(Math.round(volume), 999_999_999_999),
+            prevClose: roundPriceAdaptive(prevClose),
             currency: 'USD',
             marketState: 'REGULAR',
             updatedAt: new Date().toISOString(),
@@ -151,13 +161,13 @@ export async function fetchYahooQuote(symbol: string): Promise<LiveStockQuote | 
 
         return {
           ticker: symbol.toUpperCase(),
-          price: Math.round(currentPrice * 10000) / 10000,
+          price: roundPriceAdaptive(currentPrice),
           changePct: Math.round(changePct * 100) / 100,
-          changePoint: Math.round(changePoint * 10000) / 10000,
-          high: Math.round(high * 10000) / 10000,
-          low: Math.round(low * 10000) / 10000,
-          volume,
-          prevClose: Math.round(prevClose * 10000) / 10000,
+          changePoint: roundPriceAdaptive(changePoint),
+          high: roundPriceAdaptive(high),
+          low: roundPriceAdaptive(low),
+          volume: Math.min(Math.round(volume), 999_999_999_999),
+          prevClose: roundPriceAdaptive(prevClose),
           currency: meta.currency ?? (isCrypto ? 'USD' : 'IDR'),
           marketState: meta.regularMarketState ?? 'REGULAR',
           updatedAt: new Date().toISOString(),

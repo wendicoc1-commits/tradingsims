@@ -1,3 +1,7 @@
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+import { getForeignTick, getIDXTickSize } from '@/lib/stockRules';
+import { formatCryptoPrice } from '@/lib/utils';
+
 /**
  * AI Chart Pilot & TradingView Autonomous Charting Engine
  * Inspired by tradesdontlie/tradingview-mcp
@@ -62,18 +66,26 @@ export function detectSupportResistanceLevels(
   high24: number = currentPrice * 1.02,
   low24: number = currentPrice * 0.98
 ): ChartAnnotationOverlay[] {
-  const tick = currentPrice > 5000 ? 25 : currentPrice > 2000 ? 10 : currentPrice > 500 ? 5 : 2;
-  const roundTick = (p: number) => Math.round(p / tick) * tick;
+  const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+  const isCrypto = isCryptoSymbol(cleanSym) || symbol.toUpperCase().endsWith('USDT') || currentPrice < 0.05;
+  const isUS = !isCrypto && (isUSSymbol(cleanSym) || cleanSym.includes(':') || cleanSym.startsWith('^'));
+  const isForeign = isCrypto || isUS;
+
+  const tick = isForeign ? getForeignTick(currentPrice) : (currentPrice > 5000 ? 25 : currentPrice > 2000 ? 10 : currentPrice > 500 ? 5 : 2);
+  const prec = currentPrice < 0.00001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : 2;
+  const roundTick = (p: number) => isForeign ? Number(p.toFixed(prec)) : Math.round(p / tick) * tick;
 
   const s1 = roundTick(currentPrice * 0.982);
   const s2 = roundTick(Math.min(s1 - tick * 4, currentPrice * 0.955));
   const r1 = roundTick(currentPrice * 1.025);
   const r2 = roundTick(Math.max(r1 + tick * 4, currentPrice * 1.058));
 
+  const fmt = (p: number) => (isCrypto ? formatCryptoPrice(p) : isUS ? `$${p.toFixed(2)}` : `Rp ${p.toLocaleString('id-ID')}`);
+
   return [
     {
       type: 'RESISTANCE',
-      title: `R2 Major Liquidity: Rp ${r2.toLocaleString('id-ID')}`,
+      title: `R2 Major Liquidity: ${fmt(r2)}`,
       price: r2,
       color: '#f43f5e',
       lineStyle: 'DASHED',
@@ -81,7 +93,7 @@ export function detectSupportResistanceLevels(
     },
     {
       type: 'RESISTANCE',
-      title: `R1 Immediate Resistance: Rp ${r1.toLocaleString('id-ID')}`,
+      title: `R1 Immediate Resistance: ${fmt(r1)}`,
       price: r1,
       color: '#fb7185',
       lineStyle: 'DOTTED',
@@ -89,7 +101,7 @@ export function detectSupportResistanceLevels(
     },
     {
       type: 'SUPPORT',
-      title: `S1 Dynamic Demand: Rp ${s1.toLocaleString('id-ID')}`,
+      title: `S1 Dynamic Demand: ${fmt(s1)}`,
       price: s1,
       color: '#38bdf8',
       lineStyle: 'DOTTED',
@@ -97,7 +109,7 @@ export function detectSupportResistanceLevels(
     },
     {
       type: 'SUPPORT',
-      title: `S2 Institutional Base: Rp ${s2.toLocaleString('id-ID')}`,
+      title: `S2 Institutional Base: ${fmt(s2)}`,
       price: s2,
       color: '#00c853',
       lineStyle: 'DASHED',
@@ -113,8 +125,14 @@ export function detectSmartMoneyZones(
   symbol: string,
   currentPrice: number
 ): { demandZone: { low: number; high: number }; supplyZone: { low: number; high: number }; fvgZone?: { low: number; high: number } } {
-  const tick = currentPrice > 5000 ? 25 : 10;
-  const round = (p: number) => Math.round(p / tick) * tick;
+  const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+  const isCrypto = isCryptoSymbol(cleanSym) || symbol.toUpperCase().endsWith('USDT') || currentPrice < 0.05;
+  const isUS = !isCrypto && (isUSSymbol(cleanSym) || cleanSym.includes(':') || cleanSym.startsWith('^'));
+  const isForeign = isCrypto || isUS;
+
+  const tick = isForeign ? getForeignTick(currentPrice) : (currentPrice > 5000 ? 25 : 10);
+  const prec = currentPrice < 0.00001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : 2;
+  const round = (p: number) => isForeign ? Number(p.toFixed(prec)) : Math.round(p / tick) * tick;
 
   return {
     demandZone: {
@@ -141,20 +159,20 @@ export function calculateRiskRewardPlan(
   targetMultiple = 3.0
 ): { entry: number; takeProfit: number; stopLoss: number; riskPct: number; rewardPct: number; rrRatio: number } {
   const cleanSym = symbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-  const isCrypto =
-    ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP', 'APT', 'KAS', 'TON', 'SEI'].includes(cleanSym) ||
-    symbol.toUpperCase().endsWith('USDT') ||
-    currentPrice < 50;
+  const isCrypto = isCryptoSymbol(cleanSym) || symbol.toUpperCase().endsWith('USDT') || currentPrice < 0.05;
+  const isUS = !isCrypto && isUSSymbol(cleanSym);
+  const isForeign = isCrypto || isUS;
 
   let stopLoss: number;
   let takeProfit: number;
 
-  if (isCrypto || currentPrice < 50) {
-    const slDist = isCrypto ? 0.065 : 0.05; // 6.5% stop loss buffer untuk kripto
-    stopLoss = Number((currentPrice * (1 - slDist)).toFixed(currentPrice < 1 ? 6 : (currentPrice < 50 ? 4 : 2)));
+  if (isForeign || currentPrice < 50) {
+    const slDist = isCrypto ? 0.065 : 0.05; // 6.5% stop loss buffer untuk kripto, 5% untuk saham US
+    const prec = currentPrice < 0.00001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : 2;
+    stopLoss = Number((currentPrice * (1 - slDist)).toFixed(prec));
     const riskAmount = currentPrice - stopLoss;
     const rewardAmount = riskAmount * targetMultiple;
-    takeProfit = Number((currentPrice + rewardAmount).toFixed(currentPrice < 1 ? 6 : (currentPrice < 50 ? 4 : 2)));
+    takeProfit = Number((currentPrice + rewardAmount).toFixed(prec));
   } else {
     const tick = currentPrice > 5000 ? 25 : currentPrice > 2000 ? 10 : currentPrice > 500 ? 5 : currentPrice > 200 ? 2 : 1;
     const round = (p: number) => Math.max(tick, Math.round(p / tick) * tick);
@@ -164,8 +182,8 @@ export function calculateRiskRewardPlan(
     takeProfit = round(currentPrice + rewardAmount);
   }
 
-  const riskPct = Number((((currentPrice - stopLoss) / currentPrice) * 100).toFixed(2));
-  const rewardPct = Number((((takeProfit - currentPrice) / currentPrice) * 100).toFixed(2));
+  const riskPct = Number((((currentPrice - stopLoss) / (currentPrice || 1)) * 100).toFixed(2));
+  const rewardPct = Number((((takeProfit - currentPrice) / (currentPrice || 1)) * 100).toFixed(2));
   const rrRatio = Number((rewardPct / (riskPct || 1)).toFixed(1));
 
   return {

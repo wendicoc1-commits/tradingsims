@@ -116,7 +116,10 @@ for (const a of MASTER_ASSETS) {
 }
 
 // Global sets for fast O(1) membership checks
-const CRYPTO_SET = new Set(CRYPTO_MASTER.map((c) => c.symbol.toUpperCase()));
+const CRYPTO_SET = new Set([
+  ...CRYPTO_MASTER.map((c) => c.symbol.toUpperCase()),
+  'S', 'SONIC', 'FTM', 'MATIC', 'POL',
+]);
 const GLOBAL_SET = new Set(GLOBAL_MASTER.map((g) => g.symbol.toUpperCase()));
 
 /**
@@ -125,7 +128,7 @@ const GLOBAL_SET = new Set(GLOBAL_MASTER.map((g) => g.symbol.toUpperCase()));
 export function isCryptoSymbol(symbol: string): boolean {
   if (!symbol) return false;
   const clean = symbol.trim().toUpperCase().replace(/USDT$/i, '').replace(/-USD$/i, '');
-  return CRYPTO_SET.has(clean) || symbol.toUpperCase().endsWith('USDT');
+  return CRYPTO_SET.has(clean) || symbol.toUpperCase().endsWith('USDT') || symbol.toUpperCase().endsWith('-USD');
 }
 
 /**
@@ -146,6 +149,11 @@ export function getAllCryptoSymbols(): string[] {
   return Array.from(CRYPTO_SET);
 }
 
+const IDX_BY_SYMBOL = new Map<string, UnifiedAsset>();
+for (const a of IDX_MASTER) {
+  IDX_BY_SYMBOL.set(a.symbol.toUpperCase(), a);
+}
+
 /**
  * Return all supported global / US stock tickers
  */
@@ -158,7 +166,18 @@ export function getAllGlobalSymbols(): string[] {
  */
 export function getAssetBySymbol(symbol: string): UnifiedAsset | undefined {
   if (!symbol) return undefined;
-  const clean = symbol.toUpperCase().trim().replace('.JK', '');
+  const upper = symbol.toUpperCase().trim();
+  // Jika secara eksplisit berakhiran .JK, prioritaskan emiten BEI (mencegah tabrakan seperti STRK/LINK)
+  if (upper.endsWith('.JK')) {
+    const clean = upper.replace('.JK', '');
+    return IDX_BY_SYMBOL.get(clean) || ASSET_BY_SYMBOL.get(clean);
+  }
+  // Jika secara eksplisit berakhiran USDT atau -USD, prioritaskan koin crypto
+  if (upper.endsWith('USDT') || upper.endsWith('-USD')) {
+    const clean = upper.replace(/USDT$/, '').replace(/-USD$/, '');
+    return ASSET_BY_SYMBOL.get(`${clean}USDT`) || ASSET_BY_SYMBOL.get(clean);
+  }
+  const clean = upper.replace('.JK', '');
   return ASSET_BY_SYMBOL.get(clean) || ASSET_BY_SYMBOL.get(clean.replace(/USDT$/i, ''));
 }
 

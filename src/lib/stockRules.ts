@@ -65,7 +65,7 @@ const FALLBACK_CRYPTO = new Set([
   'STRK', 'TIA', 'MANTA', 'ZK', 'UNI', 'AAVE', 'MKR', 'ONDO', 'PENDLE', 'INJ', 'JUP',
   'ENA', 'CRV', 'LDO', 'RUNE', 'DYDX', 'RAY', 'AKT', 'AR', 'FIL', 'GRT', 'THETA',
   'WIF', 'BONK', 'FLOKI', 'POPCAT', 'MEW', 'BOME', 'NEIRO', 'PYTH', 'W', 'JTO',
-  'STX', 'CHZ', 'ENS', 'GALA', 'SAND', 'MANA', 'APE',
+  'STX', 'CHZ', 'ENS', 'GALA', 'SAND', 'MANA', 'APE', 'S', 'SONIC', 'MATIC',
 ]);
 
 const FALLBACK_US = new Set([

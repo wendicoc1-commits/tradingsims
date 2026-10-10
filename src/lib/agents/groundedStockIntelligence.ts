@@ -566,9 +566,9 @@ STATUS VALIDASI: ${groundingLevel} (${dataSourceCitation})
       suggestedRiskReward: {
         action: 'BUY' as const,
         entry: rrPlan.entry || currentPrice,
-        stopLoss: rrPlan.stopLoss || Math.round(currentPrice * 0.98),
-        tp1: rrPlan.takeProfit || Math.round(currentPrice * 1.05),
-        tp2: Math.round((rrPlan.takeProfit || currentPrice * 1.05) * 1.04),
+        stopLoss: rrPlan.stopLoss || (currentPrice < 1 ? Number((currentPrice * 0.94).toFixed(currentPrice < 0.00001 ? 8 : 6)) : Math.round(currentPrice * 0.94)),
+        tp1: rrPlan.takeProfit || (currentPrice < 1 ? Number((currentPrice * 1.12).toFixed(currentPrice < 0.00001 ? 8 : 6)) : Math.round(currentPrice * 1.12)),
+        tp2: (currentPrice < 1 ? Number(((rrPlan.takeProfit || currentPrice * 1.12) * 1.05).toFixed(currentPrice < 0.00001 ? 8 : 6)) : Math.round((rrPlan.takeProfit || currentPrice * 1.12) * 1.05)),
         ratio: rrPlan.rrRatio || 2.5,
       },
     },

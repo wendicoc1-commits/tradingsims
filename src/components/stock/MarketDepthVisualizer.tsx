@@ -127,7 +127,7 @@ export default function MarketDepthVisualizer({ quote }: MarketDepthVisualizerPr
       {/* ── Key Depth Metrics Cards ── */}
       {(() => {
         const renderPrice = (p: number) => {
-          if (isCrypto) return `${formatCryptoPrice(p)} USDT`;
+          if (isCrypto) return formatCryptoPrice(p);
           if (isUS) return `$${p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
           return `Rp ${p.toLocaleString('id-ID')}`;
         };

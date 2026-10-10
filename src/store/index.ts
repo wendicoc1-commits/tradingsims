@@ -6,6 +6,7 @@ import { DIVIDEND_PAYING_STOCKS } from '@/data/dividend_stocks'
 import { checkIDXMarketStatus } from '@/lib/market/marketHours'
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse'
 import { calculateRealisticExecutionPrice } from '@/lib/stockRules'
+import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices'
 
 // ==========================================
 // Market Store
@@ -210,8 +211,12 @@ const SELL_FEE_RATE = 0.0025 // 0.25% fee
 export const KNOWN_CRYPTO_SYMBOLS = [
   'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR',
   'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'ARB', 'OP',
-  'APT', 'KAS', 'TON', 'CRV', 'MKR', 'WIF', 'TIA', 'ENA', 'AKT', 'PYTH', 'HBAR',
-  'S', 'SEI', 'INJ', 'UNI', 'LTC', 'BCH', 'AAVE', 'ICP', 'POL', 'MATIC',
+  'APT', 'KAS', 'TON', 'SEI', 'LTC', 'BCH', 'XLM', 'ALGO', 'HBAR', 'ICP',
+  'FTM', 'POL', 'IMX', 'STRK', 'TIA', 'MANTA', 'ZK', 'UNI', 'AAVE', 'MKR',
+  'ONDO', 'PENDLE', 'INJ', 'JUP', 'ENA', 'CRV', 'LDO', 'RUNE', 'DYDX', 'RAY',
+  'AKT', 'AR', 'FIL', 'GRT', 'THETA', 'WIF', 'BONK', 'FLOKI', 'POPCAT', 'MEW',
+  'BOME', 'NEIRO', 'PYTH', 'W', 'JTO', 'STX', 'CHZ', 'ENS', 'GALA', 'SAND',
+  'MANA', 'APE', 'S', 'SONIC', 'MATIC',
 ]
 
 export const INITIAL_CASH = 0 // Rp 0 modal awal simulasi bersih
@@ -263,19 +268,32 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
       let curPrice = h.currentPrice || 0
       let effectiveAvg = h.avgPrice
 
-      // Deteksi jika curPrice keliru tersimpan dalam format IDR (misal Rp 20.000 untuk DOT)
-      if (curPrice > 500 && curPrice / 16000 <= 150000) {
-        curPrice = Number((curPrice / 16000).toFixed(curPrice < 16 ? 6 : 4))
+      // Deteksi jika curPrice keliru tersimpan dalam format IDR (misal Rp 20.000 untuk DOT padahal harga USD ~$1.2)
+      // JANGAN membagi koin bernilai tinggi (BTC ~$81.000, ETH ~$2.450, MKR ~$1.789, BNB ~$585) yang memang berharga > 500 USD!
+      const bench = getVerifiedBenchmarkPrice(clean)
+      const benchP = bench.price || 0
+      if (curPrice > 0 && benchP > 0) {
+        if (curPrice > benchP * 5000) {
+          const p = curPrice / 16000
+          const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
+          curPrice = Number(p.toFixed(prec))
+        }
       }
 
       // Deteksi & kalibrasi dua arah avgPrice
       if (curPrice > 0 && effectiveAvg > curPrice * 100) {
-        if (effectiveAvg / 16000 >= curPrice * 0.2 && effectiveAvg / 16000 <= curPrice * 5) {
-          effectiveAvg = Number((effectiveAvg / 16000).toFixed(effectiveAvg < 16 ? 6 : 4))
+        if (benchP > 0 && effectiveAvg > benchP * 5000) {
+          const p = effectiveAvg / 16000
+          const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
+          effectiveAvg = Number(p.toFixed(prec))
+        } else if (effectiveAvg / 16000 >= curPrice * 0.2 && effectiveAvg / 16000 <= curPrice * 5) {
+          const p = effectiveAvg / 16000
+          const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
+          effectiveAvg = Number(p.toFixed(prec))
         } else {
           effectiveAvg = curPrice
         }
-      } else if (curPrice > 0 && (effectiveAvg <= 0.0000001 || curPrice > effectiveAvg * 50)) {
+      } else if (curPrice > 0 && (effectiveAvg <= 0.0000000001 || curPrice > effectiveAvg * 50)) {
         effectiveAvg = curPrice
       }
 
@@ -1251,10 +1269,15 @@ export const usePortfolioStore = create<PortfolioState>()(
             holding.currentPrice
 
           // Proteksi: jika candidatePrice adalah angka IDR ribuan padahal crypto, konversi ke USD
-          if (isCrypto && candidatePrice && candidatePrice > 500 && candidatePrice / 16000 <= 150000) {
-            const p = candidatePrice / 16000
-            const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
-            candidatePrice = Number(p.toFixed(prec))
+          // Hati-hati: BTC ($81,000), ETH ($2,450), MKR ($1,789), BNB ($585) adalah harga USD riil > 500!
+          if (isCrypto && candidatePrice && candidatePrice > 0) {
+            const bench = getVerifiedBenchmarkPrice(clean)
+            const benchP = bench.price || 0
+            if (benchP > 0 && candidatePrice > benchP * 5000) {
+              const p = candidatePrice / 16000
+              const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
+              candidatePrice = Number(p.toFixed(prec))
+            }
           }
 
           const newPrice = (candidatePrice && candidatePrice > 0) ? candidatePrice : holding.currentPrice

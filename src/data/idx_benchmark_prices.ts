@@ -85,6 +85,15 @@ for (const c of MASTER_GLOBAL_CRYPTO) {
   CRYPTO_BENCHMARK_PRICES[base] = { price: c.price, name: `${c.name} (${base})` };
   CRYPTO_BENCHMARK_PRICES[`${base}USDT`] = { price: c.price, name: `${c.name} (${base})` };
 }
+// Alias koin rebrand & alternatif ticker
+CRYPTO_BENCHMARK_PRICES['S'] = { price: 0.725, name: 'Sonic (S)' };
+CRYPTO_BENCHMARK_PRICES['SUSDT'] = { price: 0.725, name: 'Sonic (S)' };
+CRYPTO_BENCHMARK_PRICES['SONIC'] = { price: 0.725, name: 'Sonic (SONIC)' };
+CRYPTO_BENCHMARK_PRICES['SONICUSDT'] = { price: 0.725, name: 'Sonic (SONIC)' };
+CRYPTO_BENCHMARK_PRICES['MATIC'] = { price: 0.368, name: 'Polygon (MATIC)' };
+CRYPTO_BENCHMARK_PRICES['MATICUSDT'] = { price: 0.368, name: 'Polygon (MATIC)' };
+CRYPTO_BENCHMARK_PRICES['RNDR'] = { price: 1.862, name: 'Render (RNDR)' };
+CRYPTO_BENCHMARK_PRICES['RNDRUSDT'] = { price: 1.862, name: 'Render (RNDR)' };
 
 const GLOBAL_STOCKS_MAP = new Map<string, { price: number; currency: string; name: string }>();
 for (const s of MASTER_GLOBAL_STOCKS) {

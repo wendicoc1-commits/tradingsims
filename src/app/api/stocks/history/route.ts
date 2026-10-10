@@ -248,12 +248,18 @@ export async function GET(request: Request) {
           if (o != null && c != null && h != null && l != null) {
             const d = new Date(timestamps[i] * 1000);
             const dateStr = d.toISOString().split('T')[0];
+            const roundVal = (val: number) => {
+              if (val < 0.00001) return Number(val.toFixed(8));
+              if (val < 0.01) return Number(val.toFixed(6));
+              if (val < 1) return Number(val.toFixed(4));
+              return Math.round(val * 100) / 100;
+            };
             candles.push({
               time: dateStr,
-              open: Math.round(o * 100) / 100,
-              high: Math.round(h * 100) / 100,
-              low: Math.round(l * 100) / 100,
-              close: Math.round(c * 100) / 100,
+              open: roundVal(o),
+              high: roundVal(h),
+              low: roundVal(l),
+              close: roundVal(c),
               volume: Math.round(v),
             });
           }

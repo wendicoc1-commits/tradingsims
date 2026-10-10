@@ -49,7 +49,7 @@ import FinancialStatementsTable from '@/components/stock/FinancialStatementsTabl
 import ForeignFlowMatrix from '@/components/stock/ForeignFlowMatrix';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { ALL_ID_HEATMAP_UNIVERSE } from '@/data/heatmap_stocks_universe';
-import { getAssetBySymbol } from '@/lib/universe/masterAssetUniverse';
+import { getAssetBySymbol, isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
 import BandarmologyFlowEngine from '@/components/stock/BandarmologyFlowEngine';
 import SeasonalityHeatmap from '@/components/stock/SeasonalityHeatmap';
@@ -198,15 +198,6 @@ function CandlestickChart({
         },
       });
 
-      const candleSeries = chart.addSeries(CandlestickSeries, {
-        upColor: '#00c853',
-        downColor: '#ff1744',
-        borderUpColor: '#00c853',
-        borderDownColor: '#ff1744',
-        wickUpColor: '#00c853',
-        wickDownColor: '#ff1744',
-      });
-
       const mappedCandles = candles.map((c) => ({
         time: (typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000)) as any,
         open: Number(c.open),
@@ -214,6 +205,24 @@ function CandlestickChart({
         low: Number(c.low),
         close: Number(c.close),
       }));
+
+      const refPrice = mappedCandles[0]?.close || basePrice || 1;
+      const chartPrec = refPrice < 0.00001 ? 8 : refPrice < 0.01 ? 6 : refPrice < 1 ? 4 : refPrice < 100 ? 2 : 0;
+      const chartMinMove = refPrice < 0.00001 ? 0.00000001 : refPrice < 0.01 ? 0.000001 : refPrice < 1 ? 0.0001 : refPrice < 100 ? 0.01 : 1;
+
+      const candleSeries = chart.addSeries(CandlestickSeries, {
+        upColor: '#00c853',
+        downColor: '#ff1744',
+        borderUpColor: '#00c853',
+        borderDownColor: '#ff1744',
+        wickUpColor: '#00c853',
+        wickDownColor: '#ff1744',
+        priceFormat: {
+          type: 'price',
+          precision: chartPrec,
+          minMove: chartMinMove,
+        },
+      });
 
       candleSeries.setData(mappedCandles);
 
@@ -234,11 +243,16 @@ function CandlestickChart({
       });
 
       volumeSeries.setData(
-        candles.map((c) => ({
-          time: (typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000)) as any,
-          value: Number(c.volume || 0),
-          color: Number(c.close) >= Number(c.open) ? 'rgba(0, 200, 83, 0.3)' : 'rgba(255, 23, 68, 0.3)',
-        }))
+        candles.map((c) => {
+          let vol = Number(c.volume || 0);
+          if (vol > 9e12) vol = Number((vol / 1e6).toFixed(0));
+          if (vol > 9e13) vol = 9e13;
+          return {
+            time: (typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000)) as any,
+            value: vol,
+            color: Number(c.close) >= Number(c.open) ? 'rgba(0, 200, 83, 0.3)' : 'rgba(255, 23, 68, 0.3)',
+          };
+        })
       );
 
       // --- TECHNICAL INDICATORS OVERLAY ---
@@ -854,7 +868,12 @@ export default function StockDetailPage() {
         };
       }
 
-      const isCrypto = asset?.category === 'CRYPTO' || ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT'].includes(cryptoKey);
+      const isCrypto =
+        asset?.category === 'CRYPTO' ||
+        isCryptoSymbol(cryptoKey) ||
+        isCryptoSymbol(cleanSym) ||
+        rawSymbol.toUpperCase().endsWith('USDT') ||
+        rawSymbol.toUpperCase().endsWith('-USD');
       const isUSD = isCrypto || asset?.currency === 'USD' || bench.currency === 'USD';
       const fallbackPrice = asset?.defaultPrice || bench.price || (isUSD ? 50 : 1000);
       const changePct = isCrypto ? 1.85 : 0.45;

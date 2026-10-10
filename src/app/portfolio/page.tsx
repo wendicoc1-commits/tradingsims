@@ -1405,7 +1405,11 @@ export default function PortfolioPage() {
                             </td>
                             <td className="text-right font-mono-num text-xs">
                               {isCrypto ? (
-                                <span className="font-semibold text-cyan-300">{units.toFixed(4)} koin</span>
+                                <span className="font-semibold text-cyan-300">
+                                  {units >= 100
+                                    ? units.toLocaleString('en-US', { maximumFractionDigits: 2 })
+                                    : units.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} koin
+                                </span>
                               ) : isUS ? (
                                 <>
                                   <span className="font-semibold text-blue-300">{h.lots} shares</span>
