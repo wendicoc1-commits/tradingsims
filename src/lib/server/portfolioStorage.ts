@@ -521,3 +521,23 @@ export async function wipeAllAccountsAndPortfolios(): Promise<{ usersWiped: numb
   return { usersWiped: usersCount, portfoliosWiped: portfoliosCount };
 }
 
+/**
+ * Hapus data akun dan portofolio member dari cache runtime memori lokal
+ */
+export function deleteUserAccountLocal(userId: string): void {
+  const db = loadDatabase();
+  let foundEmail: string | null = null;
+  for (const [em, u] of Object.entries(db.users)) {
+    if (u.id === userId) {
+      foundEmail = em;
+      break;
+    }
+  }
+  if (foundEmail) {
+    delete db.users[foundEmail];
+    delete db.portfolios[foundEmail];
+  }
+  delete db.portfolios[userId];
+  saveDatabase(db);
+}
+
