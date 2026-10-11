@@ -1,5 +1,4 @@
-import type { NextConfig } from "next";
-
+/** @type {import('next').NextConfig} */
 const securityHeaders = [
   {
     key: 'X-Frame-Options',
@@ -19,7 +18,7 @@ const securityHeaders = [
   },
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -52,5 +51,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
-
+module.exports = nextConfig;
