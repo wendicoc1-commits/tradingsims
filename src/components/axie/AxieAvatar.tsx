@@ -105,12 +105,12 @@ const CLASS_SPRITE_CONFIG: Record<
     glow: 'rgba(6, 182, 212, 0.45)',
   },
   Beast: {
-    sprite: '/axies/beast.jpg',
+    sprite: '/axies/sprite_yellow_fluffy.png',
     filter: 'none',
     glow: 'rgba(245, 158, 11, 0.45)',
   },
   Plant: {
-    sprite: '/axies/plant.jpg',
+    sprite: '/axies/sprite_blue_eyes_plant.png',
     filter: 'none',
     glow: 'rgba(34, 197, 94, 0.45)',
   },
@@ -125,8 +125,8 @@ const CLASS_SPRITE_CONFIG: Record<
     glow: 'rgba(168, 85, 247, 0.45)',
   },
   Bug: {
-    sprite: '/axies/sprite_bird_sakura.png',
-    filter: 'hue-rotate(330deg) saturate(1.25)',
+    sprite: '/axies/sprite_green_brawler.png',
+    filter: 'none',
     glow: 'rgba(239, 68, 68, 0.45)',
   },
   Mech: {
@@ -140,8 +140,8 @@ const CLASS_SPRITE_CONFIG: Record<
     glow: 'rgba(99, 102, 241, 0.45)',
   },
   Dawn: {
-    sprite: '/axies/sprite_reptile_spiral.png',
-    filter: 'hue-rotate(50deg) brightness(1.1) saturate(1.15)',
+    sprite: '/axies/sprite_zen_white_plant.png',
+    filter: 'none',
     glow: 'rgba(252, 211, 77, 0.45)',
   },
 };

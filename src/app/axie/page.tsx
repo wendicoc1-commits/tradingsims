@@ -108,10 +108,11 @@ export default function AxiePage() {
   const [selectedClass, setSelectedClass] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [selectedArena, setSelectedArena] = useState<'pond' | 'night' | 'lotus' | 'gears' | 'amethyst' | 'canyon'>('pond');
+  const [selectedArena, setSelectedArena] = useState<'pond' | 'night' | 'lotus' | 'gears' | 'amethyst' | 'canyon' | 'jungle'>('pond');
 
   const ARENA_ENVIRONMENTS = [
     { id: 'pond', name: '🌸 Lunacia Pond (Day)', bg: '/axies/arena_lunacia_pond.png' },
+    { id: 'jungle', name: '🌿 Sunbeam Deep Jungle', bg: '/axies/arena_deep_jungle.png' },
     { id: 'night', name: '🌙 Bioluminescent Forest', bg: '/axies/arena_night_forest.png' },
     { id: 'lotus', name: '🪷 Sunlit Lotus Pond', bg: '/axies/arena_lotus_pond.png' },
     { id: 'gears', name: '⚙️ Steampunk Gear Factory', bg: '/axies/arena_steampunk_gears.png' },
@@ -190,7 +191,7 @@ export default function AxiePage() {
     async function loadMarketplace() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/axie/marketplace?class=${selectedClass}&limit=16`);
+        const res = await fetch(`/api/axie/marketplace?class=${selectedClass}&limit=32`);
         if (res.ok) {
           const data = await res.json();
           setAxies(data.axies || []);
@@ -215,33 +216,33 @@ export default function AxiePage() {
   // Default Player Team
   const [playerTeam, setPlayerTeam] = useState<FighterAxie[]>([
     {
-      id: '8414341',
-      name: 'Leaf Tank Plant',
+      id: '9901003',
+      name: 'Electric Cyan Moss Plant',
       class: 'Plant',
       position: 'FRONT',
       side: 'PLAYER',
-      maxHp: 512,
-      hp: 512,
+      maxHp: 520,
+      hp: 520,
       shield: 0,
       speed: 31,
       skill: 31,
-      morale: 43,
-      image: '/axies/plant.jpg',
+      morale: 42,
+      image: '/axies/sprite_blue_eyes_plant.png',
       cards: [CARDS_POOL[0], CARDS_POOL[1], CARDS_POOL[2], CARDS_POOL[1]],
     },
     {
-      id: '1708053',
-      name: 'Dual Blade Beast',
+      id: '9901001',
+      name: 'Seraph Fluffy Sunbeam Beast',
       class: 'Beast',
       position: 'MID',
       side: 'PLAYER',
-      maxHp: 350,
-      hp: 350,
+      maxHp: 380,
+      hp: 380,
       shield: 0,
-      speed: 43,
-      skill: 31,
-      morale: 56,
-      image: '/axies/beast.jpg',
+      speed: 45,
+      skill: 34,
+      morale: 59,
+      image: '/axies/sprite_yellow_fluffy.png',
       cards: [CARDS_POOL[3], CARDS_POOL[4], CARDS_POOL[5], CARDS_POOL[3]],
     },
     {
@@ -264,48 +265,48 @@ export default function AxiePage() {
   // Opponent Team
   const [enemyTeam, setEnemyTeam] = useState<FighterAxie[]>([
     {
+      id: '9901002',
+      name: 'Verdant Cactus Brawler',
+      class: 'Bug',
+      position: 'FRONT',
+      side: 'ENEMY',
+      maxHp: 500,
+      hp: 500,
+      shield: 0,
+      speed: 37,
+      skill: 35,
+      morale: 48,
+      image: '/axies/sprite_green_brawler.png',
+      cards: [CARDS_POOL[0], CARDS_POOL[2], CARDS_POOL[2]],
+    },
+    {
       id: '6409821',
       name: 'Cyber Mech Golem',
       class: 'Mech',
-      position: 'FRONT',
+      position: 'MID',
       side: 'ENEMY',
-      maxHp: 520,
-      hp: 520,
+      maxHp: 460,
+      hp: 460,
       shield: 0,
       speed: 49,
       skill: 41,
       morale: 36,
       image: '/axies/sprite_mech_golem.png',
-      cards: [CARDS_POOL[0], CARDS_POOL[1], CARDS_POOL[2]],
+      cards: [CARDS_POOL[1], CARDS_POOL[3], CARDS_POOL[4]],
     },
     {
-      id: '11344520',
-      name: 'Lavender Spiral Reptile',
-      class: 'Reptile',
-      position: 'MID',
+      id: '9901005',
+      name: 'Zen White Lotus Dawn',
+      class: 'Dawn',
+      position: 'BACK',
       side: 'ENEMY',
       maxHp: 440,
       hp: 440,
       shield: 0,
-      speed: 41,
-      skill: 31,
-      morale: 39,
-      image: '/axies/sprite_reptile_spiral.png',
-      cards: [CARDS_POOL[2], CARDS_POOL[5], CARDS_POOL[6]],
-    },
-    {
-      id: '10912554',
-      name: 'Sakura Coral Bird',
-      class: 'Bird',
-      position: 'BACK',
-      side: 'ENEMY',
-      maxHp: 314,
-      hp: 314,
-      shield: 0,
-      speed: 61,
-      skill: 35,
-      morale: 41,
-      image: '/axies/sprite_bird_sakura.png',
+      speed: 44,
+      skill: 40,
+      morale: 43,
+      image: '/axies/sprite_zen_white_plant.png',
       cards: [CARDS_POOL[9], CARDS_POOL[10], CARDS_POOL[10]],
     },
   ]);
