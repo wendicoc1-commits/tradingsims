@@ -750,17 +750,25 @@ export function ChartWidget({
 export function GlobalIndicesWidget({ onRemove, onEdit }: { onRemove: () => void; onEdit?: () => void }) {
   const [indices, setIndices] = useState([
     { sym: 'IHSG (JKSE)', key: '^JKSE', price: '7,744.56', chg: '+78.11', pct: '+1.02%', positive: true },
-    { sym: 'S&P 500', key: '^GSPC', price: '5,751.13', chg: '+22.45', pct: '+0.39%', positive: true },
-    { sym: 'NASDAQ', key: '^IXIC', price: '18,189.17', chg: '+145.28', pct: '+0.81%', positive: true },
-    { sym: 'DOW JONES', key: '^DJI', price: '42,125.08', chg: '+330.12', pct: '+0.79%', positive: true },
-    { sym: 'NIKKEI 225', key: '^N225', price: '38,652.20', chg: '-647.26', pct: '-0.94%', positive: false },
-    { sym: 'HANG SENG', key: '^HSI', price: '22,736.85', chg: '-623.10', pct: '-2.60%', positive: false },
-    { sym: 'FTSE 100', key: '^FTSE', price: '8,280.63', chg: '+45.59', pct: '+0.55%', positive: true },
+    { sym: 'S&P 500', key: '^GSPC', price: '5,811.54', chg: '+34.20', pct: '+0.59%', positive: true },
+    { sym: 'NASDAQ 100', key: '^NDX', price: '20,883.15', chg: '+105.80', pct: '+0.51%', positive: true },
+    { sym: 'DOW JONES', key: '^DJI', price: '42,654.95', chg: '+350.12', pct: '+0.83%', positive: true },
+    { sym: 'DAX (Jerman)', key: '^GDAXI', price: '19,487.20', chg: '+215.30', pct: '+1.13%', positive: true },
+    { sym: 'FTSE 100', key: '^FTSE', price: '8,280.63', chg: '+86.59', pct: '+1.06%', positive: true },
+    { sym: 'CAC 40 (Prancis)', key: '^FCHI', price: '7,603.30', chg: '+71.45', pct: '+0.95%', positive: true },
+    { sym: 'NIKKEI 225', key: '^N225', price: '38,652.20', chg: '+247.26', pct: '+0.64%', positive: true },
+    { sym: 'HANG SENG', key: '^HSI', price: '22,736.85', chg: '-123.10', pct: '-0.54%', positive: false },
+    { sym: 'SHANGHAI COMP', key: '000001.SS', price: '3,813.79', chg: '+1.85', pct: '+0.05%', positive: true },
+    { sym: 'KOSPI (Korea)', key: '^KS11', price: '2,625.90', chg: '-22.10', pct: '-0.83%', positive: false },
+    { sym: 'NIFTY 50 (India)', key: '^NSEI', price: '24,520.45', chg: '+315.60', pct: '+1.30%', positive: true },
+    { sym: 'TSX (Kanada)', key: '^GSPTSE', price: '24,664.60', chg: '+360.20', pct: '+1.48%', positive: true },
+    { sym: 'BOVESPA (Brasil)', key: '^BVSP', price: '131,066.90', chg: '+1780.00', pct: '+1.38%', positive: true },
+    { sym: 'CBOE VIX', key: '^VIX', price: '14.84', chg: '-0.57', pct: '-3.70%', positive: false },
   ]);
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
-    fetch('/api/stocks/realtime?tickers=^JKSE,^GSPC,^IXIC,^DJI,^N225,^HSI,^FTSE')
+    fetch('/api/stocks/realtime?tickers=^JKSE,^GSPC,^NDX,^DJI,^GDAXI,^FTSE,^FCHI,^N225,^HSI,000001.SS,^KS11,^NSEI,^GSPTSE,^BVSP,^VIX')
       .then((res) => res.json())
       .then((data) => {
         if (data?.quotes) {

@@ -25,10 +25,11 @@ export interface UnifiedAsset {
   isPopular?: boolean;
 }
 
-// 1. Top Cryptocurrencies generated dynamically from MASTER_GLOBAL_CRYPTO (72+ pairs)
+// 1. Top Cryptocurrencies generated dynamically from MASTER_GLOBAL_CRYPTO (120+ pairs)
 const POPULAR_CRYPTO = new Set([
   'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR',
   'LINK', 'PEPE', 'SHIB', 'RENDER', 'ARB', 'APT', 'TAO', 'FET', 'TON', 'KAS',
+  'WIF', 'BONK', 'ENA', 'TIA', 'ONDO', 'JUP', 'AAVE', 'PENDLE', 'RAY', 'STRK',
 ]);
 
 const CRYPTO_MASTER: UnifiedAsset[] = MASTER_GLOBAL_CRYPTO.map((c) => {
@@ -76,11 +77,12 @@ const IDX_MASTER: UnifiedAsset[] = (idxDividendJson as any[]).map((item) => {
 
 const IDX_SET = new Set(IDX_MASTER.map((i) => i.symbol.toUpperCase()));
 
-// 3. Global US & World Stocks (160+ emiten luar negeri)
+// 3. Global US & World Stocks (170+ emiten luar negeri)
 const POPULAR_GLOBAL = new Set([
   'NVDA', 'AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'META', 'PLTR', 'AVGO', 'AMD',
   'BRK.B', 'LLY', 'JPM', 'V', 'WMT', 'NFLX', 'ORCL', 'COST', 'XOM', 'COIN', 'QCOM',
   'CRM', 'ADBE', 'INTC', 'MA', 'PG', 'JNJ', 'HD', 'TSM', 'BABA', 'ASML', 'NVO',
+  'ARM', 'SMCI', 'MSTR', 'UBER', 'CRWD', 'NOW', 'SNOW', 'RACE',
   'SPY', 'QQQ', 'SOXX', 'SMH', 'VOO',
 ]);
 
