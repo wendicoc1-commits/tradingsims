@@ -413,41 +413,79 @@ export default function AxieModularAssembler({
       // -------------------------------------------------------------
       // LAYER 0: Ground Shadow
       // -------------------------------------------------------------
+      // -------------------------------------------------------------
+      // LAYER 0: Ground Shadow
+      // -------------------------------------------------------------
       if (config.shadowVisible) {
         const shadowCanvas = getRegionCanvas(config.bodyClass, 'shadow');
         if (shadowCanvas) {
           ctx.save();
-          const sW = 280 * (bScaleX * 0.95 + 0.05);
-          const sH = 50 * bScaleY;
+          const sW = 300 * (bScaleX * 0.95 + 0.05);
+          const sH = 55 * bScaleY;
           ctx.globalAlpha = 0.45 + Math.sin(elapsed * 2.8) * 0.04;
-          ctx.drawImage(shadowCanvas, cx - sW / 2, cy + 95 - breatheY * 0.3, sW, sH);
+          ctx.drawImage(shadowCanvas, cx - sW / 2 + 5, cy + 92 - breatheY * 0.2, sW, sH);
           ctx.restore();
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 1: Tail (Behind Torso, Wagging Animation)
+      // LAYER 1: Far Ear (Ear Right - BEHIND head/body)
+      // In Spine, ear-right is on bone:ear-right at upper right skull behind head
+      // -------------------------------------------------------------
+      if (config.ears.visible) {
+        const earRCanvas = getRegionCanvas(config.ears.class, 'ear-right');
+        if (earRCanvas) {
+          const tintedER = getTintedRegion(earRCanvas, config.ears.color);
+          ctx.save();
+          const erW = tintedER.width * 0.65;
+          const erH = tintedER.height * 0.65;
+          const erAnchorX = cx + 58 * bScaleX;
+          const erAnchorY = cy - 78 * bScaleY + breatheY * 0.8;
+          ctx.translate(erAnchorX, erAnchorY);
+          ctx.rotate(0.20 + earWiggleR);
+          ctx.drawImage(tintedER, -erW / 2, -erH * 0.9, erW, erH);
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // LAYER 2: Far Rear Foot & Far Front Foot (BEHIND body)
+      // -------------------------------------------------------------
+      if (config.legsVisible) {
+        const legFR = getRegionCanvas(config.bodyClass, 'leg-front-right');
+        const legBL = getRegionCanvas(config.bodyClass, 'leg-back-left');
+        if (legFR) {
+          const tintedFR = getTintedRegion(legFR, config.bodyColor, 0.4);
+          ctx.drawImage(tintedFR, cx + 55 * bScaleX, cy + 62 + bOffsetY, tintedFR.width * 0.68, tintedFR.height * 0.68);
+        }
+        if (legBL) {
+          const tintedBL = getTintedRegion(legBL, config.bodyColor, 0.4);
+          ctx.drawImage(tintedBL, cx - 82 * bScaleX, cy + 64 + bOffsetY, tintedBL.width * 0.68, tintedBL.height * 0.68);
+        }
+      }
+
+      // -------------------------------------------------------------
+      // LAYER 3: Tail (Behind Torso, Attached to Rump)
       // -------------------------------------------------------------
       if (config.tail.visible) {
         const tailCanvas = getRegionCanvas(config.tail.class, 'tail');
         if (tailCanvas) {
           const tintedTail = getTintedRegion(tailCanvas, config.tail.color);
           ctx.save();
-          // Anchor point at base of tail on the left
-          const tW = tintedTail.width * 0.65;
-          const tH = tintedTail.height * 0.65;
-          const tAnchorX = cx - 110 * bScaleX;
-          const tAnchorY = cy + 15 + breatheY;
+          const tW = tintedTail.width * 0.68;
+          const tH = tintedTail.height * 0.68;
+          const tAnchorX = cx - 118 * bScaleX;
+          const tAnchorY = cy + 5 + breatheY;
 
           ctx.translate(tAnchorX, tAnchorY);
-          ctx.rotate(wagAngle);
-          ctx.drawImage(tintedTail, -tW, -tH / 2, tW, tH);
+          ctx.rotate(wagAngle - 0.15);
+          ctx.drawImage(tintedTail, -tW, -tH * 0.55, tW, tH);
           ctx.restore();
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 2: Back Part (Spine Ridge)
+      // LAYER 4: Back Part (Spine Ridge Curve)
       // -------------------------------------------------------------
       if (config.back.visible) {
         const backCanvas = getRegionCanvas(config.back.class, 'back');
@@ -456,8 +494,8 @@ export default function AxieModularAssembler({
           ctx.save();
           const bkW = tintedBack.width * 0.68;
           const bkH = tintedBack.height * 0.68;
-          const bkX = cx - 75 * bScaleX;
-          const bkY = cy - 85 * bScaleY + breatheY * 0.8;
+          const bkX = cx - 55 * bScaleX;
+          const bkY = cy - 96 * bScaleY + breatheY * 0.7;
 
           ctx.drawImage(tintedBack, bkX, bkY, bkW, bkH);
           ctx.restore();
@@ -465,22 +503,7 @@ export default function AxieModularAssembler({
       }
 
       // -------------------------------------------------------------
-      // LAYER 3: Rear Legs (leg-back-left)
-      // -------------------------------------------------------------
-      if (config.legsVisible) {
-        const legBackCanvas = getRegionCanvas(config.bodyClass, 'leg-back-left');
-        if (legBackCanvas) {
-          const tintedLeg = getTintedRegion(legBackCanvas, config.bodyColor, 0.4);
-          ctx.save();
-          const lW = tintedLeg.width * 0.7;
-          const lH = tintedLeg.height * 0.7;
-          ctx.drawImage(tintedLeg, cx - 75 * bScaleX, cy + 65 + bOffsetY, lW, lH);
-          ctx.restore();
-        }
-      }
-
-      // -------------------------------------------------------------
-      // LAYER 4: Body Torso Base (GTK2D Body Type Silhouette)
+      // LAYER 5: Body Torso Base (GTK2D Body Type Silhouette)
       // -------------------------------------------------------------
       const bodyCanvas = getRegionCanvas(config.bodyClass, 'body');
       if (bodyCanvas) {
@@ -493,7 +516,6 @@ export default function AxieModularAssembler({
         const bX = cx - w / 2;
         const bY = cy - h / 2 + bOffsetY + breatheY;
 
-        // Apply Frosty shader tint overlay if Frosty body type
         if (config.bodyType === 'frosty') {
           ctx.shadowColor = '#38bdf8';
           ctx.shadowBlur = 12;
@@ -510,7 +532,7 @@ export default function AxieModularAssembler({
       }
 
       // -------------------------------------------------------------
-      // LAYER 5: Body Pattern / Markings
+      // LAYER 6: Body Pattern / Markings
       // -------------------------------------------------------------
       if (config.patternVisible) {
         const patCanvas = getRegionCanvas(config.bodyClass, 'body-pattern');
@@ -518,63 +540,24 @@ export default function AxieModularAssembler({
           ctx.save();
           const pW = patCanvas.width * 0.68;
           const pH = patCanvas.height * 0.68;
-          ctx.drawImage(patCanvas, cx - 20, cy + 10 + breatheY, pW, pH);
+          ctx.drawImage(patCanvas, cx + 15 * bScaleX - pW / 2, cy + 28 * bScaleY + breatheY - pH / 2, pW, pH);
           ctx.restore();
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 6: Front Legs (leg-front-left & leg-front-right)
+      // LAYER 7: Near Front Leg (leg-front-left)
       // -------------------------------------------------------------
       if (config.legsVisible) {
         const legFL = getRegionCanvas(config.bodyClass, 'leg-front-left');
-        const legFR = getRegionCanvas(config.bodyClass, 'leg-front-right');
         if (legFL) {
           const tintedL = getTintedRegion(legFL, config.bodyColor, 0.4);
-          ctx.drawImage(tintedL, cx - 35 * bScaleX, cy + 70 + bOffsetY, tintedL.width * 0.7, tintedL.height * 0.7);
-        }
-        if (legFR) {
-          const tintedR = getTintedRegion(legFR, config.bodyColor, 0.4);
-          ctx.drawImage(tintedR, cx + 45 * bScaleX, cy + 68 + bOffsetY, tintedR.width * 0.7, tintedR.height * 0.7);
+          ctx.drawImage(tintedL, cx - 18 * bScaleX, cy + 76 + bOffsetY, tintedL.width * 0.7, tintedL.height * 0.7);
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 7: Ears (Left & Right)
-      // -------------------------------------------------------------
-      if (config.ears.visible) {
-        const earLCanvas = getRegionCanvas(config.ears.class, 'ear-left');
-        const earRCanvas = getRegionCanvas(config.ears.class, 'ear-right');
-
-        if (earLCanvas) {
-          const tintedEL = getTintedRegion(earLCanvas, config.ears.color);
-          ctx.save();
-          const elW = tintedEL.width * 0.66;
-          const elH = tintedEL.height * 0.66;
-          const elX = cx - 75 * bScaleX;
-          const elY = cy - 70 * bScaleY + breatheY;
-          ctx.translate(elX + elW / 2, elY + elH);
-          ctx.rotate(earWiggleL);
-          ctx.drawImage(tintedEL, -elW / 2, -elH, elW, elH);
-          ctx.restore();
-        }
-
-        if (earRCanvas) {
-          const tintedER = getTintedRegion(earRCanvas, config.ears.color);
-          ctx.save();
-          const erW = tintedER.width * 0.66;
-          const erH = tintedER.height * 0.66;
-          const erX = cx + 35 * bScaleX;
-          const erY = cy - 70 * bScaleY + breatheY;
-          ctx.translate(erX + erW / 2, erY + erH);
-          ctx.rotate(earWiggleR);
-          ctx.drawImage(tintedER, -erW / 2, -erH, erW, erH);
-          ctx.restore();
-        }
-      }
-
-      // -------------------------------------------------------------
-      // LAYER 8: Mouth
+      // LAYER 8: Mouth (Snout Tip)
       // -------------------------------------------------------------
       if (config.mouth.visible) {
         const mouthCanvas =
@@ -586,15 +569,15 @@ export default function AxieModularAssembler({
           ctx.save();
           const mW = tintedMouth.width * 0.68;
           const mH = tintedMouth.height * 0.68;
-          const mX = cx + 20 * bScaleX - mW / 2;
-          const mY = cy + 18 * bScaleY + breatheY - mH / 2;
-          ctx.drawImage(tintedMouth, mX, mY, mW, mH);
+          const mX = cx + 68 * bScaleX;
+          const mY = cy + 12 * bScaleY + breatheY;
+          ctx.drawImage(tintedMouth, mX - mW / 2, mY - mH / 2, mW, mH);
           ctx.restore();
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 9: Eyes
+      // LAYER 9: Eyes (Mid Face / Front Cranium)
       // -------------------------------------------------------------
       if (config.eyes.visible) {
         const eyesCanvas =
@@ -605,15 +588,16 @@ export default function AxieModularAssembler({
           ctx.save();
           const eyW = eyesCanvas.width * 0.68;
           const eyH = eyesCanvas.height * 0.68;
-          const eyX = cx + 25 * bScaleX - eyW / 2;
-          const eyY = cy - 22 * bScaleY + breatheY - eyH / 2;
-          ctx.drawImage(eyesCanvas, eyX, eyY, eyW, eyH);
+          const eyX = cx + 52 * bScaleX;
+          const eyY = cy - 20 * bScaleY + breatheY;
+          ctx.drawImage(eyesCanvas, eyX - eyW / 2, eyY - eyH / 2, eyW, eyH);
           ctx.restore();
         }
       }
 
       // -------------------------------------------------------------
-      // LAYER 10: Horn (Top Cranium)
+      // LAYER 10: Horn (Forehead Crown)
+      // Anchored directly to the skull forehead above the eyes
       // -------------------------------------------------------------
       if (config.horn.visible) {
         const hornCanvas = getRegionCanvas(config.horn.class, 'horn');
@@ -622,9 +606,30 @@ export default function AxieModularAssembler({
           ctx.save();
           const hW = tintedHorn.width * 0.68;
           const hH = tintedHorn.height * 0.68;
-          const hX = cx + 5 * bScaleX - hW / 2;
-          const hY = cy - 105 * bScaleY + breatheY + hornBob - hH / 2;
-          ctx.drawImage(tintedHorn, hX, hY, hW, hH);
+          const hAnchorX = cx + 32 * bScaleX;
+          const hAnchorY = cy - 82 * bScaleY + breatheY + hornBob;
+          ctx.translate(hAnchorX, hAnchorY);
+          ctx.rotate(0.08);
+          ctx.drawImage(tintedHorn, -hW / 2, -hH * 0.88, hW, hH);
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // LAYER 11: Near Ear (Ear Left - IN FRONT of skull crown)
+      // -------------------------------------------------------------
+      if (config.ears.visible) {
+        const earLCanvas = getRegionCanvas(config.ears.class, 'ear-left');
+        if (earLCanvas) {
+          const tintedEL = getTintedRegion(earLCanvas, config.ears.color);
+          ctx.save();
+          const elW = tintedEL.width * 0.65;
+          const elH = tintedEL.height * 0.65;
+          const elAnchorX = cx - 12 * bScaleX;
+          const elAnchorY = cy - 80 * bScaleY + breatheY;
+          ctx.translate(elAnchorX, elAnchorY);
+          ctx.rotate(-0.16 + earWiggleL);
+          ctx.drawImage(tintedEL, -elW / 2, -elH * 0.92, elW, elH);
           ctx.restore();
         }
       }
