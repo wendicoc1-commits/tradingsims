@@ -159,24 +159,23 @@ export default function AxieAvatar({
   const activeSprite = imageSrc && imageSrc.startsWith('/axies/') ? imageSrc : config.sprite;
   const activeFilter = imageSrc && imageSrc.startsWith('/axies/') ? 'none' : config.filter;
 
-  // Render high-res painterly sprite with authentic class art & lighting
+  // Render high-res painterly sprite as a pure transparent Axie (no background)
   if (config && !imgFailed) {
     return (
       <div className={`relative flex items-center justify-center select-none ${className}`}>
-        <div
-          className="w-full h-full relative overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900/90 shadow-xl group-hover:scale-105 transition-all duration-300"
-          style={{ boxShadow: `0 8px 24px -6px ${config.glow}` }}
-        >
-          <img
-            src={activeSprite}
-            alt={name || `Axie #${id}`}
-            onError={() => setImgFailed(true)}
-            className="w-full h-full object-cover transition-transform duration-300"
-            style={{ filter: activeFilter }}
-            loading="lazy"
-          />
-          <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
-        </div>
+        <img
+          src={activeSprite}
+          alt={name || `Axie #${id}`}
+          onError={() => setImgFailed(true)}
+          className="w-full h-full object-contain filter drop-shadow-[0_12px_18px_rgba(0,0,0,0.65)] hover:scale-110 transition-transform duration-300 pointer-events-none"
+          style={{
+            filter:
+              activeFilter === 'none'
+                ? 'drop-shadow(0 10px 16px rgba(0,0,0,0.6))'
+                : `${activeFilter} drop-shadow(0 10px 16px rgba(0,0,0,0.6))`,
+          }}
+          loading="lazy"
+        />
       </div>
     );
   }
