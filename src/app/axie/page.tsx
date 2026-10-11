@@ -108,10 +108,11 @@ export default function AxiePage() {
   const [selectedClass, setSelectedClass] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [selectedArena, setSelectedArena] = useState<'pond' | 'night' | 'lotus' | 'gears' | 'amethyst' | 'canyon' | 'jungle'>('pond');
+  const [selectedArena, setSelectedArena] = useState<'pond' | 'night' | 'lotus' | 'gears' | 'amethyst' | 'canyon' | 'jungle' | 'shadow'>('pond');
 
   const ARENA_ENVIRONMENTS = [
     { id: 'pond', name: '🌸 Lunacia Pond (Day)', bg: '/axies/arena_lunacia_pond.png' },
+    { id: 'shadow', name: '👁️ Mystic Shadow Portal', bg: '/axies/arena_shadow_portal.png' },
     { id: 'jungle', name: '🌿 Sunbeam Deep Jungle', bg: '/axies/arena_deep_jungle.png' },
     { id: 'night', name: '🌙 Bioluminescent Forest', bg: '/axies/arena_night_forest.png' },
     { id: 'lotus', name: '🪷 Sunlit Lotus Pond', bg: '/axies/arena_lotus_pond.png' },
