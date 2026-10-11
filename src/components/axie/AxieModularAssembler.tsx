@@ -275,11 +275,6 @@ export default function AxieModularAssembler({
         imagePath: '/axies/spine/19-xia-beast/xia.png',
         atlasPath: '/axies/spine/19-xia-beast/xia.atlas.txt',
       },
-      {
-        key: 'GTK2D',
-        imagePath: '/axies/spine/axie-2d-v3-stuff/axie-2d-v3-stuff_color.png',
-        atlasPath: '/axies/spine/axie-2d-v3-stuff/axie-2d-v3-stuff.txt',
-      },
     ];
 
     async function loadAllAssets() {
@@ -582,38 +577,25 @@ export default function AxieModularAssembler({
       let bodyCanvas: HTMLCanvasElement | null = null;
 
       if (curType === 'bigyak') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-bigyak.body-bigyak') || getRegionCanvas('Xia', 'body-bigyak');
-      } else if (curType === 'sumo') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-sumo.body-sumo');
-      } else if (curType === 'wetdog') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-wetdog.body-wetdog');
-      } else if (curType === 'fuzzy') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-fuzzy.body-fuzzy');
-      } else if (curType === 'spiky') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-spiky.body-spiky');
-      } else if (curType === 'frosty') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-frosty.body-xmas-01');
-      } else if (curType === 'curly') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-curly.body-curly');
-      } else if (curType === 'nightmare') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-nightmare.body');
-      } else if (curType === 'wavy') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-summer.body');
-      } else if (curType === 'normal') {
-        bodyCanvas = getRegionCanvas('GTK2D', 'body-normal.body');
+        bodyCanvas = getRegionCanvas('Xia', 'body-bigyak') || getRegionCanvas(config.bodyClass, 'body');
+      } else {
+        bodyCanvas = getRegionCanvas(config.bodyClass, 'body');
       }
 
-      // Fallback to base class body if GTK2D texture is still loading
+      // Safe fallback across all starter classes
       if (!bodyCanvas) {
-        bodyCanvas = getRegionCanvas(config.bodyClass, 'body');
+        bodyCanvas =
+          getRegionCanvas('Beast', 'body') ||
+          getRegionCanvas('Plant', 'body') ||
+          getRegionCanvas('Aquatic', 'body');
       }
 
       if (bodyCanvas) {
         const bodyTint =
           curType === 'nightmare'
-            ? '#e2e8f0'
+            ? '#f1f5f9'
             : curType === 'frosty'
-            ? '#bae6fd'
+            ? '#7dd3fc'
             : config.bodyColor;
 
         const tintedBody = getTintedRegion(bodyCanvas, bodyTint, curType === 'frosty' ? 0.45 : 0.65);
@@ -642,40 +624,56 @@ export default function AxieModularAssembler({
 
         ctx.drawImage(tintedBody, bX, bY, w, h);
         ctx.restore();
+      } else if (fallbackImgRef.current && fallbackImgRef.current.complete) {
+        ctx.save();
+        const w = 240 * bScaleX;
+        const h = 210 * bScaleY * (1 + breathe);
+        ctx.drawImage(fallbackImgRef.current, cx - w / 2, cy - h / 2 + bOffsetY + breatheY, w, h);
+        ctx.restore();
+      } else {
+        // Guaranteed procedural fallback - ensures body is NEVER invisible
+        ctx.save();
+        ctx.fillStyle = config.bodyColor;
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + bOffsetY + breatheY, 115 * bScaleX, 88 * bScaleY, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
 
-        // -------------------------------------------------------------
-        // BODY TYPE DISTINCTIVE ATTACHMENTS & SILHOUETTES
-        // -------------------------------------------------------------
-        if (curType === 'bigyak') {
-          // Bigyak: 2 Front/Side Braided Pigtails + Shaggy Yak Fur Details
-          const braid1 = getRegionCanvas('GTK2D', 'body-bigyak.body-braid');
-          const braid2 = getRegionCanvas('GTK2D', 'body-bigyak.body-braid2');
-          if (braid1) {
-            ctx.save();
-            ctx.drawImage(braid1, cx + 45 * bScaleX, cy + 18 + bOffsetY + breatheY, braid1.width * 0.65, braid1.height * 0.65);
-            ctx.restore();
-          }
-          if (braid2) {
-            ctx.save();
-            ctx.drawImage(braid2, cx - 15 * bScaleX, cy + 22 + bOffsetY + breatheY, braid2.width * 0.65, braid2.height * 0.65);
-            ctx.restore();
-          }
-          // Vector shaggy chest hair tuft overlay
-          ctx.save();
-          ctx.fillStyle = config.bodyColor;
-          ctx.strokeStyle = '#1f2937';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.moveTo(cx - 30 * bScaleX, cy + 55 + bOffsetY + breatheY);
-          ctx.lineTo(cx - 20 * bScaleX, cy + 68 + bOffsetY + breatheY);
-          ctx.lineTo(cx - 10 * bScaleX, cy + 58 + bOffsetY + breatheY);
-          ctx.lineTo(cx, cy + 70 + bOffsetY + breatheY);
-          ctx.lineTo(cx + 10 * bScaleX, cy + 58 + bOffsetY + breatheY);
-          ctx.lineTo(cx + 20 * bScaleX, cy + 68 + bOffsetY + breatheY);
-          ctx.lineTo(cx + 30 * bScaleX, cy + 55 + bOffsetY + breatheY);
-          ctx.stroke();
-          ctx.restore();
-        } else if (curType === 'curly') {
+      // -------------------------------------------------------------
+      // BODY TYPE DISTINCTIVE ATTACHMENTS & SILHOUETTES
+      // -------------------------------------------------------------
+      if (curType === 'bigyak') {
+        // Bigyak: 2 Front/Side Braided Pigtails with ribbon ties
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#1f2937';
+        // Left braid
+        ctx.beginPath();
+        ctx.moveTo(cx - 32 * bScaleX, cy + 18 + bOffsetY + breatheY);
+        ctx.quadraticCurveTo(cx - 45 * bScaleX, cy + 38 + bOffsetY + breatheY, cx - 38 * bScaleX, cy + 58 + bOffsetY + breatheY);
+        ctx.stroke();
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(cx - 38 * bScaleX, cy + 58 + bOffsetY + breatheY, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Right braid
+        ctx.beginPath();
+        ctx.moveTo(cx + 42 * bScaleX, cy + 14 + bOffsetY + breatheY);
+        ctx.quadraticCurveTo(cx + 34 * bScaleX, cy + 34 + bOffsetY + breatheY, cx + 40 * bScaleX, cy + 54 + bOffsetY + breatheY);
+        ctx.stroke();
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(cx + 40 * bScaleX, cy + 54 + bOffsetY + breatheY, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      } else if (curType === 'curly') {
           // Curly: Fluffy cloud fleece wool rings outlining the back and torso perimeter
           ctx.save();
           ctx.fillStyle = config.bodyColor;
@@ -930,13 +928,6 @@ export default function AxieModularAssembler({
             ctx.restore();
           }
         }
-      } else if (fallbackImgRef.current && fallbackImgRef.current.complete) {
-        ctx.save();
-        const w = 240 * bScaleX;
-        const h = 210 * bScaleY * (1 + breathe);
-        ctx.drawImage(fallbackImgRef.current, cx - w / 2, cy - h / 2 + bOffsetY + breatheY, w, h);
-        ctx.restore();
-      }
 
       // -------------------------------------------------------------
       // LAYER 6: Body Pattern / Markings
