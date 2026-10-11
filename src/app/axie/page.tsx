@@ -767,8 +767,11 @@ export default function AxiePage() {
               </div>
             </div>
 
-            {/* Battle Arena Canvas */}
-            <div className="relative bg-gradient-to-b from-zinc-950 via-indigo-950/20 to-zinc-950 border border-zinc-800 rounded-3xl p-6 min-h-[420px] flex flex-col justify-between overflow-hidden shadow-2xl">
+            {/* Battle Arena Canvas with Authentic Lunacia Lily-Pad Pond */}
+            <div
+              className="relative border border-zinc-800 rounded-3xl p-6 min-h-[460px] flex flex-col justify-between overflow-hidden shadow-2xl bg-zinc-950 bg-cover bg-center"
+              style={{ backgroundImage: "linear-gradient(to bottom, rgba(9, 9, 11, 0.65), rgba(9, 9, 11, 0.82)), url('/axies/arena_lunacia_pond.png')" }}
+            >
               {/* Floating Announcement Overlay */}
               {announcement && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 text-center animate-bounce">

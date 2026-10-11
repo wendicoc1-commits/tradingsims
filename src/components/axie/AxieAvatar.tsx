@@ -86,6 +86,13 @@ const CLASS_SPECS: Record<
   },
 };
 
+const LOCAL_DETAILED_SPRITES: Record<string, string> = {
+  Aquatic: '/axies/aqua.jpg',
+  Aqua: '/axies/aqua.jpg',
+  Beast: '/axies/beast.jpg',
+  Plant: '/axies/plant.jpg',
+};
+
 export default function AxieAvatar({
   id,
   axieClass,
@@ -93,11 +100,31 @@ export default function AxieAvatar({
   className = 'w-24 h-20',
   imageSrc,
 }: AxieAvatarProps) {
-  const [imgFailed, setImgFailed] = useState(true); // Default to SVG because assets.axieinfinity.com blocks 403
+  const [imgFailed, setImgFailed] = useState(false);
 
   const spec = CLASS_SPECS[axieClass] || CLASS_SPECS.Plant;
+  const localSprite = LOCAL_DETAILED_SPRITES[axieClass];
 
-  // Render authentic animated SVG Axie model
+  // If local high-res painterly sprite is available, render it with high detail!
+  if (localSprite && !imgFailed) {
+    return (
+      <div className={`relative flex items-center justify-center select-none ${className}`}>
+        <div className="w-full h-full relative overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900/90 shadow-lg group-hover:scale-105 transition-all duration-300">
+          <img
+            src={localSprite}
+            alt={name || `Axie #${id}`}
+            onError={() => setImgFailed(true)}
+            className="w-full h-full object-cover filter contrast-105 saturate-110"
+            loading="lazy"
+          />
+          {/* Subtle inner ambient ring */}
+          <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
+        </div>
+      </div>
+    );
+  }
+
+  // Render authentic animated SVG Axie model for other classes or fallback
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
       {!imgFailed && imageSrc ? (
