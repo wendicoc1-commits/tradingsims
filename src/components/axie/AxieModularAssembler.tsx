@@ -235,20 +235,35 @@ export default function AxieModularAssembler({
 
   // Synchronize when selectedBodyType changes from external caller
   useEffect(() => {
-    if (selectedBodyType && selectedBodyType !== config.bodyType) {
-      setConfig((prev) => ({
-        ...prev,
-        bodyType: selectedBodyType,
-      }));
+    if (selectedBodyType) {
+      setConfig((prev) => {
+        if (prev.bodyType === selectedBodyType) return prev;
+        return {
+          ...prev,
+          bodyType: selectedBodyType,
+        };
+      });
     }
-  }, [selectedBodyType, config.bodyType]);
+  }, [selectedBodyType]);
 
-  // Notify parent on config update
+  // Keep ref of onConfigChange to prevent dependency loops
+  const onConfigChangeRef = useRef(onConfigChange);
   useEffect(() => {
-    if (onConfigChange) {
-      onConfigChange(config);
+    onConfigChangeRef.current = onConfigChange;
+  }, [onConfigChange]);
+
+  const lastNotifiedRef = useRef<string>('');
+  useEffect(() => {
+    const serialized = JSON.stringify({
+      bodyClass: config.bodyClass,
+      bodyType: config.bodyType,
+      bodyColor: config.bodyColor,
+    });
+    if (serialized !== lastNotifiedRef.current) {
+      lastNotifiedRef.current = serialized;
+      onConfigChangeRef.current?.(config);
     }
-  }, [config, onConfigChange]);
+  }, [config.bodyClass, config.bodyType, config.bodyColor, config]);
 
   // Load all starter Spine Atlases and Spritesheets on mount
   useEffect(() => {

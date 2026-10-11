@@ -2073,7 +2073,7 @@ export default function AxiePage() {
               initialBodyType={genBodyType}
               selectedBodyType={genBodyType}
               onConfigChange={(newCfg) => {
-                if (newCfg.bodyClass) {
+                if (newCfg.bodyClass && newCfg.bodyClass !== genClass) {
                   setGenClass(newCfg.bodyClass as CreatureClass);
                 }
                 if (newCfg.bodyType && newCfg.bodyType !== genBodyType) {
