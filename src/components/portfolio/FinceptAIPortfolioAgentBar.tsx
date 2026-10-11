@@ -25,8 +25,10 @@ import { runAutonomousAgentCycle } from '@/lib/hedgefund/autonomousTradingEngine
 import { UNIVERSE_TICKERS } from '@/lib/hedgefund/autonomousStockPicker';
 import { broadcastEvent } from '@/lib/crossTabSync';
 
+import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+
 export default function FinceptAIPortfolioAgentBar() {
-  const { cash, holdings, realizedPL } = usePortfolioStore();
+  const { cash, holdings, orders, realizedPL } = usePortfolioStore();
   const {
     autoTradingEnabled,
     setAutoTradingEnabled,
@@ -34,7 +36,6 @@ export default function FinceptAIPortfolioAgentBar() {
     logs,
     dispatches,
     totalAiTradesCount,
-    totalAiRealizedProfit,
     lastTradeAt,
     resetAiStats,
   } = useAIAgentStore();
@@ -43,12 +44,50 @@ export default function FinceptAIPortfolioAgentBar() {
   const [isRunningCycle, setIsRunningCycle] = useState(false);
   const [cycleMsg, setCycleMsg] = useState<string | null>(null);
 
-  // Rekonsiliasi profit real jika stat AI sempat terdistorsi
-  const displayRealizedProfit =
-    (Math.abs(totalAiRealizedProfit) > 500_000_000 || isNaN(totalAiRealizedProfit))
-      ? realizedPL
-      : totalAiRealizedProfit;
-  const isProfitPositive = displayRealizedProfit >= 0;
+  // ── Perhitungan Untung Bersih Riil Portofolio (Net Real Profit vs Modal Awal) ──
+  const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
+  const holdingsValue = (holdings || []).reduce((acc, h) => {
+    const cleanSym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const curPrice = h.currentPrice || h.avgPrice || 0;
+    return acc + ((isCrypto || isUS) ? Math.round(curPrice * units * rate) : curPrice * units);
+  }, 0);
+  const totalNav = cash + holdingsValue;
+
+  const totalUnrealizedPL = (holdings || []).reduce((acc, h) => {
+    const cleanSym = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const curPrice = h.currentPrice || h.avgPrice || 0;
+    const effectiveAvg = h.avgPrice || 0;
+    if (isCrypto || isUS) {
+      return acc + Math.round((curPrice - effectiveAvg) * units * rate);
+    }
+    return acc + (h.unrealizedPL || Math.round((curPrice - effectiveAvg) * units));
+  }, 0);
+
+  const totalDeposited = (orders || [])
+    .filter((o) => o.symbol === 'DEPOSIT-QRIS' || o.id?.startsWith('topup-') || o.displaySymbol === 'QRIS TOPUP')
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+
+  const estimatedBaseCapital = totalDeposited > 0
+    ? totalDeposited
+    : (totalNav >= 40_000_000 && Math.abs(totalNav - 50_000_000) <= 25_000_000 ? 50_000_000 : 0);
+
+  const netRealProfit = estimatedBaseCapital > 0
+    ? (totalNav - estimatedBaseCapital)
+    : ((realizedPL || 0) + totalUnrealizedPL);
+
+  const netRealProfitPct = estimatedBaseCapital > 0
+    ? (netRealProfit / estimatedBaseCapital) * 100
+    : (totalNav > 0 ? (netRealProfit / (totalNav - netRealProfit || 1)) * 100 : 0);
+
+  const isProfitPositive = netRealProfit >= 0;
 
   const handleTriggerCycle = async () => {
     setIsRunningCycle(true);
@@ -140,9 +179,15 @@ export default function FinceptAIPortfolioAgentBar() {
             </div>
             <div className="w-px h-6 bg-zinc-800" />
             <div>
-              <span className="text-zinc-500 text-[10px] block">PROFIT TEREALISASI</span>
+              <span className="text-emerald-400 text-[10px] font-bold block flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                UNTUNG BERSIH RIIL
+              </span>
               <span className={`font-bold ${isProfitPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isProfitPositive ? '+' : '-'}Rp {Math.abs(Math.round(displayRealizedProfit)).toLocaleString('id-ID')}
+                {isProfitPositive ? '+' : '-'}Rp {Math.abs(Math.round(netRealProfit)).toLocaleString('id-ID')}
+                <span className="text-[10px] font-normal text-zinc-400 ml-1">
+                  ({netRealProfitPct >= 0 ? '+' : ''}{netRealProfitPct.toFixed(2)}%)
+                </span>
               </span>
             </div>
             <button

@@ -68,7 +68,7 @@ function getCorrelationBg(value: number) {
 }
 
 export default function InstitutionalPortfolioDesk() {
-  const { cash, holdings } = usePortfolioStore();
+  const { cash, holdings, orders, realizedPL } = usePortfolioStore();
   const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'FIXED' | 'CRYPTO'>('ALL');
   const { tickerMap } = useBinanceLivePrices();
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
@@ -232,6 +232,23 @@ export default function InstitutionalPortfolioDesk() {
   }, 0);
   const totalReturnPct = totalNav > 0 ? (unrealizedPl / (totalNav - unrealizedPl || 1)) * 100 : 0;
 
+  // Untung Bersih Riil (Net Gain vs Modal Awal / Total Deposit)
+  const totalDeposited = (orders || [])
+    .filter((o) => o.symbol === 'DEPOSIT-QRIS' || o.id?.startsWith('topup-') || o.displaySymbol === 'QRIS TOPUP')
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+
+  const estimatedBaseCapital = totalDeposited > 0
+    ? totalDeposited
+    : (totalNav >= 40_000_000 && Math.abs(totalNav - 50_000_000) <= 25_000_000 ? 50_000_000 : 0);
+
+  const netRealProfit = estimatedBaseCapital > 0
+    ? (totalNav - estimatedBaseCapital)
+    : ((realizedPL || 0) + unrealizedPl);
+
+  const netRealProfitPct = estimatedBaseCapital > 0
+    ? (netRealProfit / estimatedBaseCapital) * 100
+    : (totalNav > 0 ? (netRealProfit / (totalNav - netRealProfit || 1)) * 100 : 0);
+
   // Real asset allocation weights
   const cryptoHoldingsVal = holdings
     .filter((h) => h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT'))
@@ -316,6 +333,20 @@ export default function InstitutionalPortfolioDesk() {
           </div>
         </div>
 
+        {/* ── Kartu Untung Bersih Riil ── */}
+        <div className="bg-[#09090b] border border-emerald-500/40 p-2.5 rounded-sm shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+          <div className="text-[10px] text-emerald-400 font-bold uppercase flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Untung Bersih Riil
+          </div>
+          <div className={`text-sm md:text-base font-bold ${netRealProfit >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+            {netRealProfit >= 0 ? '+' : ''}Rp {netRealProfit.toLocaleString('id-ID')}
+          </div>
+          <div className="text-[10px] text-[#22c55e] font-semibold">
+            ({netRealProfitPct >= 0 ? '+' : ''}{netRealProfitPct.toFixed(2)}% Net Gain)
+          </div>
+        </div>
+
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -365,14 +396,6 @@ export default function InstitutionalPortfolioDesk() {
             -8.2% <span className="text-[10px] font-normal text-[#a1a1aa]">(Controlled)</span>
           </div>
           <div className="text-[10px] text-[#71717a]">1Y Peak-to-Trough</div>
-        </div>
-
-        <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Portfolio Beta & VaR</div>
-          <div className="text-sm md:text-base font-bold text-white">
-            0.92 <span className="text-[10px] font-normal text-[#71717a]">vs IHSG</span>
-          </div>
-          <div className="text-[10px] text-[#ef4444]">VaR 95%: -1.8% / day</div>
         </div>
       </div>
 
