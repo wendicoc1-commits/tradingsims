@@ -19,7 +19,29 @@ import {
   Layers,
   Search,
   Filter,
+  Dna,
+  Heart,
+  Clock,
+  CheckCircle2,
+  AlertOctagon,
+  X,
+  RefreshCw,
 } from 'lucide-react';
+import {
+  breed,
+  validateBreedingPair,
+  calculateBreedingCost,
+  Creature,
+  DEFAULT_BREEDING_CONFIG,
+  PartGene,
+  KNOWN_PARTS_CATALOG,
+  encodeGenesToBigInt,
+  CreatureGenes,
+  CreatureClass,
+  BodyPartType,
+  CLASS_BINARY_MAP,
+  BreedingResult,
+} from '@/lib/axie/geneticEngine';
 
 interface AxiePart {
   id: string;
@@ -102,7 +124,42 @@ const CARDS_POOL: BattleCard[] = [
 ];
 
 export default function AxiePage() {
-  const [activeTab, setActiveTab] = useState<'marketplace' | 'arena'>('marketplace');
+  const [activeTab, setActiveTab] = useState<'marketplace' | 'arena' | 'breeding'>('marketplace');
+  const [sireAxie, setSireAxie] = useState<AxieItem | null>(null);
+  const [matronAxie, setMatronAxie] = useState<AxieItem | null>(null);
+  const [slpBalance, setSlpBalance] = useState<number>(50000);
+  const [axsBalance, setAxsBalance] = useState<number>(25.0);
+  const [isBreedingAnim, setIsBreedingAnim] = useState<boolean>(false);
+  const [breedingModal, setBreedingModal] = useState<BreedingResult | null>(null);
+  const [incubatingEggs, setIncubatingEggs] = useState<Array<{
+    id: string;
+    name: string;
+    class: string;
+    stage: 'EGG' | 'ADULT';
+    hatchDate: string;
+    genes256: string;
+    stats: AxieStats;
+    image: string;
+    sireName: string;
+    matronName: string;
+    sireId: string;
+    matronId: string;
+  }>>([
+    {
+      id: 'egg-8910',
+      name: 'Mystic Prismatic Egg #8910',
+      class: 'Dawn',
+      stage: 'EGG',
+      hatchDate: '5 Hari Tersisa',
+      genes256: '0x0010200100803004014060070200900a02c0c00d0380f0100441200000000000',
+      stats: { hp: 46, speed: 44, skill: 39, morale: 42 },
+      image: '/axies/sprite_zen_white_plant.png',
+      sireName: 'Solaris Seraph',
+      matronName: 'Verdant Lotus',
+      sireId: '3819200',
+      matronId: '8414341',
+    },
+  ]);
   const [axies, setAxies] = useState<AxieItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState<string>('All');
@@ -538,6 +595,196 @@ export default function AxiePage() {
     showTempAnnouncement(`🧬 Axie #${axie.id} Drafted!`, `Placed at ${slot} position.`);
   };
 
+  // Convert AxieItem to Creature domain entity for Genetic Engine
+  const axieItemToCreature = (axie: AxieItem): Creature => {
+    const findPart = (type: BodyPartType, partName?: string): PartGene => {
+      if (partName) {
+        const match = KNOWN_PARTS_CATALOG.find(
+          (p) =>
+            p.type === type &&
+            (p.name.toLowerCase() === partName.toLowerCase() ||
+              p.id.toLowerCase().includes(partName.toLowerCase()))
+        );
+        if (match) return match;
+      }
+      return (
+        KNOWN_PARTS_CATALOG.find(
+          (p) => p.type === type && p.class === (axie.class as CreatureClass)
+        ) || KNOWN_PARTS_CATALOG.find((p) => p.type === type)!
+      );
+    };
+
+    const getPartByName = (type: BodyPartType) => {
+      const itemPart = axie.parts.find((p) => p.type.toLowerCase() === type);
+      return findPart(type, itemPart?.name);
+    };
+
+    const eyesPart = getPartByName('eyes');
+    const earsPart = getPartByName('ears');
+    const mouthPart = getPartByName('mouth');
+    const hornPart = getPartByName('horn');
+    const backPart = getPartByName('back');
+    const tailPart = getPartByName('tail');
+
+    const genes: CreatureGenes = {
+      class: (axie.class as CreatureClass) || 'Plant',
+      classBinary: CLASS_BINARY_MAP[axie.class as CreatureClass] ?? 3,
+      pattern: 1,
+      color: 2,
+      eyes: { D: eyesPart, R1: eyesPart, R2: eyesPart },
+      ears: { D: earsPart, R1: earsPart, R2: earsPart },
+      mouth: { D: mouthPart, R1: mouthPart, R2: mouthPart },
+      horn: { D: hornPart, R1: hornPart, R2: hornPart },
+      back: { D: backPart, R1: backPart, R2: backPart },
+      tail: { D: tailPart, R1: tailPart, R2: tailPart },
+      rawBigInt: '0x' + (axie.id.padStart(16, '0') + '000000000000000000000000000000000000000000000000').slice(0, 64),
+    };
+
+    return {
+      id: axie.id,
+      name: axie.name,
+      ownerAddress: '0xRoninWalletUser',
+      class: (axie.class as CreatureClass) || 'Plant',
+      genes,
+      stats: axie.stats,
+      breedCount: axie.breedCount || 0,
+      maxBreedCount: 7,
+      sireId: null,
+      matronId: null,
+      stage: 'ADULT',
+      birthDate: new Date().toISOString(),
+      image: axie.image,
+    };
+  };
+
+  const selectForBreeding = (axie: AxieItem, targetSlot?: 'SIRE' | 'MATRON') => {
+    if (targetSlot === 'SIRE') {
+      setSireAxie(axie);
+      showTempAnnouncement(`🧬 Sire Assigned`, `Axie #${axie.id} set as Father.`);
+    } else if (targetSlot === 'MATRON') {
+      setMatronAxie(axie);
+      showTempAnnouncement(`🌸 Matron Assigned`, `Axie #${axie.id} set as Mother.`);
+    } else {
+      if (!sireAxie) {
+        setSireAxie(axie);
+        showTempAnnouncement(`🧬 Sire Assigned`, `Axie #${axie.id} set as Father. Now choose a Matron!`);
+      } else if (!matronAxie && sireAxie.id !== axie.id) {
+        setMatronAxie(axie);
+        showTempAnnouncement(`🌸 Matron Assigned`, `Axie #${axie.id} set as Mother. Ready to breed!`);
+      } else {
+        setSireAxie(axie);
+        showTempAnnouncement(`🧬 Sire Updated`, `Axie #${axie.id} set as Father.`);
+      }
+    }
+    setActiveTab('breeding');
+  };
+
+  const currentCost =
+    sireAxie && matronAxie
+      ? calculateBreedingCost(sireAxie.breedCount || 0, matronAxie.breedCount || 0)
+      : null;
+
+  const currentValidation =
+    sireAxie && matronAxie
+      ? validateBreedingPair(
+          axieItemToCreature(sireAxie),
+          axieItemToCreature(matronAxie),
+          { slp: slpBalance, axs: axsBalance }
+        )
+      : null;
+
+  const handleExecuteBreed = () => {
+    if (!sireAxie || !matronAxie || !currentValidation?.canBreed || !currentCost) return;
+
+    setIsBreedingAnim(true);
+    playSynthesizedSound('crit');
+
+    setTimeout(() => {
+      try {
+        const sireCreature = axieItemToCreature(sireAxie);
+        const matronCreature = axieItemToCreature(matronAxie);
+        const result = breed(sireCreature, matronCreature);
+
+        setSlpBalance((prev) => Math.max(0, prev - currentCost.slp));
+        setAxsBalance((prev) => Math.max(0, +(prev - currentCost.axs).toFixed(2)));
+
+        setAxies((prev) =>
+          prev.map((a) => {
+            if (a.id === sireAxie.id) return { ...a, breedCount: (a.breedCount || 0) + 1 };
+            if (a.id === matronAxie.id) return { ...a, breedCount: (a.breedCount || 0) + 1 };
+            return a;
+          })
+        );
+        setSireAxie((prev) => (prev ? { ...prev, breedCount: (prev.breedCount || 0) + 1 } : null));
+        setMatronAxie((prev) => (prev ? { ...prev, breedCount: (prev.breedCount || 0) + 1 } : null));
+
+        const newEggItem = {
+          id: result.offspring.id,
+          name: result.offspring.name,
+          class: result.offspring.class,
+          stage: 'EGG' as const,
+          hatchDate: '5 Hari Tersisa (120 Jam)',
+          genes256: result.offspring.genes.rawBigInt,
+          stats: result.offspring.stats,
+          image: '/axies/egg_mystic.png',
+          sireName: sireAxie.name,
+          matronName: matronAxie.name,
+          sireId: sireAxie.id,
+          matronId: matronAxie.id,
+        };
+
+        setIncubatingEggs((prev) => [newEggItem, ...prev]);
+        setBreedingModal(result);
+        showTempAnnouncement(`🥚 Telur Berhasil Dihasilkan!`, `${result.offspring.name} masuk ke Inkubator!`);
+      } catch (err) {
+        console.error('Breeding failed:', err);
+      } finally {
+        setIsBreedingAnim(false);
+      }
+    }, 1200);
+  };
+
+  const handleInstantHatch = (eggId: string) => {
+    const egg = incubatingEggs.find((e) => e.id === eggId);
+    if (!egg) return;
+
+    playSynthesizedSound('crit');
+
+    const classSprites: Record<string, string> = {
+      Plant: '/axies/sprite_blue_eyes_plant.png',
+      Beast: '/axies/sprite_yellow_fluffy.png',
+      Aquatic: '/axies/sprite_aqua_crest.png',
+      Bird: '/axies/sprite_purple_bird.png',
+      Reptile: '/axies/sprite_cyan_reptile.png',
+      Bug: '/axies/sprite_green_brawler.png',
+      Mech: '/axies/sprite_mech_golem.png',
+      Dawn: '/axies/sprite_zen_white_plant.png',
+      Dusk: '/axies/sprite_dark_dusk.png',
+    };
+    const adultSprite = classSprites[egg.class] || '/axies/sprite_blue_eyes_plant.png';
+
+    const newAdultAxie: AxieItem = {
+      id: egg.id.replace('axie-', ''),
+      name: egg.name.replace('Egg', 'Pureborn Axie'),
+      class: egg.class,
+      image: adultSprite,
+      priceUsd: 88.5,
+      priceEth: 0.038,
+      breedCount: 0,
+      stats: egg.stats,
+      parts: [
+        { id: 'p1', name: 'Mendelian Eyes', class: egg.class, type: 'Eyes' },
+        { id: 'p2', name: 'Pure Horn', class: egg.class, type: 'Horn' },
+        { id: 'p3', name: 'Inherited Mouth', class: egg.class, type: 'Mouth' },
+        { id: 'p4', name: 'Genetic Tail', class: egg.class, type: 'Tail' },
+      ],
+    };
+
+    setIncubatingEggs((prev) => prev.filter((e) => e.id !== eggId));
+    setAxies((prev) => [newAdultAxie, ...prev]);
+    showTempAnnouncement(`🐣 Menetas Sukses!`, `${newAdultAxie.name} sekarang siap bertarung & kawin!`);
+  };
+
   const filteredAxies = axies.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.id.includes(searchQuery)
   );
@@ -607,6 +854,17 @@ export default function AxiePage() {
           >
             <Sword className="w-4 h-4" />
             3v3 Battle Arena Simulator
+          </button>
+          <button
+            onClick={() => setActiveTab('breeding')}
+            className={`px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm transition flex items-center gap-2 ${
+              activeTab === 'breeding'
+                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30'
+                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Dna className="w-4 h-4 text-pink-400" />
+            🧬 Breeding Lab ({incubatingEggs.length} Eggs)
           </button>
         </div>
 
@@ -725,26 +983,35 @@ export default function AxiePage() {
                         </div>
                       </div>
 
-                      {/* Draft Action Button */}
-                      <div className="mt-4 pt-3 border-t border-zinc-800/80 flex gap-1.5">
+                      {/* Actions: Breed & Draft */}
+                      <div className="mt-4 pt-3 border-t border-zinc-800/80 space-y-2">
                         <button
-                          onClick={() => draftAxieToTeam(axie, 'FRONT')}
-                          className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-emerald-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
+                          onClick={() => selectForBreeding(axie)}
+                          className="w-full py-2 rounded-xl bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500 hover:to-purple-500 hover:text-white border border-pink-500/40 text-xs font-black text-pink-300 transition flex items-center justify-center gap-1.5 shadow-md shadow-pink-500/5 group/breed"
                         >
-                          Draft Front
+                          <Dna className="w-3.5 h-3.5 text-pink-400 group-hover/breed:rotate-45 transition-transform" />
+                          <span>🧬 Kawinkan / Breed ({axie.breedCount || 0}/7)</span>
                         </button>
-                        <button
-                          onClick={() => draftAxieToTeam(axie, 'MID')}
-                          className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-amber-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
-                        >
-                          Draft Mid
-                        </button>
-                        <button
-                          onClick={() => draftAxieToTeam(axie, 'BACK')}
-                          className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-cyan-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
-                        >
-                          Draft Back
-                        </button>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => draftAxieToTeam(axie, 'FRONT')}
+                            className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-emerald-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
+                          >
+                            Draft Front
+                          </button>
+                          <button
+                            onClick={() => draftAxieToTeam(axie, 'MID')}
+                            className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-amber-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
+                          >
+                            Draft Mid
+                          </button>
+                          <button
+                            onClick={() => draftAxieToTeam(axie, 'BACK')}
+                            className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-cyan-600 hover:text-black text-[10px] font-black text-zinc-300 transition text-center"
+                          >
+                            Draft Back
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1036,6 +1303,631 @@ export default function AxiePage() {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: BREEDING LAB & INCUBATOR */}
+        {activeTab === 'breeding' && (
+          <div className="space-y-6">
+            {/* Top Currency & Status Banner */}
+            <div className="bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-zinc-900 border border-pink-500/30 rounded-3xl p-5 shadow-2xl backdrop-blur flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30 animate-pulse">
+                  🧬
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    LUNACIA GENETIC BREEDING LAB
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40">
+                      MENDELIAN ENGINE V2.0
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Kawinkan 2 Axie dengan kalkulasi 256-bit BigInt, pewarisan alel D (37.5%), R1 (9.375%), R2 (3.125%), dan proteksi inses.
+                  </p>
+                </div>
+              </div>
+
+              {/* Player Wallet Balances & Faucet */}
+              <div className="flex items-center gap-3">
+                <div className="bg-zinc-950/80 border border-pink-500/30 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-inner">
+                  <div>
+                    <div className="text-[9px] uppercase font-bold text-zinc-400">Smooth Love Potion (SLP)</div>
+                    <div className="text-sm font-black text-pink-400 font-mono">
+                      {slpBalance.toLocaleString()} SLP
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSlpBalance((b) => b + 10000);
+                      showTempAnnouncement('💧 SLP Faucet', '+10,000 SLP ditambahkan ke wallet!');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-pink-500/20 hover:bg-pink-500 hover:text-black border border-pink-500/40 text-[10px] font-black text-pink-300 transition"
+                    title="Tambah saldo uji coba SLP"
+                  >
+                    +10k
+                  </button>
+                </div>
+
+                <div className="bg-zinc-950/80 border border-purple-500/30 rounded-2xl px-4 py-2 flex items-center gap-3 shadow-inner">
+                  <div>
+                    <div className="text-[9px] uppercase font-bold text-zinc-400">Axie Infinity Shard (AXS)</div>
+                    <div className="text-sm font-black text-purple-400 font-mono">
+                      {axsBalance.toFixed(2)} AXS
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAxsBalance((b) => +(b + 5).toFixed(2));
+                      showTempAnnouncement('🪙 AXS Faucet', '+5.0 AXS ditambahkan ke wallet!');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 hover:text-black border border-purple-500/40 text-[10px] font-black text-purple-300 transition"
+                    title="Tambah saldo uji coba AXS"
+                  >
+                    +5.0
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Genetics Synthesis Core: Sire Pod, DNA Bridge, Matron Pod */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              {/* SIRE (FATHER) POD - 4 cols */}
+              <div className="lg:col-span-4 bg-zinc-900/80 border border-cyan-500/30 rounded-3xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-cyan-400 bg-cyan-950/80 border border-cyan-800 px-2.5 py-1 rounded-xl">
+                      ♂️ SIRE (AYAH)
+                    </span>
+                    {sireAxie && (
+                      <span className="text-[10px] font-bold text-zinc-400">
+                        Breed {sireAxie.breedCount || 0}/7
+                      </span>
+                    )}
+                  </div>
+                  {sireAxie && (
+                    <button
+                      onClick={() => setSireAxie(null)}
+                      className="text-zinc-500 hover:text-rose-400 p-1 rounded-lg transition"
+                      title="Hapus Sire"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {sireAxie ? (
+                  <div className="space-y-3">
+                    <div className="relative w-full h-44 flex items-center justify-center bg-gradient-to-b from-cyan-950/20 to-zinc-950 rounded-2xl border border-cyan-900/40">
+                      <AxieAvatar
+                        id={sireAxie.id}
+                        axieClass={sireAxie.class}
+                        name={sireAxie.name}
+                        imageSrc={sireAxie.image}
+                        className="w-36 h-32"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-black text-sm text-white truncate">{sireAxie.name}</h3>
+                        <span className="text-xs font-black text-cyan-400">#{sireAxie.id}</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        Kelas: <span className="text-white font-bold">{sireAxie.class}</span>
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-4 gap-1 bg-zinc-950/80 p-2 rounded-xl text-center text-[10px] border border-zinc-800">
+                      <div>
+                        <div className="text-zinc-500 font-bold">HP</div>
+                        <div className="font-black text-emerald-400">{sireAxie.stats.hp}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">SPD</div>
+                        <div className="font-black text-cyan-400">{sireAxie.stats.speed}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">SKL</div>
+                        <div className="font-black text-amber-400">{sireAxie.stats.skill}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">MOR</div>
+                        <div className="font-black text-rose-400">{sireAxie.stats.morale}</div>
+                      </div>
+                    </div>
+
+                    {/* Body Parts */}
+                    <div className="flex flex-wrap gap-1">
+                      {sireAxie.parts.map((p) => (
+                        <span
+                          key={p.id}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700"
+                        >
+                          {p.type}: {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-64 flex flex-col items-center justify-center text-center border-2 border-dashed border-cyan-500/30 rounded-2xl p-6 bg-cyan-950/10">
+                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-3 text-xl">
+                      🧬
+                    </div>
+                    <div className="text-sm font-bold text-zinc-300 mb-1">Sire Belum Dipilih</div>
+                    <p className="text-xs text-zinc-500 mb-4">
+                      Pilih Axie jantan dari katalog di bawah atau dari tab Marketplace.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const first = axies[0];
+                        if (first) selectForBreeding(first, 'SIRE');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-black transition"
+                    >
+                      Pilih Axie Pertama
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* CENTER DNA SYNTHESIS CORE & LINEAGE CHECK - 4 cols */}
+              <div className="lg:col-span-4 bg-zinc-900/80 border border-pink-500/40 rounded-3xl p-5 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500"></div>
+
+                <div className="text-center mb-2">
+                  <span className="text-[11px] font-black tracking-wider uppercase text-pink-400 bg-pink-950/80 border border-pink-800 px-3 py-1 rounded-full">
+                    🧬 SYNTHESIS CHAMBER
+                  </span>
+                </div>
+
+                {/* Animated DNA Core Graphic */}
+                <div className="relative py-4 flex flex-col items-center justify-center">
+                  <div className={`w-20 h-20 rounded-full bg-gradient-to-tr from-pink-600 via-purple-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-pink-500/30 transition-transform ${isBreedingAnim ? 'animate-spin scale-110' : 'animate-pulse'}`}>
+                    <Dna className="w-10 h-10 text-white" />
+                  </div>
+                  <div className="text-xs font-black text-zinc-300 mt-3 text-center">
+                    Mendelian Crossover Engine
+                  </div>
+                  <div className="text-[10px] text-zinc-500 text-center font-mono mt-0.5">
+                    D: 37.5% | R1: 9.375% | R2: 3.125%
+                  </div>
+                </div>
+
+                {/* Real-time Lineage Anti-Incest & Fee Check */}
+                <div className="space-y-3">
+                  {currentCost && (
+                    <div className="bg-zinc-950/90 border border-zinc-800 rounded-2xl p-3 space-y-1.5">
+                      <div className="text-[10px] uppercase font-bold text-zinc-400 flex items-center justify-between">
+                        <span>Biaya Kawin (Breeding Fee):</span>
+                        <span className="text-zinc-500 font-mono">≈ ${currentCost.usdEquivalent} USD</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-black">
+                        <span className="text-pink-400 flex items-center gap-1">
+                          💧 {currentCost.slp.toLocaleString()} SLP
+                        </span>
+                        <span className="text-purple-400 flex items-center gap-1">
+                          🪙 {currentCost.axs} AXS
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Validation Banner */}
+                  {currentValidation ? (
+                    currentValidation.canBreed ? (
+                      <div className="bg-emerald-950/50 border border-emerald-500/40 rounded-2xl p-3 flex items-start gap-2 text-emerald-300 text-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-black text-emerald-300">Validasi Silsilah Lolos</div>
+                          <div className="text-[10px] text-emerald-400/80">
+                            Tidak terdeteksi hubungan inses (bukan saudara sekandung / orang tua-anak). Saldo mencukupi!
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-rose-950/50 border border-rose-500/40 rounded-2xl p-3 space-y-1 text-xs">
+                        <div className="flex items-center gap-1.5 font-black text-rose-300">
+                          <AlertOctagon className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span>Perkawinan Ditolak (Pelanggaran):</span>
+                        </div>
+                        <ul className="text-[10px] text-rose-300/80 list-disc list-inside space-y-0.5">
+                          {currentValidation.reasons.map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  ) : (
+                    <div className="bg-zinc-950/60 border border-zinc-800 rounded-2xl p-3 text-center text-xs text-zinc-400">
+                      Pilih Sire dan Matron untuk memverifikasi silsilah dan biaya.
+                    </div>
+                  )}
+
+                  {/* Big Glowing Breed Button */}
+                  <button
+                    disabled={!currentValidation?.canBreed || isBreedingAnim}
+                    onClick={handleExecuteBreed}
+                    className={`w-full py-3.5 rounded-2xl font-black text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-xl ${
+                      currentValidation?.canBreed && !isBreedingAnim
+                        ? 'bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:brightness-110 text-white shadow-pink-500/40 cursor-pointer active:scale-95'
+                        : 'bg-zinc-800 text-zinc-500 border border-zinc-700/50 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    {isBreedingAnim ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                        Mensintesis Genetik DNA...
+                      </>
+                    ) : (
+                      <>
+                        <Dna className="w-4 h-4" />
+                        KAWINKAN SEKARANG (BREED AXIES)
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* MATRON (MOTHER) POD - 4 cols */}
+              <div className="lg:col-span-4 bg-zinc-900/80 border border-purple-500/30 rounded-3xl p-5 flex flex-col justify-between shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500"></div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-purple-400 bg-purple-950/80 border border-purple-800 px-2.5 py-1 rounded-xl">
+                      ♀️ MATRON (IBU)
+                    </span>
+                    {matronAxie && (
+                      <span className="text-[10px] font-bold text-zinc-400">
+                        Breed {matronAxie.breedCount || 0}/7
+                      </span>
+                    )}
+                  </div>
+                  {matronAxie && (
+                    <button
+                      onClick={() => setMatronAxie(null)}
+                      className="text-zinc-500 hover:text-rose-400 p-1 rounded-lg transition"
+                      title="Hapus Matron"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {matronAxie ? (
+                  <div className="space-y-3">
+                    <div className="relative w-full h-44 flex items-center justify-center bg-gradient-to-b from-purple-950/20 to-zinc-950 rounded-2xl border border-purple-900/40">
+                      <AxieAvatar
+                        id={matronAxie.id}
+                        axieClass={matronAxie.class}
+                        name={matronAxie.name}
+                        imageSrc={matronAxie.image}
+                        className="w-36 h-32"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-black text-sm text-white truncate">{matronAxie.name}</h3>
+                        <span className="text-xs font-black text-purple-400">#{matronAxie.id}</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        Kelas: <span className="text-white font-bold">{matronAxie.class}</span>
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-4 gap-1 bg-zinc-950/80 p-2 rounded-xl text-center text-[10px] border border-zinc-800">
+                      <div>
+                        <div className="text-zinc-500 font-bold">HP</div>
+                        <div className="font-black text-emerald-400">{matronAxie.stats.hp}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">SPD</div>
+                        <div className="font-black text-cyan-400">{matronAxie.stats.speed}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">SKL</div>
+                        <div className="font-black text-amber-400">{matronAxie.stats.skill}</div>
+                      </div>
+                      <div>
+                        <div className="text-zinc-500 font-bold">MOR</div>
+                        <div className="font-black text-rose-400">{matronAxie.stats.morale}</div>
+                      </div>
+                    </div>
+
+                    {/* Body Parts */}
+                    <div className="flex flex-wrap gap-1">
+                      {matronAxie.parts.map((p) => (
+                        <span
+                          key={p.id}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700"
+                        >
+                          {p.type}: {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-64 flex flex-col items-center justify-center text-center border-2 border-dashed border-purple-500/30 rounded-2xl p-6 bg-purple-950/10">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-3 text-xl">
+                      🌸
+                    </div>
+                    <div className="text-sm font-bold text-zinc-300 mb-1">Matron Belum Dipilih</div>
+                    <p className="text-xs text-zinc-500 mb-4">
+                      Pilih Axie betina dari katalog di bawah atau dari tab Marketplace.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const second = axies[1] || axies[0];
+                        if (second) selectForBreeding(second, 'MATRON');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-black text-xs font-black transition"
+                    >
+                      Pilih Axie Kedua
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Assign Tray from Roster */}
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span>⚡ Quick Parent Selector</span>
+                    <span className="text-[10px] text-zinc-500 font-normal">
+                      (Klik tombol untuk pasang langsung ke Sire atau Matron)
+                    </span>
+                  </h3>
+                </div>
+                <span className="text-xs text-zinc-400 font-bold">{axies.length} Axie Siap Kawin</span>
+              </div>
+
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                {axies.slice(0, 10).map((axie) => (
+                  <div
+                    key={axie.id}
+                    className="w-48 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-3 shrink-0 flex flex-col justify-between transition group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-[9px] font-black uppercase text-zinc-400">{axie.class}</span>
+                        <span className="text-[9px] font-bold text-zinc-500">#{axie.id}</span>
+                      </div>
+                      <div className="w-full h-24 flex items-center justify-center bg-zinc-900/50 rounded-xl mb-2">
+                        <AxieAvatar
+                          id={axie.id}
+                          axieClass={axie.class}
+                          name={axie.name}
+                          imageSrc={axie.image}
+                          className="w-20 h-20"
+                        />
+                      </div>
+                      <div className="text-xs font-black text-white truncate">{axie.name}</div>
+                      <div className="text-[10px] text-zinc-400">Breed: {axie.breedCount || 0}/7</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 mt-3 pt-2 border-t border-zinc-800">
+                      <button
+                        onClick={() => selectForBreeding(axie, 'SIRE')}
+                        className={`py-1 rounded-lg text-[10px] font-black transition ${
+                          sireAxie?.id === axie.id
+                            ? 'bg-cyan-500 text-black'
+                            : 'bg-zinc-900 hover:bg-cyan-600 hover:text-black text-cyan-400 border border-cyan-800/40'
+                        }`}
+                      >
+                        Set Sire
+                      </button>
+                      <button
+                        onClick={() => selectForBreeding(axie, 'MATRON')}
+                        className={`py-1 rounded-lg text-[10px] font-black transition ${
+                          matronAxie?.id === axie.id
+                            ? 'bg-purple-500 text-black'
+                            : 'bg-zinc-900 hover:bg-purple-600 hover:text-black text-purple-400 border border-purple-800/40'
+                        }`}
+                      >
+                        Set Matron
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* EGG INCUBATOR & NURSERY */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
+                    🥚
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">
+                      INKUBATOR TELUR &amp; NURSERY ({incubatingEggs.length} TELUR)
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Telur hasil pembuahan mengalami masa inkubasi 5 hari. Gunakan fitur Tetaskan Instan untuk langsung memasukkannya ke roster pertarungan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {incubatingEggs.length === 0 ? (
+                <div className="py-12 text-center border border-dashed border-zinc-800 rounded-2xl bg-zinc-950/50">
+                  <div className="text-3xl mb-2">🥚</div>
+                  <p className="text-sm font-bold text-zinc-400">Belum ada telur di inkubator.</p>
+                  <p className="text-xs text-zinc-600 mt-1">
+                    Pilih Sire dan Matron di atas lalu klik &quot;Kawinkan Sekarang&quot; untuk menghasilkan telur baru!
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {incubatingEggs.map((egg) => (
+                    <div
+                      key={egg.id}
+                      className="bg-zinc-950 border border-zinc-800 hover:border-pink-500/50 rounded-2xl p-4 flex flex-col justify-between shadow-xl transition relative overflow-hidden group"
+                    >
+                      <div className="absolute top-0 right-0 bg-pink-500/20 text-pink-300 text-[10px] font-black px-2.5 py-1 rounded-bl-xl border-l border-b border-pink-500/30">
+                        {egg.stage}
+                      </div>
+
+                      <div>
+                        {/* Egg Image Preview */}
+                        <div className="w-full h-36 flex items-center justify-center bg-gradient-to-b from-pink-950/20 to-zinc-950 rounded-xl mb-3 border border-pink-950/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={egg.image || '/axies/egg_mystic.png'}
+                            alt={egg.name}
+                            className="w-28 h-28 object-contain filter drop-shadow-[0_10px_20px_rgba(236,72,153,0.3)] group-hover:scale-110 transition-transform duration-300 animate-pulse"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                            {egg.class}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">#{egg.id}</span>
+                        </div>
+
+                        <h4 className="font-black text-sm text-white truncate">{egg.name}</h4>
+
+                        <div className="text-[11px] text-zinc-400 mt-1">
+                          Lineage: <span className="text-cyan-400 font-semibold">{egg.sireName}</span> ×{' '}
+                          <span className="text-purple-400 font-semibold">{egg.matronName}</span>
+                        </div>
+
+                        {/* Gene 256-Bit Preview */}
+                        <div className="mt-2 bg-zinc-900/90 p-2 rounded-xl text-[9px] font-mono text-zinc-400 truncate border border-zinc-800">
+                          <span className="text-pink-400 font-bold">DNA:</span> {egg.genes256}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-2 text-[10px] text-amber-400 font-bold">
+                          <Clock className="w-3.5 h-3.5" /> {egg.hatchDate}
+                        </div>
+                      </div>
+
+                      {/* Instant Hatch Button */}
+                      <div className="mt-4 pt-3 border-t border-zinc-800">
+                        <button
+                          onClick={() => handleInstantHatch(egg.id)}
+                          className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black text-xs font-black transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95"
+                        >
+                          <Zap className="w-3.5 h-3.5 fill-black" />
+                          ⚡ Tetaskan Instan (Instant Hatch)
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* BREEDING CELEBRATION MODAL */}
+        {breedingModal && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-zinc-950 border border-pink-500/50 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30">
+                    🎉
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">TELUR AXIE BARU BERHASIL DIHASILKAN!</h3>
+                    <p className="text-xs text-zinc-400">
+                      Transaksi Silsilah Ronin Berhasil Diverifikasi ({breedingModal.txHash.slice(0, 16)}...)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBreedingModal(null)}
+                  className="text-zinc-500 hover:text-white p-1 rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Egg Showcase */}
+              <div className="flex flex-col sm:flex-row items-center gap-6 bg-gradient-to-r from-pink-950/30 to-purple-950/30 p-5 rounded-2xl border border-pink-500/30">
+                <div className="w-32 h-32 flex items-center justify-center shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/axies/egg_mystic.png"
+                    alt="Bred Egg"
+                    className="w-28 h-28 object-contain filter drop-shadow-[0_10px_25px_rgba(236,72,153,0.5)] animate-pulse"
+                  />
+                </div>
+                <div className="space-y-1.5 text-center sm:text-left">
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40">
+                    KELAS: {breedingModal.offspring.class.toUpperCase()}
+                  </span>
+                  <h4 className="text-base font-black text-white">{breedingModal.offspring.name}</h4>
+                  <p className="text-xs text-zinc-400 font-mono">
+                    ID: #{breedingModal.offspring.id} | Inkubasi: 5 Hari
+                  </p>
+                  <div className="text-[10px] font-mono text-zinc-400 bg-zinc-950/80 p-2 rounded-lg border border-zinc-800 break-all">
+                    <span className="text-pink-400 font-bold">256-Bit Gene:</span> {breedingModal.offspring.genes.rawBigInt}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mendelian Breakdown Table */}
+              <div>
+                <h4 className="text-xs font-black uppercase text-zinc-400 mb-2 flex items-center gap-1.5">
+                  <Dna className="w-3.5 h-3.5 text-pink-400" />
+                  Rincian Pewarisan Alel Genetik (Mendelian Inheritance)
+                </h4>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden text-[11px]">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-950/80 text-zinc-400 border-b border-zinc-800 text-[10px] uppercase font-bold">
+                        <th className="p-2">Bagian Tubuh</th>
+                        <th className="p-2">Asal Pewarisan</th>
+                        <th className="p-2">Tier Alel</th>
+                        <th className="p-2">Nama Bagian Terpilih</th>
+                        <th className="p-2">Kelas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {Object.values(breedingModal.geneBreakdown).map((gene) => (
+                        <tr key={gene.partType} className="hover:bg-zinc-800/40">
+                          <td className="p-2 font-bold capitalize text-white">{gene.partType}</td>
+                          <td className="p-2">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                gene.inheritedFrom === 'sire'
+                                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-800'
+                                  : gene.inheritedFrom === 'matron'
+                                  ? 'bg-purple-500/20 text-purple-400 border border-purple-800'
+                                  : 'bg-amber-500/20 text-amber-400 border border-amber-800'
+                              }`}
+                            >
+                              {gene.inheritedFrom.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="p-2 font-mono font-bold text-pink-400">{gene.tier}</td>
+                          <td className="p-2 text-zinc-200">{gene.expressedGene.name}</td>
+                          <td className="p-2 text-zinc-400">{gene.expressedGene.class}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setBreedingModal(null)}
+                  className="px-5 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-400 text-black text-xs font-black transition shadow-lg shadow-pink-500/25"
+                >
+                  Tutup &amp; Lihat di Inkubator
+                </button>
               </div>
             </div>
           </div>
