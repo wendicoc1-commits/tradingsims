@@ -1,0 +1,396 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+  <!-- Definitions: Gradients, Filters, Highlights -->
+  <defs>
+    <!-- Background Canvas White Guard -->
+    <clipPath id="canvasClip">
+      <rect x="0" y="0" width="1024" height="1024" />
+    </clipPath>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="naturalDropShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="16" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.42 0" />
+    </filter>
+
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Body Gradients -->
+    <!-- Volumetric main body gradient: warm ambient top highlight to deep crimson base -->
+    <radialGradient id="bodyVolumeGrad" cx="58%" cy="32%" r="65%" fx="52%" fy="26%">
+      <stop offset="0%" stop-color="#FF5A36" />
+      <stop offset="30%" stop-color="#FF3815" />
+      <stop offset="70%" stop-color="#DC2626" />
+      <stop offset="95%" stop-color="#991B1B" />
+      <stop offset="100%" stop-color="#7F1D1D" />
+    </radialGradient>
+
+    <!-- Fur fringe gradient for bottom tufts -->
+    <linearGradient id="fringeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#B91C1C" />
+      <stop offset="50%" stop-color="#991B1B" />
+      <stop offset="100%" stop-color="#6B1212" />
+    </linearGradient>
+
+    <!-- Second tier fringe gradient -->
+    <linearGradient id="midFringeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#DC2626" />
+      <stop offset="75%" stop-color="#B91C1C" />
+      <stop offset="100%" stop-color="#881337" />
+    </linearGradient>
+
+    <!-- Soft ambient light dome on top curve -->
+    <radialGradient id="topRimLight" cx="62%" cy="25%" r="45%">
+      <stop offset="0%" stop-color="#FFA07A" stop-opacity="0.75" />
+      <stop offset="60%" stop-color="#FF4500" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#FF4500" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Horn Gradients: Peach blossom bulb -->
+    <radialGradient id="hornBulbGrad" cx="45%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#FED7AA" />
+      <stop offset="25%" stop-color="#FB923C" />
+      <stop offset="75%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#9A3412" />
+    </radialGradient>
+
+    <linearGradient id="hornPetalLeft" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#FDBA74" />
+      <stop offset="70%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#9A3412" />
+    </linearGradient>
+
+    <linearGradient id="hornPetalRight" x1="100%" y1="20%" x2="0%" y2="80%">
+      <stop offset="0%" stop-color="#FED7AA" />
+      <stop offset="65%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#9A3412" />
+    </linearGradient>
+
+    <!-- Magenta Crown Pistil -->
+    <radialGradient id="pistilGrad" cx="40%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#F472B6" />
+      <stop offset="50%" stop-color="#DB2777" />
+      <stop offset="90%" stop-color="#9D174D" />
+      <stop offset="100%" stop-color="#700B36" />
+    </radialGradient>
+
+    <!-- Tail Gradients: Vibrant Emerald & Translucent Aqua -->
+    <linearGradient id="tailFinMain" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="35%" stop-color="#10B981" />
+      <stop offset="75%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#A7F3D0" />
+    </linearGradient>
+
+    <linearGradient id="tailFinAqua" x1="10%" y1="90%" x2="90%" y2="10%">
+      <stop offset="0%" stop-color="#065F46" />
+      <stop offset="30%" stop-color="#059669" />
+      <stop offset="65%" stop-color="#2DD4BF" />
+      <stop offset="90%" stop-color="#67E8F9" />
+      <stop offset="100%" stop-color="#E0F2FE" />
+    </linearGradient>
+
+    <!-- Shell Back Fin Gradients -->
+    <linearGradient id="shellFinRib" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#991B1B" />
+      <stop offset="40%" stop-color="#DC2626" />
+      <stop offset="80%" stop-color="#F87171" />
+      <stop offset="100%" stop-color="#FFFFFF" />
+    </linearGradient>
+
+    <!-- Braided Ear Gradient -->
+    <linearGradient id="braidGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F97316" />
+      <stop offset="35%" stop-color="#EA580C" />
+      <stop offset="80%" stop-color="#C2410C" />
+      <stop offset="100%" stop-color="#7C2D12" />
+    </linearGradient>
+
+    <!-- Tassel Ribbon & Tip -->
+    <linearGradient id="tasselTipGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FECDD3" />
+      <stop offset="60%" stop-color="#F87171" />
+      <stop offset="100%" stop-color="#DC2626" />
+    </linearGradient>
+
+    <!-- Tea Leaf Gradient -->
+    <linearGradient id="leafGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="50%" stop-color="#EAB308" />
+      <stop offset="100%" stop-color="#65A30D" />
+    </linearGradient>
+  </defs>
+
+  <!-- Solid Stark White Canvas Ground -->
+  <rect width="1024" height="1024" fill="#FFFFFF" />
+
+  <g id="AxieCustomCreature" transform="translate(10, 0)">
+    <!-- ============================================================= -->
+    <!-- 1. NATURAL GROUND / DROP SHADOW                               -->
+    <!-- ============================================================= -->
+    <g id="GroundShadow" filter="url(#naturalDropShadow)">
+      <ellipse cx="510" cy="790" rx="360" ry="58" fill="#18181B" opacity="0.48" />
+      <!-- Core denser occlusion shadow right below body weight center -->
+      <ellipse cx="530" cy="794" rx="270" ry="34" fill="#09090B" opacity="0.65" />
+    </g>
+
+    <!-- ============================================================= -->
+    <!-- 2. REAR ATTACHMENT: AQUATIC FISH TAIL (FAR LAYER)             -->
+    <!-- ============================================================= -->
+    <g id="AquaticTail">
+      <!-- Tail Base Shadow Behind Body -->
+      <path d="M245 560 C220 545 190 535 155 520 C125 505 105 480 88 472 C78 467 70 472 68 485 C66 505 78 540 92 575 C70 580 48 600 45 625 C42 650 56 678 72 690 C88 702 110 688 128 665 C140 685 160 705 182 710 C210 715 240 690 262 650 Z"
+            fill="#064E3B" opacity="0.6" />
+
+      <!-- Outer Upper Fin Lobe -->
+      <path d="M225 565 C185 530 135 488 95 470 C80 463 68 472 65 488 C60 515 75 558 92 590 C120 598 175 605 220 600 Z"
+            fill="url(#tailFinMain)"
+            stroke="#0F172A" stroke-width="8" stroke-linejoin="round" />
+      
+      <!-- Upper Fin Ray Ridges and Translucent Sheen -->
+      <path d="M85 488 C95 530 120 565 170 585" stroke="#A7F3D0" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.8" />
+      <path d="M110 495 C125 530 150 560 190 575" stroke="#34D399" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.65" />
+
+      <!-- Lower Ventral Fin Lobe -->
+      <path d="M195 625 C150 660 115 695 82 692 C65 690 52 670 50 645 C48 618 68 590 92 580 C130 585 170 600 205 628 Z"
+            fill="url(#tailFinAqua)"
+            stroke="#0F172A" stroke-width="8" stroke-linejoin="round" />
+
+      <!-- Center Fan Blade / Fluke -->
+      <path d="M235 590 C190 575 145 565 105 572 C88 575 80 592 88 610 C98 630 122 650 152 660 C185 665 218 645 245 615 Z"
+            fill="url(#tailFinMain)"
+            stroke="#0F172A" stroke-width="8" stroke-linejoin="round" />
+      
+      <!-- Cyan Glow Highlights on Tail Fins -->
+      <path d="M72 492 C78 525 98 565 130 582" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75" />
+      <path d="M60 635 C68 662 90 680 120 678" stroke="#CFFAFE" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+    </g>
+
+    <!-- ============================================================= -->
+    <!-- 3. MAIN BIGYAK BODY (SHAGGY, VOLUMETRIC FUR & FRINGE)         -->
+    <!-- ============================================================= -->
+    <g id="BigyakBodyGroup">
+      <!-- Layer A: Deep Ambient Occlusion Silhouette (Shadow rim) -->
+      <path d="M 280 480 
+               C 270 360, 420 260, 610 260 
+               C 760 260, 890 350, 930 480 
+               C 960 580, 930 680, 920 720 
+               L 890 735 L 860 760 L 830 730 L 795 770 L 760 740 L 720 780 L 680 745 L 640 785 L 600 750 L 560 790 L 520 750 L 475 790 L 435 750 L 390 780 L 350 745 L 310 770 L 275 735 L 240 745 L 210 710 L 195 670 L 175 640 L 190 600 L 210 560 L 245 520 Z"
+            fill="#580D0D" />
+
+      <!-- Layer B: Lowest Tier Jagged Shaggy Tufts (Deep Red Shadow Fringes) -->
+      <g id="LowerTierTufts" fill="url(#fringeGrad)" stroke="#181412" stroke-width="7" stroke-linejoin="round">
+        <path d="M 195 660 C 180 685, 205 725, 230 728 L 245 745 C 225 760, 255 780, 280 765 L 305 780 C 290 800, 335 815, 355 790 L 385 810 C 370 825, 415 835, 440 812 L 475 830 C 460 845, 510 850, 535 825 L 570 840 C 560 855, 610 855, 630 830 L 665 842 C 655 855, 705 850, 725 825 L 755 835 C 750 848, 795 840, 810 818 L 840 825 C 840 835, 880 815, 890 795 L 915 790 C 925 775, 945 750, 940 720 L 920 670 Z" />
+      </g>
+
+      <!-- Layer C: Mid Tier Fur Tufts (Scalloped Layered Texture) -->
+      <g id="MidTierTufts" fill="url(#midFringeGrad)" stroke="#181412" stroke-width="6.5" stroke-linejoin="round">
+        <path d="M 215 620 
+                 C 200 645, 220 685, 245 680 L 260 705 C 245 725, 280 740, 305 720 L 325 745 C 315 765, 350 775, 375 750 L 400 775 C 390 795, 435 800, 460 775 L 490 800 C 480 818, 525 820, 550 795 L 580 818 C 570 835, 615 832, 638 808 L 670 825 C 665 840, 708 835, 728 810 L 760 820 C 760 832, 800 820, 815 798 L 845 802 C 850 808, 885 788, 895 765 L 920 755 C 935 730, 938 690, 925 655 Z" />
+      </g>
+
+      <!-- Layer D: Main Massive Round Torso (High Polished Cel-Shaded Volume) -->
+      <path id="MainTorso"
+            d="M 265 480 
+               C 255 350, 410 260, 610 260 
+               C 775 260, 885 340, 920 460 
+               C 950 560, 940 650, 920 700 
+               C 890 715, 870 705, 850 730 
+               C 825 700, 800 725, 775 705 
+               C 745 730, 715 705, 685 735 
+               C 655 705, 625 735, 595 705 
+               C 565 735, 535 708, 505 735 
+               C 475 708, 445 735, 415 708 
+               C 385 735, 355 710, 325 732 
+               C 295 710, 270 725, 245 690 
+               C 220 660, 210 610, 225 560 
+               C 235 525, 250 495, 265 480 Z"
+            fill="url(#bodyVolumeGrad)"
+            stroke="#181412" stroke-width="8.5" stroke-linejoin="round" />
+
+      <!-- Layer E: Volumetric Top Curve Light Highlight Dome -->
+      <path d="M 290 460 C 310 350, 430 275, 610 275 C 750 275, 850 335, 890 440 C 820 400, 720 375, 600 375 C 460 375, 350 410, 290 460 Z"
+            fill="url(#topRimLight)" opacity="0.85" />
+
+      <!-- Layer F: Shaggy Surface Texture Accent Tufts (Carved Fur Grooves) -->
+      <!-- Left side fur clefts -->
+      <path d="M 255 580 C 275 600, 295 605, 310 595" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      <path d="M 285 640 C 310 665, 335 665, 350 650" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      <path d="M 335 690 C 355 712, 380 710, 395 695" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      
+      <!-- Center-Right fur scallops & scalloped scales -->
+      <path d="M 680 690 C 700 712, 725 710, 740 695" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      <path d="M 750 670 C 770 690, 795 688, 810 672" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      <path d="M 810 630 C 830 650, 855 648, 870 630" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+      <path d="M 860 570 C 880 590, 905 585, 915 565" stroke="#7F1D1D" stroke-width="5" stroke-linecap="round" fill="none" />
+
+      <!-- Chest / Belly Tuft Highlights -->
+      <path d="M 430 720 C 450 740, 480 738, 495 720" stroke="#FF7A59" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7" />
+      <path d="M 520 725 C 540 745, 570 742, 585 725" stroke="#FF7A59" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7" />
+      <path d="M 610 720 C 630 740, 660 738, 675 720" stroke="#FF7A59" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7" />
+    </g>
+
+    <!-- ============================================================= -->
+    <!-- 4. SIDE ATTACHMENTS: SEASHELL FIN & BRAIDED TASSEL EAR       -->
+    <!-- ============================================================= -->
+    <g id="SideFinAndEarGroup">
+      <!-- 4A: Seashell Fluted Back Fin (Placed on upper flank) -->
+      <g id="SeashellFin">
+        <!-- Shadow behind seashell -->
+        <path d="M 360 490 C 340 440, 370 380, 420 370 C 460 365, 485 395, 475 435 C 460 480, 400 520, 360 490 Z"
+              fill="#580D0D" opacity="0.5" />
+
+        <!-- 5 Radiating Fluted Scallop Lobes -->
+        <!-- Lobe 1 (Bottom Left) -->
+        <path d="M 375 470 C 360 450, 350 420, 365 405 C 375 395, 395 405, 405 425 C 400 455, 385 470, 375 470 Z"
+              fill="url(#shellFinRib)" stroke="#181412" stroke-width="6" stroke-linejoin="round" />
+        <path d="M 365 405 C 370 395, 385 398, 390 410" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none" />
+
+        <!-- Lobe 2 -->
+        <path d="M 390 470 C 375 440, 372 395, 395 385 C 408 380, 422 395, 425 425 C 418 455, 400 475, 390 470 Z"
+              fill="url(#shellFinRib)" stroke="#181412" stroke-width="6" stroke-linejoin="round" />
+        <path d="M 395 385 C 400 378, 415 380, 420 395" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" fill="none" />
+
+        <!-- Lobe 3 (Center Tallest) -->
+        <path d="M 408 475 C 398 435, 405 380, 428 375 C 442 370, 455 385, 452 425 C 445 460, 420 480, 408 475 Z"
+              fill="url(#shellFinRib)" stroke="#181412" stroke-width="6" stroke-linejoin="round" />
+        <path d="M 428 375 C 435 368, 448 372, 450 388" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none" />
+
+        <!-- Lobe 4 -->
+        <path d="M 425 475 C 420 440, 435 390, 455 392 C 468 395, 475 415, 468 445 C 455 475, 435 482, 425 475 Z"
+              fill="url(#shellFinRib)" stroke="#181412" stroke-width="6" stroke-linejoin="round" />
+        <path d="M 455 392 C 462 388, 472 398, 470 412" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" fill="none" />
+
+        <!-- Lobe 5 (Rightmost) -->
+        <path d="M 438 470 C 440 445, 458 412, 475 418 C 485 425, 485 445, 475 468 C 460 485, 445 478, 438 470 Z"
+              fill="url(#shellFinRib)" stroke="#181412" stroke-width="6" stroke-linejoin="round" />
+        <path d="M 475 418 C 480 418, 485 428, 480 438" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none" />
+
+        <!-- Fan Base Hinge Plate -->
+        <path d="M 370 472 C 390 455, 440 460, 455 478 C 435 498, 390 495, 370 472 Z"
+              fill="#991B1B" stroke="#181412" stroke-width="6" />
+      </g>
+
+      <!-- 4B: Braided Tassel Ear / Pigtail (Hanging downwards) -->
+      <g id="BraidedTasselEar">
+        <!-- Ear Base Anchor -->
+        <path d="M 285 475 C 275 455, 290 435, 310 440 C 330 445, 340 470, 330 490 C 315 505, 295 495, 285 475 Z"
+              fill="url(#braidGrad)" stroke="#181412" stroke-width="7" stroke-linejoin="round" />
+
+        <!-- Plait 1 (Top crossover segment) -->
+        <path d="M 298 480 C 278 505, 268 535, 282 550 C 295 560, 318 545, 322 518 C 325 498, 310 482, 298 480 Z"
+              fill="url(#braidGrad)" stroke="#181412" stroke-width="7" stroke-linejoin="round" />
+        <path d="M 290 495 C 285 520, 290 538, 305 545" stroke="#FED7AA" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.75" />
+
+        <!-- Plait 2 (Middle crossover segment) -->
+        <path d="M 280 535 C 265 560, 260 590, 275 605 C 290 615, 308 595, 310 568 C 310 548, 295 538, 280 535 Z"
+              fill="url(#braidGrad)" stroke="#181412" stroke-width="7" stroke-linejoin="round" />
+        <path d="M 278 555 C 272 578, 278 595, 295 600" stroke="#FED7AA" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.75" />
+
+        <!-- Plait 3 (Lower crossover segment) -->
+        <path d="M 272 590 C 255 615, 252 642, 268 652 C 282 660, 298 642, 298 620 C 298 605, 285 592, 272 590 Z"
+              fill="url(#braidGrad)" stroke="#181412" stroke-width="7" stroke-linejoin="round" />
+
+        <!-- Plait Tie Ribbon (Coral/Pink Band) -->
+        <rect x="252" y="642" width="30" height="14" rx="6"
+              fill="#F43F5E" stroke="#181412" stroke-width="5" transform="rotate(-15 267 649)" />
+
+        <!-- Flared Tassel Tail Fringe -->
+        <path d="M 252 654 C 238 670, 225 690, 230 705 C 235 718, 252 715, 260 695 C 265 718, 282 718, 285 695 C 290 710, 305 700, 298 680 C 292 665, 275 655, 252 654 Z"
+              fill="url(#tasselTipGrad)" stroke="#181412" stroke-width="6.5" stroke-linejoin="round" />
+        <!-- Tassel Strand Accents -->
+        <path d="M 245 675 C 242 695, 248 705, 252 708" stroke="#FFE4E6" stroke-width="3" stroke-linecap="round" fill="none" />
+        <path d="M 265 675 C 268 695, 275 705, 278 708" stroke="#FFE4E6" stroke-width="3" stroke-linecap="round" fill="none" />
+      </g>
+    </g>
+
+    <!-- ============================================================= -->
+    <!-- 5. HEAD ORNAMENT: PEACH / FLOWER BUD HORN                     -->
+    <!-- ============================================================= -->
+    <g id="PeachHornGroup">
+      <!-- Horn Ground Anchor / Collar -->
+      <ellipse cx="672" cy="358" rx="78" ry="24" fill="#991B1B" stroke="#181412" stroke-width="7" />
+
+      <!-- Left Petal Segment -->
+      <path d="M 610 345 
+               C 590 280, 615 210, 670 190 
+               C 660 240, 650 300, 655 352 
+               C 630 355, 618 350, 610 345 Z"
+            fill="url(#hornPetalLeft)"
+            stroke="#181412" stroke-width="7.5" stroke-linejoin="round" />
+
+      <!-- Right Petal Segment -->
+      <path d="M 745 345 
+               C 765 285, 745 215, 680 190 
+               C 690 240, 705 300, 695 352 
+               C 720 355, 735 350, 745 345 Z"
+            fill="url(#hornPetalRight)"
+            stroke="#181412" stroke-width="7.5" stroke-linejoin="round" />
+
+      <!-- Center Segment (Main Plump Bulb) -->
+      <path d="M 632 355 
+               C 615 300, 630 220, 672 190 
+               C 715 220, 730 300, 715 355 
+               C 690 365, 655 365, 632 355 Z"
+            fill="url(#hornBulbGrad)"
+            stroke="#181412" stroke-width="8" stroke-linejoin="round" />
+
+      <!-- Glaze Specular Highlight on Horn Curve -->
+      <path d="M 648 245 C 655 220, 670 205, 682 208 C 678 225, 668 250, 658 275 C 650 275, 646 260, 648 245 Z"
+            fill="#FFFFFF" opacity="0.65" />
+      <circle cx="682" cy="235" r="5" fill="#FFFFFF" opacity="0.8" />
+
+      <!-- Top Crown Pistil / Pink Bud Node -->
+      <path d="M 658 198 
+               C 655 178, 665 160, 678 160 
+               C 692 160, 702 178, 698 198 
+               C 688 206, 668 206, 658 198 Z"
+            fill="url(#pistilGrad)"
+            stroke="#181412" stroke-width="6.5" stroke-linejoin="round" />
+
+      <!-- Bright Highlight Dot on Pink Pistil -->
+      <ellipse cx="674" cy="172" rx="4.5" ry="3.5" fill="#FFFFFF" opacity="0.9" />
+    </g>
+
+    <!-- ============================================================= -->
+    <!-- 6. FACIAL FEATURES: RELAXED SMILE & TEA LEAF                  -->
+    <!-- ============================================================= -->
+    <g id="FaceGroup">
+      <!-- Left Eye: Contented Closed Crescent Arc -->
+      <path d="M 605 505 C 625 528, 665 528, 685 505"
+            stroke="#1E1B18" stroke-width="11" stroke-linecap="round" fill="none" />
+      <!-- Left Eye Lash Accent -->
+      <path d="M 602 506 C 598 498, 595 492, 592 488"
+            stroke="#1E1B18" stroke-width="7" stroke-linecap="round" fill="none" />
+
+      <!-- Right Eye: Contented Closed Crescent Arc -->
+      <path d="M 755 508 C 775 530, 810 530, 830 508"
+            stroke="#1E1B18" stroke-width="11" stroke-linecap="round" fill="none" />
+      <!-- Right Eye Lash Accent -->
+      <path d="M 830 508 C 836 500, 842 494, 846 490"
+            stroke="#1E1B18" stroke-width="7" stroke-linecap="round" fill="none" />
+
+      <!-- Playful Smirk Mouth with Curled Lip Corner -->
+      <path d="M 670 568 
+               C 685 588, 715 594, 742 570 
+               C 748 565, 755 558, 758 550"
+            stroke="#1E1B18" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+
+      <!-- Tiny Leaf / Tea Stem sticking from corner of mouth -->
+      <g id="TeaLeafMouthOrnament" transform="translate(632, 550) rotate(-18)">
+        <!-- Stem -->
+        <path d="M 38 24 C 28 22, 18 20, 8 18"
+              stroke="#78350F" stroke-width="4.5" stroke-linecap="round" fill="none" />
+        <!-- Leaf Blade -->
+        <path d="M 12 18 C 0 8, -5 22, -18 16 C -10 28, 2 32, 14 22 Z"
+              fill="url(#leafGrad)"
+              stroke="#181412" stroke-width="5" stroke-linejoin="round" />
+        <!-- Central Leaf Vein -->
+        <path d="M 12 19 C 2 18, -6 18, -14 16"
+              stroke="#FEF08A" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.8" />
+      </g>
+    </g>
+  </g>
+</svg>

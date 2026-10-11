@@ -2109,6 +2109,17 @@ export default function AxiePage() {
                       >
                         🎲 Acak Silsilah
                       </button>
+                      <button
+                        onClick={() => {
+                          setGenClass('Beast');
+                          setGenBodyType('bigyak');
+                          setCustomSprite('/axies/assets/custom_bigyak_creature.svg');
+                          showTempAnnouncement('🔥 Bigyak Custom Dimuat!', 'Karakter modular Bigyak Beast resmi diterapkan.');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-[10px] font-black text-amber-300 transition"
+                      >
+                        🔥 Bigyak Custom
+                      </button>
                     </div>
                   </div>
 
