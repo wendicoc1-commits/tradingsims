@@ -51,7 +51,7 @@ export interface AxieModularAssemblerProps {
   className?: string;
 }
 
-// 9 Authentic unity-axie-gtk2d Body Types with scale & silhouette modifiers
+// 10 Official unity-axie-gtk2d Body Types with scale & silhouette modifiers
 export const GTK2D_BODY_TYPES: Record<
   string,
   {
@@ -64,23 +64,14 @@ export const GTK2D_BODY_TYPES: Record<
     description: string;
   }
 > = {
-  normal: {
-    name: 'Normal',
-    gtkMaterial: 'Normal.mat',
-    icon: '✨',
-    scaleX: 1.0,
-    scaleY: 1.0,
-    offsetY: 0,
-    description: 'Bentuk proporsi tubuh standar Lunacia seimbang',
-  },
   bigyak: {
-    name: 'BigYak',
-    gtkMaterial: 'BigYak.mat',
-    icon: '🐂',
+    name: 'Bigyak',
+    gtkMaterial: 'Bigyak.mat',
+    icon: '🦬',
     scaleX: 1.15,
     scaleY: 1.05,
     offsetY: 2,
-    description: 'Tubuh kekar, dada lebar, dan kokoh menahan guncangan',
+    description: 'Tubuh kekar, dada lebar berlapis mantel bulu lebat menjuntai',
   },
   curly: {
     name: 'Curly',
@@ -89,43 +80,7 @@ export const GTK2D_BODY_TYPES: Record<
     scaleX: 0.95,
     scaleY: 1.02,
     offsetY: -3,
-    description: 'Postur padat membulat dengan siluet lentur dinamis',
-  },
-  fuzzy: {
-    name: 'Fuzzy',
-    gtkMaterial: 'Fuzzy.mat',
-    icon: '🧶',
-    scaleX: 1.03,
-    scaleY: 1.0,
-    offsetY: 0,
-    description: 'Lapisan berbulu halus lembut dengan kontur organik',
-  },
-  spiky: {
-    name: 'Spiky',
-    gtkMaterial: 'Spiky.mat',
-    icon: '🦔',
-    scaleX: 1.05,
-    scaleY: 1.06,
-    offsetY: -2,
-    description: 'Siluet runcing berduri tajam agresif berdaya serang tinggi',
-  },
-  sumo: {
-    name: 'Sumo',
-    gtkMaterial: 'Sumo.mat',
-    icon: '🤼',
-    scaleX: 1.2,
-    scaleY: 1.12,
-    offsetY: 6,
-    description: 'Badan raksasa super gemuk dengan daya tahan maksimum',
-  },
-  wetdog: {
-    name: 'WetDog',
-    gtkMaterial: 'WetDog.mat',
-    icon: '🐕',
-    scaleX: 1.1,
-    scaleY: 0.94,
-    offsetY: 8,
-    description: 'Bentuk memanjang aerodinamis rendah dengan kelincahan air',
+    description: 'Bulu wol melingkar rapat mirip awan domba elastis dinamis',
   },
   frosty: {
     name: 'Frosty',
@@ -134,16 +89,70 @@ export const GTK2D_BODY_TYPES: Record<
     scaleX: 1.02,
     scaleY: 1.02,
     offsetY: 0,
-    description: 'Struktur kristal es transparan beku khas Arktik',
+    description: 'Kristal salju beku abadi Arktik Lunacia bersyal rajut musim dingin',
+  },
+  fuzzy: {
+    name: 'Fuzzy',
+    gtkMaterial: 'Fuzzy.mat',
+    icon: '🧶',
+    scaleX: 1.06,
+    scaleY: 1.04,
+    offsetY: 0,
+    description: 'Bulu kapas jabrik mengembang lembut ke segala arah bermorale tinggi',
+  },
+  nightmare: {
+    name: 'Nightmare',
+    gtkMaterial: 'Nightmare.mat',
+    icon: '👁️',
+    scaleX: 1.08,
+    scaleY: 0.96,
+    offsetY: 4,
+    description: 'Tubuh spektral pucat bermata siklop raksasa dengan cakar laba-laba mistis',
+  },
+  normal: {
+    name: 'Normal',
+    gtkMaterial: 'Normal.mat',
+    icon: '⚪',
+    scaleX: 1.0,
+    scaleY: 1.0,
+    offsetY: 0,
+    description: 'Siluet kacang polong standar klasik Lunacia yang 100% seimbang',
+  },
+  spiky: {
+    name: 'Spiky',
+    gtkMaterial: 'Spiky.mat',
+    icon: '🦔',
+    scaleX: 1.05,
+    scaleY: 1.06,
+    offsetY: -2,
+    description: 'Karapas keras berduri tajam melengkung di punggung berdaya serang kritis',
+  },
+  sumo: {
+    name: 'Sumo',
+    gtkMaterial: 'Sumo.mat',
+    icon: '🛡️',
+    scaleX: 1.22,
+    scaleY: 1.14,
+    offsetY: 6,
+    description: 'Badan raksasa super gemuk masif bagai dinding pertahanan baja',
   },
   wavy: {
     name: 'Wavy',
     gtkMaterial: 'Wavy.mat',
     icon: '🌊',
-    scaleX: 1.0,
-    scaleY: 1.06,
+    scaleX: 1.02,
+    scaleY: 1.05,
     offsetY: -1,
-    description: 'Siluet bergelombang halus berirama arus samudera',
+    description: 'Siluet bergelombang halus berirama pusaran arus samudera',
+  },
+  wetdog: {
+    name: 'Wetdog',
+    gtkMaterial: 'Wetdog.mat',
+    icon: '🐕',
+    scaleX: 1.1,
+    scaleY: 0.94,
+    offsetY: 8,
+    description: 'Bulu basah kuyup menggantung rendah dengan kelincahan air tinggi',
   },
 };
 
@@ -518,7 +527,13 @@ export default function AxieModularAssembler({
 
         if (config.bodyType === 'frosty') {
           ctx.shadowColor = '#38bdf8';
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 14;
+        } else if (config.bodyType === 'nightmare') {
+          ctx.shadowColor = '#a855f7';
+          ctx.shadowBlur = 16;
+        } else if (config.bodyType === 'spiky') {
+          ctx.shadowColor = '#f59e0b';
+          ctx.shadowBlur = 8;
         }
 
         ctx.drawImage(tintedBody, bX, bY, w, h);
@@ -1323,7 +1338,7 @@ export default function AxieModularAssembler({
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-black text-white uppercase tracking-wide">
-                    9 Tipe Tubuh GTK2D (Official unity-axie-gtk2d)
+                    10 Tipe Tubuh GTK2D (Official unity-axie-gtk2d)
                   </h4>
                   <p className="text-[10px] text-zinc-400">
                     Setiap tipe memodifikasi mesh scaling, siluet anatomis, dan bobot tubuh.
@@ -1334,35 +1349,26 @@ export default function AxieModularAssembler({
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {Object.entries(GTK2D_BODY_TYPES).map(([key, item]) => {
                   const isSelected = config.bodyType === key;
                   return (
                     <div
                       key={key}
                       onClick={() => setConfig((p) => ({ ...p, bodyType: key }))}
-                      className={`p-2.5 rounded-2xl border cursor-pointer transition flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border cursor-pointer transition flex flex-col justify-between items-center text-center ${
                         isSelected
-                          ? 'bg-amber-500/20 border-amber-400 shadow-md shadow-amber-500/20 scale-[1.02]'
-                          : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
+                          ? 'bg-amber-500/20 border-amber-400 shadow-md shadow-amber-500/20 scale-[1.03] ring-1 ring-amber-400/50'
+                          : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-base">{item.icon}</span>
-                        <span
-                          className={`text-[8px] font-mono px-1 py-0.5 rounded font-black ${
-                            isSelected ? 'bg-amber-400 text-black' : 'bg-zinc-800 text-zinc-400'
-                          }`}
-                        >
-                          {key}
-                        </span>
-                      </div>
+                      <div className="text-2xl my-1">{item.icon}</div>
                       <div className="mt-1">
                         <div className="text-xs font-black text-white">{item.name}</div>
-                        <div className="text-[9px] text-zinc-400 line-clamp-1 mt-0.5">{item.description}</div>
+                        <div className="text-[9px] font-mono text-zinc-500 mt-0.5">{item.gtkMaterial}</div>
                       </div>
-                      <div className="mt-2 text-[8px] font-mono text-zinc-500 border-t border-zinc-800/80 pt-1">
-                        Scale: {item.scaleX}x × {item.scaleY}x
+                      <div className="mt-2 text-[8px] font-mono text-zinc-400 border-t border-zinc-800/80 pt-1 w-full">
+                        {item.scaleX}x × {item.scaleY}x
                       </div>
                     </div>
                   );

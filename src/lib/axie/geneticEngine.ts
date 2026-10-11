@@ -28,15 +28,16 @@ export type BodyPartType = 'eyes' | 'ears' | 'mouth' | 'horn' | 'back' | 'tail';
  * "body-spiky", "body-sumo", "body-wetdog", "body-frosty", "body-agamo"
  */
 export type AxieBodyType =
-  | 'normal'
   | 'bigyak'
   | 'curly'
+  | 'frosty'
   | 'fuzzy'
+  | 'nightmare'
+  | 'normal'
   | 'spiky'
   | 'sumo'
-  | 'wetdog'
-  | 'frosty'
-  | 'agamo';
+  | 'wavy'
+  | 'wetdog';
 
 /**
  * Material Shaders & Variants for skin and body parts from unity-axie-gtk2d
@@ -297,77 +298,85 @@ export interface BodyTypeDefinition {
 }
 
 export const BODY_TYPE_CATALOG: Record<AxieBodyType, BodyTypeDefinition> = {
-  normal: {
-    id: 'normal',
-    name: 'Normal Standard',
-    gtkMaterial: 'body-normal',
-    description: 'Postur standar klasik Lunacia yang seimbang dan fleksibel.',
-    icon: '⚪',
-    modifiers: { hp: 0, speed: 0, skill: 0, morale: 0 },
-  },
   bigyak: {
     id: 'bigyak',
-    name: 'Big Yak',
+    name: 'Bigyak',
     gtkMaterial: 'body-bigyak',
-    description: 'Bahu tebal kokoh berlapis lemak tebal, memberikan ketahanan HP superior.',
+    description: 'Bahu tebal berlapis mantel bulu lebat menjuntai, memberikan ketahanan HP superior.',
     icon: '🦬',
     modifiers: { hp: 4, speed: -2, skill: 0, morale: 1 },
   },
   curly: {
     id: 'curly',
-    name: 'Curly Waves',
+    name: 'Curly',
     gtkMaterial: 'body-curly',
-    description: 'Bulu keriting bergelombang yang aerodinamis, meningkatkan kecepatan dan skill.',
+    description: 'Bulu wol melingkar rapat mirip awan domba yang elastis dan lincah.',
     icon: '🌀',
     modifiers: { hp: 0, speed: 2, skill: 2, morale: 0 },
   },
-  fuzzy: {
-    id: 'fuzzy',
-    name: 'Fuzzy Fluff',
-    gtkMaterial: 'body-fuzzy',
-    description: 'Bulu kapas mengembang lebat dan lembut, meningkatkan semangat Morale tinggi.',
-    icon: '🐑',
-    modifiers: { hp: -2, speed: 0, skill: 1, morale: 4 },
-  },
-  spiky: {
-    id: 'spiky',
-    name: 'Spiky Carapace',
-    gtkMaterial: 'body-spiky',
-    description: 'Duri tajam mencuat di sekujur punggung, memicu combo dan critical tak terduga.',
-    icon: '🦔',
-    modifiers: { hp: 0, speed: 1, skill: 3, morale: 1 },
-  },
-  sumo: {
-    id: 'sumo',
-    name: 'Sumo Titan',
-    gtkMaterial: 'body-sumo',
-    description: 'Postur gempal raksasa super bulat bagai dinding pertahanan baja.',
-    icon: '🛡️',
-    modifiers: { hp: 5, speed: -3, skill: 0, morale: 2 },
-  },
-  wetdog: {
-    id: 'wetdog',
-    name: 'Wet Dog Fins',
-    gtkMaterial: 'body-wetdog',
-    description: 'Kulit licin bersirip air untuk meluncur lincah dalam pertarungan.',
-    icon: '🌊',
-    modifiers: { hp: -1, speed: 4, skill: -1, morale: 1 },
-  },
   frosty: {
     id: 'frosty',
-    name: 'Frosty Glacier',
+    name: 'Frosty',
     gtkMaterial: 'body-frosty',
-    description: 'Lapisan kristal es abadi Lunacia Winter yang kokoh dan presisi.',
+    description: 'Lapisan kristal salju abadi Arktik Lunacia bersyal rajut musim dingin.',
     icon: '❄️',
     modifiers: { hp: 3, speed: -1, skill: 2, morale: 0 },
   },
-  agamo: {
-    id: 'agamo',
-    name: 'Agamo Scale',
-    gtkMaterial: 'body-agamo',
-    description: 'Sisik kadal purba eksotis bertulang keras dengan ketahanan dan wibawa kuno.',
-    icon: '🦎',
-    modifiers: { hp: 2, speed: 0, skill: 0, morale: 3 },
+  fuzzy: {
+    id: 'fuzzy',
+    name: 'Fuzzy',
+    gtkMaterial: 'body-fuzzy',
+    description: 'Bulu kapas jabrik mengembang lembut ke segala arah, memicu Morale tinggi.',
+    icon: '🧶',
+    modifiers: { hp: -2, speed: 0, skill: 1, morale: 4 },
+  },
+  nightmare: {
+    id: 'nightmare',
+    name: 'Nightmare',
+    gtkMaterial: 'body-nightmare',
+    description: 'Tubuh hantu spektral bermata siklop raksasa dengan cakar mistis dari dimensi Dusk.',
+    icon: '👁️',
+    modifiers: { hp: -1, speed: 1, skill: 3, morale: 3 },
+  },
+  normal: {
+    id: 'normal',
+    name: 'Normal',
+    gtkMaterial: 'body-normal',
+    description: 'Siluet kacang polong klasik standar orisinal Lunacia yang 100% seimbang.',
+    icon: '⚪',
+    modifiers: { hp: 0, speed: 0, skill: 0, morale: 0 },
+  },
+  spiky: {
+    id: 'spiky',
+    name: 'Spiky',
+    gtkMaterial: 'body-spiky',
+    description: 'Karapas keras berduri tajam melengkung di punggung, memicu serangan kritikal.',
+    icon: '🦔',
+    modifiers: { hp: -1, speed: 1, skill: 3, morale: 2 },
+  },
+  sumo: {
+    id: 'sumo',
+    name: 'Sumo',
+    gtkMaterial: 'body-sumo',
+    description: 'Postur gempal raksasa super bulat masif bagai dinding pertahanan baja.',
+    icon: '🛡️',
+    modifiers: { hp: 5, speed: -3, skill: 0, morale: 2 },
+  },
+  wavy: {
+    id: 'wavy',
+    name: 'Wavy',
+    gtkMaterial: 'body-wavy',
+    description: 'Garis gelombang pusaran arus samudera dinamis berirama aliran air tenang.',
+    icon: '🌊',
+    modifiers: { hp: 1, speed: 3, skill: 1, morale: -1 },
+  },
+  wetdog: {
+    id: 'wetdog',
+    name: 'Wetdog',
+    gtkMaterial: 'body-wetdog',
+    description: 'Bulu basah kuyup menjuntai rendah ceper seperti anjing sehabis berenang.',
+    icon: '🐕',
+    modifiers: { hp: -1, speed: 4, skill: -1, morale: 1 },
   },
 };
 
