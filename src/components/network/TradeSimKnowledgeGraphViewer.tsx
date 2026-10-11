@@ -45,6 +45,7 @@ import {
 import {
   MARKET_NETWORK_DATASETS,
 } from '@/data/market_network_universe';
+import TradeSimKnowledgeGraph3D from './TradeSimKnowledgeGraph3D';
 
 // ── Types & Scopes ──
 export type MegaUniverseScope = 'mega' | 'ai_office' | 'architecture' | 'stocks_market';
@@ -447,6 +448,9 @@ function buildMegaUniverseDataset(
 export default function TradeSimKnowledgeGraphViewer() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // ── 3D / 2D Dimension Switcher (Default: 3D Otak AI) ──
+  const [viewDimension, setViewDimension] = useState<'3D' | '2D'>('3D');
 
   // ── Scopes & Toggle Seluruh Saham ──
   const [currentScope, setCurrentScope] = useState<MegaUniverseScope>('mega');
@@ -1003,12 +1007,25 @@ export default function TradeSimKnowledgeGraphViewer() {
     return { incoming, outgoing };
   }, [selectedNode]);
 
+  if (viewDimension === '3D') {
+    return <TradeSimKnowledgeGraph3D onSwitchTo2D={() => setViewDimension('2D')} />;
+  }
+
   return (
     <div className="relative w-full h-[760px] rounded-2xl bg-[#080a0f] border border-zinc-800/90 overflow-hidden flex flex-col shadow-2xl font-sans select-none">
       {/* ── Top Bar: Scope Selector & Live HUD Metrics ── */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
         {/* Left: Universe Scope Pills */}
         <div className="flex items-center gap-1.5 p-1 bg-zinc-950/90 border border-zinc-800 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto overflow-x-auto no-scrollbar max-w-[70vw]">
+          <button
+            onClick={() => setViewDimension('3D')}
+            className="px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white shadow-lg flex items-center gap-1.5 cursor-pointer"
+            title="Beralih ke format 3D WebGL dengan Otak AI di pusat"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>🧠 Beralih ke 3D Otak AI</span>
+          </button>
+
           <button
             onClick={() => setCurrentScope('mega')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
