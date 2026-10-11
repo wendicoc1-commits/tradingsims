@@ -246,6 +246,19 @@ export default function AxieModularAssembler({
     }
   }, [selectedBodyType]);
 
+  // Synchronize when initialClass changes from external caller
+  useEffect(() => {
+    if (initialClass && ['Beast', 'Plant', 'Aquatic', 'Bird', 'Bug', 'Reptile'].includes(initialClass)) {
+      setConfig((prev) => {
+        if (prev.bodyClass === initialClass) return prev;
+        return {
+          ...prev,
+          bodyClass: initialClass as AxieClassKey,
+        };
+      });
+    }
+  }, [initialClass]);
+
   // Keep ref of onConfigChange to prevent dependency loops
   const onConfigChangeRef = useRef(onConfigChange);
   useEffect(() => {
