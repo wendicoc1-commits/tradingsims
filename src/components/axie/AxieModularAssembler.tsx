@@ -25,6 +25,8 @@ import {
   AtlasRegion,
 } from '@/lib/axie/atlasParser';
 import axieGenesData from '@/lib/axie/axieGenesData.json';
+import AxieBodyTypeThumbnail from './AxieBodyTypeThumbnail';
+import { AxieBodyType } from '@/lib/axie/geneticEngine';
 
 export type AxieClassKey = 'Beast' | 'Plant' | 'Aquatic' | 'Bird' | 'Bug' | 'Reptile';
 
@@ -46,6 +48,7 @@ export interface AxieAppearanceConfig {
 export interface AxieModularAssemblerProps {
   initialClass?: AxieClassKey;
   initialBodyType?: string;
+  selectedBodyType?: string;
   onConfigChange?: (config: AxieAppearanceConfig) => void;
   onExportPNG?: (dataUrl: string) => void;
   className?: string;
@@ -172,6 +175,7 @@ export const AXIE_STARTER_PRESETS: Record<
 export default function AxieModularAssembler({
   initialClass = 'Beast',
   initialBodyType = 'normal',
+  selectedBodyType,
   onConfigChange,
   onExportPNG,
   className = '',
@@ -191,7 +195,7 @@ export default function AxieModularAssembler({
   const [atlasesLoaded, setAtlasesLoaded] = useState<boolean>(false);
   const loadedAssetsRef = useRef<
     Record<
-      AxieClassKey,
+      string,
       {
         image: HTMLImageElement;
         atlas: AtlasData;
@@ -216,7 +220,7 @@ export default function AxieModularAssembler({
   // Configuration State
   const [config, setConfig] = useState<AxieAppearanceConfig>({
     bodyClass: safeInitialClass,
-    bodyType: initialBodyType,
+    bodyType: selectedBodyType || initialBodyType,
     bodyColor: AXIE_STARTER_PRESETS[safeInitialClass].primary,
     eyes: { class: safeInitialClass, partId: 'eyes', color: '#0f172a', visible: true },
     ears: { class: safeInitialClass, partId: 'ear', color: AXIE_STARTER_PRESETS[safeInitialClass].primary, visible: true },
@@ -229,6 +233,16 @@ export default function AxieModularAssembler({
     patternVisible: true,
   });
 
+  // Synchronize when selectedBodyType changes from external caller
+  useEffect(() => {
+    if (selectedBodyType && selectedBodyType !== config.bodyType) {
+      setConfig((prev) => ({
+        ...prev,
+        bodyType: selectedBodyType,
+      }));
+    }
+  }, [selectedBodyType, config.bodyType]);
+
   // Notify parent on config update
   useEffect(() => {
     if (onConfigChange) {
@@ -240,10 +254,22 @@ export default function AxieModularAssembler({
   useEffect(() => {
     let isMounted = true;
     const classes: AxieClassKey[] = ['Beast', 'Plant', 'Aquatic', 'Bug', 'Reptile', 'Bird'];
+    const extraPacks: Array<{ key: string; imagePath: string; atlasPath: string }> = [
+      {
+        key: 'Xia',
+        imagePath: '/axies/spine/19-xia-beast/xia.png',
+        atlasPath: '/axies/spine/19-xia-beast/xia.atlas.txt',
+      },
+      {
+        key: 'GTK2D',
+        imagePath: '/axies/spine/axie-2d-v3-stuff/axie-2d-v3-stuff_color.png',
+        atlasPath: '/axies/spine/axie-2d-v3-stuff/axie-2d-v3-stuff.txt',
+      },
+    ];
 
     async function loadAllAssets() {
       try {
-        const promises = classes.map(async (cls) => {
+        const classPromises = classes.map(async (cls) => {
           try {
             const info = STARTER_AXIE_ATLAS_MAP[cls];
             if (!info) return null;
@@ -262,20 +288,43 @@ export default function AxieModularAssembler({
               img.onerror = () => reject(new Error(`Failed to load ${info.imagePath}`));
             });
 
-            return { cls, image: img, atlas: parsedAtlas };
+            return { key: cls, image: img, atlas: parsedAtlas };
           } catch (err) {
             console.warn(`Failed loading Spine asset for ${cls}:`, err);
             return null;
           }
         });
 
-        const results = await Promise.all(promises);
+        const extraPromises = extraPacks.map(async (pack) => {
+          try {
+            const atlasRes = await fetch(pack.atlasPath);
+            if (!atlasRes.ok) return null;
+            const atlasText = await atlasRes.text();
+            const parsedAtlas = parseSpineAtlas(atlasText);
+
+            const img = new Image();
+            img.src = pack.imagePath;
+
+            await new Promise<void>((resolve, reject) => {
+              if (img.complete) return resolve();
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error(`Failed to load ${pack.imagePath}`));
+            });
+
+            return { key: pack.key, image: img, atlas: parsedAtlas };
+          } catch (err) {
+            console.warn(`Failed loading extra pack ${pack.key}:`, err);
+            return null;
+          }
+        });
+
+        const results = await Promise.all([...classPromises, ...extraPromises]);
         if (!isMounted) return;
 
         let anyLoaded = false;
         results.forEach((res) => {
           if (res) {
-            loadedAssetsRef.current[res.cls] = {
+            loadedAssetsRef.current[res.key] = {
               image: res.image,
               atlas: res.atlas,
             };
@@ -299,7 +348,7 @@ export default function AxieModularAssembler({
 
   // Helper to extract or fetch a clean unrotated region canvas
   const getRegionCanvas = useCallback(
-    (cls: AxieClassKey, regionName: string): HTMLCanvasElement | null => {
+    (cls: string, regionName: string): HTMLCanvasElement | null => {
       const cacheKey = `${cls}:${regionName}`;
       if (regionCanvasCacheRef.current.has(cacheKey)) {
         return regionCanvasCacheRef.current.get(cacheKey)!;
@@ -512,11 +561,47 @@ export default function AxieModularAssembler({
       }
 
       // -------------------------------------------------------------
-      // LAYER 5: Body Torso Base (GTK2D Body Type Silhouette)
+      // LAYER 5: Body Torso Base (10 Official GTK2D Body Types)
       // -------------------------------------------------------------
-      const bodyCanvas = getRegionCanvas(config.bodyClass, 'body');
+      const curType = (config.bodyType || 'normal').toLowerCase();
+      let bodyCanvas: HTMLCanvasElement | null = null;
+
+      if (curType === 'bigyak') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-bigyak.body-bigyak') || getRegionCanvas('Xia', 'body-bigyak');
+      } else if (curType === 'sumo') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-sumo.body-sumo');
+      } else if (curType === 'wetdog') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-wetdog.body-wetdog');
+      } else if (curType === 'fuzzy') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-fuzzy.body-fuzzy');
+      } else if (curType === 'spiky') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-spiky.body-spiky');
+      } else if (curType === 'frosty') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-frosty.body-xmas-01');
+      } else if (curType === 'curly') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-curly.body-curly');
+      } else if (curType === 'nightmare') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-nightmare.body');
+      } else if (curType === 'wavy') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-summer.body');
+      } else if (curType === 'normal') {
+        bodyCanvas = getRegionCanvas('GTK2D', 'body-normal.body');
+      }
+
+      // Fallback to base class body if GTK2D texture is still loading
+      if (!bodyCanvas) {
+        bodyCanvas = getRegionCanvas(config.bodyClass, 'body');
+      }
+
       if (bodyCanvas) {
-        const tintedBody = getTintedRegion(bodyCanvas, config.bodyColor, 0.65);
+        const bodyTint =
+          curType === 'nightmare'
+            ? '#e2e8f0'
+            : curType === 'frosty'
+            ? '#bae6fd'
+            : config.bodyColor;
+
+        const tintedBody = getTintedRegion(bodyCanvas, bodyTint, curType === 'frosty' ? 0.45 : 0.65);
         ctx.save();
         const baseW = tintedBody.width * 0.68;
         const baseH = tintedBody.height * 0.68;
@@ -525,19 +610,311 @@ export default function AxieModularAssembler({
         const bX = cx - w / 2;
         const bY = cy - h / 2 + bOffsetY + breatheY;
 
-        if (config.bodyType === 'frosty') {
+        // Visual shadow / aura glow based on body type
+        if (curType === 'frosty') {
           ctx.shadowColor = '#38bdf8';
-          ctx.shadowBlur = 14;
-        } else if (config.bodyType === 'nightmare') {
+          ctx.shadowBlur = 18;
+        } else if (curType === 'nightmare') {
           ctx.shadowColor = '#a855f7';
-          ctx.shadowBlur = 16;
-        } else if (config.bodyType === 'spiky') {
+          ctx.shadowBlur = 22;
+        } else if (curType === 'spiky') {
           ctx.shadowColor = '#f59e0b';
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 10;
+        } else if (curType === 'wavy') {
+          ctx.shadowColor = '#06b6d4';
+          ctx.shadowBlur = 12;
         }
 
         ctx.drawImage(tintedBody, bX, bY, w, h);
         ctx.restore();
+
+        // -------------------------------------------------------------
+        // BODY TYPE DISTINCTIVE ATTACHMENTS & SILHOUETTES
+        // -------------------------------------------------------------
+        if (curType === 'bigyak') {
+          // Bigyak: 2 Front/Side Braided Pigtails + Shaggy Yak Fur Details
+          const braid1 = getRegionCanvas('GTK2D', 'body-bigyak.body-braid');
+          const braid2 = getRegionCanvas('GTK2D', 'body-bigyak.body-braid2');
+          if (braid1) {
+            ctx.save();
+            ctx.drawImage(braid1, cx + 45 * bScaleX, cy + 18 + bOffsetY + breatheY, braid1.width * 0.65, braid1.height * 0.65);
+            ctx.restore();
+          }
+          if (braid2) {
+            ctx.save();
+            ctx.drawImage(braid2, cx - 15 * bScaleX, cy + 22 + bOffsetY + breatheY, braid2.width * 0.65, braid2.height * 0.65);
+            ctx.restore();
+          }
+          // Vector shaggy chest hair tuft overlay
+          ctx.save();
+          ctx.fillStyle = config.bodyColor;
+          ctx.strokeStyle = '#1f2937';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(cx - 30 * bScaleX, cy + 55 + bOffsetY + breatheY);
+          ctx.lineTo(cx - 20 * bScaleX, cy + 68 + bOffsetY + breatheY);
+          ctx.lineTo(cx - 10 * bScaleX, cy + 58 + bOffsetY + breatheY);
+          ctx.lineTo(cx, cy + 70 + bOffsetY + breatheY);
+          ctx.lineTo(cx + 10 * bScaleX, cy + 58 + bOffsetY + breatheY);
+          ctx.lineTo(cx + 20 * bScaleX, cy + 68 + bOffsetY + breatheY);
+          ctx.lineTo(cx + 30 * bScaleX, cy + 55 + bOffsetY + breatheY);
+          ctx.stroke();
+          ctx.restore();
+        } else if (curType === 'curly') {
+          // Curly: Fluffy cloud fleece wool rings outlining the back and torso perimeter
+          ctx.save();
+          ctx.fillStyle = config.bodyColor;
+          ctx.strokeStyle = '#1f2937';
+          ctx.lineWidth = 2.5;
+          const puffOffsets = [
+            { x: -65, y: -45, r: 16 },
+            { x: -45, y: -65, r: 18 },
+            { x: -15, y: -72, r: 18 },
+            { x: 15, y: -72, r: 17 },
+            { x: 45, y: -62, r: 16 },
+            { x: -80, y: -15, r: 17 },
+            { x: -75, y: 20, r: 16 },
+          ];
+          puffOffsets.forEach((p) => {
+            ctx.beginPath();
+            ctx.arc(cx + p.x * bScaleX, cy + p.y * bScaleY + breatheY, p.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          });
+          ctx.restore();
+        } else if (curType === 'frosty') {
+          // Frosty: White Snow Cap Dome + Signature Red & White Winter Scarf with Golden Bell
+          ctx.save();
+          // 1. Snow Cap on head
+          ctx.fillStyle = '#f8fafc';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(cx - 10 * bScaleX, cy - 65 * bScaleY + breatheY, 38 * bScaleX, Math.PI, Math.PI * 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // 2. Red & White Striped Winter Scarf wrapped along lower torso
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.ellipse(cx + 10 * bScaleX, cy + 38 * bScaleY + breatheY, 68 * bScaleX, 16, 0.05, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // White stripes on scarf
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(cx - 25 * bScaleX, cy + 28 * bScaleY + breatheY);
+          ctx.lineTo(cx - 28 * bScaleX, cy + 46 * bScaleY + breatheY);
+          ctx.moveTo(cx + 5 * bScaleX, cy + 30 * bScaleY + breatheY);
+          ctx.lineTo(cx + 2 * bScaleX, cy + 48 * bScaleY + breatheY);
+          ctx.moveTo(cx + 35 * bScaleX, cy + 30 * bScaleY + breatheY);
+          ctx.lineTo(cx + 32 * bScaleX, cy + 48 * bScaleY + breatheY);
+          ctx.stroke();
+
+          // 3. Golden Bell Clasp
+          const bellCanvas = getRegionCanvas('GTK2D', 'body-frosty.body-bell');
+          if (bellCanvas) {
+            ctx.drawImage(bellCanvas, cx + 58 * bScaleX, cy + 34 * bScaleY + breatheY, bellCanvas.width * 0.85, bellCanvas.height * 0.85);
+          } else {
+            ctx.fillStyle = '#eab308';
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx + 62 * bScaleX, cy + 42 * bScaleY + breatheY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (curType === 'fuzzy') {
+          // Fuzzy: Radiating pom-pom fluff spikes along the body perimeter
+          ctx.save();
+          ctx.fillStyle = config.bodyColor;
+          ctx.strokeStyle = '#1f2937';
+          ctx.lineWidth = 2.2;
+          const spikes = [
+            { x: -85, y: -20, dx: -18, dy: -6 },
+            { x: -75, y: -50, dx: -14, dy: -14 },
+            { x: -50, y: -72, dx: -10, dy: -18 },
+            { x: -18, y: -82, dx: -4, dy: -20 },
+            { x: 18, y: -82, dx: 6, dy: -18 },
+            { x: 50, y: -70, dx: 14, dy: -14 },
+            { x: 75, y: -45, dx: 18, dy: -8 },
+            { x: 85, y: 10, dx: 18, dy: 6 },
+            { x: -80, y: 20, dx: -16, dy: 10 },
+            { x: -65, y: 48, dx: -12, dy: 16 },
+          ];
+          spikes.forEach((sp) => {
+            ctx.beginPath();
+            const sx = cx + sp.x * bScaleX;
+            const sy = cy + sp.y * bScaleY + breatheY;
+            ctx.moveTo(sx - 8, sy);
+            ctx.lineTo(sx + sp.dx, sy + sp.dy);
+            ctx.lineTo(sx + 8, sy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          });
+          ctx.restore();
+        } else if (curType === 'nightmare') {
+          // Nightmare: Spectral Cyclops Eye in center + Spider/Thorn dorsal spikes
+          ctx.save();
+          const eyeSocket = getRegionCanvas('GTK2D', 'body-nightmare.body-front-05_eye-02');
+          const eyeBall = getRegionCanvas('GTK2D', 'body-nightmare.body-front-07_eye-ball');
+          if (eyeSocket && eyeBall) {
+            ctx.drawImage(eyeSocket, cx + 5 * bScaleX, cy - 25 * bScaleY + breatheY, eyeSocket.width * 0.7, eyeSocket.height * 0.7);
+            ctx.drawImage(eyeBall, cx + 22 * bScaleX, cy - 10 * bScaleY + breatheY, eyeBall.width * 0.7, eyeBall.height * 0.7);
+          } else {
+            // Vector Cyclops Eyeball
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#1e1b4b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(cx + 20 * bScaleX, cy - 12 * bScaleY + breatheY, 20, 24, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Iris
+            ctx.fillStyle = '#7c3aed';
+            ctx.beginPath();
+            ctx.arc(cx + 22 * bScaleX, cy - 12 * bScaleY + breatheY, 11, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupil
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(cx + 22 * bScaleX, cy - 12 * bScaleY + breatheY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Specular shine
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(cx + 25 * bScaleX, cy - 16 * bScaleY + breatheY, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Ghostly dark dorsal thorns
+          ctx.fillStyle = '#475569';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2;
+          [-55, -35, -15].forEach((tx, idx) => {
+            ctx.beginPath();
+            ctx.moveTo(cx + tx * bScaleX - 8, cy - 65 * bScaleY + breatheY);
+            ctx.lineTo(cx + (tx - 12) * bScaleX, cy - (82 + idx * 4) * bScaleY + breatheY);
+            ctx.lineTo(cx + tx * bScaleX + 6, cy - 65 * bScaleY + breatheY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          });
+          ctx.restore();
+        } else if (curType === 'spiky') {
+          // Spiky: Rigid dorsal shell carapace plates and sharp backward-curving spikes
+          ctx.save();
+          ctx.fillStyle = '#374151';
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 2.5;
+          const rumpSpikes = [
+            { x: -80, y: 15, l: 24, a: -2.6 },
+            { x: -75, y: -15, l: 28, a: -2.3 },
+            { x: -60, y: -45, l: 30, a: -1.9 },
+            { x: -35, y: -68, l: 26, a: -1.6 },
+          ];
+          rumpSpikes.forEach((sp) => {
+            ctx.save();
+            ctx.translate(cx + sp.x * bScaleX, cy + sp.y * bScaleY + breatheY);
+            ctx.rotate(sp.a);
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.lineTo(0, -sp.l);
+            ctx.lineTo(6, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+          });
+          ctx.restore();
+        } else if (curType === 'sumo') {
+          // Sumo: Deep belly line crease & heavy stance definition
+          ctx.save();
+          ctx.strokeStyle = '#78350f';
+          ctx.lineWidth = 3.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.ellipse(cx + 5 * bScaleX, cy + 42 * bScaleY + breatheY, 52 * bScaleX, 14, 0, 0.15, Math.PI - 0.15);
+          ctx.stroke();
+          ctx.restore();
+        } else if (curType === 'wavy') {
+          // Wavy: Ocean tidal crest wave swirl on dorsal flank
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(cx - 75 * bScaleX, cy + 10 * bScaleY + breatheY);
+          ctx.bezierCurveTo(
+            cx - 85 * bScaleX,
+            cy - 50 * bScaleY + breatheY,
+            cx - 40 * bScaleX,
+            cy - 75 * bScaleY + breatheY,
+            cx - 5 * bScaleX,
+            cy - 60 * bScaleY + breatheY
+          );
+          ctx.bezierCurveTo(
+            cx - 25 * bScaleX,
+            cy - 45 * bScaleY + breatheY,
+            cx - 45 * bScaleX,
+            cy - 20 * bScaleY + breatheY,
+            cx - 30 * bScaleX,
+            cy + breatheY
+          );
+          ctx.bezierCurveTo(
+            cx - 15 * bScaleX,
+            cy + 20 * bScaleY + breatheY,
+            cx + 25 * bScaleX,
+            cy + 15 * bScaleY + breatheY,
+            cx + 50 * bScaleX,
+            cy + 30 * bScaleY + breatheY
+          );
+          ctx.bezierCurveTo(
+            cx + 10 * bScaleX,
+            cy + 55 * bScaleY + breatheY,
+            cx - 45 * bScaleX,
+            cy + 45 * bScaleY + breatheY,
+            cx - 75 * bScaleX,
+            cy + 10 * bScaleY + breatheY
+          );
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        } else if (curType === 'wetdog') {
+          // Wetdog: Shaggy dripping mop fringe and dripping wet hair strand
+          const wetBraid = getRegionCanvas('GTK2D', 'body-wetdog.body-braid');
+          if (wetBraid) {
+            ctx.save();
+            ctx.drawImage(wetBraid, cx + 45 * bScaleX, cy + 5 * bScaleY + breatheY, wetBraid.width * 0.7, wetBraid.height * 0.7);
+            ctx.restore();
+          } else {
+            // Vector hanging wet strand
+            ctx.save();
+            ctx.strokeStyle = '#1f2937';
+            ctx.fillStyle = config.bodyColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx + 45 * bScaleX, cy - 20 * bScaleY + breatheY);
+            ctx.quadraticCurveTo(cx + 38 * bScaleX, cy + 15 * bScaleY + breatheY, cx + 42 * bScaleX, cy + 38 * bScaleY + breatheY);
+            ctx.stroke();
+            // Water droplets
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(cx + 42 * bScaleX, cy + 45 * bScaleY + breatheY, 3, 0, Math.PI * 2);
+            ctx.arc(cx + 10 * bScaleX, cy + 62 * bScaleY + breatheY, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
       } else if (fallbackImgRef.current && fallbackImgRef.current.complete) {
         ctx.save();
         const w = 240 * bScaleX;
@@ -1362,7 +1739,7 @@ export default function AxieModularAssembler({
                           : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50'
                       }`}
                     >
-                      <div className="text-2xl my-1">{item.icon}</div>
+                      <AxieBodyTypeThumbnail bodyType={key as AxieBodyType} isSelected={isSelected} className="w-16 h-12 my-1" />
                       <div className="mt-1">
                         <div className="text-xs font-black text-white">{item.name}</div>
                         <div className="text-[9px] font-mono text-zinc-500 mt-0.5">{item.gtkMaterial}</div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import AxieAvatar from '@/components/axie/AxieAvatar';
 import AxieModularAssembler, { AxieAppearanceConfig } from '@/components/axie/AxieModularAssembler';
+import AxieBodyTypeThumbnail from '@/components/axie/AxieBodyTypeThumbnail';
 import {
   Shield,
   Zap,
@@ -880,20 +881,6 @@ export default function AxiePage() {
 
   const handleSelectBodyType = (type: AxieBodyType) => {
     setGenBodyType(type);
-    const spriteSuggestions: Record<AxieBodyType, string> = {
-      normal: CLASS_SPRITE_PREVIEWS[genClass]?.[0] || '/axies/sprite_yellow_fluffy.png',
-      bigyak: '/axies/sprite_crystal_beast_mech.png',
-      curly: '/axies/sprite_derp_snail_horns.png',
-      fuzzy: '/axies/sprite_yellow_fluffy.png',
-      spiky: '/axies/sprite_reptile_spiral.png',
-      sumo: '/axies/sprite_green_brawler.png',
-      wetdog: '/axies/sprite_aqua_crest.png',
-      frosty: '/axies/sprite_zen_white_plant.png',
-      agamo: '/axies/sprite_moss_deer_horns.png',
-    };
-    if (spriteSuggestions[type]) {
-      setCustomSprite(spriteSuggestions[type]);
-    }
     const btInfo = BODY_TYPE_CATALOG[type];
     if (btInfo) {
       showTempAnnouncement(`🦴 Body Type: ${btInfo.name}`, `${btInfo.gtkMaterial} diterapkan ke anatomi!`);
@@ -2084,11 +2071,12 @@ export default function AxiePage() {
                   : 'Beast') as any
               }
               initialBodyType={genBodyType}
+              selectedBodyType={genBodyType}
               onConfigChange={(newCfg) => {
                 if (newCfg.bodyClass) {
                   setGenClass(newCfg.bodyClass as CreatureClass);
                 }
-                if (newCfg.bodyType) {
+                if (newCfg.bodyType && newCfg.bodyType !== genBodyType) {
                   setGenBodyType(newCfg.bodyType as AxieBodyType);
                 }
               }}
@@ -2180,7 +2168,6 @@ export default function AxiePage() {
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-base">{bt.icon}</span>
                               <span
                                 className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-black ${
                                   isSelected ? 'bg-amber-400 text-black' : 'bg-zinc-800 text-zinc-400'
@@ -2188,8 +2175,12 @@ export default function AxiePage() {
                               >
                                 {bt.gtkMaterial}
                               </span>
+                              <span className="text-xs">{bt.icon}</span>
                             </div>
-                            <div className="mt-1.5">
+                            <div className="my-1 flex items-center justify-center">
+                              <AxieBodyTypeThumbnail bodyType={btKey} isSelected={isSelected} className="w-full h-14" />
+                            </div>
+                            <div className="mt-1">
                               <div className="text-xs font-black text-white">{bt.name}</div>
                               <div className="text-[9px] text-zinc-400 line-clamp-1 mt-0.5">{bt.description}</div>
                             </div>
