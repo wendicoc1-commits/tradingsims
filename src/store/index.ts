@@ -30,72 +30,79 @@ export interface MarketState {
   toggleCrtScanline: () => void
 }
 
-export const useMarketStore = create<MarketState>((set) => ({
-  selectedSymbol: 'BBCA.JK',
-  activeTab: 'overview',
-  theme: 'dark',
-  crtScanline: false,
-  isRightDockOpen: false,
-  activeDockTab: 'watchlist',
-  setSelectedSymbol: (symbol: string) => set({ selectedSymbol: symbol }),
-  setActiveTab: (tab: string) => set({ activeTab: tab }),
-  setRightDockOpen: (open: boolean) => set({ isRightDockOpen: open }),
-  setActiveDockTab: (tab: 'watchlist' | 'order') => set({ activeDockTab: tab, isRightDockOpen: true }),
-  toggleRightDock: () => set((state) => ({ isRightDockOpen: !state.isRightDockOpen })),
-  toggleTheme: () =>
-    set((state) => {
-      const cycle: VisualTheme[] = ['dark', 'phosphore', 'acidule', 'light'];
-      const nextIdx = (cycle.indexOf(state.theme) + 1) % cycle.length;
-      const nextTheme = cycle[nextIdx];
-      if (typeof document !== 'undefined') {
-        if (nextTheme === 'light') {
-          document.documentElement.classList.remove('dark');
-          document.documentElement.removeAttribute('data-theme');
-        } else if (nextTheme === 'phosphore') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', 'phosphore');
-        } else if (nextTheme === 'acidule') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', 'acidule');
-        } else {
-          document.documentElement.classList.add('dark');
-          document.documentElement.removeAttribute('data-theme');
-        }
-      }
-      return { theme: nextTheme };
+export const useMarketStore = create<MarketState>()(
+  persist(
+    (set) => ({
+      selectedSymbol: 'BBCA.JK',
+      activeTab: 'overview',
+      theme: 'dark',
+      crtScanline: false,
+      isRightDockOpen: false,
+      activeDockTab: 'watchlist',
+      setSelectedSymbol: (symbol: string) => set({ selectedSymbol: symbol }),
+      setActiveTab: (tab: string) => set({ activeTab: tab }),
+      setRightDockOpen: (open: boolean) => set({ isRightDockOpen: open }),
+      setActiveDockTab: (tab: 'watchlist' | 'order') => set({ activeDockTab: tab, isRightDockOpen: true }),
+      toggleRightDock: () => set((state) => ({ isRightDockOpen: !state.isRightDockOpen })),
+      toggleTheme: () =>
+        set((state) => {
+          const cycle: VisualTheme[] = ['dark', 'phosphore', 'acidule', 'light'];
+          const nextIdx = (cycle.indexOf(state.theme) + 1) % cycle.length;
+          const nextTheme = cycle[nextIdx];
+          if (typeof document !== 'undefined') {
+            if (nextTheme === 'light') {
+              document.documentElement.classList.remove('dark');
+              document.documentElement.removeAttribute('data-theme');
+            } else if (nextTheme === 'phosphore') {
+              document.documentElement.classList.add('dark');
+              document.documentElement.setAttribute('data-theme', 'phosphore');
+            } else if (nextTheme === 'acidule') {
+              document.documentElement.classList.add('dark');
+              document.documentElement.setAttribute('data-theme', 'acidule');
+            } else {
+              document.documentElement.classList.add('dark');
+              document.documentElement.removeAttribute('data-theme');
+            }
+          }
+          return { theme: nextTheme };
+        }),
+      setTheme: (theme: VisualTheme) =>
+        set(() => {
+          if (typeof document !== 'undefined') {
+            if (theme === 'light') {
+              document.documentElement.classList.remove('dark');
+              document.documentElement.removeAttribute('data-theme');
+            } else if (theme === 'phosphore') {
+              document.documentElement.classList.add('dark');
+              document.documentElement.setAttribute('data-theme', 'phosphore');
+            } else if (theme === 'acidule') {
+              document.documentElement.classList.add('dark');
+              document.documentElement.setAttribute('data-theme', 'acidule');
+            } else {
+              document.documentElement.classList.add('dark');
+              document.documentElement.removeAttribute('data-theme');
+            }
+          }
+          return { theme };
+        }),
+      toggleCrtScanline: () =>
+        set((state) => {
+          const nextVal = !state.crtScanline;
+          if (typeof document !== 'undefined') {
+            if (nextVal) {
+              document.body.classList.add('crt-screen');
+            } else {
+              document.body.classList.remove('crt-screen');
+            }
+          }
+          return { crtScanline: nextVal };
+        }),
     }),
-  setTheme: (theme: VisualTheme) =>
-    set(() => {
-      if (typeof document !== 'undefined') {
-        if (theme === 'light') {
-          document.documentElement.classList.remove('dark');
-          document.documentElement.removeAttribute('data-theme');
-        } else if (theme === 'phosphore') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', 'phosphore');
-        } else if (theme === 'acidule') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', 'acidule');
-        } else {
-          document.documentElement.classList.add('dark');
-          document.documentElement.removeAttribute('data-theme');
-        }
-      }
-      return { theme };
-    }),
-  toggleCrtScanline: () =>
-    set((state) => {
-      const nextVal = !state.crtScanline;
-      if (typeof document !== 'undefined') {
-        if (nextVal) {
-          document.body.classList.add('crt-screen');
-        } else {
-          document.body.classList.remove('crt-screen');
-        }
-      }
-      return { crtScanline: nextVal };
-    }),
-}))
+    {
+      name: 'tradesim_market_settings',
+    }
+  )
+)
 
 // ==========================================
 // Watchlist Store
