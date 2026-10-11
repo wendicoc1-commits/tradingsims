@@ -3,6 +3,10 @@ import {
   KNOWN_PARTS_CATALOG,
   CreatureClass,
   BodyPartType,
+  AxieBodyType,
+  BodyMaterialType,
+  BODY_TYPE_CATALOG,
+  BODY_MATERIAL_CATALOG,
   encodeGenesToBigInt,
   calculateBaseStats,
   CLASS_BINARY_MAP,
@@ -35,6 +39,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const targetClass: CreatureClass = body.class || 'Beast';
+    const bodyType: AxieBodyType = body.bodyType || 'normal';
+    const bodyMaterial: BodyMaterialType = body.bodyMaterial || 'standard';
     const customName: string = body.name || `${targetClass} Genetic Prototype #${Math.floor(1000 + Math.random() * 9000)}`;
 
     const getRandomPart = (type: BodyPartType): PartGene => {
@@ -112,24 +118,36 @@ export async function POST(req: NextRequest) {
 
     genes.rawBigInt = encodeGenesToBigInt(genes);
 
-    const stats = calculateBaseStats(targetClass, {
-      eyes: eyes.D,
-      ears: ears.D,
-      mouth: mouth.D,
-      horn: horn.D,
-      back: back.D,
-      tail: tail.D,
-    });
+    const stats = calculateBaseStats(
+      targetClass,
+      {
+        eyes: eyes.D,
+        ears: ears.D,
+        mouth: mouth.D,
+        horn: horn.D,
+        back: back.D,
+        tail: tail.D,
+      },
+      bodyType
+    );
 
     const sprites = CLASS_SPRITE_MAP[targetClass] || CLASS_SPRITE_MAP.Plant;
     const selectedSprite = body.image || body.sprite || sprites[Math.floor(Math.random() * sprites.length)];
 
     const newId = `9904${Math.floor(100 + Math.random() * 900)}`;
 
+    const bodyTypeInfo = BODY_TYPE_CATALOG[bodyType] || BODY_TYPE_CATALOG.normal;
+    const bodyMaterialInfo = BODY_MATERIAL_CATALOG[bodyMaterial] || BODY_MATERIAL_CATALOG.standard;
+
     const newAxie = {
       id: newId,
       name: customName,
       class: targetClass,
+      bodyType: bodyType,
+      bodyTypeName: bodyTypeInfo.name,
+      gtkMaterial: bodyTypeInfo.gtkMaterial,
+      bodyMaterial: bodyMaterial,
+      bodyMaterialName: bodyMaterialInfo.name,
       image: selectedSprite,
       priceUsd: +(45 + Math.random() * 40).toFixed(1),
       priceEth: +(0.018 + Math.random() * 0.02).toFixed(4),

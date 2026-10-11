@@ -22,6 +22,33 @@ export type CreatureClass =
 
 export type BodyPartType = 'eyes' | 'ears' | 'mouth' | 'horn' | 'back' | 'tail';
 
+/**
+ * Official GTK2D special body types from unity-axie-gtk2d:
+ * "body-normal", "body-bigyak", "body-curly", "body-fuzzy",
+ * "body-spiky", "body-sumo", "body-wetdog", "body-frosty", "body-agamo"
+ */
+export type AxieBodyType =
+  | 'normal'
+  | 'bigyak'
+  | 'curly'
+  | 'fuzzy'
+  | 'spiky'
+  | 'sumo'
+  | 'wetdog'
+  | 'frosty'
+  | 'agamo';
+
+/**
+ * Material Shaders & Variants for skin and body parts from unity-axie-gtk2d
+ */
+export type BodyMaterialType =
+  | 'standard'
+  | 'mystic'
+  | 'bionic'
+  | 'frost'
+  | 'japan'
+  | 'shadow';
+
 export type GeneTier = 'D' | 'R1' | 'R2';
 
 export type LifecycleStage = 'EGG' | 'LARVA' | 'ADULT';
@@ -257,15 +284,157 @@ export const KNOWN_PARTS_CATALOG: PartGene[] = [
 ];
 
 // ==========================================
-// 3. STAT & COST CALCULATORS
+// 3. GTK2D BODY TYPES & MATERIAL CATALOGS
+// ==========================================
+
+export interface BodyTypeDefinition {
+  id: AxieBodyType;
+  name: string;
+  gtkMaterial: string; // Identifier from unity-axie-gtk2d (e.g. 'body-bigyak')
+  description: string;
+  icon: string;
+  modifiers: { hp: number; speed: number; skill: number; morale: number };
+}
+
+export const BODY_TYPE_CATALOG: Record<AxieBodyType, BodyTypeDefinition> = {
+  normal: {
+    id: 'normal',
+    name: 'Normal Standard',
+    gtkMaterial: 'body-normal',
+    description: 'Postur standar klasik Lunacia yang seimbang dan fleksibel.',
+    icon: '⚪',
+    modifiers: { hp: 0, speed: 0, skill: 0, morale: 0 },
+  },
+  bigyak: {
+    id: 'bigyak',
+    name: 'Big Yak',
+    gtkMaterial: 'body-bigyak',
+    description: 'Bahu tebal kokoh berlapis lemak tebal, memberikan ketahanan HP superior.',
+    icon: '🦬',
+    modifiers: { hp: 4, speed: -2, skill: 0, morale: 1 },
+  },
+  curly: {
+    id: 'curly',
+    name: 'Curly Waves',
+    gtkMaterial: 'body-curly',
+    description: 'Bulu keriting bergelombang yang aerodinamis, meningkatkan kecepatan dan skill.',
+    icon: '🌀',
+    modifiers: { hp: 0, speed: 2, skill: 2, morale: 0 },
+  },
+  fuzzy: {
+    id: 'fuzzy',
+    name: 'Fuzzy Fluff',
+    gtkMaterial: 'body-fuzzy',
+    description: 'Bulu kapas mengembang lebat dan lembut, meningkatkan semangat Morale tinggi.',
+    icon: '🐑',
+    modifiers: { hp: -2, speed: 0, skill: 1, morale: 4 },
+  },
+  spiky: {
+    id: 'spiky',
+    name: 'Spiky Carapace',
+    gtkMaterial: 'body-spiky',
+    description: 'Duri tajam mencuat di sekujur punggung, memicu combo dan critical tak terduga.',
+    icon: '🦔',
+    modifiers: { hp: 0, speed: 1, skill: 3, morale: 1 },
+  },
+  sumo: {
+    id: 'sumo',
+    name: 'Sumo Titan',
+    gtkMaterial: 'body-sumo',
+    description: 'Postur gempal raksasa super bulat bagai dinding pertahanan baja.',
+    icon: '🛡️',
+    modifiers: { hp: 5, speed: -3, skill: 0, morale: 2 },
+  },
+  wetdog: {
+    id: 'wetdog',
+    name: 'Wet Dog Fins',
+    gtkMaterial: 'body-wetdog',
+    description: 'Kulit licin bersirip air untuk meluncur lincah dalam pertarungan.',
+    icon: '🌊',
+    modifiers: { hp: -1, speed: 4, skill: -1, morale: 1 },
+  },
+  frosty: {
+    id: 'frosty',
+    name: 'Frosty Glacier',
+    gtkMaterial: 'body-frosty',
+    description: 'Lapisan kristal es abadi Lunacia Winter yang kokoh dan presisi.',
+    icon: '❄️',
+    modifiers: { hp: 3, speed: -1, skill: 2, morale: 0 },
+  },
+  agamo: {
+    id: 'agamo',
+    name: 'Agamo Scale',
+    gtkMaterial: 'body-agamo',
+    description: 'Sisik kadal purba eksotis bertulang keras dengan ketahanan dan wibawa kuno.',
+    icon: '🦎',
+    modifiers: { hp: 2, speed: 0, skill: 0, morale: 3 },
+  },
+};
+
+export interface BodyMaterialDefinition {
+  id: BodyMaterialType;
+  name: string;
+  shaderTag: string;
+  description: string;
+  badge: string;
+}
+
+export const BODY_MATERIAL_CATALOG: Record<BodyMaterialType, BodyMaterialDefinition> = {
+  standard: {
+    id: 'standard',
+    name: 'Standard Matte',
+    shaderTag: 'Axie2D/Standard',
+    description: 'Tekstur warna alami beresolusi tinggi standar Lunacia.',
+    badge: 'bg-zinc-800 text-zinc-300',
+  },
+  mystic: {
+    id: 'mystic',
+    name: 'Mystic Prismatic',
+    shaderTag: 'Axie2D/MysticFoil',
+    description: 'Lapisan aurora prismatik berkilau mistis dengan rona magis.',
+    badge: 'bg-purple-900/60 text-purple-300 border border-purple-500/40',
+  },
+  bionic: {
+    id: 'bionic',
+    name: 'Bionic Cyber Chrome',
+    shaderTag: 'Axie2D/MetallicAlloy',
+    description: 'Pelat paduan logam titanium krom tahan benturan.',
+    badge: 'bg-cyan-900/60 text-cyan-300 border border-cyan-500/40',
+  },
+  frost: {
+    id: 'frost',
+    name: 'Sub-Zero Frost',
+    shaderTag: 'Axie2D/GlacialGlass',
+    description: 'Kristal es tembus pandang dengan kilauan beku musim dingin.',
+    badge: 'bg-blue-900/60 text-blue-300 border border-blue-400/40',
+  },
+  japan: {
+    id: 'japan',
+    name: 'Origin Japan Lacquer',
+    shaderTag: 'Axie2D/JapanGoldInlay',
+    description: 'Pernis tradisional emas bertatahkan motif kelopak sakura.',
+    badge: 'bg-rose-900/60 text-rose-300 border border-rose-500/40',
+  },
+  shadow: {
+    id: 'shadow',
+    name: 'Void Shadow Veil',
+    shaderTag: 'Axie2D/DarkMatterShade',
+    description: 'Aura kabut kegelapan malam dari kedalaman dimensi Dusk.',
+    badge: 'bg-indigo-900/60 text-indigo-300 border border-indigo-500/40',
+  },
+};
+
+// ==========================================
+// 4. STAT & COST CALCULATORS
 // ==========================================
 
 /**
- * Calculates dynamic stats based on Class and 6 Dominant (Expressed) Body Parts
+ * Calculates dynamic stats based on Class, 6 Dominant Body Parts, and GTK2D Body Type
  */
 export function calculateCreatureStats(
   creatureClass: CreatureClass,
-  expressedParts: Record<BodyPartType, PartGene>
+  expressedParts: Record<BodyPartType, PartGene>,
+  bodyType: AxieBodyType = 'normal'
 ): CreatureStats {
   const base = { ...BASE_CLASS_STATS[creatureClass] };
   const partsArray = Object.values(expressedParts);
@@ -278,8 +447,22 @@ export function calculateCreatureStats(
     base.morale += mod.morale || 0;
   }
 
+  // Apply GTK2D Body Type Stat Modifiers
+  const bodyMod = BODY_TYPE_CATALOG[bodyType]?.modifiers;
+  if (bodyMod) {
+    base.hp += bodyMod.hp;
+    base.speed += bodyMod.speed;
+    base.skill += bodyMod.skill;
+    base.morale += bodyMod.morale;
+  }
+
   return base;
 }
+
+/**
+ * Backward compatibility alias for calculateCreatureStats
+ */
+export const calculateBaseStats = calculateCreatureStats;
 
 /**
  * Calculates breeding fees (SLP + AXS) dynamically based on current breed counts

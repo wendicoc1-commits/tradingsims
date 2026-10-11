@@ -39,6 +39,10 @@ import {
   CreatureGenes,
   CreatureClass,
   BodyPartType,
+  AxieBodyType,
+  BodyMaterialType,
+  BODY_TYPE_CATALOG,
+  BODY_MATERIAL_CATALOG,
   CLASS_BINARY_MAP,
   BreedingResult,
   BASE_CLASS_STATS,
@@ -69,6 +73,11 @@ interface AxieItem {
   breedCount: number;
   stats: AxieStats;
   parts: AxiePart[];
+  bodyType?: AxieBodyType;
+  bodyTypeName?: string;
+  gtkMaterial?: string;
+  bodyMaterial?: BodyMaterialType;
+  bodyMaterialName?: string;
 }
 
 interface BattleCard {
@@ -131,6 +140,8 @@ export default function AxiePage() {
   const [genName, setGenName] = useState<string>('Crimson Solar Alpha Beast');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [customGeneTier, setCustomGeneTier] = useState<'D' | 'R1' | 'R2'>('D');
+  const [genBodyType, setGenBodyType] = useState<AxieBodyType>('normal');
+  const [genBodyMaterial, setGenBodyMaterial] = useState<BodyMaterialType>('standard');
   const [customSprite, setCustomSprite] = useState<string>('/axies/sprite_crimson_fury_beast.png');
   const [customParts, setCustomParts] = useState<{
     eyes: { D: PartGene; R1: PartGene; R2: PartGene };
@@ -866,6 +877,28 @@ export default function AxiePage() {
     showTempAnnouncement('🎲 Silsilah Diacak!', 'Kombinasi alel D, R1, R2 acak dihasilkan.');
   };
 
+  const handleSelectBodyType = (type: AxieBodyType) => {
+    setGenBodyType(type);
+    const spriteSuggestions: Record<AxieBodyType, string> = {
+      normal: CLASS_SPRITE_PREVIEWS[genClass]?.[0] || '/axies/sprite_yellow_fluffy.png',
+      bigyak: '/axies/sprite_crystal_beast_mech.png',
+      curly: '/axies/sprite_derp_snail_horns.png',
+      fuzzy: '/axies/sprite_yellow_fluffy.png',
+      spiky: '/axies/sprite_reptile_spiral.png',
+      sumo: '/axies/sprite_green_brawler.png',
+      wetdog: '/axies/sprite_aqua_crest.png',
+      frosty: '/axies/sprite_zen_white_plant.png',
+      agamo: '/axies/sprite_moss_deer_horns.png',
+    };
+    if (spriteSuggestions[type]) {
+      setCustomSprite(spriteSuggestions[type]);
+    }
+    const btInfo = BODY_TYPE_CATALOG[type];
+    if (btInfo) {
+      showTempAnnouncement(`🦴 Body Type: ${btInfo.name}`, `${btInfo.gtkMaterial} diterapkan ke anatomi!`);
+    }
+  };
+
   const setPartAllele = (type: BodyPartType, tier: 'D' | 'R1' | 'R2', partId: string) => {
     const found = KNOWN_PARTS_CATALOG.find((p) => p.id === partId);
     if (!found) return;
@@ -878,15 +911,19 @@ export default function AxiePage() {
     }));
   };
 
-  // Dynamic stats calculated from the 6 Dominant parts
-  const currentCustomStats = calculateCreatureStats(genClass, {
-    eyes: customParts.eyes.D,
-    ears: customParts.ears.D,
-    mouth: customParts.mouth.D,
-    horn: customParts.horn.D,
-    back: customParts.back.D,
-    tail: customParts.tail.D,
-  });
+  // Dynamic stats calculated from the 6 Dominant parts + GTK2D Body Type
+  const currentCustomStats = calculateCreatureStats(
+    genClass,
+    {
+      eyes: customParts.eyes.D,
+      ears: customParts.ears.D,
+      mouth: customParts.mouth.D,
+      horn: customParts.horn.D,
+      back: customParts.back.D,
+      tail: customParts.tail.D,
+    },
+    genBodyType
+  );
 
   // Dynamic 256-bit BigInt gene hash
   const currentCustomGeneHash = encodeGenesToBigInt({
@@ -923,6 +960,8 @@ export default function AxiePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           class: genClass,
+          bodyType: genBodyType,
+          bodyMaterial: genBodyMaterial,
           name: genName,
           image: customSprite,
           parts: customParts,
@@ -1088,9 +1127,16 @@ export default function AxiePage() {
                       <div>
                         {/* Header ID & Class */}
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${theme.badge}`}>
-                            {axie.class.toUpperCase()}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${theme.badge}`}>
+                              {axie.class.toUpperCase()}
+                            </span>
+                            {axie.bodyTypeName && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                {axie.bodyTypeName}
+                              </span>
+                            )}
+                          </div>
                           <a
                             href={`https://app.axieinfinity.com/marketplace/axies/${axie.id}/`}
                             target="_blank"
@@ -2081,10 +2127,124 @@ export default function AxiePage() {
                     </div>
                   </div>
 
-                  {/* 2. Inheritance Tier Switch (Pewarisan Struktur D, R1, R2) */}
+                  {/* 2. GTK2D Special Body Types Selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-zinc-400 flex items-center gap-1.5">
+                        <span>2. Pilih Tipe Tubuh Spesial (Official unity-axie-gtk2d):</span>
+                        <span className="text-[10px] text-amber-400 font-mono">
+                          {BODY_TYPE_CATALOG[genBodyType]?.gtkMaterial}
+                        </span>
+                      </label>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        9 Tipe GTK2D Tersedia
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+                      {(Object.keys(BODY_TYPE_CATALOG) as AxieBodyType[]).map((btKey) => {
+                        const bt = BODY_TYPE_CATALOG[btKey];
+                        const isSelected = genBodyType === btKey;
+                        const mod = bt.modifiers;
+                        return (
+                          <div
+                            key={btKey}
+                            onClick={() => handleSelectBodyType(btKey)}
+                            className={`p-2.5 rounded-2xl border cursor-pointer transition flex flex-col justify-between text-left relative overflow-hidden ${
+                              isSelected
+                                ? 'bg-amber-500/15 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.02]'
+                                : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-base">{bt.icon}</span>
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-black ${
+                                  isSelected ? 'bg-amber-400 text-black' : 'bg-zinc-800 text-zinc-400'
+                                }`}
+                              >
+                                {bt.gtkMaterial}
+                              </span>
+                            </div>
+                            <div className="mt-1.5">
+                              <div className="text-xs font-black text-white">{bt.name}</div>
+                              <div className="text-[9px] text-zinc-400 line-clamp-1 mt-0.5">{bt.description}</div>
+                            </div>
+                            {/* Modifiers Pill */}
+                            <div className="mt-2 pt-1.5 border-t border-zinc-800/80 flex flex-wrap gap-1 text-[8px] font-bold font-mono">
+                              {mod.hp !== 0 && (
+                                <span className={mod.hp > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                  {mod.hp > 0 ? `+${mod.hp}` : mod.hp} HP
+                                </span>
+                              )}
+                              {mod.speed !== 0 && (
+                                <span className={mod.speed > 0 ? 'text-cyan-400' : 'text-rose-400'}>
+                                  {mod.speed > 0 ? `+${mod.speed}` : mod.speed} SPD
+                                </span>
+                              )}
+                              {mod.skill !== 0 && (
+                                <span className={mod.skill > 0 ? 'text-amber-400' : 'text-rose-400'}>
+                                  {mod.skill > 0 ? `+${mod.skill}` : mod.skill} SKL
+                                </span>
+                              )}
+                              {mod.morale !== 0 && (
+                                <span className={mod.morale > 0 ? 'text-rose-400' : 'text-rose-400'}>
+                                  {mod.morale > 0 ? `+${mod.morale}` : mod.morale} MOR
+                                </span>
+                              )}
+                              {mod.hp === 0 && mod.speed === 0 && mod.skill === 0 && mod.morale === 0 && (
+                                <span className="text-zinc-500">Seimbang Standar</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3. GTK2D Body Material / Skin Shader Selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-zinc-400 flex items-center gap-1.5">
+                        <span>3. Finishing Material Kulit &amp; Shader (unity-axie-gtk2d):</span>
+                        <span className="text-[10px] text-purple-400 font-mono">
+                          {BODY_MATERIAL_CATALOG[genBodyMaterial]?.shaderTag}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {(Object.keys(BODY_MATERIAL_CATALOG) as BodyMaterialType[]).map((matKey) => {
+                        const mat = BODY_MATERIAL_CATALOG[matKey];
+                        const isSelected = genBodyMaterial === matKey;
+                        return (
+                          <div
+                            key={matKey}
+                            onClick={() => setGenBodyMaterial(matKey)}
+                            className={`p-2 rounded-xl border cursor-pointer transition flex flex-col justify-between text-left ${
+                              isSelected
+                                ? 'bg-purple-500/15 border-purple-400 shadow-md shadow-purple-500/20'
+                                : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black text-white">{mat.name}</span>
+                              <span className={`text-[8px] font-mono px-1 rounded ${mat.badge}`}>
+                                {matKey}
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-zinc-400 mt-1 line-clamp-1">{mat.description}</div>
+                            <div className="text-[8px] font-mono text-zinc-500 mt-1">Shader: {mat.shaderTag}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 4. Inheritance Tier Switch (Pewarisan Struktur D, R1, R2) */}
                   <div>
                     <label className="text-xs font-bold text-zinc-400 flex items-center justify-between mb-2">
-                      <span>2. Pilih Tier Alel yang Ingin Dikustomisasi (Struktur Pewarisan):</span>
+                      <span>4. Pilih Tier Alel yang Ingin Dikustomisasi (Struktur Pewarisan):</span>
                       <span className="text-[10px] font-mono text-amber-400">
                         {customGeneTier === 'D'
                           ? '⭐ Dominan (Fisik / 37.5%)'
@@ -2130,10 +2290,10 @@ export default function AxiePage() {
                     </div>
                   </div>
 
-                  {/* 3. 6 Body Parts Customizer Cards */}
+                  {/* 5. 6 Body Parts Customizer Cards */}
                   <div>
                     <label className="text-xs font-bold text-zinc-400 block mb-2">
-                      3. Kustomisasi 6 Bagian Tubuh untuk Tier{' '}
+                      5. Kustomisasi 6 Bagian Tubuh untuk Tier{' '}
                       <span className="text-amber-400 font-black">[{customGeneTier}]</span>:
                     </label>
 
@@ -2206,10 +2366,10 @@ export default function AxiePage() {
                     </div>
                   </div>
 
-                  {/* 4. Sprite Visual Model Selector */}
+                  {/* 6. Sprite Visual Model Selector */}
                   <div>
                     <label className="text-xs font-bold text-zinc-400 block mb-2">
-                      4. Pilih Varian Model Visual (Sprite Transparan Murni):
+                      6. Pilih Varian Model Visual (Sprite Transparan Murni):
                     </label>
                     <div className="flex items-center gap-2 overflow-x-auto pb-1">
                       {(CLASS_SPRITE_PREVIEWS[genClass] || CLASS_SPRITE_PREVIEWS.Plant).map((spr, idx) => (
@@ -2229,10 +2389,10 @@ export default function AxiePage() {
                     </div>
                   </div>
 
-                  {/* 5. Custom Name Input */}
+                  {/* 7. Custom Name Input */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-zinc-400 flex items-center justify-between">
-                      <span>5. Nama Karakter Axie:</span>
+                      <span>7. Nama Karakter Axie:</span>
                       <button
                         onClick={randomizeGenName}
                         className="text-[10px] text-amber-400 hover:underline flex items-center gap-1 font-bold"
@@ -2298,44 +2458,83 @@ export default function AxiePage() {
                     />
                   </div>
 
-                  {/* Character Name, Class, and Purity */}
+                  {/* Character Name, Class, Body Type, Material, and Purity */}
                   <div className="flex items-center justify-between mt-4">
                     <div>
                       <h3 className="text-base font-black text-white">{genName}</h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-zinc-400">
-                          Kelas: <span className="text-amber-400 font-bold">{genClass}</span>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="text-[10px] text-zinc-400 font-bold">
+                          Kelas: <span className="text-amber-400">{genClass}</span>
                         </span>
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          {BODY_TYPE_CATALOG[genBodyType]?.icon} {BODY_TYPE_CATALOG[genBodyType]?.gtkMaterial}
+                        </span>
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                          {BODY_MATERIAL_CATALOG[genBodyMaterial]?.name}
+                        </span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                           Kemurnian: {customPureCount}/6 ({Math.round((customPureCount / 6) * 100)}%)
                         </span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-sm font-black text-emerald-400">$64.0 USD</div>
                       <div className="text-[10px] font-mono text-zinc-500">0.026 WETH</div>
                     </div>
                   </div>
 
-                  {/* Dynamic Stats Grid based on Dominant Parts */}
-                  <div className="grid grid-cols-4 gap-2 mt-4 bg-zinc-950 p-3 rounded-2xl text-center text-xs border border-zinc-800">
-                    <div>
-                      <div className="text-zinc-500 font-bold text-[10px]">HP</div>
-                      <div className="font-black text-emerald-400 text-sm">{currentCustomStats.hp}</div>
-                    </div>
-                    <div>
-                      <div className="text-zinc-500 font-bold text-[10px]">SPEED</div>
-                      <div className="font-black text-cyan-400 text-sm">{currentCustomStats.speed}</div>
-                    </div>
-                    <div>
-                      <div className="text-zinc-500 font-bold text-[10px]">SKILL</div>
-                      <div className="font-black text-amber-400 text-sm">{currentCustomStats.skill}</div>
-                    </div>
-                    <div>
-                      <div className="text-zinc-500 font-bold text-[10px]">MORALE</div>
-                      <div className="font-black text-rose-400 text-sm">{currentCustomStats.morale}</div>
-                    </div>
-                  </div>
+                  {/* Dynamic Stats Grid based on Dominant Parts + Body Type Modifiers */}
+                  {(() => {
+                    const btMod = BODY_TYPE_CATALOG[genBodyType]?.modifiers || { hp: 0, speed: 0, skill: 0, morale: 0 };
+                    return (
+                      <div className="grid grid-cols-4 gap-2 mt-4 bg-zinc-950 p-3 rounded-2xl text-center text-xs border border-zinc-800">
+                        <div>
+                          <div className="text-zinc-500 font-bold text-[10px] flex items-center justify-center gap-1">
+                            <span>HP</span>
+                            {btMod.hp !== 0 && (
+                              <span className={`text-[8px] font-mono font-bold ${btMod.hp > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                ({btMod.hp > 0 ? `+${btMod.hp}` : btMod.hp})
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-emerald-400 text-sm">{currentCustomStats.hp}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 font-bold text-[10px] flex items-center justify-center gap-1">
+                            <span>SPEED</span>
+                            {btMod.speed !== 0 && (
+                              <span className={`text-[8px] font-mono font-bold ${btMod.speed > 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                                ({btMod.speed > 0 ? `+${btMod.speed}` : btMod.speed})
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-cyan-400 text-sm">{currentCustomStats.speed}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 font-bold text-[10px] flex items-center justify-center gap-1">
+                            <span>SKILL</span>
+                            {btMod.skill !== 0 && (
+                              <span className={`text-[8px] font-mono font-bold ${btMod.skill > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                ({btMod.skill > 0 ? `+${btMod.skill}` : btMod.skill})
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-amber-400 text-sm">{currentCustomStats.skill}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500 font-bold text-[10px] flex items-center justify-center gap-1">
+                            <span>MORALE</span>
+                            {btMod.morale !== 0 && (
+                              <span className={`text-[8px] font-mono font-bold ${btMod.morale > 0 ? 'text-rose-400' : 'text-rose-400'}`}>
+                                ({btMod.morale > 0 ? `+${btMod.morale}` : btMod.morale})
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-rose-400 text-sm">{currentCustomStats.morale}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Comprehensive Genetic Allele Breakdown Table (D | R1 | R2) */}
                   <div className="mt-4 bg-zinc-950 border border-zinc-800 rounded-2xl p-3 space-y-2">
@@ -2418,9 +2617,16 @@ export default function AxiePage() {
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-black px-2 py-0.5 rounded bg-zinc-900 text-zinc-300">
-                          {axie.class}
-                        </span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-zinc-900 text-zinc-300">
+                            {axie.class}
+                          </span>
+                          {axie.bodyTypeName && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              {axie.bodyTypeName}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[9px] text-zinc-500 font-mono">#{axie.id}</span>
                       </div>
 
