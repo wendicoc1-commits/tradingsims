@@ -817,20 +817,21 @@ export default function TradeSimKnowledgeGraph3D({ onSwitchTo2D }: TradeSimKnowl
       {/* ── Top Bar Controls & 2D/3D Dimension Toggle ── */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none">
         {/* Left: 3D Badge & Dimension Switcher */}
-        <div className="flex items-center gap-2 p-1 bg-zinc-950/90 border border-zinc-800 rounded-xl shadow-2xl backdrop-blur-md pointer-events-auto">
+        <div className="flex items-center gap-2 p-1 glass-panel rounded-xl shadow-2xl backdrop-blur-xl pointer-events-auto">
           <div className="px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white shadow-lg flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>🧠 3D OTAK AI UNIVERSE</span>
+            <span>3D Otak AI Universe</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/40 font-mono text-cyan-300">WEBGL 60FPS</span>
           </div>
 
           {onSwitchTo2D && (
             <button
               onClick={onSwitchTo2D}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5 cursor-pointer"
               title="Beralih ke format kanvas Obsidian 2D"
             >
-              <span>🗺️ Beralih ke 2D Obsidian</span>
+              <Layers className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Beralih ke 2D Obsidian</span>
             </button>
           )}
         </div>

@@ -1048,7 +1048,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             title="Beralih ke format 3D WebGL dengan Otak AI di pusat"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>🧠 Beralih ke 3D Otak AI</span>
+            <span>3D Otak AI Universe</span>
           </button>
 
           <button
@@ -1060,7 +1060,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>🌌 MEGA UNIVERSE (1.000+ BUTIRAN)</span>
+            <span>Mega Universe (1.000+ Butiran)</span>
           </button>
 
           <button
@@ -1072,7 +1072,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>👔 AI Trading Office (50 Pejabat)</span>
+            <span>AI Trading Office (50 Pejabat)</span>
           </button>
 
           <button
@@ -1084,7 +1084,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             }`}
           >
             <Cpu className="w-3.5 h-3.5" />
-            <span>🏗️ Arsitektur TradeSim</span>
+            <span>Arsitektur TradeSim</span>
           </button>
 
           <button
@@ -1096,7 +1096,7 @@ export default function TradeSimKnowledgeGraphViewer() {
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>🏢 Sektor Saham BEI</span>
+            <span>Sektor Saham BEI</span>
           </button>
         </div>
 

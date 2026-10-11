@@ -269,96 +269,96 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
   return (
     <div className="space-y-3 font-mono select-none">
       {/* ── Top Level AI Hub Switcher Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-sm text-xs">
-        <div className="flex flex-wrap items-center gap-1.5 p-0.5 bg-[#121215] border border-[#27272a] rounded">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 glass-panel rounded-xl text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-black/40 border border-white/[0.06] rounded-lg">
           <button
             onClick={() => setMainAiTab('VIRTUAL_OFFICE')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'VIRTUAL_OFFICE'
-                ? 'bg-[#f59e0b] text-black shadow-sm font-extrabold'
-                : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>🏢 AI Virtual Office (War Room 2.5D)</span>
+            <span>AI Virtual Office (War Room 2.5D)</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('QUANT_BRIDGE')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'QUANT_BRIDGE'
-                ? 'bg-emerald-400 text-black shadow-md shadow-emerald-400/30 font-extrabold'
-                : 'text-emerald-400 border border-emerald-800/50 bg-emerald-950/20 hover:text-white hover:bg-emerald-900/40'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)] font-extrabold'
+                : 'text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:text-white hover:bg-emerald-500/20'
             }`}
           >
             <Cpu className="w-3.5 h-3.5 text-emerald-300" />
-            <span>⚡ Quant Desk (Freqtrade &amp; Lumibot)</span>
+            <span>Quant Desk (Freqtrade &amp; Lumibot)</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('CRYPTO_DESK')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'CRYPTO_DESK'
-                ? 'bg-cyan-400 text-black shadow-md shadow-cyan-400/30 font-extrabold'
-                : 'text-cyan-400 border border-cyan-800/50 bg-cyan-950/20 hover:text-white hover:bg-cyan-900/40'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.3)] font-extrabold'
+                : 'text-cyan-400 border border-cyan-500/30 bg-cyan-500/10 hover:text-white hover:bg-cyan-500/20'
             }`}
           >
             <Coins className="w-3.5 h-3.5 text-cyan-300" />
-            <span>⚡ Jesse AI Crypto Desk (Spot Trading)</span>
+            <span>Jesse AI Crypto Desk (Spot Trading)</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('HEDGE_FUND')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'HEDGE_FUND'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+                ? 'bg-white/20 text-white border border-white/30 font-extrabold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>🏛️ Komite Hedge Fund (7 Personas)</span>
+            <span>Komite Hedge Fund (7 Personas)</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('BULL_BEAR_DEBATE')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'BULL_BEAR_DEBATE'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+                ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 font-extrabold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Swords className="w-3.5 h-3.5" />
-            <span>⚔️ Arena Debat Bull vs Bear (HKUDS)</span>
+            <span>Arena Debat Bull vs Bear (HKUDS)</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('PAPER_TRADING')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'PAPER_TRADING'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+                ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40 font-extrabold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            <span>🤖 Autonomous Paper Trading &amp; Benchmark</span>
+            <span>Autonomous Paper Trading &amp; Benchmark</span>
           </button>
 
           <button
             onClick={() => setMainAiTab('COPILOT_CHAT')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mainAiTab === 'COPILOT_CHAT'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+                ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40 font-extrabold shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
-            <span>💬 Financial Copilot Chat</span>
+            <span>Financial Copilot Chat</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] text-[#71717a]">
-          <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
-          <span className="text-[#a1a1aa]">BLOOMBERG &times; HKUDS INTELLIGENCE HUB</span>
+        <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-zinc-300 font-bold">QUANT INTELLIGENCE HUB</span>
         </div>
       </div>
 

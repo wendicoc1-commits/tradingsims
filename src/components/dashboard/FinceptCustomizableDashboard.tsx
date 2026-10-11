@@ -22,6 +22,10 @@ import {
   Keyboard,
   Download,
   Upload,
+  Globe,
+  LineChart,
+  Zap,
+  Briefcase,
 } from 'lucide-react';
 import {
   INITIAL_WIDGETS,
@@ -959,15 +963,17 @@ export default function FinceptCustomizableDashboard() {
         <div className="flex items-center gap-2">
           <Link
             href="/architecture"
-            className="px-3 py-1 rounded-md bg-purple-600/40 hover:bg-purple-600/60 text-purple-200 border border-purple-500/60 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+            className="px-3 py-1 rounded-md bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/50 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_12px_rgba(168,85,247,0.25)]"
           >
-            <span>🏗️ Buka Arsitektur Graphify</span>
+            <Layers className="w-3.5 h-3.5 text-purple-300" />
+            <span>Buka Arsitektur Graphify</span>
           </Link>
           <Link
             href="/api-hub"
-            className="px-3 py-1 rounded-md bg-cyan-600/40 hover:bg-cyan-600/60 text-cyan-200 border border-cyan-500/60 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+            className="px-3 py-1 rounded-md bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/50 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_12px_rgba(6,182,212,0.25)]"
           >
-            <span>🌐 1.400+ Public APIs</span>
+            <Globe className="w-3.5 h-3.5 text-cyan-300" />
+            <span>1.400+ Public APIs</span>
           </Link>
         </div>
       </div>
@@ -1269,55 +1275,59 @@ export default function FinceptCustomizableDashboard() {
 
       {/* ── Mobile First Clean Workspace (< md) ── */}
       <div className="block md:hidden mb-3">
-        <div className="flex border border-zinc-800 rounded-lg p-1 bg-zinc-900/90 text-[11px] font-bold">
+        <div className="flex border border-white/10 rounded-lg p-1 bg-[#0b0e15]/90 text-[11px] font-bold">
           <button
             type="button"
             onClick={() => setMobileTab('chart')}
-            className={`flex-1 py-1.5 rounded-md transition-all ${
+            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === 'chart'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            📈 Grafik
+            <LineChart className="w-3.5 h-3.5" />
+            <span>Grafik</span>
           </button>
           <button
             type="button"
             onClick={() => setMobileTab('order')}
-            className={`flex-1 py-1.5 rounded-md transition-all ${
+            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === 'order'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ⚡ Order Slip
+            <Zap className="w-3.5 h-3.5" />
+            <span>Order Slip</span>
           </button>
           <button
             type="button"
             onClick={() => setMobileTab('portfolio')}
-            className={`flex-1 py-1.5 rounded-md transition-all ${
+            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === 'portfolio'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            💼 Portofolio
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Portofolio</span>
           </button>
           <button
             type="button"
             onClick={() => setMobileTab('secondary')}
-            className={`flex-1 py-1.5 rounded-md transition-all ${
+            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === 'secondary'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            📰 Pasar
+            <Globe className="w-3.5 h-3.5" />
+            <span>Pasar</span>
           </button>
         </div>
 
         {/* Focused Mobile Widget View */}
-        <div className="mt-2 bg-[#09090b] border border-[#27272a] rounded-lg overflow-hidden">
+        <div className="mt-2 bg-[#080b11] border border-white/10 rounded-lg overflow-hidden">
           {mobileTab === 'chart' && (
             <div className="h-[460px]">
               <WidgetErrorBoundary title="Grafik Pasar">
@@ -1345,7 +1355,7 @@ export default function FinceptCustomizableDashboard() {
                 .filter((w) => !['CHART', 'QUICK_ORDER', 'PORTFOLIO_HOLDINGS'].includes(w.type))
                 .slice(0, 4)
                 .map((w) => (
-                  <div key={w.id} className="h-[340px] border border-zinc-800 rounded-lg overflow-hidden">
+                  <div key={w.id} className="h-[340px] border border-white/10 rounded-lg overflow-hidden">
                     <WidgetErrorBoundary title={w.title}>
                       {renderWidgetContent(w)}
                     </WidgetErrorBoundary>
@@ -1356,7 +1366,7 @@ export default function FinceptCustomizableDashboard() {
         </div>
       </div>
 
-      {/* ── Main Dynamic Grid Canvas (Multi-widget workspace for Desktop / Tablet) ── */}
+      {/* ── Main Dynamic Grid Canvas (Bento Grid Workspace for Desktop / Tablet) ── */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {widgets.map((w) => {
           const isDragging = draggedWidgetId === w.id;
@@ -1369,16 +1379,16 @@ export default function FinceptCustomizableDashboard() {
               onDragOver={(e) => handleDragOver(e, w.id)}
               onDrop={(e) => handleDrop(e, w.id)}
               onDragEnd={handleDragEnd}
-              className={`${w.cols} ${widgetHeight} flex flex-col group/widget transition-all duration-150 rounded-sm border ${
+              className={`${w.cols} ${widgetHeight} flex flex-col group/widget transition-all duration-200 spotlight-card rounded-lg border ${
                 isDragging
-                  ? 'opacity-40 border-dashed border-[#f59e0b] scale-[0.98]'
+                  ? 'opacity-40 border-dashed border-amber-500 scale-[0.98]'
                   : isDragOver
-                  ? 'border-2 border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.35)] scale-[1.01]'
-                  : 'border-[#27272a] hover:border-[#3f3f46]'
-              } bg-[#09090b] overflow-hidden`}
+                  ? 'border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.35)] scale-[1.01]'
+                  : 'border-white/[0.08] hover:border-white/20'
+              } bg-[#090c13]/90 backdrop-blur-md overflow-hidden shadow-lg`}
             >
               {/* Mini Toolbar: Drag handle, Reorder buttons, Width adjust (-W / +W), and Height toggle */}
-              <div className="flex items-center justify-between px-2 py-0.5 bg-[#121216] border-b border-[#27272a] text-[10px] font-mono text-[#a1a1aa] select-none">
+              <div className="flex items-center justify-between px-2.5 py-1 bg-[#0d111a]/95 border-b border-white/[0.06] text-[10px] font-mono text-zinc-400 select-none">
                 <div className="flex items-center gap-1">
                   <div
                     draggable

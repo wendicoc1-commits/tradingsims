@@ -151,8 +151,9 @@ export default function Sidebar() {
         {/* Academy & Championship Desks Group */}
         <div>
           {!collapsed && (
-            <div className="px-2 pb-1 text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-              <span>🏆 Akademi &amp; Liga</span>
+            <div className="px-2 pb-1 text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span>Akademi &amp; Liga</span>
             </div>
           )}
           <div className="space-y-0.5" role="list">

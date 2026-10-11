@@ -17,6 +17,19 @@ import {
   Sparkles,
   HelpCircle,
   Bot,
+  Terminal,
+  Briefcase,
+  Coins,
+  LayoutGrid,
+  Filter,
+  PieChart,
+  Newspaper,
+  Globe,
+  Trophy,
+  Compass,
+  Layers,
+  Shield,
+  Zap,
   Volume2,
   VolumeX,
   LineChart,
@@ -229,21 +242,21 @@ export default function TradeSimHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex flex-col bg-[#09090b] text-[#f4f4f5] border-b border-[#27272a] shadow-md select-none font-sans">
+    <header className="sticky top-0 z-40 flex flex-col glass-header text-[#f8fafc] border-b border-white/[0.08] shadow-2xl select-none font-sans">
       {/* ── Top Bar: Brand, Search, Status & Controls ── */}
-      <div className="flex items-center justify-between px-3 h-11 border-b border-[#1f1f23] gap-2">
+      <div className="flex items-center justify-between px-3 h-11 border-b border-white/[0.06] gap-2">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-2.5 shrink-0">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-black font-black text-sm shadow-sm group-hover:bg-emerald-400 transition-colors">
+            <div className="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-black font-black text-sm shadow-[0_0_12px_rgba(16,185,129,0.35)] group-hover:bg-emerald-400 transition-all">
               <LineChart className="w-4 h-4" />
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
-                TRADESIM <span className="text-emerald-400 text-xs px-1 rounded bg-emerald-500/15 border border-emerald-500/30 font-mono">PRO</span>
+                TRADESIM <span className="text-emerald-400 text-xs px-1 rounded bg-emerald-500/15 border border-emerald-500/30 font-mono-num font-bold">PRO</span>
               </span>
-              <span className="text-[9px] text-zinc-500 font-mono -mt-0.5 hidden sm:inline">
-                INSTITUTIONAL SIMULATOR
+              <span className="text-[9px] text-zinc-500 font-mono -mt-0.5 hidden sm:inline tracking-wider">
+                QUANT TERMINAL
               </span>
             </div>
           </Link>
@@ -265,18 +278,20 @@ export default function TradeSimHeader() {
               }}
               onFocus={() => setShowSuggestions(true)}
               onKeyDown={handleKeyDown}
-              placeholder="Ketik simbol (BBCA, BTC, NVDA) atau perintah..."
-              className="w-full bg-[#121215] border border-[#27272a] rounded pl-8 pr-16 py-1 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono transition-colors"
+              placeholder="Cari emiten (BBCA, BTC, NVDA) atau perintah..."
+              className="w-full bg-[#0a0d14]/90 border border-white/10 rounded-md pl-8 pr-16 py-1 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 font-mono transition-all"
             />
-            <span className="absolute right-2 text-[9px] text-zinc-500 font-mono pointer-events-none" aria-hidden="true">
-              ENTER ↵
-            </span>
+            <div className="absolute right-2 flex items-center gap-1 pointer-events-none">
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-white/5 border border-white/10 rounded text-zinc-400">
+                ⌘K
+              </kbd>
+            </div>
           </div>
 
           {/* Search Suggestions Dropdown */}
           {showSuggestions && cliInput && (
-            <div className="absolute left-0 top-full mt-1 w-full bg-[#121216] border border-[#27272a] rounded-lg shadow-2xl py-1 z-50 text-[11px] max-h-72 overflow-y-auto">
-              <div className="px-3 py-1 text-zinc-500 font-bold border-b border-[#27272a] flex justify-between items-center text-[9px]">
+            <div className="absolute left-0 top-full mt-1 w-full glass-dropdown rounded-lg py-1 z-50 text-[11px] max-h-72 overflow-y-auto">
+              <div className="px-3 py-1 text-zinc-400 font-bold border-b border-white/10 flex justify-between items-center text-[9px]">
                 <span>HASIL &amp; PERINTAH</span>
                 <button onClick={() => setShowSuggestions(false)} className="hover:text-white">✕</button>
               </div>
@@ -286,7 +301,7 @@ export default function TradeSimHeader() {
                 <div
                   key={item.cmd}
                   onClick={() => executeCommand(item.cmd)}
-                  className="px-3 py-1.5 hover:bg-zinc-800 cursor-pointer flex justify-between items-center transition-colors"
+                  className="px-3 py-1.5 hover:bg-white/5 cursor-pointer flex justify-between items-center transition-colors"
                 >
                   <span className="text-emerald-400 font-bold font-mono">{item.cmd}</span>
                   <span className="text-zinc-400 text-[10px] truncate">{item.desc}</span>
@@ -298,11 +313,19 @@ export default function TradeSimHeader() {
 
         {/* Right: Live Status, Clocks, & User Controls */}
         <div className="flex items-center gap-3 shrink-0">
+          {/* Latency & Realtime Ping Indicator */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            <span>18ms</span>
+          </div>
+
           <div className="hidden md:flex items-center gap-2 text-xs font-mono text-zinc-400">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>WIB: <strong className="text-zinc-200">{timeWib}</strong></span>
+            <span>WIB: <strong className="text-zinc-200 font-mono-num">{timeWib}</strong></span>
             <span className="text-zinc-600">•</span>
-            <span>NY: <strong className="text-zinc-400">{timeNy}</strong></span>
+            <span>NY: <strong className="text-zinc-400 font-mono-num">{timeNy}</strong></span>
           </div>
 
           {/* User Status / Top-up Action */}
@@ -433,129 +456,139 @@ export default function TradeSimHeader() {
       </div>
 
       {/* ── Navigation Tabs ── */}
-      <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-3 bg-[#0c0c0e] text-xs h-9 border-b border-[#1f1f23] overflow-x-auto no-scrollbar gap-1">
+      <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-3 bg-[#080b11]/90 text-xs h-9 border-b border-white/[0.06] overflow-x-auto no-scrollbar gap-1">
         <Link
           href="/"
           aria-current={pathname === '/' ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname === '/'
-              ? 'bg-zinc-800 text-white'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white shadow-sm border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🖥️ Terminal</span>
+          <Terminal className="w-3.5 h-3.5 text-zinc-300" />
+          <span>Terminal</span>
         </Link>
         <Link
           href="/ai"
           aria-current={pathname.startsWith('/ai') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/ai')
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-[0_0_12px_rgba(245,158,11,0.25)]'
               : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-          <span>🤖 AI Trading Floor</span>
+          <Bot className="w-3.5 h-3.5 text-amber-400" />
+          <span>AI Trading Floor</span>
         </Link>
         <Link
           href="/portfolio"
           aria-current={pathname.startsWith('/portfolio') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/portfolio')
-              ? 'bg-zinc-800 text-emerald-400 font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>💼 Portofolio &amp; Order</span>
+          <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Portofolio &amp; Order</span>
         </Link>
         <Link
           href="/crypto"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/crypto')
-              ? 'bg-zinc-800 text-cyan-400 font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>⚡ Crypto Spot</span>
+          <Coins className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Crypto Spot</span>
         </Link>
         <Link
           href="/heatmap"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/heatmap')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white font-bold border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🗺️ Heatmap IHSG</span>
+          <LayoutGrid className="w-3.5 h-3.5 text-blue-400" />
+          <span>Heatmap IHSG</span>
         </Link>
         <Link
           href="/screener"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/screener')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white font-bold border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🔍 Screener</span>
+          <Filter className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Screener</span>
         </Link>
         <Link
           href="/dividend"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/dividend')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white font-bold border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>💰 Dividen</span>
+          <PieChart className="w-3.5 h-3.5 text-yellow-400" />
+          <span>Dividen</span>
         </Link>
         <Link
           href="/stream"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/stream')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white font-bold border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>📰 Live News Wire</span>
+          <Newspaper className="w-3.5 h-3.5 text-rose-400" />
+          <span>Live News Wire</span>
         </Link>
         <Link
           href="/macro"
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/macro')
-              ? 'bg-zinc-800 text-white font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              ? 'bg-white/10 text-white font-bold border border-white/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🌐 Makro &amp; Suku Bunga</span>
+          <Globe className="w-3.5 h-3.5 text-teal-400" />
+          <span>Makro &amp; Suku Bunga</span>
         </Link>
         <Link
           href="/championship"
           aria-current={pathname.startsWith('/championship') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/championship')
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
               : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10'
           }`}
         >
-          <span>🏆 Liga Trading</span>
+          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <span>Liga Trading</span>
         </Link>
         <Link
           href="/roadmap"
           aria-current={pathname.startsWith('/roadmap') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/roadmap')
               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
               : 'text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10'
           }`}
         >
-          <span>🧭 Roadmap</span>
+          <Compass className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Roadmap</span>
         </Link>
         <Link
           href="/architecture"
           aria-current={pathname.startsWith('/architecture') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
             pathname.startsWith('/architecture')
-              ? 'bg-purple-600/30 text-purple-200 border border-purple-500/50 font-bold shadow-md'
+              ? 'bg-purple-600/30 text-purple-200 border border-purple-500/50 font-bold shadow-[0_0_15px_rgba(168,85,247,0.3)]'
               : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/20'
           }`}
         >
@@ -563,18 +596,20 @@ export default function TradeSimHeader() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
           </span>
-          <span>🏗️ Graphify Arsitektur</span>
+          <Layers className="w-3.5 h-3.5 text-purple-300" />
+          <span>Graphify Arsitektur</span>
         </Link>
         <Link
           href="/admin/portfolios"
           aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-          className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 ml-auto ${
+          className={`px-2.5 py-1 rounded-md font-semibold transition-all flex items-center gap-1.5 ml-auto ${
             pathname.startsWith('/admin')
               ? 'bg-purple-900/40 text-purple-300 border border-purple-500/40 font-bold'
               : 'text-purple-400 hover:text-purple-300 hover:bg-purple-950/40'
           }`}
         >
-          <span>🛡️ Admin Panel</span>
+          <Shield className="w-3.5 h-3.5 text-purple-400" />
+          <span>Admin Panel</span>
         </Link>
       </nav>
 

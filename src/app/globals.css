@@ -2,22 +2,23 @@
 
 :root {
   /* Pitch Black Base / Obsidian Terminal Palette */
-  --bg-primary: #050508;
-  --bg-surface: #0a0a0e;
-  --bg-card: #0f0f15;
-  --bg-raised: #14141d;
-  --bg-hover: #191924;
+  --bg-primary: #06080d;
+  --bg-surface: #0b0e15;
+  --bg-card: rgba(13, 17, 25, 0.75);
+  --bg-card-solid: #0d1119;
+  --bg-raised: #131722;
+  --bg-hover: #1a202e;
   
-  /* Hairline Terminal Borders */
-  --border: #1a1a26;
-  --border-dim: #14141e;
-  --border-bright: #28283a;
+  /* Hairline Terminal & Glass Borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-dim: rgba(255, 255, 255, 0.05);
+  --border-bright: rgba(255, 255, 255, 0.18);
   --border-focus: #f59e0b;
 
   /* Tabular Text Contrast Hierarchy */
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #52525b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
 
   /* Bloomberg Amber / Fincept Gold (Primary Brand & Focus) */
   --accent: #f59e0b;
@@ -26,20 +27,25 @@
   --accent-dim: #78350f;
   --accent-bg: rgba(245, 158, 11, 0.12);
 
-  /* Bull Green Glow (Phosphor CRT Gainer) */
-  --positive: #22c55e;
-  --positive-dim: #15803d;
-  --positive-bg: rgba(34, 197, 94, 0.12);
+  /* Bull Green Glow (Phosphor CRT Gainer / Emerald Alpha) */
+  --positive: #10b981;
+  --positive-dim: #059669;
+  --positive-bg: rgba(16, 185, 129, 0.12);
 
-  /* Bear Red Glow (Terminal Loser) */
-  --negative: #ef4444;
-  --negative-dim: #b91c1c;
-  --negative-bg: rgba(239, 68, 68, 0.12);
+  /* Bear Red Glow (Terminal Loser / Hyper Crimson) */
+  --negative: #f43f5e;
+  --negative-dim: #e11d48;
+  --negative-bg: rgba(244, 63, 94, 0.12);
 
-  /* Telemetry Cyan */
+  /* Telemetry Electric Cyan */
   --cyan: #06b6d4;
-  --cyan-dim: #0e7490;
+  --cyan-dim: #0891b2;
   --cyan-bg: rgba(6, 182, 212, 0.12);
+
+  /* Galactic Violet AI Intelligence */
+  --violet: #8b5cf6;
+  --violet-dim: #7c3aed;
+  --violet-bg: rgba(139, 92, 246, 0.12);
 
   /* Secondary Semantic */
   --blue: #3b82f6;
@@ -48,19 +54,20 @@
 
   /* Typography */
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Geist', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Light Mode Terminal Override (Paper Terminal) */
 .light {
   --bg-primary: #f4f4f7;
   --bg-surface: #ffffff;
-  --bg-card: #f9f9fc;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-solid: #f9f9fc;
   --bg-raised: #ebebef;
   --bg-hover: #e2e2ea;
-  --border: #d4d4df;
-  --border-dim: #e4e4ed;
-  --border-bright: #b8b8cc;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-dim: rgba(0, 0, 0, 0.04);
+  --border-bright: rgba(0, 0, 0, 0.16);
   --text-primary: #09090b;
   --text-secondary: #52525b;
   --text-muted: #71717a;
@@ -101,30 +108,110 @@ body {
 }
 
 /* Strict Monospace Numbers & Tabular Alignment */
-.font-mono-num {
+.font-mono-num,
+.tabular-nums {
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.015em;
+}
+
+/* Glassmorphism & Depth System */
+.glass-panel {
+  background-color: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+.glass-dropdown {
+  background-color: rgba(10, 13, 20, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.7);
+}
+
+.glass-header {
+  background-color: rgba(7, 9, 14, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Subtle Cyber Grid Background */
+.bg-cyber-grid {
+  background-size: 28px 28px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+/* Spotlight Card & Bento Hover Depth */
+.spotlight-card {
+  position: relative;
+  background-color: var(--bg-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.spotlight-card:hover {
+  border-color: var(--border-bright);
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.5), 0 0 20px -2px rgba(255, 255, 255, 0.04);
+}
+
+/* Border Beam Pulse Animation */
+@keyframes border-beam-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.border-beam-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.border-beam-active::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, var(--accent) 330deg, var(--cyan) 360deg);
+  animation: border-beam-spin 4s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 /* Terminal CRT Glow Utilities */
 .glow-gold {
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.28);
 }
 
-.glow-green {
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.25);
-  text-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+.glow-green,
+.glow-emerald {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.28);
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
-.glow-red {
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
-  text-shadow: 0 0 6px rgba(239, 68, 68, 0.35);
+.glow-red,
+.glow-rose {
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.28);
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
 }
 
 .glow-cyan {
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.25);
-  text-shadow: 0 0 6px rgba(6, 182, 212, 0.35);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.28);
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+.glow-violet {
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.28);
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
 }
 
 /* Tactile Terminal Header Ribbon */
