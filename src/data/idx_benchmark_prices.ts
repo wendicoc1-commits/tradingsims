@@ -94,6 +94,15 @@ CRYPTO_BENCHMARK_PRICES['MATIC'] = { price: 0.368, name: 'Polygon (MATIC)' };
 CRYPTO_BENCHMARK_PRICES['MATICUSDT'] = { price: 0.368, name: 'Polygon (MATIC)' };
 CRYPTO_BENCHMARK_PRICES['RNDR'] = { price: 1.862, name: 'Render (RNDR)' };
 CRYPTO_BENCHMARK_PRICES['RNDRUSDT'] = { price: 1.862, name: 'Render (RNDR)' };
+// Futures-supplemented tokens (POPCAT, MEW, KAS, AKT)
+CRYPTO_BENCHMARK_PRICES['POPCAT'] = { price: 0.0478, name: 'Popcat (Solana)' };
+CRYPTO_BENCHMARK_PRICES['POPCATUSDT'] = { price: 0.0478, name: 'Popcat (Solana)' };
+CRYPTO_BENCHMARK_PRICES['MEW'] = { price: 0.00048, name: 'cat in a dogs world' };
+CRYPTO_BENCHMARK_PRICES['MEWUSDT'] = { price: 0.00048, name: 'cat in a dogs world' };
+CRYPTO_BENCHMARK_PRICES['KAS'] = { price: 0.0403, name: 'Kaspa (KAS)' };
+CRYPTO_BENCHMARK_PRICES['KASUSDT'] = { price: 0.0403, name: 'Kaspa (KAS)' };
+CRYPTO_BENCHMARK_PRICES['AKT'] = { price: 0.733, name: 'Akash Network (AKT)' };
+CRYPTO_BENCHMARK_PRICES['AKTUSDT'] = { price: 0.733, name: 'Akash Network (AKT)' };
 
 const GLOBAL_STOCKS_MAP = new Map<string, { price: number; currency: string; name: string }>();
 for (const s of MASTER_GLOBAL_STOCKS) {

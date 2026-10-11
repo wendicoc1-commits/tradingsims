@@ -170,10 +170,17 @@ export async function GET(request: Request) {
     try {
       const binancePair = `${cleanCryptoKey}USDT`;
       const binanceInterval = timeframe === '1W' ? '1w' : timeframe === '1M' || timeframe === '1Y' ? '1M' : '1d';
-      const bRes = await fetch(`https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=${binanceInterval}&limit=${count}`, {
+      let bRes = await fetch(`https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=${binanceInterval}&limit=${count}`, {
         headers: { 'Accept': 'application/json' },
         next: { revalidate: 60 },
       });
+      if (!bRes.ok) {
+        // Fallback ke Binance Futures (fapi) untuk koin yang hanya listing di Futures (POPCAT, MEW, KAS, AKT)
+        bRes = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${binancePair}&interval=${binanceInterval}&limit=${count}`, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 60 },
+        });
+      }
       if (bRes.ok) {
         const klines = await bRes.json();
         if (Array.isArray(klines) && klines.length > 0) {

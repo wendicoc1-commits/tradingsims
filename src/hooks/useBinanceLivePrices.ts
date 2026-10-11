@@ -70,58 +70,113 @@ async function fetchInternalCryptoFallback() {
   }
 }
 
+let globalFuturesWs: WebSocket | null = null;
+let reconnectFuturesTimer: NodeJS.Timeout | null = null;
+
 async function fetchInitialRestSnapshot() {
   if (hasFetchedInitial) return;
   hasFetchedInitial = true;
   try {
-    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr');
-    if (!res.ok) {
-      await fetchInternalCryptoFallback();
-      return;
-    }
-    const data = await res.json();
     const newMap: Record<string, BinanceTickerData> = {};
     const now = Date.now();
 
-    for (const item of data) {
-      const sym = item.symbol;
-      if (!sym.endsWith('USDT')) continue;
+    const [spotRes, futuresRes] = await Promise.allSettled([
+      fetch('https://api.binance.com/api/v3/ticker/24hr'),
+      fetch('https://fapi.binance.com/fapi/v1/ticker/24hr'),
+    ]);
 
-      const currentPrice = parseFloat(item.lastPrice);
-      const changePct = parseFloat(item.priceChangePercent);
-      const high = parseFloat(item.highPrice);
-      const low = parseFloat(item.lowPrice);
-      const quoteVol = parseFloat(item.quoteVolume);
+    // 1. Process Binance Spot Tickers
+    if (spotRes.status === 'fulfilled' && spotRes.value.ok) {
+      const spotData = await spotRes.value.json();
+      if (Array.isArray(spotData)) {
+        for (const item of spotData) {
+          const sym = item.symbol;
+          if (!sym.endsWith('USDT')) continue;
 
-      let volFormatted = '$' + quoteVol.toLocaleString();
-      if (quoteVol >= 1e9) {
-        volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
-      } else if (quoteVol >= 1e6) {
-        volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
+          const currentPrice = parseFloat(item.lastPrice);
+          const changePct = parseFloat(item.priceChangePercent);
+          const high = parseFloat(item.highPrice);
+          const low = parseFloat(item.lowPrice);
+          const quoteVol = parseFloat(item.quoteVolume);
+
+          let volFormatted = '$' + quoteVol.toLocaleString();
+          if (quoteVol >= 1e9) {
+            volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
+          } else if (quoteVol >= 1e6) {
+            volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
+          }
+
+          const base = sym.replace(/USDT$/, '');
+          const tickerData: BinanceTickerData = {
+            symbol: sym,
+            price: currentPrice,
+            change24h: changePct,
+            high24h: high,
+            low24h: low,
+            volume24h: volFormatted,
+            quoteVolume24h: quoteVol,
+            direction: 'same',
+            lastUpdated: now,
+          };
+
+          newMap[sym] = tickerData;
+          newMap[base] = { ...tickerData, symbol: base };
+          globalPrevPrices[sym] = currentPrice;
+          globalPrevPrices[base] = currentPrice;
+        }
       }
-
-      const base = sym.replace(/USDT$/, '');
-      const tickerData: BinanceTickerData = {
-        symbol: sym,
-        price: currentPrice,
-        change24h: changePct,
-        high24h: high,
-        low24h: low,
-        volume24h: volFormatted,
-        quoteVolume24h: quoteVol,
-        direction: 'same',
-        lastUpdated: now,
-      };
-
-      newMap[sym] = tickerData;
-      newMap[base] = { ...tickerData, symbol: base };
-      globalPrevPrices[sym] = currentPrice;
-      globalPrevPrices[base] = currentPrice;
     }
 
-    useCryptoPriceStore.getState().setTickerMap((prev) => ({ ...prev, ...newMap }));
-    useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
-    useCryptoPriceStore.getState().setIsConnected(true);
+    // 2. Process Binance Futures Tickers (Supplements coins not on Spot, e.g. POPCAT, MEW, KAS, AKT)
+    if (futuresRes.status === 'fulfilled' && futuresRes.value.ok) {
+      const futuresData = await futuresRes.value.json();
+      if (Array.isArray(futuresData)) {
+        for (const item of futuresData) {
+          const sym = item.symbol;
+          if (!sym.endsWith('USDT')) continue;
+          if (newMap[sym]) continue; // Already covered by Spot
+
+          const currentPrice = parseFloat(item.lastPrice);
+          const changePct = parseFloat(item.priceChangePercent);
+          const high = parseFloat(item.highPrice);
+          const low = parseFloat(item.lowPrice);
+          const quoteVol = parseFloat(item.quoteVolume || '0');
+
+          let volFormatted = '$' + quoteVol.toLocaleString();
+          if (quoteVol >= 1e9) {
+            volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
+          } else if (quoteVol >= 1e6) {
+            volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
+          }
+
+          const base = sym.replace(/USDT$/, '');
+          const tickerData: BinanceTickerData = {
+            symbol: sym,
+            price: currentPrice,
+            change24h: changePct,
+            high24h: high,
+            low24h: low,
+            volume24h: volFormatted,
+            quoteVolume24h: quoteVol,
+            direction: 'same',
+            lastUpdated: now,
+          };
+
+          newMap[sym] = tickerData;
+          newMap[base] = { ...tickerData, symbol: base };
+          globalPrevPrices[sym] = currentPrice;
+          globalPrevPrices[base] = currentPrice;
+        }
+      }
+    }
+
+    if (Object.keys(newMap).length > 0) {
+      useCryptoPriceStore.getState().setTickerMap((prev) => ({ ...prev, ...newMap }));
+      useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
+      useCryptoPriceStore.getState().setIsConnected(true);
+    } else {
+      await fetchInternalCryptoFallback();
+    }
   } catch {
     await fetchInternalCryptoFallback();
   }
@@ -141,111 +196,132 @@ function flushTickerBatch() {
   useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
 }
 
-function initSingletonWebSocket() {
-  if (typeof window === 'undefined') return;
-  if (globalWs && (globalWs.readyState === WebSocket.OPEN || globalWs.readyState === WebSocket.CONNECTING)) {
-    return;
+function processIncomingTickers(rawTickers: any[]) {
+  if (!Array.isArray(rawTickers)) return;
+  const now = Date.now();
+
+  for (const t of rawTickers) {
+    const sym = t.s;
+    if (!sym || !sym.endsWith('USDT')) continue;
+
+    const curPrice = parseFloat(t.c);
+    const openPrice = parseFloat(t.o);
+    const highPrice = parseFloat(t.h);
+    const lowPrice = parseFloat(t.l);
+    const quoteVol = parseFloat(t.q);
+
+    const prevPrice = globalPrevPrices[sym] ?? curPrice;
+    let direction: 'up' | 'down' | 'same' = 'same';
+    if (curPrice > prevPrice) direction = 'up';
+    else if (curPrice < prevPrice) direction = 'down';
+
+    globalPrevPrices[sym] = curPrice;
+
+    const changePct = openPrice > 0 ? ((curPrice - openPrice) / openPrice) * 100 : 0;
+
+    globalTickBuffer.push({
+      symbol: sym,
+      price: curPrice,
+      change24h: Math.round(changePct * 100) / 100,
+      timestamp: now,
+      volume: quoteVol,
+    });
+
+    let volFormatted = '$' + quoteVol.toLocaleString();
+    if (quoteVol >= 1e9) {
+      volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
+    } else if (quoteVol >= 1e6) {
+      volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
+    }
+
+    const base = sym.replace(/USDT$/, '');
+    const tickerData: BinanceTickerData = {
+      symbol: sym,
+      price: curPrice,
+      change24h: Math.round(changePct * 100) / 100,
+      high24h: highPrice,
+      low24h: lowPrice,
+      volume24h: volFormatted,
+      quoteVolume24h: quoteVol,
+      direction,
+      lastUpdated: now,
+    };
+
+    pendingTickersBatch[sym] = tickerData;
+    pendingTickersBatch[base] = { ...tickerData, symbol: base };
+    globalPrevPrices[base] = curPrice;
   }
 
-  try {
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws/!miniTicker@arr');
-    globalWs = ws;
+  if (!batchFlushTimer) {
+    batchFlushTimer = setTimeout(() => {
+      batchFlushTimer = null;
+      flushTickerBatch();
+    }, 200);
+  }
+}
 
-    ws.onopen = () => {
-      useCryptoPriceStore.getState().setIsConnected(true);
-      useCryptoPriceStore.getState().setError(null);
-    };
+function initSingletonWebSocket() {
+  if (typeof window === 'undefined') return;
 
-    ws.onmessage = (event) => {
-      try {
-        const rawTickers = JSON.parse(event.data);
-        if (!Array.isArray(rawTickers)) return;
+  // 1. Connect Binance Spot WebSocket
+  if (!globalWs || (globalWs.readyState !== WebSocket.OPEN && globalWs.readyState !== WebSocket.CONNECTING)) {
+    try {
+      const ws = new WebSocket('wss://stream.binance.com:9443/ws/!miniTicker@arr');
+      globalWs = ws;
 
-        const now = Date.now();
+      ws.onopen = () => {
+        useCryptoPriceStore.getState().setIsConnected(true);
+        useCryptoPriceStore.getState().setError(null);
+      };
 
-        for (const t of rawTickers) {
-          const sym = t.s;
-          if (!sym || !sym.endsWith('USDT')) continue;
-
-          const curPrice = parseFloat(t.c);
-          const openPrice = parseFloat(t.o);
-          const highPrice = parseFloat(t.h);
-          const lowPrice = parseFloat(t.l);
-          const quoteVol = parseFloat(t.q);
-
-          const prevPrice = globalPrevPrices[sym] ?? curPrice;
-          let direction: 'up' | 'down' | 'same' = 'same';
-          if (curPrice > prevPrice) direction = 'up';
-          else if (curPrice < prevPrice) direction = 'down';
-
-          globalPrevPrices[sym] = curPrice;
-
-          const changePct = openPrice > 0 ? ((curPrice - openPrice) / openPrice) * 100 : 0;
-
-          // Push instantly to high-frequency zero-allocation RingBuffer
-          globalTickBuffer.push({
-            symbol: sym,
-            price: curPrice,
-            change24h: Math.round(changePct * 100) / 100,
-            timestamp: now,
-            volume: quoteVol,
-          });
-
-          let volFormatted = '$' + quoteVol.toLocaleString();
-          if (quoteVol >= 1e9) {
-            volFormatted = '$' + (quoteVol / 1e9).toFixed(2) + 'B';
-          } else if (quoteVol >= 1e6) {
-            volFormatted = '$' + (quoteVol / 1e6).toFixed(2) + 'M';
-          }
-
-          const base = sym.replace(/USDT$/, '');
-          const tickerData: BinanceTickerData = {
-            symbol: sym,
-            price: curPrice,
-            change24h: Math.round(changePct * 100) / 100,
-            high24h: highPrice,
-            low24h: lowPrice,
-            volume24h: volFormatted,
-            quoteVolume24h: quoteVol,
-            direction,
-            lastUpdated: now,
-          };
-
-          pendingTickersBatch[sym] = tickerData;
-          pendingTickersBatch[base] = { ...tickerData, symbol: base };
-          globalPrevPrices[base] = curPrice;
+      ws.onmessage = (event) => {
+        try {
+          processIncomingTickers(JSON.parse(event.data));
+        } catch (e) {
+          console.error('Error parsing Binance ws data', e);
         }
+      };
 
-        // Batch flush ke React Store setiap 200ms untuk mencegah DOM re-render storm
-        if (!batchFlushTimer) {
-          batchFlushTimer = setTimeout(() => {
-            batchFlushTimer = null;
-            flushTickerBatch();
-          }, 200);
+      ws.onerror = () => {
+        useCryptoPriceStore.getState().setIsConnected(false);
+      };
+
+      ws.onclose = () => {
+        globalWs = null;
+        if (globalSubscriberCount > 0) {
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => initSingletonWebSocket(), 3000);
         }
-      } catch (e) {
-        console.error('Error parsing Binance ws data', e);
-      }
-    };
+      };
+    } catch {
+      // ignore
+    }
+  }
 
-    ws.onerror = () => {
-      useCryptoPriceStore.getState().setIsConnected(false);
-      fetchInternalCryptoFallback();
-    };
+  // 2. Connect Binance Futures WebSocket (Provides live ticks for POPCAT, MEW, KAS, AKT, etc.)
+  if (!globalFuturesWs || (globalFuturesWs.readyState !== WebSocket.OPEN && globalFuturesWs.readyState !== WebSocket.CONNECTING)) {
+    try {
+      const fws = new WebSocket('wss://fstream.binance.com/ws/!miniTicker@arr');
+      globalFuturesWs = fws;
 
-    ws.onclose = () => {
-      useCryptoPriceStore.getState().setIsConnected(false);
-      globalWs = null;
-      // Reconnect if there are still active subscribers
-      if (globalSubscriberCount > 0) {
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => {
-          initSingletonWebSocket();
-        }, 3000);
-      }
-    };
-  } catch {
-    fetchInternalCryptoFallback();
+      fws.onmessage = (event) => {
+        try {
+          processIncomingTickers(JSON.parse(event.data));
+        } catch {
+          // ignore
+        }
+      };
+
+      fws.onclose = () => {
+        globalFuturesWs = null;
+        if (globalSubscriberCount > 0) {
+          if (reconnectFuturesTimer) clearTimeout(reconnectFuturesTimer);
+          reconnectFuturesTimer = setTimeout(() => initSingletonWebSocket(), 4000);
+        }
+      };
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -266,11 +342,18 @@ export function useBinanceLivePrices() {
 
     return () => {
       globalSubscriberCount = Math.max(0, globalSubscriberCount - 1);
-      if (globalSubscriberCount === 0 && globalWs) {
-        // If all components unmounted, close socket to prevent background idle leak
-        globalWs.close();
-        globalWs = null;
+      if (globalSubscriberCount === 0) {
+        // If all components unmounted, close sockets to prevent background idle leak
+        if (globalWs) {
+          globalWs.close();
+          globalWs = null;
+        }
+        if (globalFuturesWs) {
+          globalFuturesWs.close();
+          globalFuturesWs = null;
+        }
         if (reconnectTimer) clearTimeout(reconnectTimer);
+        if (reconnectFuturesTimer) clearTimeout(reconnectFuturesTimer);
       }
     };
   }, []);

@@ -87,10 +87,17 @@ export async function fetchYahooQuote(symbol: string): Promise<LiveStockQuote | 
   if (isCrypto) {
     try {
       const binancePair = `${cleanCryptoKey}USDT`;
-      const bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binancePair}`, {
+      let bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binancePair}`, {
         headers: { 'Accept': 'application/json' },
         next: { revalidate: 3 },
       });
+      if (!bRes.ok) {
+        // Fallback ke Binance Futures (fapi) untuk koin seperti POPCAT, MEW, KAS, AKT yang hanya listing di Futures
+        bRes = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${binancePair}`, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 3 },
+        });
+      }
       if (bRes.ok) {
         const bData = await bRes.json();
         const curPrice = parseFloat(bData.lastPrice);
