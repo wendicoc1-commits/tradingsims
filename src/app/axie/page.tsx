@@ -82,6 +82,9 @@ const CLASS_THEMES: Record<string, { bg: string; text: string; border: string; b
   Bird: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/40', badge: 'bg-pink-500 text-black', strongAgainst: 'Beast' },
   Reptile: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/40', badge: 'bg-purple-500 text-black', strongAgainst: 'Aquatic' },
   Bug: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/40', badge: 'bg-red-500 text-black', strongAgainst: 'Plant' },
+  Mech: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/40', badge: 'bg-blue-400 text-black', strongAgainst: 'Plant' },
+  Dusk: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/40', badge: 'bg-indigo-500 text-white', strongAgainst: 'Aquatic' },
+  Dawn: { bg: 'bg-amber-300/10', text: 'text-amber-300', border: 'border-amber-300/40', badge: 'bg-amber-300 text-black', strongAgainst: 'Beast' },
 };
 
 const CARDS_POOL: BattleCard[] = [
@@ -601,7 +604,7 @@ export default function AxiePage() {
             {/* Filter & Search Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {['All', 'Plant', 'Beast', 'Aquatic', 'Bird', 'Reptile', 'Bug'].map((c) => (
+                {['All', 'Plant', 'Beast', 'Aquatic', 'Bird', 'Reptile', 'Bug', 'Mech', 'Dusk', 'Dawn'].map((c) => (
                   <button
                     key={c}
                     onClick={() => setSelectedClass(c)}

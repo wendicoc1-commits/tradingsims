@@ -86,11 +86,64 @@ const CLASS_SPECS: Record<
   },
 };
 
-const LOCAL_DETAILED_SPRITES: Record<string, string> = {
-  Aquatic: '/axies/aqua.jpg',
-  Aqua: '/axies/aqua.jpg',
-  Beast: '/axies/beast.jpg',
-  Plant: '/axies/plant.jpg',
+const CLASS_SPRITE_CONFIG: Record<
+  string,
+  {
+    sprite: string;
+    filter: string;
+    glow: string;
+  }
+> = {
+  Aquatic: {
+    sprite: '/axies/aqua.jpg',
+    filter: 'contrast(1.05) saturate(1.1)',
+    glow: 'rgba(6, 182, 212, 0.35)',
+  },
+  Aqua: {
+    sprite: '/axies/aqua.jpg',
+    filter: 'contrast(1.05) saturate(1.1)',
+    glow: 'rgba(6, 182, 212, 0.35)',
+  },
+  Beast: {
+    sprite: '/axies/beast.jpg',
+    filter: 'contrast(1.05) saturate(1.1)',
+    glow: 'rgba(245, 158, 11, 0.35)',
+  },
+  Plant: {
+    sprite: '/axies/plant.jpg',
+    filter: 'contrast(1.05) saturate(1.1)',
+    glow: 'rgba(34, 197, 94, 0.35)',
+  },
+  Bird: {
+    sprite: '/axies/aqua.jpg',
+    filter: 'hue-rotate(135deg) saturate(1.35) contrast(1.08)',
+    glow: 'rgba(236, 72, 153, 0.35)',
+  },
+  Reptile: {
+    sprite: '/axies/beast.jpg',
+    filter: 'hue-rotate(235deg) saturate(1.3) contrast(1.1)',
+    glow: 'rgba(168, 85, 247, 0.35)',
+  },
+  Bug: {
+    sprite: '/axies/plant.jpg',
+    filter: 'hue-rotate(240deg) saturate(1.4) contrast(1.12)',
+    glow: 'rgba(239, 68, 68, 0.35)',
+  },
+  Mech: {
+    sprite: '/axies/beast.jpg',
+    filter: 'grayscale(0.8) contrast(1.35) brightness(1.12)',
+    glow: 'rgba(96, 165, 250, 0.35)',
+  },
+  Dusk: {
+    sprite: '/axies/aqua.jpg',
+    filter: 'hue-rotate(55deg) saturate(1.25) brightness(0.9) contrast(1.15)',
+    glow: 'rgba(99, 102, 241, 0.35)',
+  },
+  Dawn: {
+    sprite: '/axies/aqua.jpg',
+    filter: 'hue-rotate(185deg) saturate(1.25) brightness(1.08) contrast(1.05)',
+    glow: 'rgba(252, 211, 77, 0.35)',
+  },
 };
 
 export default function AxieAvatar({
@@ -102,22 +155,24 @@ export default function AxieAvatar({
 }: AxieAvatarProps) {
   const [imgFailed, setImgFailed] = useState(false);
 
-  const spec = CLASS_SPECS[axieClass] || CLASS_SPECS.Plant;
-  const localSprite = LOCAL_DETAILED_SPRITES[axieClass];
+  const config = CLASS_SPRITE_CONFIG[axieClass] || CLASS_SPRITE_CONFIG.Plant;
 
-  // If local high-res painterly sprite is available, render it with high detail!
-  if (localSprite && !imgFailed) {
+  // Render high-res painterly sprite with authentic class art & lighting
+  if (config && !imgFailed) {
     return (
       <div className={`relative flex items-center justify-center select-none ${className}`}>
-        <div className="w-full h-full relative overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900/90 shadow-lg group-hover:scale-105 transition-all duration-300">
+        <div
+          className="w-full h-full relative overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900/90 shadow-xl group-hover:scale-105 transition-all duration-300"
+          style={{ boxShadow: `0 8px 24px -6px ${config.glow}` }}
+        >
           <img
-            src={localSprite}
+            src={config.sprite}
             alt={name || `Axie #${id}`}
             onError={() => setImgFailed(true)}
-            className="w-full h-full object-cover filter contrast-105 saturate-110"
+            className="w-full h-full object-cover transition-transform duration-300"
+            style={{ filter: config.filter }}
             loading="lazy"
           />
-          {/* Subtle inner ambient ring */}
           <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
         </div>
       </div>
