@@ -60,6 +60,7 @@ import OpenBBWorkspaceDesk from '@/components/openbb/OpenBBWorkspaceDesk';
 import AIChartPilotHUD from '@/components/stock/AIChartPilotHUD';
 import PineScriptStudioModal from '@/components/stock/PineScriptStudioModal';
 import MultiTimeframeRadar from '@/components/stock/MultiTimeframeRadar';
+import { isUSSymbol, isCryptoSymbol, getAssetBySymbol } from '@/lib/universe/masterAssetUniverse';
 
 // ── Web Audio Sound Generator (Synthesizer Chimes) ──
 export const playAudioChime = (type: 'ALERT' | 'ORDER_FILL' | 'CLICK') => {
@@ -2302,6 +2303,8 @@ export function QuickOrderWidget({
   // Realtime market price fetch for accurate order slip execution
   useEffect(() => {
     const cleanSym = symbol.replace('.JK', '').toUpperCase();
+    const isCrypto = isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && isUSSymbol(cleanSym);
     const defaultPrices: Record<string, number> = {
       BBCA: 10525, BBRI: 5100, BMRI: 7050, TLKM: 3080, ADRO: 3840,
       ASII: 5225, BBNI: 5500, ICBP: 12150, UNTR: 27100, GOTO: 68,
@@ -2309,13 +2312,19 @@ export function QuickOrderWidget({
     };
     if (defaultPrices[cleanSym]) {
       setOrderPrice(defaultPrices[cleanSym]);
+    } else {
+      const assetDef = getAssetBySymbol(cleanSym);
+      if (assetDef?.defaultPrice) {
+        setOrderPrice(assetDef.defaultPrice);
+      }
     }
 
     fetch(`/api/stocks/realtime?tickers=${cleanSym}`)
       .then((res) => res.json())
       .then((data) => {
         if (data?.quotes?.[cleanSym]?.price) {
-          setOrderPrice(Math.round(data.quotes[cleanSym].price));
+          const rawPrice = data.quotes[cleanSym].price;
+          setOrderPrice(isUS || isCrypto ? rawPrice : Math.round(rawPrice));
         }
       })
       .catch(() => {});
@@ -2340,32 +2349,48 @@ export function QuickOrderWidget({
     return () => window.removeEventListener('fincept_push_order_slip', handlePushOrder);
   }, [symbol, isSynced]);
 
-  const existingHolding = holdings.find((h) => h.symbol === symbol || h.symbol === `${symbol}.JK` || h.displaySymbol === symbol);
-  const totalValue = orderLots * 100 * orderPrice;
-  const estimatedFee = Math.round(totalValue * (orderType === 'BUY' ? 0.0015 : 0.0025));
-  const netTotal = orderType === 'BUY' ? totalValue + estimatedFee : totalValue - estimatedFee;
-  const maxBuyLots = Math.max(0, Math.floor(cash / (orderPrice * 100 * 1.0015)));
-  const maxSellLots = existingHolding ? existingHolding.lots : 0;
+  const cleanSym = symbol.replace('.JK', '').toUpperCase();
+  const isCrypto = isCryptoSymbol(cleanSym);
+  const isUS = !isCrypto && isUSSymbol(cleanSym);
+  const rate = 16000;
+  const unitLabel = isCrypto ? 'Koin' : isUS ? 'Shares' : 'Lot';
+  const currencySymbol = (isUS || isCrypto) ? '$' : 'Rp';
+
+  const existingHolding = holdings.find((h) => h.symbol === symbol || h.symbol === `${symbol}.JK` || h.displaySymbol === symbol || h.symbol === `${cleanSym}USDT`);
+  const totalValueIDR = (isUS || isCrypto)
+    ? Math.round(orderLots * orderPrice * rate)
+    : Math.round(orderLots * 100 * orderPrice);
+  const totalValueForeign = (isUS || isCrypto) ? orderLots * orderPrice : null;
+  const estimatedFee = Math.round(totalValueIDR * (orderType === 'BUY' ? (isCrypto ? 0.001 : 0.0015) : 0.0025));
+  const netTotalIDR = orderType === 'BUY' ? totalValueIDR + estimatedFee : totalValueIDR - estimatedFee;
+  const maxBuyLots = (isUS || isCrypto)
+    ? Math.max(0, Math.floor(cash / (orderPrice * rate * (1 + (isCrypto ? 0.001 : 0.0015)))))
+    : Math.max(0, Math.floor(cash / (orderPrice * 100 * 1.0015)));
+  const maxSellLots = existingHolding ? (existingHolding.cryptoUnits ?? existingHolding.shares ?? existingHolding.lots ?? 0) : 0;
 
   const handleExecute = (e: React.FormEvent) => {
     e.preventDefault();
     if (orderLots <= 0 || orderPrice <= 0) {
-      setOrderMsg({ text: 'Lot dan harga harus lebih dari 0', isError: true });
+      setOrderMsg({ text: `Jumlah ${unitLabel} dan harga harus lebih dari 0`, isError: true });
       return;
     }
+    const assetDef = getAssetBySymbol(cleanSym);
+    const orderName = assetDef?.name || (isUS ? `${cleanSym} Inc.` : isCrypto ? `${cleanSym} Token` : `${symbol} Tbk`);
     if (orderType === 'BUY') {
       const res = placeBuyOrder({
         symbol,
         displaySymbol: symbol,
         price: orderPrice,
         lots: orderLots,
-        name: `${symbol} Tbk`,
+        name: orderName,
+        currency: (isUS || isCrypto) ? 'USD' : 'IDR',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'IDX',
         orderType: 'LIMIT',
       });
       if (res.order) {
         playAudioChime('ORDER_FILL');
         setOrderMsg({
-          text: `✅ Sukses Antre BELI ${orderLots} Lot ${symbol} @ Rp ${orderPrice.toLocaleString('id-ID')}`,
+          text: `✅ Sukses Antre BELI ${orderLots} ${unitLabel} ${symbol} @ ${currencySymbol} ${orderPrice.toLocaleString('id-ID')}`,
           isError: false,
         });
       } else {
@@ -2377,17 +2402,19 @@ export function QuickOrderWidget({
         displaySymbol: symbol,
         price: orderPrice,
         lots: orderLots,
-        name: `${symbol} Tbk`,
+        name: orderName,
+        currency: (isUS || isCrypto) ? 'USD' : 'IDR',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'IDX',
         orderType: 'LIMIT',
       });
       if (res.order) {
         playAudioChime('ORDER_FILL');
         setOrderMsg({
-          text: `✅ Sukses Antre JUAL ${orderLots} Lot ${symbol} @ Rp ${orderPrice.toLocaleString('id-ID')}`,
+          text: `✅ Sukses Antre JUAL ${orderLots} ${unitLabel} ${symbol} @ ${currencySymbol} ${orderPrice.toLocaleString('id-ID')}`,
           isError: false,
         });
       } else {
-        setOrderMsg({ text: `❌ Gagal: ${res.error || 'Kepemilikan saham tidak cukup'}`, isError: true });
+        setOrderMsg({ text: `❌ Gagal: ${res.error || 'Kepemilikan aset tidak cukup'}`, isError: true });
       }
     }
     setTimeout(() => setOrderMsg(null), 4000);
@@ -2459,33 +2486,34 @@ export function QuickOrderWidget({
         {/* Portfolio Cash & Holdings Indicator */}
         <div className="flex items-center justify-between text-[10px] px-1 text-[#a1a1aa]">
           <span>Saldo Kas: <strong className="text-white font-mono">Rp {cash.toLocaleString('id-ID')}</strong></span>
-          <span>Porto: <strong className="text-[#f59e0b] font-mono">{existingHolding?.lots || 0} Lot</strong></span>
+          <span>Porto: <strong className="text-[#f59e0b] font-mono">{maxSellLots} {unitLabel}</strong></span>
         </div>
 
         {/* Price Input */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-[#71717a]">
-            <span>HARGA LIMIT (RP):</span>
+            <span>HARGA LIMIT ({currencySymbol}):</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setOrderPrice((p) => Math.max(50, p - 25))}
+                onClick={() => setOrderPrice((p) => Math.max(0.00000001, isUS ? p - 1 : isCrypto ? p * 0.98 : p - 25))}
                 className="px-1.5 py-0.2 bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] rounded text-[9px] cursor-pointer"
               >
-                -25
+                {isUS ? '-$1' : isCrypto ? '-2%' : '-25'}
               </button>
               <button
                 type="button"
-                onClick={() => setOrderPrice((p) => p + 25)}
+                onClick={() => setOrderPrice((p) => isUS ? p + 1 : isCrypto ? p * 1.02 : p + 25)}
                 className="px-1.5 py-0.2 bg-[#18181b] hover:bg-[#27272a] text-[#d4d4d8] rounded text-[9px] cursor-pointer"
               >
-                +25
+                {isUS ? '+$1' : isCrypto ? '+2%' : '+25'}
               </button>
             </div>
           </div>
           <input
             type="number"
-            min={1}
+            step="any"
+            min={isCrypto ? 0.00000001 : isUS ? 0.01 : 1}
             value={orderPrice}
             onChange={(e) => setOrderPrice(Number(e.target.value))}
             className="w-full bg-[#121216] border border-[#27272a] focus:border-[#f59e0b] px-2.5 py-1.5 rounded text-white font-mono font-bold text-xs outline-none"
@@ -2495,7 +2523,7 @@ export function QuickOrderWidget({
         {/* Lots Input & Quick Chips */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-[#71717a]">
-            <span>KUANTITAS (LOT):</span>
+            <span>KUANTITAS ({unitLabel.toUpperCase()}):</span>
             <div className="flex items-center gap-1">
               {[1, 5, 10, 50].map((chip) => (
                 <button
@@ -2518,7 +2546,8 @@ export function QuickOrderWidget({
           </div>
           <input
             type="number"
-            min={1}
+            step="any"
+            min={isCrypto ? 0.0001 : 1}
             value={orderLots}
             onChange={(e) => setOrderLots(Number(e.target.value))}
             className="w-full bg-[#121216] border border-[#27272a] focus:border-[#f59e0b] px-2.5 py-1.5 rounded text-white font-mono font-bold text-xs outline-none"
@@ -2543,7 +2572,7 @@ export function QuickOrderWidget({
                     key={a.label}
                     type="button"
                     onClick={() => {
-                      const calculated = Math.max(1, Math.floor((cash * a.pct) / (orderPrice * 100 * 1.0015)));
+                      const calculated = Math.max(1, Math.floor(maxBuyLots * a.pct));
                       setOrderLots(calculated);
                     }}
                     className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#18181b] hover:bg-[#27272a] text-[#22c55e] border border-[#27272a] transition-colors cursor-pointer"
@@ -2565,12 +2594,11 @@ export function QuickOrderWidget({
                     key={a.label}
                     type="button"
                     onClick={() => {
-                      const availableLots = existingHolding ? existingHolding.lots : 0;
-                      const calculated = Math.max(1, Math.floor(availableLots * a.pct));
+                      const calculated = Math.max(1, Math.floor(maxSellLots * a.pct));
                       setOrderLots(calculated);
                     }}
                     className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#18181b] hover:bg-[#27272a] text-[#ef4444] border border-[#27272a] transition-colors cursor-pointer"
-                    title={`Jual ${a.label} kepemilikan saham`}
+                    title={`Jual ${a.label} kepemilikan aset`}
                   >
                     {a.label}
                   </button>
@@ -2583,17 +2611,21 @@ export function QuickOrderWidget({
         {/* Order Calculation Summary */}
         <div className="p-2 bg-[#121216] border border-[#27272a] rounded text-[10px] space-y-1">
           <div className="flex justify-between text-[#71717a]">
-            <span>Nilai Saham:</span>
-            <span className="font-mono text-white">Rp {totalValue.toLocaleString('id-ID')}</span>
+            <span>Nilai Aset:</span>
+            <span className="font-mono text-white">
+              {totalValueForeign !== null
+                ? `$${totalValueForeign.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} (~Rp ${totalValueIDR.toLocaleString('id-ID')})`
+                : `Rp ${totalValueIDR.toLocaleString('id-ID')}`}
+            </span>
           </div>
           <div className="flex justify-between text-[#71717a]">
-            <span>Est. Fee ({orderType === 'BUY' ? '0.15%' : '0.25%'}):</span>
+            <span>Est. Fee ({orderType === 'BUY' ? (isCrypto ? '0.10%' : '0.15%') : '0.25%'}):</span>
             <span className="font-mono text-[#a1a1aa]">Rp {estimatedFee.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between text-white font-bold border-t border-[#27272a] pt-1">
             <span>Total Bersih:</span>
             <span className={`font-mono ${orderType === 'BUY' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-              Rp {netTotal.toLocaleString('id-ID')}
+              Rp {netTotalIDR.toLocaleString('id-ID')}
             </span>
           </div>
         </div>
@@ -2776,11 +2808,11 @@ export function PortfolioHoldingsWidget({
                   </div>
                   <div className="text-[9px] text-[#a1a1aa] mt-0.5 flex items-center gap-2">
                     <span>
-                      Avg: {isUS ? `$${h.avgPrice.toFixed(2)}` : isCrypto ? `$${h.avgPrice < 1 ? h.avgPrice.toFixed(4) : h.avgPrice.toFixed(2)}` : `Rp ${h.avgPrice.toLocaleString('id-ID')}`}
+                      Avg: {isUS ? `$${h.avgPrice.toFixed(2)}` : isCrypto ? `$${h.avgPrice < 0.0001 ? h.avgPrice.toFixed(8) : h.avgPrice < 0.01 ? h.avgPrice.toFixed(6) : h.avgPrice < 1 ? h.avgPrice.toFixed(4) : h.avgPrice.toFixed(2)}` : `Rp ${h.avgPrice.toLocaleString('id-ID')}`}
                     </span>
                     <span>•</span>
                     <span>
-                      Now: {isUS ? `$${(h.currentPrice || h.avgPrice).toFixed(2)}` : isCrypto ? `$${(h.currentPrice || h.avgPrice) < 1 ? (h.currentPrice || h.avgPrice).toFixed(4) : (h.currentPrice || h.avgPrice).toFixed(2)}` : `Rp ${(h.currentPrice || h.avgPrice).toLocaleString('id-ID')}`}
+                      Now: {isUS ? `$${(h.currentPrice || h.avgPrice).toFixed(2)}` : isCrypto ? `$${(h.currentPrice || h.avgPrice) < 0.0001 ? (h.currentPrice || h.avgPrice).toFixed(8) : (h.currentPrice || h.avgPrice) < 0.01 ? (h.currentPrice || h.avgPrice).toFixed(6) : (h.currentPrice || h.avgPrice) < 1 ? (h.currentPrice || h.avgPrice).toFixed(4) : (h.currentPrice || h.avgPrice).toFixed(2)}` : `Rp ${(h.currentPrice || h.avgPrice).toLocaleString('id-ID')}`}
                     </span>
                   </div>
                 </div>

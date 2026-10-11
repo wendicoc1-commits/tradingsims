@@ -87,7 +87,7 @@ const POPULAR_GLOBAL = new Set([
 ]);
 
 const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS
-  .filter((s) => s.countryCode !== 'ID' && !IDX_SET.has(s.ticker.toUpperCase()))
+  .filter((s) => s.countryCode !== 'ID')
   .map((s) => ({
     symbol: s.ticker.toUpperCase(),
     name: s.name,
@@ -100,6 +100,11 @@ const GLOBAL_MASTER: UnifiedAsset[] = MASTER_GLOBAL_STOCKS
     isPopular: POPULAR_GLOBAL.has(s.ticker.toUpperCase()),
   }));
 
+const GLOBAL_BY_SYMBOL = new Map<string, UnifiedAsset>();
+for (const a of GLOBAL_MASTER) {
+  GLOBAL_BY_SYMBOL.set(a.symbol.toUpperCase(), a);
+}
+
 // Master Map: Prioritaskan IDX dan Kripto agar tidak tertimpa saham global
 export const MASTER_ASSETS: UnifiedAsset[] = [...CRYPTO_MASTER, ...IDX_MASTER, ...GLOBAL_MASTER];
 
@@ -107,7 +112,10 @@ export const MASTER_ASSETS: UnifiedAsset[] = [...CRYPTO_MASTER, ...IDX_MASTER, .
 const ASSET_BY_SYMBOL = new Map<string, UnifiedAsset>();
 for (const a of MASTER_ASSETS) {
   const sym = a.symbol.toUpperCase();
-  // Jangan menimpa emiten IDX jika simbol sama
+  if (a.category === 'IDX') {
+    ASSET_BY_SYMBOL.set(`${sym}.JK`, a);
+  }
+  // Jangan menimpa emiten jika sudah terdaftar
   if (!ASSET_BY_SYMBOL.has(sym)) {
     ASSET_BY_SYMBOL.set(sym, a);
   }
@@ -129,8 +137,10 @@ const GLOBAL_SET = new Set(GLOBAL_MASTER.map((g) => g.symbol.toUpperCase()));
  */
 export function isCryptoSymbol(symbol: string): boolean {
   if (!symbol) return false;
-  const clean = symbol.trim().toUpperCase().replace(/USDT$/i, '').replace(/-USD$/i, '');
-  return CRYPTO_SET.has(clean) || symbol.toUpperCase().endsWith('USDT') || symbol.toUpperCase().endsWith('-USD');
+  const upper = symbol.trim().toUpperCase();
+  if (upper.endsWith('.JK')) return false;
+  const clean = upper.replace(/USDT$/i, '').replace(/-USD$/i, '');
+  return CRYPTO_SET.has(clean) || upper.endsWith('USDT') || upper.endsWith('-USD');
 }
 
 /**
@@ -138,9 +148,9 @@ export function isCryptoSymbol(symbol: string): boolean {
  */
 export function isUSSymbol(symbol: string): boolean {
   if (!symbol) return false;
-  const clean = symbol.trim().toUpperCase().replace('.JK', '');
-  if (symbol.toUpperCase().endsWith('.JK')) return false;
-  if (IDX_SET.has(clean)) return false; // Saham IDX TIDAK PERNAH merupakan saham US!
+  const upper = symbol.trim().toUpperCase();
+  if (upper.endsWith('.JK')) return false;
+  const clean = upper.replace('.JK', '');
   return GLOBAL_SET.has(clean);
 }
 
@@ -169,7 +179,7 @@ export function getAllGlobalSymbols(): string[] {
 export function getAssetBySymbol(symbol: string): UnifiedAsset | undefined {
   if (!symbol) return undefined;
   const upper = symbol.toUpperCase().trim();
-  // Jika secara eksplisit berakhiran .JK, prioritaskan emiten BEI (mencegah tabrakan seperti STRK/LINK)
+  // Jika secara eksplisit berakhiran .JK, prioritaskan emiten BEI (mencegah tabrakan seperti STRK/LINK/META)
   if (upper.endsWith('.JK')) {
     const clean = upper.replace('.JK', '');
     return IDX_BY_SYMBOL.get(clean) || ASSET_BY_SYMBOL.get(clean);
@@ -178,6 +188,10 @@ export function getAssetBySymbol(symbol: string): UnifiedAsset | undefined {
   if (upper.endsWith('USDT') || upper.endsWith('-USD')) {
     const clean = upper.replace(/USDT$/, '').replace(/-USD$/, '');
     return ASSET_BY_SYMBOL.get(`${clean}USDT`) || ASSET_BY_SYMBOL.get(clean);
+  }
+  // Prioritaskan saham global jika cocok langsung (misal: META, NVDA, AAPL)
+  if (GLOBAL_BY_SYMBOL.has(upper)) {
+    return GLOBAL_BY_SYMBOL.get(upper);
   }
   const clean = upper.replace('.JK', '');
   return ASSET_BY_SYMBOL.get(clean) || ASSET_BY_SYMBOL.get(clean.replace(/USDT$/i, ''));

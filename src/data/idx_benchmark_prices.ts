@@ -31,6 +31,7 @@ export const IDX_BENCHMARK_PRICES: Record<string, IDXStockBenchmark> = {
   GOTO: { ticker: 'GOTO', name: 'GoTo Gojek Tokopedia Tbk', sector: 'Technology', price: 96, currency: 'IDR', prevClose: 91, changePct: 5.49 },
   EMTK: { ticker: 'EMTK', name: 'Elang Mahkota Teknologi Tbk', sector: 'Technology', price: 410, currency: 'IDR', prevClose: 396, changePct: 3.54 },
   BUKA: { ticker: 'BUKA', name: 'Bukalapak.com Tbk', sector: 'Technology', price: 103, currency: 'IDR', prevClose: 104, changePct: -0.96 },
+  META: { ticker: 'META', name: 'Nusantara Infrastructure Tbk', sector: 'Infrastructures', price: 238, currency: 'IDR', prevClose: 238, changePct: 0.0 },
 
   // Energy & Coal
   ADRO: { ticker: 'ADRO', name: 'Adaro Energy Indonesia Tbk', sector: 'Energy', price: 3840, currency: 'IDR', prevClose: 3750, changePct: 2.40 },

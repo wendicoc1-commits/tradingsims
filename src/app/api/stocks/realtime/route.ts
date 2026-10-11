@@ -60,6 +60,7 @@ export function roundPriceAdaptive(val: number): number {
 }
 
 export function mapToYahooSymbol(ticker: string): string {
+  const isJK = ticker.trim().toUpperCase().endsWith('.JK');
   const t = ticker.trim().toUpperCase().replace('.JK', '');
   if (t.startsWith('^')) return t;
   if (t.endsWith('-USD')) return t;
@@ -67,10 +68,14 @@ export function mapToYahooSymbol(ticker: string): string {
     const base = t.replace(/USDT$/, '');
     return `${base}-USD`;
   }
+  if (isJK) {
+    return `${t}.JK`;
+  }
+  // Prioritize US stocks for mega-caps like META
+  if (US_STOCKS.has(t)) return t;
   if (CRYPTO_SYMBOLS.has(t)) {
     return `${t}-USD`;
   }
-  if (US_STOCKS.has(t)) return t;
   if (/^[A-Z]{4,5}$/.test(t)) {
     return `${t}.JK`;
   }
@@ -78,9 +83,10 @@ export function mapToYahooSymbol(ticker: string): string {
 }
 
 export async function fetchYahooQuote(symbol: string): Promise<LiveStockQuote | null> {
+  const isJK = symbol.trim().toUpperCase().endsWith('.JK');
   const clean = symbol.trim().toUpperCase().replace('.JK', '').replace('^', '');
   const cleanCryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
-  const isCrypto = CRYPTO_SYMBOLS.has(cleanCryptoKey) || symbol.toUpperCase().endsWith('USDT') || symbol.toUpperCase().endsWith('-USD');
+  const isCrypto = !isJK && (CRYPTO_SYMBOLS.has(cleanCryptoKey) || symbol.toUpperCase().endsWith('USDT') || symbol.toUpperCase().endsWith('-USD'));
   const primarySym = mapToYahooSymbol(symbol);
   
   // For crypto, try Binance server-side REST API first (very fast and accurate)
@@ -129,8 +135,9 @@ export async function fetchYahooQuote(symbol: string): Promise<LiveStockQuote | 
     }
   }
 
-  const altSym = primarySym.endsWith('.JK') ? clean : isCrypto ? primarySym : `${clean}.JK`;
-  const symbolsToTry = isCrypto ? [primarySym] : [primarySym, altSym];
+  const isUSConflict = isJK && US_STOCKS.has(clean);
+  const altSym = isJK ? `${clean}.JK` : primarySym.endsWith('.JK') ? clean : isCrypto ? primarySym : `${clean}.JK`;
+  const symbolsToTry = isCrypto || isUSConflict ? [primarySym] : [primarySym, altSym];
 
   for (const sym of symbolsToTry) {
     const endpoints = [
