@@ -671,24 +671,12 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
               </form>
             )}
 
-            {/* Footer Admin Link */}
+            {/* Footer Status */}
             <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
               <span className="flex items-center gap-1.5 text-emerald-400 font-mono text-[10px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                 Database Cloud Supabase Terhubung
               </span>
-              <div className="flex items-center gap-3">
-                <a
-                  href="/admin/deposits"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 rounded-lg bg-purple-950/70 border border-purple-500/50 text-purple-200 hover:text-white hover:bg-purple-900 font-semibold flex items-center gap-1.5 cursor-pointer transition text-xs shadow-md"
-                  title="Buka antrean approval deposit di Web Admin Panel Online"
-                >
-                  <Shield className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Buka Panel Admin Online (/admin/deposits) ↗</span>
-                </a>
-              </div>
             </div>
 
           </div>

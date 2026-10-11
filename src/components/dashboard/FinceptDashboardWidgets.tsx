@@ -152,11 +152,12 @@ export interface DashboardWidgetConfig {
 }
 
 export const INITIAL_WIDGETS: DashboardWidgetConfig[] = [
-  { id: 'w-chart', type: 'CHART', title: 'CANDLE • BBCA <EQUITY>', cols: 'col-span-2', symbol: 'BBCA', timeframe: '1D', isSynced: true },
-  { id: 'w-order', type: 'QUICK_ORDER', title: 'EXECUTION SLIP • BBCA', cols: 'col-span-1', symbol: 'BBCA', isSynced: true },
-  { id: 'w-portfolio', type: 'PORTFOLIO_HOLDINGS', title: 'PORTOFOLIO & SALDO SAYA', cols: 'col-span-1' },
-  { id: 'w-indices', type: 'GLOBAL_INDICES', title: 'GLOBAL INDICES & PASAR', cols: 'col-span-2' },
-  { id: 'w-news', type: 'NEWS', title: 'MARKET NEWS WIRE', cols: 'col-span-2' },
+  { id: 'w-chart', type: 'CHART', title: 'CANDLE • BBCA <EQUITY>', cols: 'col-span-2', height: 'h-[395px]', symbol: 'BBCA', timeframe: '1D', isSynced: true },
+  { id: 'w-indices', type: 'GLOBAL_INDICES', title: 'GLOBAL INDICES & PASAR', cols: 'col-span-1', height: 'h-[395px]' },
+  { id: 'w-pulse', type: 'MARKET_PULSE', title: 'MARKET PULSE & SENTIMENT', cols: 'col-span-1', height: 'h-[395px]' },
+  { id: 'w-order', type: 'QUICK_ORDER', title: 'EXECUTION SLIP • BBCA', cols: 'col-span-2', height: 'h-[280px]', symbol: 'BBCA', isSynced: true },
+  { id: 'w-commodities', type: 'COMMODITIES', title: 'GLOBAL COMMODITIES & MACRO', cols: 'col-span-1', height: 'h-[280px]' },
+  { id: 'w-portfolio', type: 'PORTFOLIO_HOLDINGS', title: 'PORTOFOLIO & SALDO SAYA', cols: 'col-span-1', height: 'h-[280px]' },
 ];
 
 export const AVAILABLE_WIDGET_CATALOG: { type: WidgetType; title: string; defaultCols: DashboardWidgetConfig['cols']; desc: string; defaultSymbol?: string }[] = [

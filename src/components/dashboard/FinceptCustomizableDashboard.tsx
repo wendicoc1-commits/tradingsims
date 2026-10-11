@@ -58,7 +58,7 @@ import {
 } from '@/components/dashboard/FinceptDashboardWidgets';
 import WidgetErrorBoundary from '@/components/dashboard/core/WidgetErrorBoundary';
 
-const STORAGE_KEY = 'fincept_dashboard_widgets_v10';
+const STORAGE_KEY = 'fincept_dashboard_widgets_v11';
 const CUSTOM_PRESETS_KEY = 'fincept_custom_presets_v1';
 
 const PRESET_LAYOUTS: { id: string; label: string; icon: string; widgets: DashboardWidgetConfig[] }[] = [
@@ -245,6 +245,18 @@ export default function FinceptCustomizableDashboard() {
   const [importJsonInput, setImportJsonInput] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const quickTickerInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Live UTC Clock (Fincept Terminal Header) ──
+  const [utcTime, setUtcTime] = useState<string>('00:00:00');
+  useEffect(() => {
+    const updateUtc = () => {
+      const d = new Date();
+      setUtcTime(d.toISOString().slice(11, 19));
+    };
+    updateUtc();
+    const iv = setInterval(updateUtc, 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Close more presets dropdown on click outside
   useEffect(() => {
@@ -946,55 +958,48 @@ export default function FinceptCustomizableDashboard() {
         </div>
       )}
 
-      {/* ── Feature Highlight Banner: Graphify Knowledge Graph & 1.400+ Public APIs ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 bg-gradient-to-r from-purple-950/60 via-zinc-900/90 to-cyan-950/60 border border-purple-500/40 rounded-lg text-xs shadow-lg">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
-          </span>
-          <span className="font-extrabold text-white tracking-wide text-xs">
-            NEW SYSTEM BLUEPRINT:
-          </span>
-          <span className="text-zinc-300 text-xs hidden md:inline">
-            Graphify Holographic Knowledge Graph &amp; 1.400+ Public API Hub telah terintegrasi!
-          </span>
+      {/* ── Terminal Sub-Tabs Bar (Matching Image 1) ── */}
+      <div className="flex items-center gap-1 border-b border-[#27272a] bg-[#0c0c0e] px-2 pt-1 -mt-1 select-none">
+        <div className="flex items-center gap-2 px-3 py-1 bg-[#18181b] border-t-2 border-[#f97316] border-x border-[#27272a] text-xs font-bold text-white rounded-t shadow-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+          <span>Dashboard</span>
+          <span className="text-zinc-500 hover:text-white cursor-pointer ml-1 text-[11px] font-bold">✕</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/architecture"
-            className="px-3 py-1 rounded-md bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/50 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_12px_rgba(168,85,247,0.25)]"
-          >
-            <Layers className="w-3.5 h-3.5 text-purple-300" />
-            <span>Buka Arsitektur Graphify</span>
-          </Link>
-          <Link
-            href="/api-hub"
-            className="px-3 py-1 rounded-md bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/50 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_12px_rgba(6,182,212,0.25)]"
-          >
-            <Globe className="w-3.5 h-3.5 text-cyan-300" />
-            <span>1.400+ Public APIs</span>
-          </Link>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsAddModalOpen(true)}
+          className="p-1 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded text-xs transition cursor-pointer"
+          title="Buka Tab / Workspace Baru"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {/* ── User-Friendly Workspace Controls Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#09090b] border border-[#27272a] rounded-sm text-xs">
-        {/* Left: Essential Layout Modes (3 Primary) + Dropdown Lainnya */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-[#71717a] uppercase font-bold mr-1 hidden sm:inline">
-            MODE:
+      {/* ── Fincept Terminal Workstation Controls Bar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#09090b] border border-[#27272a] rounded-sm text-xs font-mono">
+        {/* Left: Terminal Status, Clock & Presets */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="font-black text-[#f97316] tracking-wider text-xs">FINCEPT TERMINAL</span>
+          <span className="text-[#3f3f46]">|</span>
+          <span className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-extrabold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            LIVE
           </span>
+          <span className="text-[#3f3f46]">|</span>
+          <span className="text-[#a1a1aa] text-[10px] font-mono">{utcTime} UTC</span>
+          <span className="text-[#3f3f46]">|</span>
+          <span className="text-[#a1a1aa] text-[10px] font-bold">{widgets.length} WIDGETS</span>
+          <span className="text-[#3f3f46] hidden md:inline">|</span>
 
-          {/* 3 Primary Presets */}
+          {/* Primary Presets */}
           {PRESET_LAYOUTS.filter((p) => ['traderDesk', 'workstation', 'chartFocus'].includes(p.id)).map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => handleApplyPreset(p.id)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                 activePreset === p.id
-                  ? 'bg-[#18181b] text-[#f59e0b] border border-[#f59e0b]/50 shadow-sm'
+                  ? 'bg-[#18181b] text-[#f97316] border border-[#f97316]/50 shadow-sm'
                   : 'bg-transparent text-[#a1a1aa] hover:text-white hover:bg-[#121215] border border-transparent'
               }`}
             >
@@ -1141,7 +1146,7 @@ export default function FinceptCustomizableDashboard() {
             }}
             className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
               isFullscreen
-                ? 'bg-[#f59e0b] text-black border-[#f59e0b]'
+                ? 'bg-[#f97316] text-black border-[#f97316]'
                 : 'bg-[#18181b] hover:bg-[#27272a] text-[#a1a1aa] hover:text-white border-[#27272a]'
             }`}
             title="Layar Penuh / Zen Mode (Tekan F)"
@@ -1153,20 +1158,20 @@ export default function FinceptCustomizableDashboard() {
           <button
             type="button"
             onClick={() => setIsSaveModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 transition-colors shadow-xs cursor-pointer active:scale-95"
+            className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-[#18181b] hover:bg-[#27272a] text-[#f97316] border border-[#f97316]/40 transition-colors shadow-xs cursor-pointer active:scale-95"
             title="Simpan susunan widget saat ini sebagai preset pribadi"
           >
             <span>💾</span>
-            <span className="hidden sm:inline">Simpan</span>
+            <span className="hidden sm:inline">SAVE</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b] text-black hover:bg-[#fbbf24] transition-colors shadow-sm cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-black bg-[#f97316] text-black hover:bg-[#ea580c] transition-colors shadow-sm cursor-pointer active:scale-95"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>+ Widget</span>
+            <span>+ ADD</span>
           </button>
 
           <button
@@ -1175,8 +1180,8 @@ export default function FinceptCustomizableDashboard() {
             className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-[#18181b] border border-[#27272a] text-[#a1a1aa] hover:text-white transition-colors cursor-pointer"
             title="Reset ke susunan widget standar"
           >
-            <RotateCcw className="w-3 h-3 text-[#f59e0b]" />
-            <span className="hidden sm:inline">Reset</span>
+            <RotateCcw className="w-3 h-3 text-[#f97316]" />
+            <span className="hidden sm:inline">RESET</span>
           </button>
         </div>
       </div>

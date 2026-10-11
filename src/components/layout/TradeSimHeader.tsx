@@ -400,59 +400,7 @@ export default function TradeSimHeader() {
               <span className="hidden lg:inline">{autoTradingEnabled ? 'AI Pilot: ON' : 'AI Pilot: OFF'}</span>
             </button>
 
-            {/* Retro Theme & Workstation Aesthetic Switcher */}
-            <button
-              type="button"
-              onClick={() => {
-                tradeSimAudio.playClick();
-                toggleTheme();
-              }}
-              aria-label="Ganti Tema Bloomberg / UNIX OS"
-              className="tactile-btn px-2 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer border bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700/80"
-              title={`Tema Aktif: ${theme.toUpperCase()} (Klik untuk berganti ke Phosphor Amber, Acidulé Cyber, Obsidian, atau Light)`}
-            >
-              {theme === 'phosphore' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-[#ffa02e] shadow-[0_0_8px_#ffa02e]" />
-                  <span className="text-[#ffa02e] font-mono">PHOSPHOR</span>
-                </>
-              ) : theme === 'acidule' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-[#82ba88] shadow-[0_0_8px_#82ba88]" />
-                  <span className="text-[#82ba88] font-mono">ACIDULÉ</span>
-                </>
-              ) : theme === 'light' ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-zinc-700 font-mono">LIGHT</span>
-                </>
-              ) : (
-                <>
-                  <Monitor className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-zinc-300 font-mono">OBSIDIAN</span>
-                </>
-              )}
-            </button>
-
-            {/* CRT Phosphor Scanline Overlay Switcher */}
-            <button
-              type="button"
-              onClick={() => {
-                tradeSimAudio.playClick();
-                toggleCrtScanline();
-              }}
-              aria-label="Toggle CRT Scanline Simulation Overlay"
-              className={`tactile-btn px-2 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer border ${
-                crtScanline
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-                  : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-zinc-200'
-              }`}
-              title={crtScanline ? 'CRT Scanlines Aktif (Shader 1982). Klik untuk Matikan.' : 'Aktifkan Efek CRT Scanlines Retro 1982'}
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>CRT</span>
-              <span className={`w-1.5 h-1.5 rounded-full ${crtScanline ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
-            </button>
+            {/* Audio Toggle */}
 
             <button
               type="button"
@@ -534,168 +482,139 @@ export default function TradeSimHeader() {
         </div>
       </div>
 
-      {/* ── Navigation Tabs with Eddy Naboulet Tactile Numbered Keycaps ── */}
-      <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-3 bg-[#080b11]/95 text-xs h-9 border-b border-white/[0.08] overflow-x-auto no-scrollbar gap-1.5 font-mono">
+      {/* ── Navigation Tabs Matching Image 1 (Fincept Terminal) ── */}
+      <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-2 bg-[#080b11] text-xs h-8 border-b border-white/[0.08] overflow-x-auto no-scrollbar gap-0.5 font-mono">
         <Link
           href="/"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname === '/' ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
             pathname === '/'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-amber-400 font-bold border border-white/10">01</span>
-          <Terminal className="w-3.5 h-3.5 text-zinc-300" />
-          <span>TERMINAL</span>
+          DASHBOARD
         </Link>
         <Link
-          href="/ai"
+          href="/heatmap"
           onClick={() => tradeSimAudio.playClick()}
-          aria-current={pathname.startsWith('/ai') ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/ai')
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-[0_0_12px_rgba(245,158,11,0.25)]'
-              : 'text-zinc-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent'
+          aria-current={pathname.startsWith('/heatmap') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/heatmap')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-amber-400 font-bold border border-white/10">02</span>
-          <Bot className="w-3.5 h-3.5 text-amber-400" />
-          <span>AI QUANT FLOOR</span>
+          MARKETS
+        </Link>
+        <Link
+          href="/crypto"
+          onClick={() => tradeSimAudio.playClick()}
+          aria-current={pathname.startsWith('/crypto') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/crypto')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          CRYPTO
+        </Link>
+        <Link
+          href="/screener"
+          onClick={() => tradeSimAudio.playClick()}
+          aria-current={pathname.startsWith('/screener') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/screener')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          EQUITY
         </Link>
         <Link
           href="/portfolio"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname.startsWith('/portfolio') ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
             pathname.startsWith('/portfolio')
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-emerald-400 font-bold border border-white/10">03</span>
-          <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
-          <span>PORTOFOLIO &amp; ORDER</span>
-        </Link>
-        <Link
-          href="/crypto"
-          onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/crypto')
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-cyan-400 font-bold border border-white/10">04</span>
-          <Coins className="w-3.5 h-3.5 text-cyan-400" />
-          <span>CRYPTO SPOT</span>
-        </Link>
-        <Link
-          href="/heatmap"
-          onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/heatmap')
-              ? 'bg-white/10 text-white font-bold border border-white/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-blue-400 font-bold border border-white/10">05</span>
-          <LayoutGrid className="w-3.5 h-3.5 text-blue-400" />
-          <span>HEATMAP IHSG</span>
-        </Link>
-        <Link
-          href="/screener"
-          onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/screener')
-              ? 'bg-white/10 text-white font-bold border border-white/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-indigo-400 font-bold border border-white/10">06</span>
-          <Filter className="w-3.5 h-3.5 text-indigo-400" />
-          <span>SCREENER</span>
-        </Link>
-        <Link
-          href="/dividend"
-          onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/dividend')
-              ? 'bg-white/10 text-white font-bold border border-white/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
-          }`}
-        >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-yellow-400 font-bold border border-white/10">07</span>
-          <PieChart className="w-3.5 h-3.5 text-yellow-400" />
-          <span>DIVIDEN</span>
+          PORTFOLIO
         </Link>
         <Link
           href="/stream"
           onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+          aria-current={pathname.startsWith('/stream') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
             pathname.startsWith('/stream')
-              ? 'bg-white/10 text-white font-bold border border-white/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-rose-400 font-bold border border-white/10">08</span>
-          <Newspaper className="w-3.5 h-3.5 text-rose-400" />
-          <span>NEWS WIRE</span>
+          NEWS
         </Link>
         <Link
-          href="/macro"
+          href="/ai"
           onClick={() => tradeSimAudio.playClick()}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
-            pathname.startsWith('/macro')
-              ? 'bg-white/10 text-white font-bold border border-white/20'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+          aria-current={pathname.startsWith('/ai') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/ai')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-teal-400 font-bold border border-white/10">09</span>
-          <Globe className="w-3.5 h-3.5 text-teal-400" />
-          <span>MAKRO</span>
+          AI CHAT
         </Link>
         <Link
           href="/championship"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname.startsWith('/championship') ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
             pathname.startsWith('/championship')
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent'
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-amber-400 font-bold border border-white/10">10</span>
-          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-          <span>LIGA TRADING</span>
+          BACKTEST
+        </Link>
+        <Link
+          href="/macro"
+          onClick={() => tradeSimAudio.playClick()}
+          aria-current={pathname.startsWith('/macro') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/macro')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          ALGO
         </Link>
         <Link
           href="/architecture"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname.startsWith('/architecture') ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
             pathname.startsWith('/architecture')
-              ? 'bg-purple-600/30 text-purple-200 border border-purple-500/50 font-bold shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-              : 'text-purple-300 hover:text-white hover:bg-purple-950/40 border border-purple-500/20'
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-purple-300 font-bold border border-white/10">11</span>
-          <Layers className="w-3.5 h-3.5 text-purple-300" />
-          <span>GRAPHIFY ARCH</span>
+          NODES
         </Link>
         <Link
-          href="/admin/portfolios"
+          href="/dividend"
           onClick={() => tradeSimAudio.playClick()}
-          aria-current={pathname.startsWith('/admin') ? 'page' : undefined}
-          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ml-auto shrink-0 ${
-            pathname.startsWith('/admin')
-              ? 'bg-purple-900/40 text-purple-300 border border-purple-500/40 font-bold'
-              : 'text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 border border-transparent'
+          aria-current={pathname.startsWith('/dividend') ? 'page' : undefined}
+          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
+            pathname.startsWith('/dividend')
+              ? 'bg-[#f97316] text-black font-black shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <Shield className="w-3.5 h-3.5 text-purple-400" />
-          <span>ADMIN</span>
+          QUANTLIB
         </Link>
       </nav>
 

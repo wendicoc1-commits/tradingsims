@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react';
 import { useMarketStore } from '@/store';
-import Sidebar from '@/components/layout/Sidebar';
 import TradeSimHeader from '@/components/layout/TradeSimHeader';
 import StatusBar from '@/components/layout/StatusBar';
 import FinceptRightDock from '@/components/layout/FinceptRightDock';
@@ -28,10 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <SkipToContent />
       <GlobalAutonomousAgentRunner />
       <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        {/* Left Sidebar */}
-        <Sidebar />
-
-        {/* Main Column */}
+        {/* Main Column (Full-Width without Sidebar) */}
         <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
           {/* TradeSim Pro Header */}
           <header role="banner">
