@@ -61,7 +61,13 @@ export function roundPriceAdaptive(val: number): number {
 
 export function mapToYahooSymbol(ticker: string): string {
   const isJK = ticker.trim().toUpperCase().endsWith('.JK');
-  const t = ticker.trim().toUpperCase().replace('.JK', '');
+  let t = ticker.trim().toUpperCase().replace('.JK', '');
+
+  if (t === 'BRK.B' || t === 'BRK/B') return 'BRK-B';
+  if (t === 'BRK.A' || t === 'BRK/A') return 'BRK-A';
+  if (t === 'BF.B' || t === 'BF/B') return 'BF-B';
+  if (t === 'GOOGLE') return 'GOOGL';
+
   if (t.startsWith('^')) return t;
   if (t.endsWith('-USD')) return t;
   if (t.endsWith('USDT')) {
@@ -71,7 +77,10 @@ export function mapToYahooSymbol(ticker: string): string {
   if (isJK) {
     return `${t}.JK`;
   }
-  // Prioritize US stocks for mega-caps like META
+  // Foreign stocks with explicit exchange extensions (MC.PA, 7203.T, 005930.KS, etc.)
+  if (t.includes('.')) return t;
+
+  // Prioritize US stocks for mega-caps like META, NVDA, AAPL, GOOGL
   if (US_STOCKS.has(t)) return t;
   if (CRYPTO_SYMBOLS.has(t)) {
     return `${t}-USD`;
@@ -238,7 +247,40 @@ export async function GET(request: Request) {
         continue;
       }
 
+      const isExplicitJK = t.endsWith('.JK');
       const clean = t.replace('.JK', '').replace('^', '').toUpperCase();
+      const cleanCryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
+      const isCrypto = !isExplicitJK && (CRYPTO_SYMBOLS.has(cleanCryptoKey) || t.endsWith('USDT') || t.endsWith('-USD'));
+      const isUS = !isExplicitJK && !isCrypto && US_STOCKS.has(clean);
+
+      if (isCrypto || isUS) {
+        const bench = getVerifiedBenchmarkPrice(isCrypto ? `${cleanCryptoKey}USDT` : clean);
+        const isDecimal = bench.currency === 'USD' || bench.price < 500;
+        const roundVal = (v: number) => {
+          if (bench.price < 0.00001) return Number(v.toFixed(8));
+          if (bench.price < 0.01) return Number(v.toFixed(6));
+          if (bench.price < 1) return Number(v.toFixed(4));
+          if (isDecimal) return Math.round(v * 100) / 100;
+          return Math.round(v);
+        };
+        results[t] = {
+          ticker: t,
+          price: bench.price,
+          changePct: isCrypto ? 1.85 : 0.85,
+          changePoint: roundVal(bench.price * (isCrypto ? 0.0185 : 0.0085)),
+          high: roundVal(bench.price * 1.02),
+          low: roundVal(bench.price * 0.98),
+          volume: isCrypto ? 250000000 : 45000000,
+          prevClose: roundVal(bench.price * (1 - (isCrypto ? 0.0185 : 0.0085))),
+          currency: bench.currency,
+          marketState: 'REGULAR',
+          updatedAt: new Date().toISOString(),
+          live: false,
+        };
+        cache.data[t] = results[t];
+        continue;
+      }
+
       const globalMatch = INVESTING_COM_GLOBAL_DIVIDENDS.find(
         (g) => g.ticker.toUpperCase() === clean
       );

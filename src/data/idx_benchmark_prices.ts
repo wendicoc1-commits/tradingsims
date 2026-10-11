@@ -121,7 +121,16 @@ for (const s of MASTER_GLOBAL_STOCKS) {
  */
 export function getVerifiedBenchmarkPrice(ticker: string): { price: number; currency: string; name: string } {
   const clean = ticker.trim().toUpperCase().replace('.JK', '').replace('^', '');
-  
+  const isExplicitJK = ticker.trim().toUpperCase().endsWith('.JK');
+
+  // If explicitly .JK, prioritize Indonesian stock
+  if (isExplicitJK) {
+    if (IDX_BENCHMARK_PRICES[clean] || IDX_BENCHMARK_PRICES[`^${clean}`]) {
+      const b = IDX_BENCHMARK_PRICES[clean] || IDX_BENCHMARK_PRICES[`^${clean}`];
+      return { price: b.price, currency: b.currency, name: b.name };
+    }
+  }
+
   // 1. Check Crypto benchmarks (e.g. BTC, BTCUSDT, BTC-USD)
   const isExplicitCrypto = ticker.toUpperCase().endsWith('USDT') || ticker.toUpperCase().endsWith('-USD');
   const cryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
@@ -134,7 +143,13 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
     return { price: 1.0, currency: 'USD', name: `${cryptoKey}/USDT` };
   }
 
-  // 2. Check IDX benchmarks FIRST for Indonesian stocks
+  // 2. Prioritize Global / US Stocks (e.g. META, NVDA, AAPL, GOOGL, BRK.B)
+  if (!isExplicitJK && GLOBAL_STOCKS_MAP.has(clean)) {
+    const g = GLOBAL_STOCKS_MAP.get(clean)!;
+    return { price: g.price, currency: g.currency, name: g.name };
+  }
+
+  // 3. Check IDX benchmarks for Indonesian stocks
   if (IDX_BENCHMARK_PRICES[clean]) {
     const b = IDX_BENCHMARK_PRICES[clean];
     return { price: b.price, currency: b.currency, name: b.name };
@@ -142,12 +157,6 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
   if (IDX_BENCHMARK_PRICES[`^${clean}`]) {
     const b = IDX_BENCHMARK_PRICES[`^${clean}`];
     return { price: b.price, currency: b.currency, name: b.name };
-  }
-
-  // 3. Check Global / US Stocks benchmarks (Foreign only)
-  if (GLOBAL_STOCKS_MAP.has(clean)) {
-    const g = GLOBAL_STOCKS_MAP.get(clean)!;
-    return { price: g.price, currency: g.currency, name: g.name };
   }
 
   // 4. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters, only if clearly not crypto or foreign)

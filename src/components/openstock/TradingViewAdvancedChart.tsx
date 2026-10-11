@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
+import { mapToTradingViewSymbol } from '@/lib/universe/masterAssetUniverse';
 
 interface TradingViewAdvancedChartProps {
   symbol?: string;
@@ -15,23 +15,7 @@ export default function TradingViewAdvancedChart({
   height = 360,
 }: TradingViewAdvancedChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Normalize symbol for TradingView:
-  const getTvSymbol = (sym: string) => {
-    const s = sym.toUpperCase().trim().replace('.JK', '');
-    if (s.includes(':')) return s;
-    if (s === '^JKSE' || s === 'JKSE') return 'IDX:COMPOSITE';
-    if (isCryptoSymbol(s) || s.endsWith('USDT')) {
-      const clean = s.replace(/USDT$/i, '');
-      return `BINANCE:${clean}USDT`;
-    }
-    if (isUSSymbol(s)) {
-      return `NASDAQ:${s}`;
-    }
-    return `IDX:${s}`;
-  };
-
-  const tvSymbol = getTvSymbol(symbol);
+  const tvSymbol = mapToTradingViewSymbol(symbol);
 
   useEffect(() => {
     const container = containerRef.current;

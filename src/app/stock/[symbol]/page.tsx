@@ -198,13 +198,35 @@ function CandlestickChart({
         },
       });
 
-      const mappedCandles = candles.map((c) => ({
-        time: (typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000)) as any,
-        open: Number(c.open),
-        high: Number(c.high),
-        low: Number(c.low),
-        close: Number(c.close),
-      }));
+      const seenTimes = new Set<number>();
+      const mappedCandles: { time: any; open: number; high: number; low: number; close: number }[] = [];
+      const candleVolumes: { time: any; value: number; color: string }[] = [];
+
+      candles.forEach((c) => {
+        let t = typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000);
+        if (t > 1e11) t = Math.floor(t / 1000);
+        if (!t || isNaN(t) || seenTimes.has(t)) return;
+        seenTimes.add(t);
+
+        const open = Number(c.open || 0);
+        const high = Number(c.high || 0);
+        const low = Number(c.low || 0);
+        const close = Number(c.close || 0);
+        mappedCandles.push({ time: t, open, high, low, close });
+
+        let vol = Number(c.volume || 0);
+        if (isNaN(vol) || vol < 0) vol = 1000;
+        if (vol > 9e11) vol = Number((vol / 1e6).toFixed(0));
+        if (vol > 9e12) vol = 9e12;
+        candleVolumes.push({
+          time: t,
+          value: vol,
+          color: close >= open ? 'rgba(0, 200, 83, 0.3)' : 'rgba(255, 23, 68, 0.3)',
+        });
+      });
+
+      mappedCandles.sort((a, b) => a.time - b.time);
+      candleVolumes.sort((a, b) => a.time - b.time);
 
       const refPrice = mappedCandles[0]?.close || basePrice || 1;
       const chartPrec = refPrice < 0.00001 ? 8 : refPrice < 0.01 ? 6 : refPrice < 1 ? 4 : refPrice < 100 ? 2 : 0;
@@ -242,18 +264,7 @@ function CandlestickChart({
         },
       });
 
-      volumeSeries.setData(
-        candles.map((c) => {
-          let vol = Number(c.volume || 0);
-          if (vol > 9e12) vol = Number((vol / 1e6).toFixed(0));
-          if (vol > 9e13) vol = 9e13;
-          return {
-            time: (typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000)) as any,
-            value: vol,
-            color: Number(c.close) >= Number(c.open) ? 'rgba(0, 200, 83, 0.3)' : 'rgba(255, 23, 68, 0.3)',
-          };
-        })
-      );
+      volumeSeries.setData(candleVolumes);
 
       // --- TECHNICAL INDICATORS OVERLAY ---
       if (indicators?.ema20) {
@@ -469,24 +480,29 @@ function CandlestickChart({
 /* ─── Simulated Orderbook ─── */
 function OrderbookPanel({ quote, onSelectPrice }: { quote: StockQuote; onSelectPrice?: (price: number) => void }) {
   const basePrice = quote.price || 1000;
+  const isUSD = quote.currency === 'USD' || quote.currency === 'USDT';
+  const prec = basePrice < 0.00001 ? 8 : basePrice < 0.01 ? 6 : basePrice < 1 ? 4 : isUSD ? 2 : 0;
+  const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
+
+  const tickSize = isUSD
+    ? (basePrice < 0.00001 ? 0.00000001 : basePrice < 0.01 ? 0.000001 : basePrice < 1 ? 0.0001 : basePrice < 100 ? 0.01 : 0.05)
+    : (basePrice > 5000 ? 25 : basePrice > 2000 ? 10 : basePrice > 500 ? 5 : basePrice > 200 ? 2 : 1);
 
   const bidLevels = useMemo(() => {
-    const tickSize = basePrice > 5000 ? 25 : basePrice > 2000 ? 10 : basePrice > 500 ? 5 : basePrice > 200 ? 2 : 1;
     return Array.from({ length: 10 }, (_, i) => {
-      const price = basePrice - (i + 1) * tickSize;
+      const price = roundP(basePrice - (i + 1) * tickSize);
       const lots = Math.floor(Math.sin(i + 1) * 2000) + 2500;
       return { price: Math.max(price, tickSize), lots };
     });
-  }, [basePrice]);
+  }, [basePrice, tickSize]);
 
   const askLevels = useMemo(() => {
-    const tickSize = basePrice > 5000 ? 25 : basePrice > 2000 ? 10 : basePrice > 500 ? 5 : basePrice > 200 ? 2 : 1;
     return Array.from({ length: 10 }, (_, i) => {
-      const price = basePrice + (i + 1) * tickSize;
+      const price = roundP(basePrice + (i + 1) * tickSize);
       const lots = Math.floor(Math.cos(i + 1) * 2000) + 2500;
       return { price, lots };
     });
-  }, [basePrice]);
+  }, [basePrice, tickSize]);
 
   const maxLots = Math.max(...bidLevels.map((b) => b.lots), ...askLevels.map((a) => a.lots));
 
@@ -515,7 +531,7 @@ function OrderbookPanel({ quote, onSelectPrice }: { quote: StockQuote; onSelectP
             <div
               key={`bid-${i}`}
               onClick={() => onSelectPrice?.(level.price)}
-              title={`Pilih harga Rp ${level.price.toLocaleString('id-ID')}`}
+              title={`Pilih harga ${quote.currency === 'IDR' ? 'Rp ' : '$'}${formatPrice(level.price, quote.currency)}`}
               className="relative grid grid-cols-2 px-3 py-1 font-mono-num text-xs cursor-pointer hover:bg-emerald-500/10 transition-colors"
             >
               <div
@@ -546,7 +562,7 @@ function OrderbookPanel({ quote, onSelectPrice }: { quote: StockQuote; onSelectP
             <div
               key={`ask-${i}`}
               onClick={() => onSelectPrice?.(level.price)}
-              title={`Pilih harga Rp ${level.price.toLocaleString('id-ID')}`}
+              title={`Pilih harga ${quote.currency === 'IDR' ? 'Rp ' : '$'}${formatPrice(level.price, quote.currency)}`}
               className="relative grid grid-cols-2 px-3 py-1 font-mono-num text-xs cursor-pointer hover:bg-red-500/10 transition-colors"
             >
               <div
@@ -573,13 +589,19 @@ function OrderbookPanel({ quote, onSelectPrice }: { quote: StockQuote; onSelectP
 
 /* ─── Running Trade Panel ─── */
 function RunningTradePanel({ quote }: { quote: StockQuote }) {
-  const trades = useMemo(() => {
-    const basePrice = quote.price || 1000;
-    const tickSize = basePrice > 5000 ? 25 : basePrice > 2000 ? 10 : basePrice > 500 ? 5 : 2;
+  const basePrice = quote.price || 1000;
+  const isUSD = quote.currency === 'USD' || quote.currency === 'USDT';
+  const prec = basePrice < 0.00001 ? 8 : basePrice < 0.01 ? 6 : basePrice < 1 ? 4 : isUSD ? 2 : 0;
+  const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
 
+  const tickSize = isUSD
+    ? (basePrice < 0.00001 ? 0.00000001 : basePrice < 0.01 ? 0.000001 : basePrice < 1 ? 0.0001 : basePrice < 100 ? 0.01 : 0.05)
+    : (basePrice > 5000 ? 25 : basePrice > 2000 ? 10 : basePrice > 500 ? 5 : 2);
+
+  const trades = useMemo(() => {
     return Array.from({ length: 15 }, (_, i) => {
       const offset = ((i % 5) - 2) * tickSize;
-      const price = basePrice + offset;
+      const price = roundP(basePrice + offset);
       const lots = (i * 37 + 12) % 400 + 10;
       const isBuy = i % 2 === 0;
       const m = (50 - i * 3) % 60;
@@ -591,7 +613,7 @@ function RunningTradePanel({ quote }: { quote: StockQuote }) {
         isBuy,
       };
     });
-  }, [quote.price]);
+  }, [basePrice, tickSize]);
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>

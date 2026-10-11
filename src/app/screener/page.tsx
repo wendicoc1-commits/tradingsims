@@ -17,10 +17,14 @@ import type { MarketBoardItem } from '@/types';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import { ALL_ID_HEATMAP_UNIVERSE, HeatmapStockData } from '@/data/heatmap_stocks_universe';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
+import { MASTER_GLOBAL_STOCKS, MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
 import { exportToCsv } from '@/lib/exportCsv';
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'IDR') return price.toLocaleString('id-ID');
+  if (price < 0.00001) return price.toFixed(8);
+  if (price < 0.01) return price.toFixed(6);
+  if (price < 1) return price.toFixed(4);
   return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -46,7 +50,8 @@ const SCREENER_PRESETS = [
   { label: 'Infrastruktur & Telco', category: 'INFRA' },
   { label: 'Papan Utama BEI', category: 'UTAMA' },
   { label: 'Seluruh Saham BEI', category: 'ALL' },
-  { label: '🌍 Saham Global Utama', category: 'GLOBAL' },
+  { label: '🌍 Saham Global & US (170+)', category: 'GLOBAL' },
+  { label: '⚡ Kripto (Binance Top 120)', category: 'CRYPTO' },
 ];
 
 type SortField = 'symbol' | 'price' | 'changePercentage';
@@ -111,7 +116,7 @@ export default function ScreenerPage() {
     setLoading(true);
     try {
       if (cat === 'GLOBAL') {
-        let gList = INVESTING_COM_GLOBAL_DIVIDENDS;
+        let gList = MASTER_GLOBAL_STOCKS;
         if (q.trim()) {
           const kw = q.toLowerCase();
           gList = gList.filter(
@@ -126,22 +131,65 @@ export default function ScreenerPage() {
         const mapped: MarketBoardItem[] = gList.map((s) => ({
           symbol: s.ticker,
           displaySymbol: s.ticker,
-          name: `${s.flag} ${s.name}`,
-          market: s.exchange,
+          name: `${s.flag || '🌐'} ${s.name}`,
+          market: s.exchange || 'US',
           country: s.country,
           currency: s.currency,
           sector: s.sector,
           board: s.country,
-          tier: s.category,
+          tier: s.marketCap || 'Large Cap',
           isLQ45: false,
           hasLiveQuote: true,
           price: s.price,
-          changePoint: s.dps,
-          changePercentage: s.yieldPct,
-          high: s.price * 1.05,
-          low: s.price * 0.95,
+          changePoint: Number((s.price * (s.changePct / 100)).toFixed(2)),
+          changePercentage: s.changePct,
+          high: Number((s.price * 1.02).toFixed(2)),
+          low: Number((s.price * 0.98).toFixed(2)),
           sparkline: [s.price * 0.97, s.price * 0.99, s.price, s.price * 1.01, s.price],
         }));
+
+        setItems(mapped);
+        setTotal(mapped.length);
+        setLoading(false);
+        return;
+      }
+
+      if (cat === 'CRYPTO') {
+        let cList = MASTER_GLOBAL_CRYPTO;
+        if (q.trim()) {
+          const kw = q.toLowerCase();
+          cList = cList.filter(
+            (c) =>
+              c.symbol.toLowerCase().includes(kw) ||
+              c.name.toLowerCase().includes(kw) ||
+              c.category.toLowerCase().includes(kw)
+          );
+        }
+
+        const mapped: MarketBoardItem[] = cList.map((c) => {
+          const base = c.symbol.replace(/USDT$/, '');
+          const prec = c.price < 0.00001 ? 8 : c.price < 0.01 ? 6 : c.price < 1 ? 4 : 2;
+          const chgPt = Number((c.price * (c.change24h / 100)).toFixed(prec));
+          return {
+            symbol: c.symbol,
+            displaySymbol: base,
+            name: `⚡ ${c.name} (${base})`,
+            market: 'Binance Spot',
+            country: 'Global',
+            currency: 'USD',
+            sector: `Crypto ${c.category}`,
+            board: `Rank #${c.rank}`,
+            tier: c.category,
+            isLQ45: false,
+            hasLiveQuote: true,
+            price: c.price,
+            changePoint: chgPt,
+            changePercentage: c.change24h,
+            high: c.high24h,
+            low: c.low24h,
+            sparkline: [c.low24h, (c.high24h + c.low24h) / 2, c.price],
+          };
+        });
 
         setItems(mapped);
         setTotal(mapped.length);

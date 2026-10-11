@@ -54,15 +54,16 @@ export default function BandarmologyFlowEngine({ quote }: BandarmologyProps) {
     const top5BuyerPct = isBull ? 82.4 : 61.2;
     const top5SellerPct = isBull ? 58.7 : 84.1;
 
-    // Bandar VWAP (Estimasi modal rata-rata bandar)
-    const bandarAvgBuy = isBull
-      ? Math.round(curPrice * 0.988)
-      : Math.round(curPrice * 1.018);
-    const bandarAvgSell = isBull
-      ? Math.round(curPrice * 1.015)
-      : Math.round(curPrice * 0.985);
+    const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : curPrice < 100 ? 2 : 0;
+    const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
 
-    const bandarFloatingPct = Number((((curPrice - bandarAvgBuy) / bandarAvgBuy) * 100).toFixed(2));
+    // Bandar VWAP (Estimasi modal rata-rata bandar)
+    const bandarAvgBuy = roundP(curPrice * (isBull ? 0.988 : 1.018));
+    const bandarAvgSell = roundP(curPrice * (isBull ? 1.015 : 0.985));
+
+    const bandarFloatingPct = bandarAvgBuy > 0
+      ? Number((((curPrice - bandarAvgBuy) / bandarAvgBuy) * 100).toFixed(2))
+      : 0;
 
     // Status Bandarmology
     let status: 'BIG_ACC' | 'ACC' | 'NEUTRAL' | 'DIST' | 'BIG_DIST' = 'NEUTRAL';
@@ -92,21 +93,22 @@ export default function BandarmologyFlowEngine({ quote }: BandarmologyProps) {
       score = 32;
     }
 
+    const stepOffset = curPrice < 1 ? curPrice * 0.005 : curPrice < 100 ? 0.25 : 10;
     // Top Brokers Data
     const topBuyers = [
-      { code: 'BK', name: 'J.P. Morgan Sekuritas', type: 'ASING', lots: 142500, avg: bandarAvgBuy - 10, totalIDR: 142500 * 100 * (bandarAvgBuy - 10) },
+      { code: 'BK', name: 'J.P. Morgan Sekuritas', type: 'ASING', lots: 142500, avg: roundP(bandarAvgBuy - stepOffset), totalIDR: 142500 * 100 * roundP(bandarAvgBuy - stepOffset) },
       { code: 'CS', name: 'Credit Suisse / Mandiri', type: 'ASING', lots: 118200, avg: bandarAvgBuy, totalIDR: 118200 * 100 * bandarAvgBuy },
-      { code: 'RX', name: 'Macquarie Sekuritas', type: 'ASING', lots: 94800, avg: bandarAvgBuy + 15, totalIDR: 94800 * 100 * (bandarAvgBuy + 15) },
-      { code: 'CC', name: 'Mandiri Sekuritas', type: 'DOMESTIK', lots: 76100, avg: bandarAvgBuy - 5, totalIDR: 76100 * 100 * (bandarAvgBuy - 5) },
-      { code: 'ZP', name: 'Maybank Sekuritas', type: 'DOMESTIK', lots: 54300, avg: bandarAvgBuy + 5, totalIDR: 54300 * 100 * (bandarAvgBuy + 5) },
+      { code: 'RX', name: 'Macquarie Sekuritas', type: 'ASING', lots: 94800, avg: roundP(bandarAvgBuy + stepOffset * 1.5), totalIDR: 94800 * 100 * roundP(bandarAvgBuy + stepOffset * 1.5) },
+      { code: 'CC', name: 'Mandiri Sekuritas', type: 'DOMESTIK', lots: 76100, avg: roundP(bandarAvgBuy - stepOffset * 0.5), totalIDR: 76100 * 100 * roundP(bandarAvgBuy - stepOffset * 0.5) },
+      { code: 'ZP', name: 'Maybank Sekuritas', type: 'DOMESTIK', lots: 54300, avg: roundP(bandarAvgBuy + stepOffset * 0.5), totalIDR: 54300 * 100 * roundP(bandarAvgBuy + stepOffset * 0.5) },
     ];
 
     const topSellers = [
-      { code: 'YP', name: 'Mirae Asset Sekuritas (Ritel)', type: 'RITEL', lots: 135400, avg: bandarAvgSell + 10, totalIDR: 135400 * 100 * (bandarAvgSell + 10) },
-      { code: 'XC', name: 'Ajaib Sekuritas (Ritel)', type: 'RITEL', lots: 104200, avg: bandarAvgSell - 15, totalIDR: 104200 * 100 * (bandarAvgSell - 15) },
+      { code: 'YP', name: 'Mirae Asset Sekuritas (Ritel)', type: 'RITEL', lots: 135400, avg: roundP(bandarAvgSell + stepOffset), totalIDR: 135400 * 100 * roundP(bandarAvgSell + stepOffset) },
+      { code: 'XC', name: 'Ajaib Sekuritas (Ritel)', type: 'RITEL', lots: 104200, avg: roundP(bandarAvgSell - stepOffset * 1.5), totalIDR: 104200 * 100 * roundP(bandarAvgSell - stepOffset * 1.5) },
       { code: 'PD', name: 'Indo Premier Sekuritas', type: 'RITEL', lots: 87600, avg: bandarAvgSell, totalIDR: 87600 * 100 * bandarAvgSell },
-      { code: 'NI', name: 'BNI Sekuritas', type: 'DOMESTIK', lots: 61200, avg: bandarAvgSell + 20, totalIDR: 61200 * 100 * (bandarAvgSell + 20) },
-      { code: 'XL', name: 'Stockbit Sekuritas (Ritel)', type: 'RITEL', lots: 48900, avg: bandarAvgSell - 5, totalIDR: 48900 * 100 * (bandarAvgSell - 5) },
+      { code: 'NI', name: 'BNI Sekuritas', type: 'DOMESTIK', lots: 61200, avg: roundP(bandarAvgSell + stepOffset * 2), totalIDR: 61200 * 100 * roundP(bandarAvgSell + stepOffset * 2) },
+      { code: 'XL', name: 'Stockbit Sekuritas (Ritel)', type: 'RITEL', lots: 48900, avg: roundP(bandarAvgSell - stepOffset * 0.5), totalIDR: 48900 * 100 * roundP(bandarAvgSell - stepOffset * 0.5) },
     ];
 
     return {

@@ -16,17 +16,20 @@ export default function FairValueCalculator({ quote }: FairValueCalculatorProps)
   const [discountRate, setDiscountRate] = useState<number>(10); // 10% WACC
   const [terminalGrowth, setTerminalGrowth] = useState<number>(3.5); // 3.5% terminal growth
 
+  const prec = currentPrice < 0.00001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : currentPrice < 100 ? 2 : 0;
+  const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
+
   // Estimasi Fundamental Berdasarkan Saham
   const pe = quote.peRatio || 12.5;
-  const eps = Math.round(currentPrice / pe);
+  const eps = roundP(currentPrice / pe);
   // Estimasi Book Value Per Share (BVPS)
   const estimatedPbv = currentPrice > 8000 ? 4.2 : currentPrice > 3000 ? 2.5 : 1.2;
-  const bvps = Math.round(currentPrice / estimatedPbv);
+  const bvps = roundP(currentPrice / estimatedPbv);
 
   // 1. Benjamin Graham Formula: sqrt(22.5 * EPS * BVPS)
   const grahamValue = useMemo(() => {
     if (eps <= 0 || bvps <= 0) return currentPrice;
-    return Math.round(Math.sqrt(22.5 * eps * bvps));
+    return roundP(Math.sqrt(22.5 * eps * bvps));
   }, [eps, bvps, currentPrice]);
 
   // 2. DCF Valuation Calculation (5 Years + Terminal Value)
@@ -49,13 +52,18 @@ export default function FairValueCalculator({ quote }: FairValueCalculatorProps)
     const pvTerminal = terminalValue / Math.pow(1 + r, 5);
 
     const totalIntrinsic = pvSum + pvTerminal;
-    return Math.round(Math.max(50, totalIntrinsic));
-  }, [eps, growthRate, discountRate, terminalGrowth]);
+    const minFloor = currentPrice * 0.2;
+    return roundP(Math.max(minFloor, totalIntrinsic));
+  }, [eps, growthRate, discountRate, terminalGrowth, currentPrice]);
 
   // 3. Blended Fair Value & Margin of Safety
-  const blendedFairValue = Math.round((grahamValue * 0.4) + (dcfValue * 0.6));
-  const marginOfSafety = Number((((blendedFairValue - currentPrice) / blendedFairValue) * 100).toFixed(1));
-  const upsidePercent = Number((((blendedFairValue - currentPrice) / currentPrice) * 100).toFixed(1));
+  const blendedFairValue = roundP((grahamValue * 0.4) + (dcfValue * 0.6));
+  const marginOfSafety = blendedFairValue > 0
+    ? Number((((blendedFairValue - currentPrice) / blendedFairValue) * 100).toFixed(1))
+    : 0;
+  const upsidePercent = currentPrice > 0
+    ? Number((((blendedFairValue - currentPrice) / currentPrice) * 100).toFixed(1))
+    : 0;
 
   const isUndervalued = marginOfSafety > 10;
   const isFair = marginOfSafety >= -10 && marginOfSafety <= 10;

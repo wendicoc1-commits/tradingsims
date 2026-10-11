@@ -48,9 +48,9 @@ export default function ForeignFlowMatrix({ quote }: ForeignFlowMatrixProps) {
       const dailyNet = baseDailyFlowMilyar + wave;
       cumulative += dailyNet;
 
-      // Price correlated with foreign flow
-      const priceOffset = (cumulative / 100) * (currentPrice * 0.04);
-      const simulatedPrice = Math.round(currentPrice * 0.94 + priceOffset);
+      const prec = currentPrice < 0.00001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : currentPrice < 100 ? 2 : 0;
+      const roundP = (v: number) => prec > 0 ? Number(v.toFixed(prec)) : Math.round(v);
+      const simulatedPrice = roundP(currentPrice * 0.94 + priceOffset);
 
       history.push({
         date: `${d.getDate()}/${d.getMonth() + 1}`,

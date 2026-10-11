@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { mapToTradingViewSymbol } from '@/lib/universe/masterAssetUniverse';
 
 interface TradingViewTechnicalAnalysisProps {
   symbol?: string;
@@ -14,20 +15,7 @@ export default function TradingViewTechnicalAnalysis({
   height = 420,
 }: TradingViewTechnicalAnalysisProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const getTvSymbol = (sym: string) => {
-    const s = sym.toUpperCase().trim();
-    if (s.includes(':')) return s;
-    if (['BBCA', 'BBRI', 'BMRI', 'BBNI', 'TLKM', 'ASII', 'GOTO', 'ADRO', 'ICBP', 'UNVR'].includes(s)) {
-      return `IDX:${s}`;
-    }
-    if (['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META'].includes(s)) {
-      return `NASDAQ:${s}`;
-    }
-    return s;
-  };
-
-  const tvSymbol = getTvSymbol(symbol);
+  const tvSymbol = mapToTradingViewSymbol(symbol);
 
   useEffect(() => {
     const container = containerRef.current;

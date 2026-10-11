@@ -261,3 +261,63 @@ export const UNIVERSE_STATS = {
   cryptoCount: CRYPTO_MASTER.length,
   globalCount: GLOBAL_MASTER.length,
 };
+
+/**
+ * Universal Symbol Mapper for TradingView Widgets (Advanced Chart & Technical Analysis)
+ * Converts any IDX, Crypto, US, or International ticker to its exact TradingView format.
+ */
+export function mapToTradingViewSymbol(symbol: string): string {
+  if (!symbol) return 'IDX:BBCA';
+  let s = symbol.trim().toUpperCase().replace('.JK', '');
+  if (s === 'GOOGLE') s = 'GOOGL';
+  if (s.includes(':')) return s;
+
+  // Indices
+  if (s === '^JKSE' || s === 'JKSE' || s === 'IHSG') return 'IDX:COMPOSITE';
+  if (s === '^GSPC' || s === 'GSPC' || s === 'SPX') return 'SP:SPX';
+  if (s === '^NDX' || s === 'NDX') return 'NASDAQ:NDX';
+  if (s === '^DJI' || s === 'DJI') return 'DJ:DJI';
+
+  // Crypto spot pairs (Binance)
+  if (isCryptoSymbol(s) || s.endsWith('USDT') || s.endsWith('-USD')) {
+    const clean = s.replace(/USDT$/i, '').replace(/-USD$/i, '');
+    return `BINANCE:${clean}USDT`;
+  }
+
+  // Exact ticker overrides for international dual-class & foreign markets
+  if (s === 'BRK.B' || s === 'BRK/B' || s === 'BRK-B') return 'NYSE:BRK.B';
+  if (s === 'BRK.A' || s === 'BRK/A' || s === 'BRK-A') return 'NYSE:BRK.A';
+  if (s === 'BF.B' || s === 'BF/B' || s === 'BF-B') return 'NYSE:BF.B';
+  if (s === 'MC.PA') return 'EURONEXT:MC';
+  if (s === 'NESN.SW') return 'SIX:NESN';
+  if (s === '7203.T') return 'TSE:7203';
+  if (s === '6758.T') return 'TSE:6758';
+  if (s === '7974.T') return 'TSE:7974';
+  if (s === '9984.T') return 'TSE:9984';
+  if (s === '005930.KS') return 'KRX:005930';
+  if (s === '000660.KS') return 'KRX:000660';
+  if (s === '0700.HK') return 'HKEX:700';
+  if (s === '2222.SR') return 'TADAWUL:2222';
+
+  // Match against global stocks master catalog
+  const globalMatch = MASTER_GLOBAL_STOCKS.find((g) => g.ticker.toUpperCase() === s);
+  if (globalMatch) {
+    const ex = (globalMatch.exchange || 'NASDAQ').toUpperCase();
+    if (ex.includes('NYSE')) return `NYSE:${s}`;
+    if (ex.includes('NASDAQ')) return `NASDAQ:${s}`;
+    if (ex.includes('EURONEXT')) return `EURONEXT:${s}`;
+    if (ex.includes('TSE')) return `TSE:${s.replace('.T', '')}`;
+    if (ex.includes('HKEX')) return `HKEX:${s.replace('.HK', '').replace(/^0+/, '')}`;
+    if (ex.includes('KRX')) return `KRX:${s.replace('.KS', '')}`;
+    if (ex.includes('TADAWUL')) return `TADAWUL:${s.replace('.SR', '')}`;
+    return `${ex}:${s}`;
+  }
+
+  // Foreign / US fallback
+  if (isUSSymbol(s)) {
+    return `NASDAQ:${s}`;
+  }
+
+  // Indonesian IDX Stocks
+  return `IDX:${s}`;
+}

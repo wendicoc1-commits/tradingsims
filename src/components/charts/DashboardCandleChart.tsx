@@ -168,9 +168,6 @@ function generateFallbackCandles(
     const low = Math.max(minFloor, minOC * (1 - Math.random() * 0.01));
     const volume = Math.floor(Math.random() * 7500000 + 1500000);
 
-    const roundFn = (val: number) =>
-      isFractional ? Math.round(val * 100) / 100 : Math.round(val);
-
     candles.push({
       time: dateStr,
       open: roundFn(open),
@@ -184,7 +181,7 @@ function generateFallbackCandles(
   // Anchor final candle's close exactly to real market price
   if (candles.length > 0) {
     const last = candles[candles.length - 1];
-    last.close = isFractional ? Math.round(basePrice * 100) / 100 : Math.round(basePrice);
+    last.close = roundFn(basePrice);
     if (last.high < last.close) last.high = last.close;
     if (last.low > last.close) last.low = last.close;
   }
