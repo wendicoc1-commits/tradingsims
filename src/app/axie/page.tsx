@@ -41,6 +41,7 @@ import {
   BodyPartType,
   CLASS_BINARY_MAP,
   BreedingResult,
+  BASE_CLASS_STATS,
 } from '@/lib/axie/geneticEngine';
 
 interface AxiePart {
@@ -124,7 +125,10 @@ const CARDS_POOL: BattleCard[] = [
 ];
 
 export default function AxiePage() {
-  const [activeTab, setActiveTab] = useState<'marketplace' | 'arena' | 'breeding'>('marketplace');
+  const [activeTab, setActiveTab] = useState<'marketplace' | 'arena' | 'breeding' | 'generator'>('marketplace');
+  const [genClass, setGenClass] = useState<CreatureClass>('Beast');
+  const [genName, setGenName] = useState<string>('Crimson Solar Alpha Beast');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [sireAxie, setSireAxie] = useState<AxieItem | null>(null);
   const [matronAxie, setMatronAxie] = useState<AxieItem | null>(null);
   const [slpBalance, setSlpBalance] = useState<number>(50000);
@@ -785,6 +789,38 @@ export default function AxiePage() {
     showTempAnnouncement(`🐣 Menetas Sukses!`, `${newAdultAxie.name} sekarang siap bertarung & kawin!`);
   };
 
+  const randomizeGenName = () => {
+    const prefixes = ['Solar', 'Abyssal', 'Celestial', 'Cyber', 'Emerald', 'Void', 'Crimson', 'Prismatic', 'Shadow', 'Amethyst'];
+    const titles = ['Alpha', 'Archon', 'Guardian', 'Sovereign', 'Warden', 'Brawler', 'Seraph', 'Predator', 'Striker', 'Titan'];
+    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const t = titles[Math.floor(Math.random() * titles.length)];
+    setGenName(`${p} ${t} ${genClass}`);
+  };
+
+  const handleGenerateAxie = async () => {
+    setIsGenerating(true);
+    playSynthesizedSound('crit');
+    try {
+      const res = await fetch('/api/axie/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class: genClass, name: genName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.axie) {
+          setAxies((prev) => [data.axie, ...prev]);
+          showTempAnnouncement('✨ Axie Berhasil Dicetak!', `${data.axie.name} (#${data.axie.id}) masuk ke Marketplace!`);
+          randomizeGenName();
+        }
+      }
+    } catch (err) {
+      console.error('Error generating axie:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const filteredAxies = axies.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.id.includes(searchQuery)
   );
@@ -865,6 +901,17 @@ export default function AxiePage() {
           >
             <Dna className="w-4 h-4 text-pink-400" />
             🧬 Breeding Lab ({incubatingEggs.length} Eggs)
+          </button>
+          <button
+            onClick={() => setActiveTab('generator')}
+            className={`px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm transition flex items-center gap-2 ${
+              activeTab === 'generator'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/30'
+                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            🧪 Studio Generator
           </button>
         </div>
 
@@ -1824,6 +1871,295 @@ export default function AxiePage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ASSET GENERATOR STUDIO (OPSI 3) */}
+        {activeTab === 'generator' && (
+          <div className="space-y-6">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-amber-950/40 via-orange-950/30 to-zinc-900 border border-amber-500/30 rounded-3xl p-5 shadow-2xl backdrop-blur flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/30 animate-pulse">
+                  🧪
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    AXIE ASSET GENERATOR STUDIO (OPSI 3)
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      HEADLESS ASSET SYNTHESIS
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Sintesis dan cetak Axie baru beresolusi tinggi dengan sprite transparan murni, kalkulasi genetik 256-bit BigInt, dan ekspor instan ke Marketplace.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={randomizeGenName}
+                  className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-amber-300 transition flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Acak Nama Baru
+                </button>
+              </div>
+            </div>
+
+            {/* Studio Workspace: Configuration & Live Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              {/* Left Column: Generator Controls - 6 cols */}
+              <div className="lg:col-span-6 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl space-y-5">
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    Parameter Silsilah &amp; Archetype Genetik
+                  </h3>
+
+                  {/* Class Archetype Selector */}
+                  <label className="text-xs font-bold text-zinc-400 block mb-2">
+                    Pilih Kelas / Archetype Tubuh:
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+                    {['Plant', 'Beast', 'Aquatic', 'Bird', 'Reptile', 'Bug', 'Mech', 'Dawn', 'Dusk'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setGenClass(c as CreatureClass);
+                          setGenName(`Alpha ${c} Sovereign Prototype`);
+                        }}
+                        className={`py-2 px-3 rounded-xl text-xs font-black transition border text-center ${
+                          genClass === c
+                            ? 'bg-amber-400 text-black border-amber-300 shadow-lg shadow-amber-400/20'
+                            : 'bg-zinc-950/80 text-zinc-400 hover:text-white border-zinc-800'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Axie Custom Name Input */}
+                  <div className="space-y-1.5 mb-4">
+                    <label className="text-xs font-bold text-zinc-400 flex items-center justify-between">
+                      <span>Nama Karakter Axie:</span>
+                      <button
+                        onClick={randomizeGenName}
+                        className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
+                      >
+                        🎲 Acak
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      value={genName}
+                      onChange={(e) => setGenName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 font-bold"
+                      placeholder="Masukkan nama Axie..."
+                    />
+                  </div>
+
+                  {/* Trait Features Preview */}
+                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-4 space-y-2">
+                    <div className="text-[11px] font-black uppercase text-zinc-400 flex items-center justify-between">
+                      <span>Struktur Pewarisan 6 Bagian Tubuh:</span>
+                      <span className="text-amber-400 font-mono">100% Pure Alpha</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Eyes:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Pure Gaze</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Ears:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Crest</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Horn:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Spires</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Mouth:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Maw</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Back:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Shell / Wings</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
+                        <span className="text-zinc-500 font-bold">Tail:</span>{' '}
+                        <span className="text-zinc-200 font-semibold">{genClass} Plume</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Synthesis Action Button */}
+                <button
+                  disabled={isGenerating}
+                  onClick={handleGenerateAxie}
+                  className={`w-full py-4 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 shadow-xl ${
+                    isGenerating
+                      ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:brightness-110 text-black shadow-amber-500/25 active:scale-95 cursor-pointer'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
+                      Mensintesis Sprite &amp; Genetik...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 fill-black" />
+                      CETAK &amp; TERBITKAN AXIE KE MARKETPLACE
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Right Column: Live Visual & Metadata Preview - 6 cols */}
+              <div className="lg:col-span-6 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-black text-amber-400 bg-amber-950/80 border border-amber-800 px-2.5 py-1 rounded-xl">
+                      👁️ LIVE SPRITE PREVIEW
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                      PURE TRANSPARENT RGBA
+                    </span>
+                  </div>
+
+                  {/* Visual Render Canvas */}
+                  <div className="relative w-full h-56 flex items-center justify-center bg-gradient-to-b from-amber-950/20 via-zinc-950 to-zinc-950 rounded-2xl border border-amber-900/40 p-4 overflow-hidden group">
+                    <AxieAvatar
+                      id="prototype-preview"
+                      axieClass={genClass}
+                      name={genName}
+                      className="w-44 h-40 filter drop-shadow-[0_12px_24px_rgba(245,158,11,0.35)] group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+
+                  {/* Character Name & Estimated Market Value */}
+                  <div className="flex items-center justify-between mt-4">
+                    <div>
+                      <h3 className="text-base font-black text-white">{genName}</h3>
+                      <p className="text-xs text-zinc-400">
+                        Kelas: <span className="text-amber-400 font-bold">{genClass}</span> | Pureness: 6/6
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-emerald-400">$58.0 USD</div>
+                      <div className="text-[10px] font-mono text-zinc-500">0.024 WETH</div>
+                    </div>
+                  </div>
+
+                  {/* Stats Bar */}
+                  <div className="grid grid-cols-4 gap-2 mt-4 bg-zinc-950 p-3 rounded-2xl text-center text-xs border border-zinc-800">
+                    <div>
+                      <div className="text-zinc-500 font-bold text-[10px]">HP</div>
+                      <div className="font-black text-emerald-400">
+                        {BASE_CLASS_STATS[genClass]?.hp || 45}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 font-bold text-[10px]">SPEED</div>
+                      <div className="font-black text-cyan-400">
+                        {BASE_CLASS_STATS[genClass]?.speed || 45}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 font-bold text-[10px]">SKILL</div>
+                      <div className="font-black text-amber-400">
+                        {BASE_CLASS_STATS[genClass]?.skill || 35}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 font-bold text-[10px]">MORALE</div>
+                      <div className="font-black text-rose-400">
+                        {BASE_CLASS_STATS[genClass]?.morale || 40}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 256-Bit Gene Hex Preview */}
+                  <div className="mt-3 bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-[10px] font-mono text-zinc-400 truncate">
+                    <span className="text-amber-400 font-bold">256-Bit Gene:</span>{' '}
+                    0x00{CLASS_BINARY_MAP[genClass] || 0}0010200300400500600700800900a00b00c00d00e00f001000000000000000
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-zinc-800/80 text-[11px] text-zinc-500 flex items-center justify-between">
+                  <span>Format Ekspor: WebP / PNG Transparan Murni</span>
+                  <span className="text-emerald-400 font-bold">✓ Ready for Marketplace</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Showcase of 10 Batch-Generated Axies */}
+            <div className="bg-zinc-900/80 border border-zinc-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>✨ Koleksi 10 Axie Baru Hasil Cetak Generator (Batch-Generated Variants)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                      LIVE IN MARKETPLACE
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Varian unik di bawah ini baru saja dicetak secara batch menggunakan Headless Generator Engine dan siap dikawinkan atau dipertarungkan.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('marketplace')}
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-200 transition"
+                >
+                  Buka di Marketplace →
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {axies.slice(0, 10).map((axie) => (
+                  <div
+                    key={axie.id}
+                    className="bg-zinc-950 border border-zinc-800 hover:border-amber-500/50 rounded-2xl p-3 flex flex-col justify-between transition group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded bg-zinc-900 text-zinc-300">
+                          {axie.class}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 font-mono">#{axie.id}</span>
+                      </div>
+
+                      <div className="w-full h-32 flex items-center justify-center bg-zinc-900/40 rounded-xl my-2 border border-zinc-800/60 group-hover:scale-105 transition-transform">
+                        <AxieAvatar
+                          id={axie.id}
+                          axieClass={axie.class}
+                          name={axie.name}
+                          imageSrc={axie.image}
+                          className="w-24 h-24"
+                        />
+                      </div>
+
+                      <h4 className="font-black text-xs text-white truncate">{axie.name}</h4>
+                      <div className="text-[10px] text-emerald-400 font-black mt-0.5">
+                        ${axie.priceUsd.toFixed(1)} USD
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-zinc-800 space-y-1">
+                      <button
+                        onClick={() => selectForBreeding(axie)}
+                        className="w-full py-1.5 rounded-lg bg-pink-500/20 hover:bg-pink-500 hover:text-black border border-pink-500/40 text-[10px] font-black text-pink-300 transition flex items-center justify-center gap-1"
+                      >
+                        <Dna className="w-3 h-3" /> Kawinkan (0/7)
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

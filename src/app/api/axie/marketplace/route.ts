@@ -26,8 +26,11 @@ export interface AxieItem {
   parts: AxiePart[];
 }
 
+import generatedAxiesData from '@/lib/axie/generatedAxies.json';
+
 // Curated verified real Axies from official Axie Marketplace
 const CURATED_MARKETPLACE_AXIES: AxieItem[] = [
+  ...(generatedAxiesData as AxieItem[]),
   // 5 NEWEST PURE TRANSPARENT AXIES (LATEST UPLOAD)
   {
     id: '9902001',
