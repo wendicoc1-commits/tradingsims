@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import AxieAvatar from '@/components/axie/AxieAvatar';
+import AxieModularAssembler, { AxieAppearanceConfig } from '@/components/axie/AxieModularAssembler';
 import {
   Shield,
   Zap,
@@ -2074,6 +2075,28 @@ export default function AxiePage() {
                 </button>
               </div>
             </div>
+
+            {/* 2D Modular Spine Assembler & Layer Customizer Studio */}
+            <AxieModularAssembler
+              initialClass={
+                (['Beast', 'Plant', 'Aquatic', 'Bird', 'Bug', 'Reptile'].includes(genClass)
+                  ? genClass
+                  : 'Beast') as any
+              }
+              initialBodyType={genBodyType}
+              onConfigChange={(newCfg) => {
+                if (newCfg.bodyClass) {
+                  setGenClass(newCfg.bodyClass as CreatureClass);
+                }
+                if (newCfg.bodyType) {
+                  setGenBodyType(newCfg.bodyType as AxieBodyType);
+                }
+              }}
+              onExportPNG={(dataUrl) => {
+                setCustomSprite(dataUrl);
+                showTempAnnouncement('✨ Sprite Dirakit!', 'Sprite modular resolusi tinggi diterapkan ke Generator.');
+              }}
+            />
 
             {/* Studio Workspace: Configuration & Live Preview */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
