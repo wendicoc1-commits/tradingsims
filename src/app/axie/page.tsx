@@ -108,6 +108,16 @@ export default function AxiePage() {
   const [selectedClass, setSelectedClass] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [selectedArena, setSelectedArena] = useState<'pond' | 'night' | 'lotus' | 'gears' | 'amethyst' | 'canyon'>('pond');
+
+  const ARENA_ENVIRONMENTS = [
+    { id: 'pond', name: '🌸 Lunacia Pond (Day)', bg: '/axies/arena_lunacia_pond.png' },
+    { id: 'night', name: '🌙 Bioluminescent Forest', bg: '/axies/arena_night_forest.png' },
+    { id: 'lotus', name: '🪷 Sunlit Lotus Pond', bg: '/axies/arena_lotus_pond.png' },
+    { id: 'gears', name: '⚙️ Steampunk Gear Factory', bg: '/axies/arena_steampunk_gears.png' },
+    { id: 'amethyst', name: '🔮 Amethyst Crystal Cavern', bg: '/axies/arena_amethyst_cavern.png' },
+    { id: 'canyon', name: '🏜️ Terracotta Canyon', bg: '/axies/arena_terracotta_canyon.png' },
+  ];
 
   // Audio Context Ref
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -216,7 +226,7 @@ export default function AxiePage() {
       speed: 31,
       skill: 31,
       morale: 43,
-      image: 'https://assets.axieinfinity.com/axies/8414341/axie/axie-full-transparent.png',
+      image: '/axies/plant.jpg',
       cards: [CARDS_POOL[0], CARDS_POOL[1], CARDS_POOL[2], CARDS_POOL[1]],
     },
     {
@@ -231,12 +241,12 @@ export default function AxiePage() {
       speed: 43,
       skill: 31,
       morale: 56,
-      image: 'https://assets.axieinfinity.com/axies/1708053/axie/axie-full-transparent.png',
+      image: '/axies/beast.jpg',
       cards: [CARDS_POOL[3], CARDS_POOL[4], CARDS_POOL[5], CARDS_POOL[3]],
     },
     {
       id: '12084089',
-      name: 'Thor Nimo Aqua',
+      name: 'Golden Crest Aqua',
       class: 'Aquatic',
       position: 'BACK',
       side: 'PLAYER',
@@ -246,7 +256,7 @@ export default function AxiePage() {
       speed: 53,
       skill: 35,
       morale: 34,
-      image: 'https://assets.axieinfinity.com/axies/12084089/axie/axie-full-transparent.png',
+      image: '/axies/sprite_aqua_crest.png',
       cards: [CARDS_POOL[6], CARDS_POOL[7], CARDS_POOL[8], CARDS_POOL[6]],
     },
   ]);
@@ -254,23 +264,23 @@ export default function AxiePage() {
   // Opponent Team
   const [enemyTeam, setEnemyTeam] = useState<FighterAxie[]>([
     {
-      id: '4212811',
-      name: 'Chimera Plant',
-      class: 'Plant',
+      id: '6409821',
+      name: 'Cyber Mech Golem',
+      class: 'Mech',
       position: 'FRONT',
       side: 'ENEMY',
-      maxHp: 512,
-      hp: 512,
+      maxHp: 520,
+      hp: 520,
       shield: 0,
-      speed: 31,
-      skill: 31,
-      morale: 41,
-      image: 'https://assets.axieinfinity.com/axies/4212811/axie/axie-full-transparent.png',
+      speed: 49,
+      skill: 41,
+      morale: 36,
+      image: '/axies/sprite_mech_golem.png',
       cards: [CARDS_POOL[0], CARDS_POOL[1], CARDS_POOL[2]],
     },
     {
       id: '11344520',
-      name: 'Poison Reptile',
+      name: 'Lavender Spiral Reptile',
       class: 'Reptile',
       position: 'MID',
       side: 'ENEMY',
@@ -280,12 +290,12 @@ export default function AxiePage() {
       speed: 41,
       skill: 31,
       morale: 39,
-      image: 'https://assets.axieinfinity.com/axies/11344520/axie/axie-full-transparent.png',
+      image: '/axies/sprite_reptile_spiral.png',
       cards: [CARDS_POOL[2], CARDS_POOL[5], CARDS_POOL[6]],
     },
     {
       id: '10912554',
-      name: 'Razor Bird',
+      name: 'Sakura Coral Bird',
       class: 'Bird',
       position: 'BACK',
       side: 'ENEMY',
@@ -295,7 +305,7 @@ export default function AxiePage() {
       speed: 61,
       skill: 35,
       morale: 41,
-      image: 'https://assets.axieinfinity.com/axies/10912554/axie/axie-full-transparent.png',
+      image: '/axies/sprite_bird_sakura.png',
       cards: [CARDS_POOL[9], CARDS_POOL[10], CARDS_POOL[10]],
     },
   ]);
@@ -760,7 +770,23 @@ export default function AxiePage() {
                 </div>
               </div>
 
+              {/* Arena Environment Selector */}
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-zinc-950/80 px-2.5 py-1.5 rounded-xl border border-zinc-700">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase">Arena:</span>
+                  <select
+                    value={selectedArena}
+                    onChange={(e) => setSelectedArena(e.target.value as any)}
+                    className="bg-transparent text-xs text-amber-400 font-bold focus:outline-none cursor-pointer"
+                  >
+                    {ARENA_ENVIRONMENTS.map((env) => (
+                      <option key={env.id} value={env.id} className="bg-zinc-900 text-white">
+                        {env.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <button
                   onClick={resetMatch}
                   className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-300 transition flex items-center gap-1.5"
@@ -770,10 +796,14 @@ export default function AxiePage() {
               </div>
             </div>
 
-            {/* Battle Arena Canvas with Authentic Lunacia Lily-Pad Pond */}
+            {/* Battle Arena Canvas with Dynamic Lunacia Environments */}
             <div
-              className="relative border border-zinc-800 rounded-3xl p-6 min-h-[460px] flex flex-col justify-between overflow-hidden shadow-2xl bg-zinc-950 bg-cover bg-center"
-              style={{ backgroundImage: "linear-gradient(to bottom, rgba(9, 9, 11, 0.65), rgba(9, 9, 11, 0.82)), url('/axies/arena_lunacia_pond.png')" }}
+              className="relative border border-zinc-800 rounded-3xl p-6 min-h-[460px] flex flex-col justify-between overflow-hidden shadow-2xl bg-zinc-950 bg-cover bg-center transition-all duration-700"
+              style={{
+                backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.62), rgba(9, 9, 11, 0.82)), url('${
+                  ARENA_ENVIRONMENTS.find((a) => a.id === selectedArena)?.bg || '/axies/arena_lunacia_pond.png'
+                }')`,
+              }}
             >
               {/* Floating Announcement Overlay */}
               {announcement && (

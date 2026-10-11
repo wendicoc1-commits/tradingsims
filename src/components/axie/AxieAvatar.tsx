@@ -95,54 +95,54 @@ const CLASS_SPRITE_CONFIG: Record<
   }
 > = {
   Aquatic: {
-    sprite: '/axies/aqua.jpg',
-    filter: 'contrast(1.05) saturate(1.1)',
-    glow: 'rgba(6, 182, 212, 0.35)',
+    sprite: '/axies/sprite_aqua_crest.png',
+    filter: 'none',
+    glow: 'rgba(6, 182, 212, 0.45)',
   },
   Aqua: {
-    sprite: '/axies/aqua.jpg',
-    filter: 'contrast(1.05) saturate(1.1)',
-    glow: 'rgba(6, 182, 212, 0.35)',
+    sprite: '/axies/sprite_aqua_crest.png',
+    filter: 'none',
+    glow: 'rgba(6, 182, 212, 0.45)',
   },
   Beast: {
     sprite: '/axies/beast.jpg',
-    filter: 'contrast(1.05) saturate(1.1)',
-    glow: 'rgba(245, 158, 11, 0.35)',
+    filter: 'none',
+    glow: 'rgba(245, 158, 11, 0.45)',
   },
   Plant: {
     sprite: '/axies/plant.jpg',
-    filter: 'contrast(1.05) saturate(1.1)',
-    glow: 'rgba(34, 197, 94, 0.35)',
+    filter: 'none',
+    glow: 'rgba(34, 197, 94, 0.45)',
   },
   Bird: {
-    sprite: '/axies/aqua.jpg',
-    filter: 'hue-rotate(135deg) saturate(1.35) contrast(1.08)',
-    glow: 'rgba(236, 72, 153, 0.35)',
+    sprite: '/axies/sprite_bird_sakura.png',
+    filter: 'none',
+    glow: 'rgba(236, 72, 153, 0.45)',
   },
   Reptile: {
-    sprite: '/axies/beast.jpg',
-    filter: 'hue-rotate(235deg) saturate(1.3) contrast(1.1)',
-    glow: 'rgba(168, 85, 247, 0.35)',
+    sprite: '/axies/sprite_reptile_spiral.png',
+    filter: 'none',
+    glow: 'rgba(168, 85, 247, 0.45)',
   },
   Bug: {
-    sprite: '/axies/plant.jpg',
-    filter: 'hue-rotate(240deg) saturate(1.4) contrast(1.12)',
-    glow: 'rgba(239, 68, 68, 0.35)',
+    sprite: '/axies/sprite_bird_sakura.png',
+    filter: 'hue-rotate(330deg) saturate(1.25)',
+    glow: 'rgba(239, 68, 68, 0.45)',
   },
   Mech: {
-    sprite: '/axies/beast.jpg',
-    filter: 'grayscale(0.8) contrast(1.35) brightness(1.12)',
-    glow: 'rgba(96, 165, 250, 0.35)',
+    sprite: '/axies/sprite_mech_golem.png',
+    filter: 'none',
+    glow: 'rgba(96, 165, 250, 0.45)',
   },
   Dusk: {
-    sprite: '/axies/aqua.jpg',
-    filter: 'hue-rotate(55deg) saturate(1.25) brightness(0.9) contrast(1.15)',
-    glow: 'rgba(99, 102, 241, 0.35)',
+    sprite: '/axies/sprite_dusk_night.png',
+    filter: 'none',
+    glow: 'rgba(99, 102, 241, 0.45)',
   },
   Dawn: {
-    sprite: '/axies/aqua.jpg',
-    filter: 'hue-rotate(185deg) saturate(1.25) brightness(1.08) contrast(1.05)',
-    glow: 'rgba(252, 211, 77, 0.35)',
+    sprite: '/axies/sprite_reptile_spiral.png',
+    filter: 'hue-rotate(50deg) brightness(1.1) saturate(1.15)',
+    glow: 'rgba(252, 211, 77, 0.45)',
   },
 };
 
@@ -156,6 +156,8 @@ export default function AxieAvatar({
   const [imgFailed, setImgFailed] = useState(false);
 
   const config = CLASS_SPRITE_CONFIG[axieClass] || CLASS_SPRITE_CONFIG.Plant;
+  const activeSprite = imageSrc && imageSrc.startsWith('/axies/') ? imageSrc : config.sprite;
+  const activeFilter = imageSrc && imageSrc.startsWith('/axies/') ? 'none' : config.filter;
 
   // Render high-res painterly sprite with authentic class art & lighting
   if (config && !imgFailed) {
@@ -166,11 +168,11 @@ export default function AxieAvatar({
           style={{ boxShadow: `0 8px 24px -6px ${config.glow}` }}
         >
           <img
-            src={config.sprite}
+            src={activeSprite}
             alt={name || `Axie #${id}`}
             onError={() => setImgFailed(true)}
             className="w-full h-full object-cover transition-transform duration-300"
-            style={{ filter: config.filter }}
+            style={{ filter: activeFilter }}
             loading="lazy"
           />
           <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10 pointer-events-none" />
