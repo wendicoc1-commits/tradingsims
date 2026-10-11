@@ -42,6 +42,7 @@ import {
   CLASS_BINARY_MAP,
   BreedingResult,
   BASE_CLASS_STATS,
+  calculateCreatureStats,
 } from '@/lib/axie/geneticEngine';
 
 interface AxiePart {
@@ -129,6 +130,28 @@ export default function AxiePage() {
   const [genClass, setGenClass] = useState<CreatureClass>('Beast');
   const [genName, setGenName] = useState<string>('Crimson Solar Alpha Beast');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [customGeneTier, setCustomGeneTier] = useState<'D' | 'R1' | 'R2'>('D');
+  const [customSprite, setCustomSprite] = useState<string>('/axies/sprite_crimson_fury_beast.png');
+  const [customParts, setCustomParts] = useState<{
+    eyes: { D: PartGene; R1: PartGene; R2: PartGene };
+    ears: { D: PartGene; R1: PartGene; R2: PartGene };
+    mouth: { D: PartGene; R1: PartGene; R2: PartGene };
+    horn: { D: PartGene; R1: PartGene; R2: PartGene };
+    back: { D: PartGene; R1: PartGene; R2: PartGene };
+    tail: { D: PartGene; R1: PartGene; R2: PartGene };
+  }>(() => {
+    const getInitPart = (type: BodyPartType, cls: CreatureClass) =>
+      KNOWN_PARTS_CATALOG.find((p) => p.type === type && p.class === cls) ||
+      KNOWN_PARTS_CATALOG.find((p) => p.type === type)!;
+    return {
+      eyes: { D: getInitPart('eyes', 'Beast'), R1: getInitPart('eyes', 'Beast'), R2: getInitPart('eyes', 'Beast') },
+      ears: { D: getInitPart('ears', 'Beast'), R1: getInitPart('ears', 'Beast'), R2: getInitPart('ears', 'Beast') },
+      mouth: { D: getInitPart('mouth', 'Beast'), R1: getInitPart('mouth', 'Beast'), R2: getInitPart('mouth', 'Beast') },
+      horn: { D: getInitPart('horn', 'Beast'), R1: getInitPart('horn', 'Beast'), R2: getInitPart('horn', 'Beast') },
+      back: { D: getInitPart('back', 'Beast'), R1: getInitPart('back', 'Beast'), R2: getInitPart('back', 'Beast') },
+      tail: { D: getInitPart('tail', 'Beast'), R1: getInitPart('tail', 'Beast'), R2: getInitPart('tail', 'Beast') },
+    };
+  });
   const [sireAxie, setSireAxie] = useState<AxieItem | null>(null);
   const [matronAxie, setMatronAxie] = useState<AxieItem | null>(null);
   const [slpBalance, setSlpBalance] = useState<number>(50000);
@@ -789,6 +812,18 @@ export default function AxiePage() {
     showTempAnnouncement(`🐣 Menetas Sukses!`, `${newAdultAxie.name} sekarang siap bertarung & kawin!`);
   };
 
+  const CLASS_SPRITE_PREVIEWS: Record<string, string[]> = {
+    Beast: ['/axies/sprite_crimson_fury_beast.png', '/axies/sprite_yellow_fluffy.png', '/axies/sprite_crystal_beast_mech.png'],
+    Aquatic: ['/axies/sprite_abyssal_electric_aqua.png', '/axies/sprite_aqua_crest.png', '/axies/sprite_aqua_goggles.png', '/axies/sprite_fluffy_aqua_hat.png'],
+    Plant: ['/axies/sprite_emerald_jade_plant.png', '/axies/sprite_blue_eyes_plant.png', '/axies/sprite_moss_deer_horns.png'],
+    Bird: ['/axies/sprite_cherry_blossom_bird.png', '/axies/sprite_bird_sakura.png'],
+    Reptile: ['/axies/sprite_amethyst_dragon_reptile.png', '/axies/sprite_reptile_spiral.png', '/axies/sprite_derp_snail_horns.png'],
+    Bug: ['/axies/sprite_scarlet_blood_bug.png', '/axies/sprite_green_brawler.png'],
+    Mech: ['/axies/sprite_golden_mech_golem.png', '/axies/sprite_mech_golem.png'],
+    Dawn: ['/axies/sprite_celestial_dawn_archon.png', '/axies/sprite_zen_white_plant.png', '/axies/sprite_prismatic_chimera_mystic.png'],
+    Dusk: ['/axies/sprite_void_eclipse_dusk.png', '/axies/sprite_dusk_night.png', '/axies/sprite_mystic_purple.png'],
+  };
+
   const randomizeGenName = () => {
     const prefixes = ['Solar', 'Abyssal', 'Celestial', 'Cyber', 'Emerald', 'Void', 'Crimson', 'Prismatic', 'Shadow', 'Amethyst'];
     const titles = ['Alpha', 'Archon', 'Guardian', 'Sovereign', 'Warden', 'Brawler', 'Seraph', 'Predator', 'Striker', 'Titan'];
@@ -797,6 +832,88 @@ export default function AxiePage() {
     setGenName(`${p} ${t} ${genClass}`);
   };
 
+  const applyPurebredPreset = (targetClass: CreatureClass) => {
+    const getPart = (type: BodyPartType, cls: CreatureClass) =>
+      KNOWN_PARTS_CATALOG.find((p) => p.type === type && p.class === cls) ||
+      KNOWN_PARTS_CATALOG.find((p) => p.type === type)!;
+
+    setCustomParts({
+      eyes: { D: getPart('eyes', targetClass), R1: getPart('eyes', targetClass), R2: getPart('eyes', targetClass) },
+      ears: { D: getPart('ears', targetClass), R1: getPart('ears', targetClass), R2: getPart('ears', targetClass) },
+      mouth: { D: getPart('mouth', targetClass), R1: getPart('mouth', targetClass), R2: getPart('mouth', targetClass) },
+      horn: { D: getPart('horn', targetClass), R1: getPart('horn', targetClass), R2: getPart('horn', targetClass) },
+      back: { D: getPart('back', targetClass), R1: getPart('back', targetClass), R2: getPart('back', targetClass) },
+      tail: { D: getPart('tail', targetClass), R1: getPart('tail', targetClass), R2: getPart('tail', targetClass) },
+    });
+    const defaultSprite = CLASS_SPRITE_PREVIEWS[targetClass]?.[0] || '/axies/sprite_yellow_fluffy.png';
+    setCustomSprite(defaultSprite);
+    showTempAnnouncement(`⚡ 6/6 Purebred ${targetClass}`, 'Semua alel D, R1, R2 diselaraskan.');
+  };
+
+  const applyRandomMixPreset = () => {
+    const getRandom = (type: BodyPartType) => {
+      const candidates = KNOWN_PARTS_CATALOG.filter((p) => p.type === type);
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    };
+    setCustomParts({
+      eyes: { D: getRandom('eyes'), R1: getRandom('eyes'), R2: getRandom('eyes') },
+      ears: { D: getRandom('ears'), R1: getRandom('ears'), R2: getRandom('ears') },
+      mouth: { D: getRandom('mouth'), R1: getRandom('mouth'), R2: getRandom('mouth') },
+      horn: { D: getRandom('horn'), R1: getRandom('horn'), R2: getRandom('horn') },
+      back: { D: getRandom('back'), R1: getRandom('back'), R2: getRandom('back') },
+      tail: { D: getRandom('tail'), R1: getRandom('tail'), R2: getRandom('tail') },
+    });
+    showTempAnnouncement('🎲 Silsilah Diacak!', 'Kombinasi alel D, R1, R2 acak dihasilkan.');
+  };
+
+  const setPartAllele = (type: BodyPartType, tier: 'D' | 'R1' | 'R2', partId: string) => {
+    const found = KNOWN_PARTS_CATALOG.find((p) => p.id === partId);
+    if (!found) return;
+    setCustomParts((prev) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [tier]: found,
+      },
+    }));
+  };
+
+  // Dynamic stats calculated from the 6 Dominant parts
+  const currentCustomStats = calculateCreatureStats(genClass, {
+    eyes: customParts.eyes.D,
+    ears: customParts.ears.D,
+    mouth: customParts.mouth.D,
+    horn: customParts.horn.D,
+    back: customParts.back.D,
+    tail: customParts.tail.D,
+  });
+
+  // Dynamic 256-bit BigInt gene hash
+  const currentCustomGeneHash = encodeGenesToBigInt({
+    class: genClass,
+    classBinary: CLASS_BINARY_MAP[genClass] ?? 0,
+    pattern: 1,
+    color: 1,
+    eyes: customParts.eyes,
+    ears: customParts.ears,
+    mouth: customParts.mouth,
+    horn: customParts.horn,
+    back: customParts.back,
+    tail: customParts.tail,
+    rawBigInt: '0x000',
+  });
+
+  // Purity calculation
+  const customDParts = [
+    customParts.eyes.D,
+    customParts.ears.D,
+    customParts.mouth.D,
+    customParts.horn.D,
+    customParts.back.D,
+    customParts.tail.D,
+  ];
+  const customPureCount = customDParts.filter((p) => p.class === genClass).length;
+
   const handleGenerateAxie = async () => {
     setIsGenerating(true);
     playSynthesizedSound('crit');
@@ -804,13 +921,18 @@ export default function AxiePage() {
       const res = await fetch('/api/axie/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class: genClass, name: genName }),
+        body: JSON.stringify({
+          class: genClass,
+          name: genName,
+          image: customSprite,
+          parts: customParts,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.axie) {
           setAxies((prev) => [data.axie, ...prev]);
-          showTempAnnouncement('✨ Axie Berhasil Dicetak!', `${data.axie.name} (#${data.axie.id}) masuk ke Marketplace!`);
+          showTempAnnouncement('✨ Axie Kustom Dicetak!', `${data.axie.name} (#${data.axie.id}) masuk ke Marketplace!`);
           randomizeGenName();
         }
       }
@@ -1908,47 +2030,214 @@ export default function AxiePage() {
             </div>
 
             {/* Studio Workspace: Configuration & Live Preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-              {/* Left Column: Generator Controls - 6 cols */}
-              <div className="lg:col-span-6 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl space-y-5">
-                <div>
-                  <h3 className="text-sm font-black text-white flex items-center gap-2 mb-3">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    Parameter Silsilah &amp; Archetype Genetik
-                  </h3>
-
-                  {/* Class Archetype Selector */}
-                  <label className="text-xs font-bold text-zinc-400 block mb-2">
-                    Pilih Kelas / Archetype Tubuh:
-                  </label>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
-                    {['Plant', 'Beast', 'Aquatic', 'Bird', 'Reptile', 'Bug', 'Mech', 'Dawn', 'Dusk'].map((c) => (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              {/* Left Column: Generator & Body Parts Customizer - 7 cols */}
+              <div className="lg:col-span-7 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl space-y-6">
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      Kustomisasi Bagian Tubuh &amp; Silsilah Genetik
+                    </h3>
+                    <div className="flex items-center gap-2">
                       <button
-                        key={c}
-                        onClick={() => {
-                          setGenClass(c as CreatureClass);
-                          setGenName(`Alpha ${c} Sovereign Prototype`);
-                        }}
-                        className={`py-2 px-3 rounded-xl text-xs font-black transition border text-center ${
-                          genClass === c
-                            ? 'bg-amber-400 text-black border-amber-300 shadow-lg shadow-amber-400/20'
-                            : 'bg-zinc-950/80 text-zinc-400 hover:text-white border-zinc-800'
-                        }`}
+                        onClick={() => applyPurebredPreset(genClass)}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 hover:text-black border border-emerald-500/40 text-[10px] font-black text-emerald-300 transition"
                       >
-                        {c}
+                        ⚡ 6/6 Purebred
                       </button>
-                    ))}
+                      <button
+                        onClick={applyRandomMixPreset}
+                        className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500 hover:text-black border border-purple-500/40 text-[10px] font-black text-purple-300 transition"
+                      >
+                        🎲 Acak Silsilah
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Axie Custom Name Input */}
-                  <div className="space-y-1.5 mb-4">
+                  {/* 1. Class / Archetype Selector */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-400 block mb-2">
+                      1. Pilih Kelas Dasar / Archetype Tubuh:
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                      {['Plant', 'Beast', 'Aquatic', 'Bird', 'Reptile', 'Bug', 'Mech', 'Dawn', 'Dusk'].map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => {
+                            setGenClass(c as CreatureClass);
+                            applyPurebredPreset(c as CreatureClass);
+                            setGenName(`Alpha ${c} Sovereign Prototype`);
+                          }}
+                          className={`py-1.5 px-2.5 rounded-xl text-xs font-black transition border text-center ${
+                            genClass === c
+                              ? 'bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-400/20'
+                              : 'bg-zinc-950/80 text-zinc-400 hover:text-white border-zinc-800'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. Inheritance Tier Switch (Pewarisan Struktur D, R1, R2) */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-400 flex items-center justify-between mb-2">
+                      <span>2. Pilih Tier Alel yang Ingin Dikustomisasi (Struktur Pewarisan):</span>
+                      <span className="text-[10px] font-mono text-amber-400">
+                        {customGeneTier === 'D'
+                          ? '⭐ Dominan (Fisik / 37.5%)'
+                          : customGeneTier === 'R1'
+                          ? '🧬 Resesif 1 (9.375%)'
+                          : '🔬 Resesif 2 (3.125%)'}
+                      </span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2 p-1.5 bg-zinc-950 rounded-2xl border border-zinc-800">
+                      <button
+                        onClick={() => setCustomGeneTier('D')}
+                        className={`py-2 px-3 rounded-xl text-xs font-black transition flex flex-col items-center gap-0.5 ${
+                          customGeneTier === 'D'
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/25'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="font-black text-xs">⭐ DOMINAN (D)</span>
+                        <span className="text-[9px] opacity-80">Tampil Fisik &amp; 37.5%</span>
+                      </button>
+                      <button
+                        onClick={() => setCustomGeneTier('R1')}
+                        className={`py-2 px-3 rounded-xl text-xs font-black transition flex flex-col items-center gap-0.5 ${
+                          customGeneTier === 'R1'
+                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-black shadow-lg shadow-cyan-500/25'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="font-black text-xs">🧬 RESESIF 1 (R1)</span>
+                        <span className="text-[9px] opacity-80">Peluang Waris 9.375%</span>
+                      </button>
+                      <button
+                        onClick={() => setCustomGeneTier('R2')}
+                        className={`py-2 px-3 rounded-xl text-xs font-black transition flex flex-col items-center gap-0.5 ${
+                          customGeneTier === 'R2'
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-black shadow-lg shadow-purple-500/25'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="font-black text-xs">🔬 RESESIF 2 (R2)</span>
+                        <span className="text-[9px] opacity-80">Peluang Waris 3.125%</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. 6 Body Parts Customizer Cards */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-400 block mb-2">
+                      3. Kustomisasi 6 Bagian Tubuh untuk Tier{' '}
+                      <span className="text-amber-400 font-black">[{customGeneTier}]</span>:
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {(['eyes', 'ears', 'mouth', 'horn', 'back', 'tail'] as BodyPartType[]).map((partType) => {
+                        const currentPart = customParts[partType][customGeneTier];
+                        const availableParts = KNOWN_PARTS_CATALOG.filter((p) => p.type === partType);
+
+                        const partLabelMap: Record<BodyPartType, { name: string; icon: string }> = {
+                          eyes: { name: 'Mata (Eyes)', icon: '👁️' },
+                          ears: { name: 'Telinga (Ears)', icon: '👂' },
+                          mouth: { name: 'Mulut (Mouth)', icon: '👄' },
+                          horn: { name: 'Tanduk (Horn)', icon: '📯' },
+                          back: { name: 'Punggung (Back)', icon: '🛡️' },
+                          tail: { name: 'Ekor (Tail)', icon: '🪶' },
+                        };
+
+                        return (
+                          <div
+                            key={partType}
+                            className="bg-zinc-950/90 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-3 space-y-2 transition shadow-inner"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-zinc-300 flex items-center gap-1.5">
+                                <span>{partLabelMap[partType].icon}</span>
+                                <span>{partLabelMap[partType].name}</span>
+                              </span>
+                              <span
+                                className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                  CLASS_THEMES[currentPart.class]?.badge || 'bg-zinc-800 text-zinc-300'
+                                }`}
+                              >
+                                {currentPart.class}
+                              </span>
+                            </div>
+
+                            {/* Part Selector Dropdown */}
+                            <select
+                              value={currentPart.id}
+                              onChange={(e) => setPartAllele(partType, customGeneTier, e.target.value)}
+                              className="w-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-amber-400 cursor-pointer"
+                            >
+                              {availableParts.map((p) => (
+                                <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
+                                  [{p.class.toUpperCase()}] {p.name}
+                                </option>
+                              ))}
+                            </select>
+
+                            <div className="text-[10px] text-zinc-500 flex items-center justify-between font-mono">
+                              <span>Binary: #{currentPart.binaryCode}</span>
+                              <span className="text-zinc-400">
+                                Bonus:{' '}
+                                {currentPart.class === 'Plant'
+                                  ? '+3 HP, +1 MOR'
+                                  : currentPart.class === 'Aquatic'
+                                  ? '+3 SPD, +1 HP'
+                                  : currentPart.class === 'Beast'
+                                  ? '+3 MOR, +1 SPD'
+                                  : currentPart.class === 'Bird'
+                                  ? '+3 SPD, +1 MOR'
+                                  : currentPart.class === 'Reptile'
+                                  ? '+3 HP, +1 SPD'
+                                  : '+3 MOR, +1 HP'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 4. Sprite Visual Model Selector */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-400 block mb-2">
+                      4. Pilih Varian Model Visual (Sprite Transparan Murni):
+                    </label>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      {(CLASS_SPRITE_PREVIEWS[genClass] || CLASS_SPRITE_PREVIEWS.Plant).map((spr, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setCustomSprite(spr)}
+                          className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center p-1 cursor-pointer transition shrink-0 ${
+                            customSprite === spr
+                              ? 'border-amber-400 bg-amber-400/20 scale-105 shadow-md shadow-amber-400/20'
+                              : 'border-zinc-800 bg-zinc-950 hover:border-zinc-700'
+                          }`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={spr} alt="model" className="w-full h-full object-contain" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. Custom Name Input */}
+                  <div className="space-y-1">
                     <label className="text-xs font-bold text-zinc-400 flex items-center justify-between">
-                      <span>Nama Karakter Axie:</span>
+                      <span>5. Nama Karakter Axie:</span>
                       <button
                         onClick={randomizeGenName}
-                        className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
+                        className="text-[10px] text-amber-400 hover:underline flex items-center gap-1 font-bold"
                       >
-                        🎲 Acak
+                        🎲 Acak Nama Lunacia
                       </button>
                     </label>
                     <input
@@ -1959,68 +2248,36 @@ export default function AxiePage() {
                       placeholder="Masukkan nama Axie..."
                     />
                   </div>
-
-                  {/* Trait Features Preview */}
-                  <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl p-4 space-y-2">
-                    <div className="text-[11px] font-black uppercase text-zinc-400 flex items-center justify-between">
-                      <span>Struktur Pewarisan 6 Bagian Tubuh:</span>
-                      <span className="text-amber-400 font-mono">100% Pure Alpha</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Eyes:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Pure Gaze</span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Ears:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Crest</span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Horn:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Spires</span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Mouth:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Maw</span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Back:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Shell / Wings</span>
-                      </div>
-                      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800/80">
-                        <span className="text-zinc-500 font-bold">Tail:</span>{' '}
-                        <span className="text-zinc-200 font-semibold">{genClass} Plume</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Synthesis Action Button */}
-                <button
-                  disabled={isGenerating}
-                  onClick={handleGenerateAxie}
-                  className={`w-full py-4 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 shadow-xl ${
-                    isGenerating
-                      ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:brightness-110 text-black shadow-amber-500/25 active:scale-95 cursor-pointer'
-                  }`}
-                >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
-                      Mensintesis Sprite &amp; Genetik...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 fill-black" />
-                      CETAK &amp; TERBITKAN AXIE KE MARKETPLACE
-                    </>
-                  )}
-                </button>
+                <div className="pt-3 border-t border-zinc-800">
+                  <button
+                    disabled={isGenerating}
+                    onClick={handleGenerateAxie}
+                    className={`w-full py-4 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 shadow-xl ${
+                      isGenerating
+                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:brightness-110 text-black shadow-amber-500/25 active:scale-95 cursor-pointer'
+                    }`}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
+                        Mensintesis Sprite &amp; Genetik Kustom...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 fill-black" />
+                        CETAK &amp; TERBITKAN AXIE KUSTOM KE MARKETPLACE
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Right Column: Live Visual & Metadata Preview - 6 cols */}
-              <div className="lg:col-span-6 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl">
+              {/* Right Column: Live Visual & Metadata Preview - 5 cols */}
+              <div className="lg:col-span-5 bg-zinc-900/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between shadow-xl space-y-5">
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-black text-amber-400 bg-amber-950/80 border border-amber-800 px-2.5 py-1 rounded-xl">
@@ -2033,65 +2290,99 @@ export default function AxiePage() {
 
                   {/* Visual Render Canvas */}
                   <div className="relative w-full h-56 flex items-center justify-center bg-gradient-to-b from-amber-950/20 via-zinc-950 to-zinc-950 rounded-2xl border border-amber-900/40 p-4 overflow-hidden group">
-                    <AxieAvatar
-                      id="prototype-preview"
-                      axieClass={genClass}
-                      name={genName}
-                      className="w-44 h-40 filter drop-shadow-[0_12px_24px_rgba(245,158,11,0.35)] group-hover:scale-105 transition-transform"
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={customSprite}
+                      alt={genName}
+                      className="w-48 h-44 object-contain filter drop-shadow-[0_12px_24px_rgba(245,158,11,0.35)] group-hover:scale-105 transition-transform"
                     />
                   </div>
 
-                  {/* Character Name & Estimated Market Value */}
+                  {/* Character Name, Class, and Purity */}
                   <div className="flex items-center justify-between mt-4">
                     <div>
                       <h3 className="text-base font-black text-white">{genName}</h3>
-                      <p className="text-xs text-zinc-400">
-                        Kelas: <span className="text-amber-400 font-bold">{genClass}</span> | Pureness: 6/6
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-zinc-400">
+                          Kelas: <span className="text-amber-400 font-bold">{genClass}</span>
+                        </span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          Kemurnian: {customPureCount}/6 ({Math.round((customPureCount / 6) * 100)}%)
+                        </span>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-black text-emerald-400">$58.0 USD</div>
-                      <div className="text-[10px] font-mono text-zinc-500">0.024 WETH</div>
+                      <div className="text-sm font-black text-emerald-400">$64.0 USD</div>
+                      <div className="text-[10px] font-mono text-zinc-500">0.026 WETH</div>
                     </div>
                   </div>
 
-                  {/* Stats Bar */}
+                  {/* Dynamic Stats Grid based on Dominant Parts */}
                   <div className="grid grid-cols-4 gap-2 mt-4 bg-zinc-950 p-3 rounded-2xl text-center text-xs border border-zinc-800">
                     <div>
                       <div className="text-zinc-500 font-bold text-[10px]">HP</div>
-                      <div className="font-black text-emerald-400">
-                        {BASE_CLASS_STATS[genClass]?.hp || 45}
-                      </div>
+                      <div className="font-black text-emerald-400 text-sm">{currentCustomStats.hp}</div>
                     </div>
                     <div>
                       <div className="text-zinc-500 font-bold text-[10px]">SPEED</div>
-                      <div className="font-black text-cyan-400">
-                        {BASE_CLASS_STATS[genClass]?.speed || 45}
-                      </div>
+                      <div className="font-black text-cyan-400 text-sm">{currentCustomStats.speed}</div>
                     </div>
                     <div>
                       <div className="text-zinc-500 font-bold text-[10px]">SKILL</div>
-                      <div className="font-black text-amber-400">
-                        {BASE_CLASS_STATS[genClass]?.skill || 35}
-                      </div>
+                      <div className="font-black text-amber-400 text-sm">{currentCustomStats.skill}</div>
                     </div>
                     <div>
                       <div className="text-zinc-500 font-bold text-[10px]">MORALE</div>
-                      <div className="font-black text-rose-400">
-                        {BASE_CLASS_STATS[genClass]?.morale || 40}
-                      </div>
+                      <div className="font-black text-rose-400 text-sm">{currentCustomStats.morale}</div>
+                    </div>
+                  </div>
+
+                  {/* Comprehensive Genetic Allele Breakdown Table (D | R1 | R2) */}
+                  <div className="mt-4 bg-zinc-950 border border-zinc-800 rounded-2xl p-3 space-y-2">
+                    <div className="text-[11px] font-black uppercase text-zinc-400 flex items-center justify-between">
+                      <span>Rincian Alel Genetik Lengkap:</span>
+                      <span className="text-amber-400 font-mono text-[10px]">6 Bagian × 3 Tier</span>
+                    </div>
+
+                    <div className="overflow-x-auto text-[10px]">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-zinc-500 border-b border-zinc-800/80">
+                            <th className="pb-1">Bagian</th>
+                            <th className="pb-1 text-amber-400 font-bold">D (37.5%)</th>
+                            <th className="pb-1 text-cyan-400 font-bold">R1 (9.375%)</th>
+                            <th className="pb-1 text-purple-400 font-bold">R2 (3.125%)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-900">
+                          {(['eyes', 'ears', 'mouth', 'horn', 'back', 'tail'] as BodyPartType[]).map((type) => (
+                            <tr key={type} className="hover:bg-zinc-900/50">
+                              <td className="py-1 font-bold text-zinc-400 capitalize">{type}</td>
+                              <td className="py-1 text-zinc-200 truncate max-w-[90px]">
+                                {customParts[type].D.name}
+                              </td>
+                              <td className="py-1 text-zinc-400 truncate max-w-[90px]">
+                                {customParts[type].R1.name}
+                              </td>
+                              <td className="py-1 text-zinc-500 truncate max-w-[90px]">
+                                {customParts[type].R2.name}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
                   {/* 256-Bit Gene Hex Preview */}
                   <div className="mt-3 bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-[10px] font-mono text-zinc-400 truncate">
-                    <span className="text-amber-400 font-bold">256-Bit Gene:</span>{' '}
-                    0x00{CLASS_BINARY_MAP[genClass] || 0}0010200300400500600700800900a00b00c00d00e00f001000000000000000
+                    <span className="text-amber-400 font-bold">256-Bit DNA:</span>{' '}
+                    {currentCustomGeneHash}
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-zinc-800/80 text-[11px] text-zinc-500 flex items-center justify-between">
-                  <span>Format Ekspor: WebP / PNG Transparan Murni</span>
+                <div className="pt-3 border-t border-zinc-800/80 text-[11px] text-zinc-500 flex items-center justify-between">
+                  <span>Format: WebP / PNG Transparan Murni</span>
                   <span className="text-emerald-400 font-bold">✓ Ready for Marketplace</span>
                 </div>
               </div>

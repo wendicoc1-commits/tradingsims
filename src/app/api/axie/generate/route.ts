@@ -47,12 +47,54 @@ export async function POST(req: NextRequest) {
       return candidates[Math.floor(Math.random() * candidates.length)];
     };
 
-    const eyes = { D: getRandomPart('eyes'), R1: getRandomPart('eyes'), R2: getRandomPart('eyes') };
-    const ears = { D: getRandomPart('ears'), R1: getRandomPart('ears'), R2: getRandomPart('ears') };
-    const mouth = { D: getRandomPart('mouth'), R1: getRandomPart('mouth'), R2: getRandomPart('mouth') };
-    const horn = { D: getRandomPart('horn'), R1: getRandomPart('horn'), R2: getRandomPart('horn') };
-    const back = { D: getRandomPart('back'), R1: getRandomPart('back'), R2: getRandomPart('back') };
-    const tail = { D: getRandomPart('tail'), R1: getRandomPart('tail'), R2: getRandomPart('tail') };
+    const resolvePart = (partInput: any, type: BodyPartType): PartGene => {
+      if (partInput) {
+        if (typeof partInput === 'object' && partInput.id) {
+          const found = KNOWN_PARTS_CATALOG.find((p) => p.id === partInput.id);
+          if (found) return found;
+        }
+        if (typeof partInput === 'string') {
+          const found = KNOWN_PARTS_CATALOG.find(
+            (p) => p.type === type && (p.id === partInput || p.name.toLowerCase() === partInput.toLowerCase())
+          );
+          if (found) return found;
+        }
+      }
+      return getRandomPart(type);
+    };
+
+    const customParts = body.parts || {};
+
+    const eyes = {
+      D: resolvePart(customParts.eyes?.D, 'eyes'),
+      R1: resolvePart(customParts.eyes?.R1, 'eyes'),
+      R2: resolvePart(customParts.eyes?.R2, 'eyes'),
+    };
+    const ears = {
+      D: resolvePart(customParts.ears?.D, 'ears'),
+      R1: resolvePart(customParts.ears?.R1, 'ears'),
+      R2: resolvePart(customParts.ears?.R2, 'ears'),
+    };
+    const mouth = {
+      D: resolvePart(customParts.mouth?.D, 'mouth'),
+      R1: resolvePart(customParts.mouth?.R1, 'mouth'),
+      R2: resolvePart(customParts.mouth?.R2, 'mouth'),
+    };
+    const horn = {
+      D: resolvePart(customParts.horn?.D, 'horn'),
+      R1: resolvePart(customParts.horn?.R1, 'horn'),
+      R2: resolvePart(customParts.horn?.R2, 'horn'),
+    };
+    const back = {
+      D: resolvePart(customParts.back?.D, 'back'),
+      R1: resolvePart(customParts.back?.R1, 'back'),
+      R2: resolvePart(customParts.back?.R2, 'back'),
+    };
+    const tail = {
+      D: resolvePart(customParts.tail?.D, 'tail'),
+      R1: resolvePart(customParts.tail?.R1, 'tail'),
+      R2: resolvePart(customParts.tail?.R2, 'tail'),
+    };
 
     const genes: CreatureGenes = {
       class: targetClass,
@@ -80,7 +122,7 @@ export async function POST(req: NextRequest) {
     });
 
     const sprites = CLASS_SPRITE_MAP[targetClass] || CLASS_SPRITE_MAP.Plant;
-    const selectedSprite = sprites[Math.floor(Math.random() * sprites.length)];
+    const selectedSprite = body.image || body.sprite || sprites[Math.floor(Math.random() * sprites.length)];
 
     const newId = `9904${Math.floor(100 + Math.random() * 900)}`;
 
