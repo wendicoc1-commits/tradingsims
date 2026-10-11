@@ -17,6 +17,10 @@ import {
   CheckCircle2,
   Box,
   Wand2,
+  Shield,
+  Sword,
+  Zap,
+  Star,
 } from 'lucide-react';
 import {
   parseSpineAtlas,
@@ -27,6 +31,7 @@ import {
 import axieGenesData from '@/lib/axie/axieGenesData.json';
 import AxieBodyTypeThumbnail from './AxieBodyTypeThumbnail';
 import { AxieBodyType } from '@/lib/axie/geneticEngine';
+import { getLunalogPart, LUNALOG_PARTS_REGISTRY, LunalogPartInfo } from '@/lib/axie/lunalogCardsData';
 
 export type AxieClassKey = 'Beast' | 'Plant' | 'Aquatic' | 'Bird' | 'Bug' | 'Reptile';
 
@@ -184,7 +189,11 @@ export default function AxieModularAssembler({
   const animFrameRef = useRef<number | null>(null);
 
   // Active studio tab
-  const [activeTab, setActiveTab] = useState<'parts' | 'layers' | 'palette' | 'bodyType'>('parts');
+  const [activeTab, setActiveTab] = useState<'parts' | 'layers' | 'palette' | 'bodyType' | 'lunalog'>('parts');
+
+  // Lunalog Part Evolution & Special Collection States
+  const [evolutionStage, setEvolutionStage] = useState<1 | 2>(1);
+  const [selectedCollection, setSelectedCollection] = useState<string>('all');
 
   // Animation toggle
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -492,8 +501,40 @@ export default function AxieModularAssembler({
       const hornBob = Math.sin(elapsed * 2.8) * 2;
 
       // -------------------------------------------------------------
-      // LAYER 0: Ground Shadow
+      // STAGE 2 EVOLVED AURA & STARLIGHT PARTICLES
       // -------------------------------------------------------------
+      if (evolutionStage === 2) {
+        ctx.save();
+        // Pulsing starlight golden-cyan aura ring
+        const auraPulse = Math.sin(elapsed * 3.5) * 6;
+        const auraAlpha = 0.28 + Math.sin(elapsed * 3.5) * 0.12;
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 24 + auraPulse;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + bOffsetY + breatheY, (126 + auraPulse) * bScaleX, (96 + auraPulse) * bScaleY, 0, 0, Math.PI * 2);
+        ctx.globalAlpha = auraAlpha;
+        ctx.stroke();
+
+        // 4 Evolving Orbiting Starlight Sparkles (✦)
+        for (let i = 0; i < 4; i++) {
+          const sparkAngle = elapsed * 1.8 + (i * Math.PI) / 2;
+          const sparkDistX = (135 + Math.sin(elapsed * 2 + i) * 12) * bScaleX;
+          const sparkDistY = (105 + Math.cos(elapsed * 2 + i) * 12) * bScaleY;
+          const sx = cx + Math.cos(sparkAngle) * sparkDistX;
+          const sy = cy + bOffsetY + breatheY + Math.sin(sparkAngle) * sparkDistY;
+          
+          ctx.shadowColor = i % 2 === 0 ? '#38bdf8' : '#fbbf24';
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = i % 2 === 0 ? '#e0f2fe' : '#fef08a';
+          ctx.globalAlpha = 0.85 + Math.sin(elapsed * 4 + i) * 0.15;
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillText('✦', sx - 8, sy + 6);
+        }
+        ctx.restore();
+      }
+
       // -------------------------------------------------------------
       // LAYER 0: Ground Shadow
       // -------------------------------------------------------------
@@ -1045,6 +1086,17 @@ export default function AxieModularAssembler({
         }
       }
 
+      // Stage 2 Crown Sparkle
+      if (evolutionStage === 2) {
+        ctx.save();
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('✨', cx - 18 + hornBob, cy - 132 * bScaleY + breatheY);
+        ctx.restore();
+      }
+
       if (isPlaying) {
         animFrameRef.current = requestAnimationFrame(render);
       }
@@ -1063,11 +1115,25 @@ export default function AxieModularAssembler({
     isPlaying,
     getRegionCanvas,
     getTintedRegion,
+    evolutionStage,
   ]);
 
   // Export current config as JSON
   const handleExportJSON = () => {
-    const jsonStr = JSON.stringify(config, null, 2);
+    const exportPayload = {
+      ...config,
+      lunalogCatalog: {
+        evolutionStage,
+        specialCollection: selectedCollection,
+        cards: {
+          horn: getLunalogPart('horn', config.horn.class),
+          mouth: getLunalogPart('mouth', config.mouth.class),
+          back: getLunalogPart('back', config.back.class),
+          tail: getLunalogPart('tail', config.tail.class),
+        },
+      },
+    };
+    const jsonStr = JSON.stringify(exportPayload, null, 2);
     navigator.clipboard.writeText(jsonStr);
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 2000);
@@ -1169,6 +1235,33 @@ export default function AxieModularAssembler({
 
         {/* Global Action Toolbar */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Lunalog Part Evolution Level Toggle */}
+          <div className="flex items-center bg-zinc-900 border border-amber-500/40 rounded-xl p-0.5 shadow-inner">
+            <button
+              onClick={() => setEvolutionStage(1)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                evolutionStage === 1
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Tampilkan bentuk dasar Stage 1"
+            >
+              Stage 1 (Base)
+            </button>
+            <button
+              onClick={() => setEvolutionStage(2)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${
+                evolutionStage === 2
+                  ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black shadow-md shadow-amber-500/30'
+                  : 'text-amber-400 hover:text-amber-300'
+              }`}
+              title="Tampilkan bentuk evolusi Stage 2 dengan aura bintang dan stat maksimum"
+            >
+              <Sparkles className="w-3 h-3 fill-current" />
+              Stage 2 (Evolved)
+            </button>
+          </div>
+
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 transition flex items-center gap-1.5"
@@ -1236,6 +1329,16 @@ export default function AxieModularAssembler({
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700">
               {GTK2D_BODY_TYPES[config.bodyType]?.name}
             </span>
+            {evolutionStage === 2 ? (
+              <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-300 border border-amber-400/50 flex items-center gap-1 shadow-sm shadow-amber-500/20">
+                <Star className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
+                LV.2 EVOLVED
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 border border-zinc-700">
+                STAGE 1
+              </span>
+            )}
           </div>
 
           <div className="absolute top-3 right-3 z-10 text-[9px] font-mono text-zinc-500">
@@ -1272,52 +1375,64 @@ export default function AxieModularAssembler({
         {/* CONTROLS & INSPECTOR PANEL (7 Cols) */}
         <div className="lg:col-span-7 bg-zinc-900/70 border border-zinc-800 rounded-3xl p-5 space-y-5">
           {/* Sub-Tab Navigation */}
-          <div className="grid grid-cols-4 gap-1.5 bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800 text-xs font-bold">
+          <div className="grid grid-cols-5 gap-1 bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800 text-xs font-bold">
             <button
               onClick={() => setActiveTab('parts')}
-              className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'parts'
                   ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5" />
+              <Sliders className="w-3 h-3" />
               <span>Slot Bagian</span>
             </button>
 
             <button
+              onClick={() => setActiveTab('lunalog')}
+              className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 text-[11px] ${
+                activeTab === 'lunalog'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3 h-3" />
+              <span>Kartu Lunalog</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('layers')}
-              className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'layers'
                   ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Layer Inspector</span>
+              <Layers className="w-3 h-3" />
+              <span>Layers</span>
             </button>
 
             <button
               onClick={() => setActiveTab('palette')}
-              className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'palette'
                   ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Palette className="w-3.5 h-3.5" />
-              <span>Warna &amp; Tint</span>
+              <Palette className="w-3 h-3" />
+              <span>Warna</span>
             </button>
 
             <button
               onClick={() => setActiveTab('bodyType')}
-              className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'bodyType'
                   ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Box className="w-3.5 h-3.5" />
+              <Box className="w-3 h-3" />
               <span>Tipe Tubuh</span>
             </button>
           </div>
@@ -1349,6 +1464,52 @@ export default function AxieModularAssembler({
                       }`}
                     >
                       {cls}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Special Collections Filter Pill Row */}
+              <div>
+                <label className="text-[11px] font-bold text-zinc-400 block mb-1.5 flex items-center justify-between">
+                  <span>Filter Edisi Khusus Lunalog:</span>
+                  <span className="text-[9px] text-amber-400 font-mono">Special Collectibles</span>
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { id: 'all', label: 'Semua Edisi' },
+                    { id: 'normal', label: 'Normal' },
+                    { id: 'mystic', label: '💎 Mystic (Atia)' },
+                    { id: 'japan', label: '⛩️ Japan Bionic' },
+                    { id: 'xmas', label: '🎄 Xmas Holiday' },
+                    { id: 'nightmare', label: '👁️ Nightmare' },
+                  ].map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => {
+                        setSelectedCollection(col.id);
+                        if (col.id === 'mystic') {
+                          setConfig((prev) => ({
+                            ...prev,
+                            bodyColor: '#ffd700',
+                            horn: { ...prev.horn, color: '#38bdf8' },
+                          }));
+                        } else if (col.id === 'nightmare') {
+                          setConfig((prev) => ({
+                            ...prev,
+                            bodyType: 'nightmare',
+                            bodyColor: '#e2e8f0',
+                            horn: { ...prev.horn, color: '#a855f7' },
+                          }));
+                        }
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
+                        selectedCollection === col.id
+                          ? 'bg-amber-400 text-black border-amber-300 shadow-sm'
+                          : 'bg-zinc-950 text-zinc-400 hover:text-white border-zinc-800'
+                      }`}
+                    >
+                      {col.label}
                     </button>
                   ))}
                 </div>
@@ -1498,6 +1659,137 @@ export default function AxieModularAssembler({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB CONTENT: LUNALOG CATALOG & BATTLE CARDS */}
+          {activeTab === 'lunalog' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+                <div>
+                  <h4 className="text-xs font-black text-white uppercase tracking-wide flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-amber-400" />
+                    Katalog Kartu Battle &amp; Part Evolution (Lunalog)
+                  </h4>
+                  <p className="text-[10px] text-zinc-400">
+                    Data resmi kemampuan kartu Origins, konsumsi energi, dan peningkatan visual Stage 1 vs Stage 2.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-400">Status Evolusi:</span>
+                  <button
+                    onClick={() => setEvolutionStage(evolutionStage === 1 ? 2 : 1)}
+                    className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition flex items-center gap-1.5 ${
+                      evolutionStage === 2
+                        ? 'bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-500/20'
+                        : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
+                    }`}
+                  >
+                    {evolutionStage === 2 ? '⭐ Stage 2 (Evolved Active)' : 'Stage 1 (Base Active)'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Active Battle Ability Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { slot: 'horn', name: '📯 Tanduk (Horn)', cls: config.horn.class },
+                  { slot: 'mouth', name: '👄 Mulut (Mouth)', cls: config.mouth.class },
+                  { slot: 'back', name: '🛡️ Punggung (Back)', cls: config.back.class },
+                  { slot: 'tail', name: '🐟 Ekor (Tail)', cls: config.tail.class },
+                ].map((item) => {
+                  const partInfo = getLunalogPart(item.slot, item.cls);
+                  const stage = evolutionStage === 2 ? partInfo.stage2 : partInfo.stage1;
+                  const isEvolved = evolutionStage === 2;
+
+                  return (
+                    <div
+                      key={item.slot}
+                      className={`p-3.5 rounded-2xl border transition relative overflow-hidden flex flex-col justify-between ${
+                        isEvolved
+                          ? 'bg-gradient-to-b from-zinc-900 to-amber-950/30 border-amber-500/40 shadow-lg shadow-amber-500/10'
+                          : 'bg-zinc-950/80 border-zinc-800'
+                      }`}
+                    >
+                      {/* Top Card Bar: Slot & Energy Orb */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-white">{item.name}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                            {item.cls}
+                          </span>
+                        </div>
+                        {/* Energy Orb */}
+                        <div
+                          className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 text-black font-black text-xs flex items-center justify-center shadow-md shadow-amber-500/20"
+                          title={`Energy Cost: ${stage.energy}`}
+                        >
+                          {stage.energy}
+                        </div>
+                      </div>
+
+                      {/* Card Title & Badge */}
+                      <div className="mb-2">
+                        <div className="text-xs font-black text-amber-300 flex items-center gap-1">
+                          {stage.name}
+                          {isEvolved && <Star className="w-3 h-3 fill-amber-300 text-amber-300" />}
+                        </div>
+                        {stage.badge && (
+                          <span className="inline-block text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 mt-0.5">
+                            {stage.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Stats Row (Attack / Shield) */}
+                      <div className="flex items-center gap-3 py-1.5 px-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 mb-2.5">
+                        <div className="flex items-center gap-1 text-[11px] font-black text-rose-400">
+                          <Sword className="w-3.5 h-3.5" />
+                          <span>ATK: {stage.damage}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] font-black text-sky-400">
+                          <Shield className="w-3.5 h-3.5" />
+                          <span>DEF: {stage.shield}</span>
+                        </div>
+                        {isEvolved && (
+                          <span className="text-[9px] font-mono text-emerald-400 font-bold ml-auto">
+                            +15% SYNERGY
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Effect Description */}
+                      <p className="text-[10px] text-zinc-300 bg-zinc-900/50 p-2 rounded-xl border border-zinc-800/50 leading-relaxed italic">
+                        &quot;{stage.effect}&quot;
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Passive Traits: Eyes & Ears */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px]">
+                  <div className="font-bold text-zinc-300 flex items-center justify-between mb-1">
+                    <span>👁️ Mata (Eyes - {config.eyes.class})</span>
+                    <span className="text-amber-400 font-mono">Sensory Passive</span>
+                  </div>
+                  <p className="text-zinc-400">
+                    Meningkatkan akurasi dan chance critical strike base sebesar +{evolutionStage === 2 ? '6' : '3'}%.
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px]">
+                  <div className="font-bold text-zinc-300 flex items-center justify-between mb-1">
+                    <span>👂 Telinga (Ears - {config.ears.class})</span>
+                    <span className="text-emerald-400 font-mono">Tactical Passive</span>
+                  </div>
+                  <p className="text-zinc-400">
+                    Menambah inisiatif giliran (Turn Priority Speed) sebesar +{evolutionStage === 2 ? '5' : '2'} Speed poin.
+                  </p>
                 </div>
               </div>
             </div>
