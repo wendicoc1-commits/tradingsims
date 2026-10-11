@@ -57,6 +57,56 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Geist', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* Bloomberg 1982 Phosphor Amber CRT Theme */
+[data-theme="phosphore"] {
+  --bg-primary: #14100a;
+  --bg-surface: #1e180f;
+  --bg-card: rgba(30, 24, 15, 0.88);
+  --bg-card-solid: #1e180f;
+  --bg-raised: #282014;
+  --bg-hover: #352a1b;
+  --border: rgba(255, 160, 46, 0.2);
+  --border-dim: rgba(255, 160, 46, 0.1);
+  --border-bright: rgba(255, 160, 46, 0.35);
+  --border-focus: #ffa02e;
+  --text-primary: #ffe2b0;
+  --text-secondary: #d4a56a;
+  --text-muted: #8c6a3e;
+  --accent: #ffa02e;
+  --accent-gold: #e08c20;
+  --accent-bright: #ffbe6b;
+  --accent-bg: rgba(255, 160, 46, 0.18);
+  --positive: #e09838;
+  --positive-bg: rgba(224, 152, 56, 0.18);
+  --negative: #d94b26;
+  --negative-bg: rgba(217, 75, 38, 0.18);
+  --cyan: #ffbe6b;
+}
+
+/* Acidulé Cyber Emerald / Cyan Theme */
+[data-theme="acidule"] {
+  --bg-primary: #01141d;
+  --bg-surface: #04212e;
+  --bg-card: rgba(4, 33, 46, 0.88);
+  --bg-card-solid: #04212e;
+  --bg-raised: #082d3f;
+  --bg-hover: #0c3c53;
+  --border: rgba(130, 186, 136, 0.25);
+  --border-dim: rgba(130, 186, 136, 0.12);
+  --border-bright: rgba(130, 186, 136, 0.4);
+  --border-focus: #82ba88;
+  --text-primary: #fff183;
+  --text-secondary: #82ba88;
+  --text-muted: #4e8371;
+  --accent: #82ba88;
+  --accent-bg: rgba(130, 186, 136, 0.18);
+  --positive: #82ba88;
+  --positive-bg: rgba(130, 186, 136, 0.18);
+  --negative: #faa4b5;
+  --negative-bg: rgba(250, 164, 181, 0.18);
+  --cyan: #70c1e1;
+}
+
 /* Light Mode Terminal Override (Paper Terminal) */
 .light {
   --bg-primary: #f4f4f7;
@@ -72,6 +122,28 @@
   --text-secondary: #52525b;
   --text-muted: #71717a;
   --accent-bg: rgba(217, 119, 6, 0.12);
+}
+
+/* CRT Scanlines Overlay */
+.crt-screen::before {
+  content: " ";
+  display: block;
+  position: fixed;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  z-index: 9999;
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+/* Tactile Keycaps & Buttons */
+.tactile-btn {
+  transition: all 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+.tactile-btn:active {
+  transform: translateY(1.5px) scale(0.985);
 }
 
 /* Base Terminal Resets */

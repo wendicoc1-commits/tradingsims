@@ -39,6 +39,8 @@ import {
   RefreshCw,
   Cloud,
   KeyRound,
+  Tv,
+  Monitor,
 } from 'lucide-react';
 import { useMarketStore, usePortfolioStore } from '@/store';
 import { INVESTING_COM_GLOBAL_DIVIDENDS } from '@/data/investing_global_dividends';
@@ -83,7 +85,7 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
 export default function TradeSimHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme, setSelectedSymbol } = useMarketStore();
+  const { theme, toggleTheme, crtScanline, toggleCrtScanline, setSelectedSymbol } = useMarketStore();
   const { cash, holdings } = usePortfolioStore();
 
   const totalHoldingsValue = useMemo(() => {
@@ -373,7 +375,59 @@ export default function TradeSimHeader() {
               <span className="hidden lg:inline">{autoTradingEnabled ? 'AI Pilot: ON' : 'AI Pilot: OFF'}</span>
             </button>
 
+            {/* Retro Theme & Workstation Aesthetic Switcher */}
+            <button
+              type="button"
+              onClick={() => {
+                tradeSimAudio.playClick();
+                toggleTheme();
+              }}
+              aria-label="Ganti Tema Bloomberg / UNIX OS"
+              className="tactile-btn px-2 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer border bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700/80"
+              title={`Tema Aktif: ${theme.toUpperCase()} (Klik untuk berganti ke Phosphor Amber, Acidulé Cyber, Obsidian, atau Light)`}
+            >
+              {theme === 'phosphore' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-[#ffa02e] shadow-[0_0_8px_#ffa02e]" />
+                  <span className="text-[#ffa02e] font-mono">PHOSPHOR</span>
+                </>
+              ) : theme === 'acidule' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-[#82ba88] shadow-[0_0_8px_#82ba88]" />
+                  <span className="text-[#82ba88] font-mono">ACIDULÉ</span>
+                </>
+              ) : theme === 'light' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-zinc-700 font-mono">LIGHT</span>
+                </>
+              ) : (
+                <>
+                  <Monitor className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-zinc-300 font-mono">OBSIDIAN</span>
+                </>
+              )}
+            </button>
 
+            {/* CRT Phosphor Scanline Overlay Switcher */}
+            <button
+              type="button"
+              onClick={() => {
+                tradeSimAudio.playClick();
+                toggleCrtScanline();
+              }}
+              aria-label="Toggle CRT Scanline Simulation Overlay"
+              className={`tactile-btn px-2 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer border ${
+                crtScanline
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+              }`}
+              title={crtScanline ? 'CRT Scanlines Aktif (Shader 1982). Klik untuk Matikan.' : 'Aktifkan Efek CRT Scanlines Retro 1982'}
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span>CRT</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${crtScanline ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
+            </button>
 
             <button
               type="button"

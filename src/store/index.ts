@@ -11,10 +11,13 @@ import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices'
 // ==========================================
 // Market Store
 // ==========================================
+export type VisualTheme = 'dark' | 'light' | 'phosphore' | 'acidule';
+
 export interface MarketState {
   selectedSymbol: string
   activeTab: string
-  theme: 'dark' | 'light'
+  theme: VisualTheme
+  crtScanline: boolean
   isRightDockOpen: boolean
   activeDockTab: 'watchlist' | 'order'
   setSelectedSymbol: (symbol: string) => void
@@ -23,12 +26,15 @@ export interface MarketState {
   setActiveDockTab: (tab: 'watchlist' | 'order') => void
   toggleRightDock: () => void
   toggleTheme: () => void
+  setTheme: (theme: VisualTheme) => void
+  toggleCrtScanline: () => void
 }
 
 export const useMarketStore = create<MarketState>((set) => ({
   selectedSymbol: 'BBCA.JK',
   activeTab: 'overview',
   theme: 'dark',
+  crtScanline: false,
   isRightDockOpen: false,
   activeDockTab: 'watchlist',
   setSelectedSymbol: (symbol: string) => set({ selectedSymbol: symbol }),
@@ -38,15 +44,56 @@ export const useMarketStore = create<MarketState>((set) => ({
   toggleRightDock: () => set((state) => ({ isRightDockOpen: !state.isRightDockOpen })),
   toggleTheme: () =>
     set((state) => {
-      const nextTheme = state.theme === 'dark' ? 'light' : 'dark'
+      const cycle: VisualTheme[] = ['dark', 'phosphore', 'acidule', 'light'];
+      const nextIdx = (cycle.indexOf(state.theme) + 1) % cycle.length;
+      const nextTheme = cycle[nextIdx];
       if (typeof document !== 'undefined') {
-        if (nextTheme === 'dark') {
-          document.documentElement.classList.add('dark')
+        if (nextTheme === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.removeAttribute('data-theme');
+        } else if (nextTheme === 'phosphore') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'phosphore');
+        } else if (nextTheme === 'acidule') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'acidule');
         } else {
-          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('dark');
+          document.documentElement.removeAttribute('data-theme');
         }
       }
-      return { theme: nextTheme }
+      return { theme: nextTheme };
+    }),
+  setTheme: (theme: VisualTheme) =>
+    set(() => {
+      if (typeof document !== 'undefined') {
+        if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.removeAttribute('data-theme');
+        } else if (theme === 'phosphore') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'phosphore');
+        } else if (theme === 'acidule') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'acidule');
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.removeAttribute('data-theme');
+        }
+      }
+      return { theme };
+    }),
+  toggleCrtScanline: () =>
+    set((state) => {
+      const nextVal = !state.crtScanline;
+      if (typeof document !== 'undefined') {
+        if (nextVal) {
+          document.body.classList.add('crt-screen');
+        } else {
+          document.body.classList.remove('crt-screen');
+        }
+      }
+      return { crtScanline: nextVal };
     }),
 }))
 

@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   Download,
   Newspaper,
+  GitBranch,
 } from 'lucide-react';
 import { usePortfolioStore, KNOWN_DIVIDENDS } from '@/store';
 import { calculateShares, isValidIDXTick } from '@/lib/stockRules';
@@ -31,6 +32,7 @@ import PortfolioAnalytics from '@/components/portfolio/PortfolioAnalytics';
 import PortfolioNewsFeed from '@/components/portfolio/PortfolioNewsFeed';
 import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTestModal';
 import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
+import GitOrderBlotter from '@/components/portfolio/GitOrderBlotter';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
 import TradingJournalCalendar from '@/components/portfolio/TradingJournalCalendar';
 import TelegramAlertSettingsModal from '@/components/portfolio/TelegramAlertSettingsModal';
@@ -582,7 +584,7 @@ export default function PortfolioPage() {
     updateHoldingPrices,
   } = usePortfolioStore();
   const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'journal' | 'analytics' | 'orders' | 'news'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'journal' | 'analytics' | 'orders' | 'gitblotter' | 'news'>('holdings');
   const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
   const [useDRIP, setUseDRIP] = useState(false);
@@ -1255,6 +1257,20 @@ export default function PortfolioPage() {
               <History className="w-4 h-4" /> Riwayat Order & Realized P/L ({orders.length})
             </button>
             <button
+              onClick={() => setActiveTab('gitblotter')}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
+              style={{
+                color: activeTab === 'gitblotter' ? '#f59e0b' : 'var(--text-muted)',
+                borderBottom: activeTab === 'gitblotter' ? '2px solid #f59e0b' : '2px solid transparent',
+              }}
+            >
+              <GitBranch className="w-4 h-4 text-[#f59e0b]" />
+              <span>Git Log Blotter (ACID)</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40">
+                v2.1
+              </span>
+            </button>
+            <button
               onClick={() => setActiveTab('news')}
               className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
               style={{
@@ -1714,6 +1730,11 @@ export default function PortfolioPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* TAB: GIT COMMIT LOG ORDER BLOTTER (ACID) */}
+        {activeTab === 'gitblotter' && (
+          <GitOrderBlotter />
         )}
 
           {/* TAB: TRADING JOURNAL CALENDAR HEATMAP */}
