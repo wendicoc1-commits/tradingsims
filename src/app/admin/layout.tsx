@@ -9,6 +9,7 @@ import {
   Activity, 
   Layers
 } from 'lucide-react';
+import AdminAuthGate, { AdminLogoutButton } from '@/components/admin/AdminAuthGate';
 
 export default function AdminLayout({
   children,
@@ -16,7 +17,8 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col md:flex-row font-sans">
+    <AdminAuthGate>
+      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col md:flex-row font-sans">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 border-r border-neutral-800 bg-neutral-900/60 backdrop-blur-xl flex flex-col justify-between p-4 shrink-0">
         <div>
@@ -67,13 +69,16 @@ export default function AdminLayout({
             </p>
           </div>
 
-          <Link
-            href="/"
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium border border-neutral-700/50 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Kembali ke Trading App</span>
-          </Link>
+          <div className="flex flex-col gap-2">
+            <AdminLogoutButton className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 hover:text-white text-xs font-semibold border border-rose-500/30 transition-colors cursor-pointer" />
+            <Link
+              href="/"
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-medium border border-neutral-700/50 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Kembali ke Trading App</span>
+            </Link>
+          </div>
         </div>
       </aside>
 
@@ -92,6 +97,7 @@ export default function AdminLayout({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Database Connected
             </span>
+            <AdminLogoutButton />
           </div>
         </header>
 
@@ -101,5 +107,6 @@ export default function AdminLayout({
         </div>
       </main>
     </div>
+    </AdminAuthGate>
   );
 }
