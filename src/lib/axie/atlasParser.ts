@@ -45,7 +45,7 @@ export function parseSpineAtlas(rawText: string): AtlasData {
       continue;
     }
 
-    if (line.startsWith('size:')) {
+    if (!currentRegion && line.startsWith('size:')) {
       const parts = line.replace('size:', '').trim().split(',');
       width = parseInt(parts[0], 10);
       height = parseInt(parts[1], 10);

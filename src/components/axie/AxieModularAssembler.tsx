@@ -192,18 +192,29 @@ export default function AxieModularAssembler({
 
   // Extracted offscreen region cache
   const regionCanvasCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
+  const fallbackImgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const fImg = new Image();
+    fImg.src = '/axies/sprite_crimson_fury_beast.png';
+    fallbackImgRef.current = fImg;
+  }, []);
+
+  const safeInitialClass = (['Beast', 'Plant', 'Aquatic', 'Bird', 'Bug', 'Reptile'].includes(initialClass)
+    ? initialClass
+    : 'Beast') as AxieClassKey;
 
   // Configuration State
   const [config, setConfig] = useState<AxieAppearanceConfig>({
-    bodyClass: initialClass,
+    bodyClass: safeInitialClass,
     bodyType: initialBodyType,
-    bodyColor: AXIE_STARTER_PRESETS[initialClass].primary,
-    eyes: { class: initialClass, partId: 'eyes', color: '#0f172a', visible: true },
-    ears: { class: initialClass, partId: 'ear', color: AXIE_STARTER_PRESETS[initialClass].primary, visible: true },
-    mouth: { class: initialClass, partId: 'mouth', color: '#dc2626', visible: true },
-    horn: { class: initialClass, partId: 'horn', color: AXIE_STARTER_PRESETS[initialClass].secondary, visible: true },
-    back: { class: initialClass, partId: 'back', color: AXIE_STARTER_PRESETS[initialClass].primary, visible: true },
-    tail: { class: initialClass, partId: 'tail', color: AXIE_STARTER_PRESETS[initialClass].secondary, visible: true },
+    bodyColor: AXIE_STARTER_PRESETS[safeInitialClass].primary,
+    eyes: { class: safeInitialClass, partId: 'eyes', color: '#0f172a', visible: true },
+    ears: { class: safeInitialClass, partId: 'ear', color: AXIE_STARTER_PRESETS[safeInitialClass].primary, visible: true },
+    mouth: { class: safeInitialClass, partId: 'mouth', color: '#dc2626', visible: true },
+    horn: { class: safeInitialClass, partId: 'horn', color: AXIE_STARTER_PRESETS[safeInitialClass].secondary, visible: true },
+    back: { class: safeInitialClass, partId: 'back', color: AXIE_STARTER_PRESETS[safeInitialClass].primary, visible: true },
+    tail: { class: safeInitialClass, partId: 'tail', color: AXIE_STARTER_PRESETS[safeInitialClass].secondary, visible: true },
     shadowVisible: true,
     legsVisible: true,
     patternVisible: true,
@@ -224,38 +235,48 @@ export default function AxieModularAssembler({
     async function loadAllAssets() {
       try {
         const promises = classes.map(async (cls) => {
-          const info = STARTER_AXIE_ATLAS_MAP[cls];
-          if (!info) return null;
+          try {
+            const info = STARTER_AXIE_ATLAS_MAP[cls];
+            if (!info) return null;
 
-          const atlasRes = await fetch(info.atlasPath);
-          const atlasText = await atlasRes.text();
-          const parsedAtlas = parseSpineAtlas(atlasText);
+            const atlasRes = await fetch(info.atlasPath);
+            if (!atlasRes.ok) return null;
+            const atlasText = await atlasRes.text();
+            const parsedAtlas = parseSpineAtlas(atlasText);
 
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.src = info.imagePath;
+            const img = new Image();
+            img.src = info.imagePath;
 
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error(`Failed to load ${info.imagePath}`));
-          });
+            await new Promise<void>((resolve, reject) => {
+              if (img.complete) return resolve();
+              img.onload = () => resolve();
+              img.onerror = () => reject(new Error(`Failed to load ${info.imagePath}`));
+            });
 
-          return { cls, image: img, atlas: parsedAtlas };
+            return { cls, image: img, atlas: parsedAtlas };
+          } catch (err) {
+            console.warn(`Failed loading Spine asset for ${cls}:`, err);
+            return null;
+          }
         });
 
         const results = await Promise.all(promises);
         if (!isMounted) return;
 
+        let anyLoaded = false;
         results.forEach((res) => {
           if (res) {
             loadedAssetsRef.current[res.cls] = {
               image: res.image,
               atlas: res.atlas,
             };
+            anyLoaded = true;
           }
         });
 
-        setAtlasesLoaded(true);
+        if (anyLoaded) {
+          setAtlasesLoaded(true);
+        }
       } catch (err) {
         console.error('Error loading Spine GTK2D assets:', err);
       }
@@ -279,7 +300,7 @@ export default function AxieModularAssembler({
       if (!asset) return null;
 
       const region = asset.atlas.regions[regionName];
-      if (!region) return null;
+      if (!region || !region.width || !region.height) return null;
 
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
@@ -287,22 +308,25 @@ export default function AxieModularAssembler({
 
       if (region.rotate) {
         // Spine atlas pack rotation
-        offCanvas.width = region.height;
-        offCanvas.height = region.width;
+        const packedW = region.height;
+        const packedH = region.width;
+
+        offCanvas.width = region.width;
+        offCanvas.height = region.height;
 
         offCtx.save();
-        offCtx.translate(region.height / 2, region.width / 2);
+        offCtx.translate(0, region.height);
         offCtx.rotate(-Math.PI / 2);
         offCtx.drawImage(
           asset.image,
           region.x,
           region.y,
-          region.width,
-          region.height,
-          -region.width / 2,
-          -region.height / 2,
-          region.width,
-          region.height
+          packedW,
+          packedH,
+          0,
+          0,
+          packedW,
+          packedH
         );
         offCtx.restore();
       } else {
@@ -329,7 +353,7 @@ export default function AxieModularAssembler({
 
   // Helper to generate tinted sprite
   const getTintedRegion = useCallback(
-    (baseCanvas: HTMLCanvasElement, tintHex: string, strength: number = 0.65): HTMLCanvasElement => {
+    (baseCanvas: HTMLCanvasElement, tintHex: string, strength: number = 0.55): HTMLCanvasElement => {
       if (!tintHex || tintHex === '#ffffff' || strength <= 0) return baseCanvas;
 
       const tinted = document.createElement('canvas');
@@ -341,23 +365,12 @@ export default function AxieModularAssembler({
       // Draw base
       tCtx.drawImage(baseCanvas, 0, 0);
 
-      // Multiply tint color to preserve black ink lines and dark shades
+      // Safely tint via source-atop to preserve lineart and alpha channel
       tCtx.save();
-      tCtx.globalCompositeOperation = 'multiply';
+      tCtx.globalCompositeOperation = 'source-atop';
       tCtx.fillStyle = tintHex;
+      tCtx.globalAlpha = Math.min(1, Math.max(0, strength));
       tCtx.fillRect(0, 0, tinted.width, tinted.height);
-      tCtx.restore();
-
-      // Blend back partial base to avoid oversaturation
-      tCtx.save();
-      tCtx.globalAlpha = 1 - strength;
-      tCtx.drawImage(baseCanvas, 0, 0);
-      tCtx.restore();
-
-      // Mask with exact alpha channel from base image
-      tCtx.save();
-      tCtx.globalCompositeOperation = 'destination-in';
-      tCtx.drawImage(baseCanvas, 0, 0);
       tCtx.restore();
 
       return tinted;
@@ -487,6 +500,12 @@ export default function AxieModularAssembler({
         }
 
         ctx.drawImage(tintedBody, bX, bY, w, h);
+        ctx.restore();
+      } else if (fallbackImgRef.current && fallbackImgRef.current.complete) {
+        ctx.save();
+        const w = 240 * bScaleX;
+        const h = 210 * bScaleY * (1 + breathe);
+        ctx.drawImage(fallbackImgRef.current, cx - w / 2, cy - h / 2 + bOffsetY + breatheY, w, h);
         ctx.restore();
       }
 
@@ -808,19 +827,19 @@ export default function AxieModularAssembler({
           </div>
 
           {/* HTML5 Canvas */}
-          <div className="relative z-0 w-full flex items-center justify-center py-2">
-            {!atlasesLoaded ? (
-              <div className="h-[340px] flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs">
+          <div className="relative z-0 w-full flex items-center justify-center py-2 min-h-[360px]">
+            <canvas
+              ref={canvasRef}
+              width={500}
+              height={420}
+              className="w-full max-w-[440px] h-auto object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] group-hover:scale-[1.02] transition-transform duration-300"
+            />
+
+            {!atlasesLoaded && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs bg-zinc-950/70 backdrop-blur-xs rounded-2xl">
                 <RefreshCw className="w-6 h-6 animate-spin text-amber-400" />
                 <span>Memuat Spine Atlases (01-Buba, 02-Olek, 03-Puffy...)...</span>
               </div>
-            ) : (
-              <canvas
-                ref={canvasRef}
-                width={500}
-                height={420}
-                className="w-full max-w-[440px] h-auto object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] group-hover:scale-[1.02] transition-transform duration-300"
-              />
             )}
           </div>
 
