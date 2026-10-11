@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import AxieAvatar from '@/components/axie/AxieAvatar';
 import {
   Shield,
   Zap,
@@ -659,15 +659,14 @@ export default function AxiePage() {
                           </a>
                         </div>
 
-                        {/* Image Preview */}
+                        {/* Image / Avatar Preview */}
                         <div className="relative w-full h-36 flex items-center justify-center my-2 bg-gradient-to-b from-zinc-950/60 to-zinc-900/40 rounded-xl overflow-hidden border border-zinc-800/40 group-hover:scale-105 transition-transform duration-300">
-                          <Image
-                            src={axie.image}
-                            alt={axie.name}
-                            fill
-                            sizes="(max-width: 768px) 100vw, 300px"
-                            className="object-contain p-2"
-                            unoptimized
+                          <AxieAvatar
+                            id={axie.id}
+                            axieClass={axie.class}
+                            name={axie.name}
+                            imageSrc={axie.image}
+                            className="w-32 h-28"
                           />
                         </div>
 
@@ -820,13 +819,12 @@ export default function AxiePage() {
                           )}
 
                           <div className="relative w-20 h-16 sm:w-24 sm:h-20 my-1">
-                            <Image
-                              src={axie.image}
-                              alt={axie.name}
-                              fill
-                              sizes="96px"
-                              className="object-contain drop-shadow-xl"
-                              unoptimized
+                            <AxieAvatar
+                              id={axie.id}
+                              axieClass={axie.class}
+                              name={axie.name}
+                              imageSrc={axie.image}
+                              className="w-full h-full"
                             />
                           </div>
 
@@ -878,13 +876,12 @@ export default function AxiePage() {
                           )}
 
                           <div className="relative w-20 h-16 sm:w-24 sm:h-20 my-1 scale-x-[-1]">
-                            <Image
-                              src={axie.image}
-                              alt={axie.name}
-                              fill
-                              sizes="96px"
-                              className="object-contain drop-shadow-xl"
-                              unoptimized
+                            <AxieAvatar
+                              id={axie.id}
+                              axieClass={axie.class}
+                              name={axie.name}
+                              imageSrc={axie.image}
+                              className="w-full h-full"
                             />
                           </div>
 
