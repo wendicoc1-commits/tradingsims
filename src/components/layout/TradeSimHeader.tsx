@@ -592,6 +592,19 @@ export default function TradeSimHeader() {
           <span>CRYPTO SPOT</span>
         </Link>
         <Link
+          href="/axie"
+          onClick={() => tradeSimAudio.playClick()}
+          className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${
+            pathname.startsWith('/axie')
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+          }`}
+        >
+          <span className="text-[10px] px-1 py-0.2 rounded bg-black/40 text-amber-400 font-bold border border-white/10">05</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>AXIE ARENA</span>
+        </Link>
+        <Link
           href="/heatmap"
           onClick={() => tradeSimAudio.playClick()}
           className={`tactile-btn px-2.5 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 ${

@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'assets.axieinfinity.com',
+      },
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

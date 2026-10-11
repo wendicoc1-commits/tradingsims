@@ -53,6 +53,7 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
     pathname.startsWith('/heatmap') ||
     pathname.startsWith('/macro') ||
     pathname.startsWith('/crypto') ||
+    pathname.startsWith('/axie') ||
     pathname.startsWith('/screener') ||
     pathname.startsWith('/dividend') ||
     pathname.startsWith('/ipo');
