@@ -274,7 +274,7 @@ function buildMegaUniverseDataset(
 
       // Setiap butiran saham memiliki cincin orbit terpisah agar tidak menggumpal
       const orbitBand = sIdx % 8;
-      const targetOrbitRadius = 75 + orbitBand * 24 + (sIdx % 5) * 7; // rentang orbit 75px - 275px
+      const targetOrbitRadius = 50 + orbitBand * 16 + (sIdx % 4) * 5; // rentang orbit 50px - 180px
       const orbitAngle = sIdx * goldenRatio;
 
       rawNodes.push({
@@ -286,7 +286,7 @@ function buildMegaUniverseDataset(
         color: hub.color,
         description: `${stk.name} • Sektor: ${stk.sector}. Papan: ${stk.board || 'Utama'}. Harga Wajar: Rp ${stk.defaultPrice.toLocaleString()}`,
         metric: `Rp ${stk.defaultPrice.toLocaleString()}`,
-        baseRadius: stk.isPopular ? 7.5 : 3.8, // Butiran halus bintang Obsidian
+        baseRadius: stk.isPopular ? 5.5 : 2.8, // Butiran halus bintang Obsidian mikro tajam
         isMajor: !!stk.isPopular,
         parentHubId: sectorHubId,
         targetOrbitRadius,
@@ -318,7 +318,7 @@ function buildMegaUniverseDataset(
         color,
         description: `${cg.name} • Kategori: ${cg.category}. Harga: $${cg.defaultPrice.toLocaleString()}`,
         metric: `$${cg.defaultPrice.toLocaleString()}`,
-        baseRadius: 11,
+        baseRadius: 8.5,
         isMajor: true,
       });
 
@@ -347,7 +347,7 @@ function buildMegaUniverseDataset(
   const sectorHubPosMap = new Map<string, { x: number; y: number }>();
   IDX_SECTOR_HUBS.forEach((sec, idx) => {
     const theta = (idx % 11) * ((Math.PI * 2) / 11);
-    const r = 500;
+    const r = 360;
     sectorHubPosMap.set(sec.id, {
       x: centerX + r * Math.cos(theta),
       y: centerY + r * Math.sin(theta),
@@ -360,25 +360,25 @@ function buildMegaUniverseDataset(
     let initY = centerY;
 
     if (n.category === 'ARCHITECTURE') {
-      // Pusat Galaksi: Arsitektur Sistem (Radius 40 - 130px)
-      const r = 40 + Math.sqrt(idx) * 25;
+      // Pusat Galaksi: Arsitektur Sistem (Radius 35 - 110px)
+      const r = 35 + Math.sqrt(idx) * 20;
       const theta = idx * goldenRatio;
       initX = centerX + r * Math.cos(theta);
       initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'AI_DEPT') {
-      // Lingkaran Pertama: 10 Departemen Head (Radius 200px)
-      const r = 200;
+      // Lingkaran Pertama: 10 Departemen Head (Radius 170px)
+      const r = 170;
       const theta = (idx % 10) * ((Math.PI * 2) / 10);
       initX = centerX + r * Math.cos(theta);
       initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'AI_AGENT') {
-      // Lingkaran Kedua: 50 Agen Pejabat AI (Radius 270 - 370px)
-      const r = 270 + Math.sqrt(idx) * 18;
+      // Lingkaran Kedua: 50 Agen Pejabat AI (Radius 230 - 320px)
+      const r = 230 + Math.sqrt(idx) * 14;
       const theta = idx * goldenRatio;
       initX = centerX + r * Math.cos(theta);
       initY = centerY + r * Math.sin(theta);
     } else if (n.category === 'SECTOR_HUB') {
-      // Lingkaran Ketiga: 11 Sektor Hub BEI (Radius 500px)
+      // Lingkaran Ketiga: 11 Sektor Hub BEI (Radius 360px)
       const hubPos = sectorHubPosMap.get(n.id);
       if (hubPos) {
         initX = hubPos.x;
@@ -387,7 +387,7 @@ function buildMegaUniverseDataset(
     } else if (n.category === 'STOCK_IDX' && n.parentHubId && sectorHubPosMap.has(n.parentHubId)) {
       // Butiran Saham: Tersebar melingkari Sektor Hub dalam orbit luas (tidak bertumpuk!)
       const hubPos = sectorHubPosMap.get(n.parentHubId)!;
-      const r = n.targetOrbitRadius || 120;
+      const r = n.targetOrbitRadius || 90;
       const theta = n.orbitAngle || (idx * goldenRatio);
       initX = hubPos.x + r * Math.cos(theta);
       initY = hubPos.y + r * Math.sin(theta);
@@ -486,50 +486,59 @@ export default function TradeSimKnowledgeGraphViewer() {
   // Load dataset into simulation
   const loadDataset = useCallback((scope: MegaUniverseScope, allStocks: boolean) => {
     const w = containerRef.current?.clientWidth || 1000;
-    const h = containerRef.current?.clientHeight || 640;
+    const h = containerRef.current?.clientHeight || 750;
     const built = buildMegaUniverseDataset(scope, w / 2, h / 2, allStocks);
     nodesRef.current = built.nodes;
     edgesRef.current = built.edges;
     clustersRef.current = built.clusters;
     setSelectedNode(null);
     setHoveredNodeId(null);
-    cameraRef.current = { x: 0, y: 0, scale: scope === 'mega' ? 0.58 : 0.85 };
+    cameraRef.current = { x: 0, y: 0, scale: scope === 'mega' ? 0.46 : 0.72 };
   }, []);
 
   useEffect(() => {
     loadDataset(currentScope, includeAllStocks);
   }, [currentScope, includeAllStocks, loadDataset]);
 
-  // Handle Resize Canvas dengan ResizeObserver
+  // Handle Resize Canvas dengan ResizeObserver (Aktif saat mode 2D terpasang)
   useEffect(() => {
+    if (viewDimension !== '2D') return;
+
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const handleResize = () => {
+    const updateCanvasBuffer = () => {
       const rect = container.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      const w = Math.max(rect.width, 800);
-      const h = Math.max(rect.height, 640);
-      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(rect.width, 400);
+      const h = Math.max(rect.height, 400);
+
+      const targetPixelW = Math.round(w * dpr);
+      const targetPixelH = Math.round(h * dpr);
+
+      if (canvas.width !== targetPixelW || canvas.height !== targetPixelH) {
+        canvas.width = targetPixelW;
+        canvas.height = targetPixelH;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
       }
     };
 
-    handleResize();
+    updateCanvasBuffer();
+    loadDataset(currentScope, includeAllStocks);
 
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(handleResize);
+      ro = new ResizeObserver(updateCanvasBuffer);
       ro.observe(container);
     }
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', updateCanvasBuffer);
     return () => {
       if (ro) ro.disconnect();
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', updateCanvasBuffer);
     };
-  }, []);
+  }, [viewDimension, currentScope, includeAllStocks, loadDataset]);
 
   // Filtered nodes (search & cluster)
   const visibleNodeIds = useMemo(() => {
@@ -563,6 +572,7 @@ export default function TradeSimKnowledgeGraphViewer() {
 
   // ── 60FPS Obsidian High-Density Physics & Render Loop ──
   useEffect(() => {
+    if (viewDimension !== '2D') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -573,11 +583,23 @@ export default function TradeSimKnowledgeGraphViewer() {
     const render = () => {
       if (!running) return;
 
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      const centerX = w / 2;
-      const centerY = h / 2;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      const cssW = Math.max(rect.width, 300);
+      const cssH = Math.max(rect.height, 300);
+
+      // Pastikan ukuran buffer fisik canvas selalu sinkron dengan CSS (menghilangkan burik 100%)
+      const targetPixelW = Math.round(cssW * dpr);
+      const targetPixelH = Math.round(cssH * dpr);
+      if (canvas.width !== targetPixelW || canvas.height !== targetPixelH) {
+        canvas.width = targetPixelW;
+        canvas.height = targetPixelH;
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+      }
+
+      const centerX = cssW / 2;
+      const centerY = cssH / 2;
 
       pulseOffsetRef.current = (pulseOffsetRef.current + 0.015) % 1;
 
@@ -704,18 +726,20 @@ export default function TradeSimKnowledgeGraphViewer() {
 
       // ── 2. CANVAS DRAWING (Obsidian Dark Cosmic Canvas) ──
       ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, w, h);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, cssW, cssH);
 
       // Dark Void Background
       ctx.fillStyle = '#080a0f';
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillRect(0, 0, cssW, cssH);
 
       // Faint subtle cosmic dot grid
       const dotSpacing = 48;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
-      for (let x = dotSpacing; x < w; x += dotSpacing) {
-        for (let y = dotSpacing; y < h; y += dotSpacing) {
+      for (let x = dotSpacing; x < cssW; x += dotSpacing) {
+        for (let y = dotSpacing; y < cssH; y += dotSpacing) {
           ctx.beginPath();
           ctx.arc(x, y, 0.75, 0, Math.PI * 2);
           ctx.fill();
@@ -869,6 +893,7 @@ export default function TradeSimKnowledgeGraphViewer() {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [
+    viewDimension,
     physicsActive,
     repelForce,
     centerGravity,
@@ -954,11 +979,11 @@ export default function TradeSimKnowledgeGraphViewer() {
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-    cameraRef.current.scale = Math.min(Math.max(cameraRef.current.scale * zoomFactor, 0.25), 4.0);
+    cameraRef.current.scale = Math.min(Math.max(cameraRef.current.scale * zoomFactor, 0.15), 4.0);
   };
 
   const resetCamera = () => {
-    cameraRef.current = { x: 0, y: 0, scale: currentScope === 'mega' ? 0.58 : 0.85 };
+    cameraRef.current = { x: 0, y: 0, scale: currentScope === 'mega' ? 0.46 : 0.72 };
     setSelectedNode(null);
     setHoveredNodeId(null);
   };
