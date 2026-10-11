@@ -1261,7 +1261,7 @@ export default function VirtualAgentOfficeView() {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [assetsReady, setAssetsReady] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   // ── Auto-Pilot & Autonomous Stock Selection ──
   const { tickerMap } = useBinanceLivePrices();
@@ -1586,7 +1586,9 @@ export default function VirtualAgentOfficeView() {
     setCrisisConsoleOpen(false);
     setAlarm(true);
     // Visual flash and audio alert
-    executiveVoice.speak(`Peringatan darurat: Anomali Black Swan terdeteksi! Skenario ${crisis.type}. Pembekuan order non-hedged diaktifkan.`);
+    if (voiceEnabled) {
+      executiveVoice.speak(`Peringatan darurat: Anomali Black Swan terdeteksi! Skenario ${crisis.type}. Pembekuan order non-hedged diaktifkan.`);
+    }
     // 3D Holographic Shockwave & Glitch
     globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#ef4444', 360);
     globalAtmosphere.triggerGlitch(1.0);
@@ -1601,7 +1603,9 @@ export default function VirtualAgentOfficeView() {
   const handleResolveCrisis = () => {
     setActiveCrisis(null);
     setAlarm(false);
-    executiveVoice.speak('Skenario darurat selesai. Seluruh sistem kembali ke parameter operasional normal.');
+    if (voiceEnabled) {
+      executiveVoice.speak('Skenario darurat selesai. Seluruh sistem kembali ke parameter operasional normal.');
+    }
   };
 
   // ── MODUL 2: POST-MORTEM & MEMORY VAULT ──
@@ -2331,9 +2335,12 @@ export default function VirtualAgentOfficeView() {
     }
   }, [phase]);
 
-  // Bersihkan ticker deliberasi saat unmount komponen
+  // Bersihkan suara vokal & ticker deliberasi saat unmount komponen
   useEffect(() => {
+    executiveVoice.setMuted(true);
+    executiveVoice.stop();
     return () => {
+      executiveVoice.stop();
       useAIAgentStore.getState().setActiveDeliberatingTicker(null);
     };
   }, []);

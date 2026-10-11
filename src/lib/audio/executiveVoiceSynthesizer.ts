@@ -44,7 +44,7 @@ function cleanTextForSpeech(text: string): string {
 }
 
 class ExecutiveVoiceSynthesizer {
-  private isMuted: boolean = false;
+  private isMuted: boolean = true;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private voices: SpeechSynthesisVoice[] = [];
 
@@ -83,8 +83,8 @@ class ExecutiveVoiceSynthesizer {
    * Mengucapkan kalimat dialog petinggi sesuai persona vokal masing-masing
    */
   public speak(
-    agentId: string,
-    text: string,
+    agentIdOrText: string,
+    text?: string,
     options?: { volume?: number; onEnd?: () => void }
   ): void {
     if (this.isMuted) return;
@@ -92,7 +92,9 @@ class ExecutiveVoiceSynthesizer {
 
     this.stop();
 
-    const clean = cleanTextForSpeech(text);
+    const actualText = typeof text === 'string' ? text : agentIdOrText;
+    const agentId = typeof text === 'string' ? agentIdOrText : 'cro';
+    const clean = cleanTextForSpeech(actualText);
     if (!clean) return;
 
     const utterance = new SpeechSynthesisUtterance(clean);
