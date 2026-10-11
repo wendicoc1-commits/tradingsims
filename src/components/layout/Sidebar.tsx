@@ -34,7 +34,6 @@ const coreDesks = [
 
 const researchDesks = [
   { href: '/crypto', label: 'Jesse Crypto Desk', icon: Coins },
-  { href: '/axie', label: 'Axie Arena & Market', icon: Flame },
   { href: '/heatmap', label: 'Market Heatmap', icon: LayoutGrid },
   { href: '/screener', label: 'Screener Saham', icon: Filter },
   { href: '/dividend', label: 'Dividen Intelligence', icon: Layers },
