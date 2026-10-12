@@ -115,14 +115,20 @@ else
     echo "⚠️ Menunggu inisialisasi Next.js pada port 3000..."
 fi
 
-echo "🌐 [6/6] Mengonfigurasi Nginx Reverse Proxy..."
+echo "🌐 [6/6] Mengonfigurasi Nginx Reverse Proxy & SSL..."
 # Izinkan Nginx terhubung ke port lokal (SELinux pada Rocky Linux / RHEL / CentOS)
 setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+
+# Buka firewall untuk port HTTP (80) dan HTTPS (443) jika firewalld / ufw aktif
+firewall-cmd --permanent --add-service=http 2>/dev/null || true
+firewall-cmd --permanent --add-service=https 2>/dev/null || true
+firewall-cmd --reload 2>/dev/null || true
+ufw allow 80/tcp 2>/dev/null || true
+ufw allow 443/tcp 2>/dev/null || true
 
 # Bersihkan / matikan server block bawaan Rocky Linux di /etc/nginx/nginx.conf
 if [ -f /etc/nginx/nginx.conf ]; then
     cp -n /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak 2>/dev/null || true
-    # Konfigurasi nginx.conf bersih tanpa default_server block /usr/share/nginx/html
     cat << 'NGINX_MAIN' > /etc/nginx/nginx.conf
 user nginx;
 worker_processes auto;
@@ -161,14 +167,79 @@ http {
 NGINX_MAIN
 fi
 
-mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true
-rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+# Buat direktori kerja dan hapus konfigurasi default yang berpotensi konflik
+mkdir -p /var/www/certbot /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true
+rm -f /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/ssl.conf /etc/nginx/conf.d/virtual.conf 2>/dev/null || true
 
+# Tahap A: Buat konfigurasi HTTP sementara untuk memvalidasi Let's Encrypt ACME
 cat << 'EOF' > /etc/nginx/conf.d/tradingsims.conf
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name tradingsims.my.id www.tradingsims.my.id 38.9.46.160 localhost _;
+
+    client_max_body_size 50M;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# Restart Nginx tahap A
+nginx -t 2>/dev/null && systemctl restart nginx 2>/dev/null || service nginx restart 2>/dev/null || true
+
+# Tahap B: Cek dan terbitkan sertifikat SSL resmi jika belum ada
+if [ ! -f /etc/letsencrypt/live/tradingsims.my.id/fullchain.pem ] && command -v certbot >/dev/null 2>&1; then
+    echo "🔒 Mengambil sertifikat SSL resmi Let's Encrypt untuk tradingsims.my.id..."
+    certbot certonly --webroot -w /var/www/certbot -d tradingsims.my.id -d www.tradingsims.my.id --non-interactive --agree-tos -m admin@tradingsims.my.id || \
+    certbot certonly --standalone -d tradingsims.my.id -d www.tradingsims.my.id --non-interactive --agree-tos -m admin@tradingsims.my.id --pre-hook "systemctl stop nginx" --post-hook "systemctl start nginx" || true
+fi
+
+# Tahap C: Jika sertifikat SSL ditemukan, pasang konfigurasi HTTPS definitif
+if [ -f /etc/letsencrypt/live/tradingsims.my.id/fullchain.pem ]; then
+    echo "✅ Sertifikat SSL ditemukan! Mengaktifkan HTTPS penuh & HTTP -> HTTPS redirect..."
+    cat << 'EOF' > /etc/nginx/conf.d/tradingsims.conf
+# 1. HTTP Server: Redirect otomatis ke HTTPS
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name tradingsims.my.id www.tradingsims.my.id 38.9.46.160 localhost;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# 2. HTTPS Server: Nginx Reverse Proxy ke Next.js Port 3000
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name tradingsims.my.id www.tradingsims.my.id;
+
+    ssl_certificate /etc/letsencrypt/live/tradingsims.my.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tradingsims.my.id/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
 
     client_max_body_size 50M;
 
@@ -187,12 +258,15 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 300;
     }
 }
 EOF
+else
+    echo "⚠️ Sertifikat SSL Let's Encrypt belum aktif, tetap melayani HTTP di port 80."
+fi
 
 # Link ke sites-enabled jika menggunakan struktur sites-available
 if [ -d /etc/nginx/sites-available ]; then
@@ -201,18 +275,13 @@ if [ -d /etc/nginx/sites-available ]; then
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 fi
 
-# Otomatis aktifkan SSL (HTTPS) via Certbot jika certbot tersedia
-if command -v certbot >/dev/null 2>&1; then
-    echo "🔒 Mengonfigurasi SSL (HTTPS) otomatis via Certbot..."
-    certbot --nginx -d tradingsims.my.id -d www.tradingsims.my.id --non-interactive --agree-tos -m admin@tradingsims.my.id --redirect 2>/dev/null || true
-fi
-
-nginx -t 2>/dev/null || true
+# Validasi sintaks dan reload Nginx
+nginx -t
 systemctl restart nginx 2>/dev/null || service nginx restart 2>/dev/null || nginx -s reload 2>/dev/null || true
 
 echo ""
 echo "=========================================================================="
 echo "✅ DEPLOYMENT BERHASIL!"
 echo "👉 Website aktif di: https://tradingsims.my.id"
-echo "👉 Reverse Proxy Nginx & SSL Certbot telah dikonfigurasi."
+echo "👉 Port 80 otomatis redirect ke HTTPS (Port 443)."
 echo "=========================================================================="
