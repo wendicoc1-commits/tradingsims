@@ -101,35 +101,76 @@ npm install --legacy-peer-deps
 npm run build
 
 echo "⚡ [5/6] Menjalankan TradeSims dengan PM2 (Auto-start on boot)..."
+cd "$APP_DIR"
 pm2 delete tradingsims 2>/dev/null || true
-pm2 start npm --name "tradingsims" -- start -- -p 3000
+pm2 start npm --name "tradingsims" --cwd "$APP_DIR" -- start -- -p 3000
 pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
+
+# Tunggu 3 detik dan verifikasi port 3000 lokal
+sleep 3
+if curl -s -I http://127.0.0.1:3000 >/dev/null 2>&1; then
+    echo "🟢 Port 3000 lokal aktif dan merespon!"
+else
+    echo "⚠️ Menunggu inisialisasi Next.js pada port 3000..."
+fi
 
 echo "🌐 [6/6] Mengonfigurasi Nginx Reverse Proxy..."
 # Izinkan Nginx terhubung ke port lokal (SELinux pada Rocky Linux / RHEL / CentOS)
 setsebool -P httpd_can_network_connect 1 2>/dev/null || true
 
-# Matikan default welcome page Rocky Linux jika ada
-if [ -f /usr/share/nginx/html/index.html ]; then
-    mv /usr/share/nginx/html/index.html /usr/share/nginx/html/index.html.bak 2>/dev/null || true
-fi
+# Bersihkan / matikan server block bawaan Rocky Linux di /etc/nginx/nginx.conf
+if [ -f /etc/nginx/nginx.conf ]; then
+    cp -n /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak 2>/dev/null || true
+    # Konfigurasi nginx.conf bersih tanpa default_server block /usr/share/nginx/html
+    cat << 'NGINX_MAIN' > /etc/nginx/nginx.conf
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log notice;
+pid /run/nginx.pid;
 
-mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true
+include /usr/share/nginx/modules/*.conf;
 
-cat << 'EOF' > /etc/nginx/conf.d/tradingsims.conf
-server {
-    listen 80;
-    server_name tradingsims.my.id www.tradingsims.my.id tradingsims.my.id. 38.9.46.160 localhost _;
+events {
+    worker_connections 1024;
+}
 
-    client_max_body_size 50M;
+http {
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
 
-    # Kompresi Gzip untuk loading kilat
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    keepalive_timeout   65;
+    types_hash_max_size 4096;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
     gzip on;
     gzip_vary on;
     gzip_proxied any;
     gzip_comp_level 6;
     gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+NGINX_MAIN
+fi
+
+mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true
+rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+
+cat << 'EOF' > /etc/nginx/conf.d/tradingsims.conf
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name tradingsims.my.id www.tradingsims.my.id 38.9.46.160 localhost _;
+
+    client_max_body_size 50M;
 
     location /_next/static/ {
         proxy_pass http://127.0.0.1:3000;
