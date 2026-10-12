@@ -107,12 +107,20 @@ pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
 echo "🌐 [6/6] Mengonfigurasi Nginx Reverse Proxy..."
+# Izinkan Nginx terhubung ke port lokal (SELinux pada Rocky Linux / RHEL / CentOS)
+setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+
+# Matikan default welcome page Rocky Linux jika ada
+if [ -f /usr/share/nginx/html/index.html ]; then
+    mv /usr/share/nginx/html/index.html /usr/share/nginx/html/index.html.bak 2>/dev/null || true
+fi
+
 mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled 2>/dev/null || true
 
 cat << 'EOF' > /etc/nginx/conf.d/tradingsims.conf
 server {
     listen 80;
-    server_name tradingsims.my.id www.tradingsims.my.id;
+    server_name tradingsims.my.id www.tradingsims.my.id tradingsims.my.id. 38.9.46.160 localhost _;
 
     client_max_body_size 50M;
 
@@ -152,13 +160,18 @@ if [ -d /etc/nginx/sites-available ]; then
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 fi
 
+# Otomatis aktifkan SSL (HTTPS) via Certbot jika certbot tersedia
+if command -v certbot >/dev/null 2>&1; then
+    echo "🔒 Mengonfigurasi SSL (HTTPS) otomatis via Certbot..."
+    certbot --nginx -d tradingsims.my.id -d www.tradingsims.my.id --non-interactive --agree-tos -m admin@tradingsims.my.id --redirect 2>/dev/null || true
+fi
+
 nginx -t 2>/dev/null || true
 systemctl restart nginx 2>/dev/null || service nginx restart 2>/dev/null || nginx -s reload 2>/dev/null || true
 
 echo ""
 echo "=========================================================================="
 echo "✅ DEPLOYMENT BERHASIL!"
-echo "👉 Website aktif di port 3000 dan diteruskan via Nginx."
-echo "👉 Untuk mengaktifkan SSL (HTTPS) gratis via Certbot, jalankan:"
-echo "   certbot --nginx -d tradingsims.my.id -d www.tradingsims.my.id --non-interactive --agree-tos -m admin@tradingsims.my.id"
+echo "👉 Website aktif di: https://tradingsims.my.id"
+echo "👉 Reverse Proxy Nginx & SSL Certbot telah dikonfigurasi."
 echo "=========================================================================="
