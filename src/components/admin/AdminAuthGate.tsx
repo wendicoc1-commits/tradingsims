@@ -31,7 +31,11 @@ export function AdminLogoutButton({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      onClick={logout}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        logout();
+      }}
       className={className || "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-semibold transition cursor-pointer"}
       title="Keluar dari sesi administrator"
     >
@@ -89,12 +93,19 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
 
   const handleLogout = () => {
     try {
-      sessionStorage.removeItem('tradesim_admin_auth');
-      document.cookie = 'tradesim_admin_auth=; path=/admin; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('tradesim_admin_auth');
+        localStorage.removeItem('tradesim_admin_auth');
+        document.cookie = 'tradesim_admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'tradesim_admin_auth=; path=/admin; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
     } catch {}
     setIsAuthenticated(false);
     setPassword('');
     setErrorMsg(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   // State awal saat membaca session

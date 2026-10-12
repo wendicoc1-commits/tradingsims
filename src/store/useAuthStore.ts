@@ -332,29 +332,23 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const currentUser = get().user;
         if (currentUser && currentUser.email && currentUser.provider !== 'guest') {
-          const currentPort = usePortfolioStore.getState();
-          if (currentPort && (currentPort.cash > 0 || currentPort.holdings.length > 0)) {
-            saveLocalUserBackup(currentUser.email, currentUser.id, {
-              cash: currentPort.cash,
-              realizedPL: currentPort.realizedPL,
-              holdings: currentPort.holdings,
-              orders: currentPort.orders,
-              conditionalOrders: currentPort.conditionalOrders,
-              dividends: currentPort.dividends,
-              lastUpdated: currentPort.lastUpdated || Date.now(),
-            });
-          }
+          try {
+            const currentPort = usePortfolioStore.getState();
+            if (currentPort && (currentPort.cash > 0 || currentPort.holdings.length > 0)) {
+              saveLocalUserBackup(currentUser.email, currentUser.id, {
+                cash: currentPort.cash,
+                realizedPL: currentPort.realizedPL,
+                holdings: currentPort.holdings,
+                orders: currentPort.orders,
+                conditionalOrders: currentPort.conditionalOrders,
+                dividends: currentPort.dividends,
+                lastUpdated: currentPort.lastUpdated || Date.now(),
+              });
+            }
+          } catch {}
         }
 
-        if (isSupabaseConfigured) {
-          try {
-            const supabase = getSupabaseBrowserClient();
-            await supabase.auth.signOut();
-          } catch {
-            // Ignore
-          }
-        }
-        // RESET BERSIH PORTOFOLIO DI MEMORI AGAR TIDAK BOCOR KE AKUN BERIKUTNYA
+        // 1. Reset memori portofolio dan user secara instan (0ms delay)
         usePortfolioStore.setState({
           cash: 0,
           realizedPL: 0,
@@ -364,7 +358,21 @@ export const useAuthStore = create<AuthState>()(
           dividends: [],
           lastUpdated: Date.now(),
         });
-        set({ user: null });
+        set({ user: null, isLoading: false, authError: null });
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('tradingsims-auth-user-storage');
+          } catch {}
+        }
+
+        // 2. Non-blocking Supabase auth signOut di background
+        if (isSupabaseConfigured) {
+          try {
+            const supabase = getSupabaseBrowserClient();
+            supabase.auth.signOut().catch(() => {});
+          } catch {}
+        }
       },
 
       checkSession: async () => {

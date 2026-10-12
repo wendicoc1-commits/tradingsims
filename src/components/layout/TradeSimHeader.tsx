@@ -456,7 +456,14 @@ export default function TradeSimHeader() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => logout()}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await logout();
+                    if (typeof window !== 'undefined') {
+                      window.location.reload();
+                    }
+                  }}
                   aria-label={`Keluar dari akun ${user.email}`}
                   className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
                   title={`Keluar (${user.email})`}

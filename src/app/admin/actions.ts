@@ -533,31 +533,67 @@ export async function getMembersWithPortfolios(searchQuery: string = ''): Promis
   try {
     const supabaseAdmin = getSupabaseAdminClient();
 
-    // 1. Ambil data app_users
-    const { data: users, error: usersErr } = await supabaseAdmin
-      .from('app_users')
-      .select('id, email, full_name, role');
-
-    if (usersErr || !users) {
-      return [];
+    // 1. Ambil data user_portfolios (sumber data portofolio aktif di Supabase Cloud)
+    let portfolios: any[] = [];
+    try {
+      const { data, error } = await supabaseAdmin.from('user_portfolios').select('*');
+      if (!error && Array.isArray(data)) {
+        portfolios = data;
+      }
+    } catch (e: any) {
+      console.warn('[getMembersWithPortfolios user_portfolios error]', e?.message);
     }
 
-    // 2. Ambil data user_portfolios
-    const { data: portfolios, error: portErr } = await supabaseAdmin
-      .from('user_portfolios')
-      .select('*');
+    // 2. Ambil data app_users jika tersedia
+    let users: any[] = [];
+    try {
+      const { data, error } = await supabaseAdmin.from('app_users').select('id, email, full_name, role');
+      if (!error && Array.isArray(data)) {
+        users = data;
+      }
+    } catch (e: any) {
+      console.warn('[getMembersWithPortfolios app_users error]', e?.message);
+    }
+
+    // Gabungkan seluruh akun unik dari app_users dan user_portfolios
+    const memberMap = new Map<string, { id: string; email: string; full_name: string; role: string }>();
+
+    for (const u of users) {
+      if (u.id || u.email) {
+        const key = (u.email || u.id).toLowerCase();
+        memberMap.set(key, {
+          id: u.id,
+          email: u.email,
+          full_name: u.full_name || 'Member Trader',
+          role: u.role || 'member',
+        });
+      }
+    }
+
+    for (const p of portfolios) {
+      if (p.email || p.user_id) {
+        const key = (p.email || p.user_id).toLowerCase();
+        if (!memberMap.has(key)) {
+          memberMap.set(key, {
+            id: p.user_id || key,
+            email: p.email || `${p.user_id}@tradesim.id`,
+            full_name: p.email ? p.email.split('@')[0] : 'Member Trader',
+            role: 'member',
+          });
+        }
+      }
+    }
 
     const portMap: Record<string, any> = {};
-    if (portfolios) {
-      portfolios.forEach((p: any) => {
-        if (p.user_id) portMap[p.user_id] = p;
-        if (p.email) portMap[p.email.toLowerCase()] = p;
-      });
-    }
+    portfolios.forEach((p: any) => {
+      if (p.user_id) portMap[p.user_id] = p;
+      if (p.email) portMap[p.email.toLowerCase()] = p;
+    });
 
     const query = searchQuery.trim().toLowerCase();
+    const allMembers = Array.from(memberMap.values());
 
-    const result: MemberPortfolioItem[] = users
+    const result: MemberPortfolioItem[] = allMembers
       .filter((u: any) => {
         if (!query) return true;
         return (
