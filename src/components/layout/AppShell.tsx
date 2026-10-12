@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useMarketStore } from '@/store';
+import { useAuthStore } from '@/store/useAuthStore';
 import TradeSimHeader from '@/components/layout/TradeSimHeader';
 import StatusBar from '@/components/layout/StatusBar';
 import FinceptRightDock from '@/components/layout/FinceptRightDock';
@@ -19,6 +20,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.toggle('dark', theme === 'dark');
     }
   }, [theme]);
+
+  // Otomatis sinkronkan data member aktif ke Supabase Cloud saat login
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const authUser = useAuthStore.getState().user;
+      if (authUser && authUser.email && authUser.provider !== 'guest') {
+        useAuthStore.getState().syncPortfolioToDatabase().catch(() => {});
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <TradeSimAuthGate>
