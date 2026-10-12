@@ -799,11 +799,15 @@ export const usePortfolioStore = create<PortfolioState>()(
         lastBoughtAt: Date.now(),
       }
     } else {
-      const initialAvgPrice = isForeign ? execPrice : Math.round((tradeValue + brokerFee) / totalShares)
+      const initialAvgPrice = isForeign
+        ? Number((execPrice * 1.0015).toFixed(execPrice < 1 ? 6 : 2))
+        : Number(((tradeValue + brokerFee) / totalShares).toFixed(2))
       const unrealizedPL = isForeign
         ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
-        : (execPrice - initialAvgPrice) * totalShares
-      const unrealizedPLPercent = Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
+        : Math.round((execPrice - initialAvgPrice) * totalShares)
+      const unrealizedPLPercent = initialAvgPrice > 0
+        ? Number((((execPrice - initialAvgPrice) / initialAvgPrice) * 100).toFixed(2))
+        : 0
 
       const safeTakeProfit = (params.takeProfitPrice && params.takeProfitPrice >= execPrice * 1.01) ? params.takeProfitPrice : undefined
       const safeStopLoss = (params.stopLossPrice && params.stopLossPrice <= execPrice * 0.99) ? params.stopLossPrice : undefined

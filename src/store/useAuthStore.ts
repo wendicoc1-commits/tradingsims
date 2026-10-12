@@ -9,6 +9,23 @@ let isSyncingPortfolio = false;
 let needsPortfolioReSync = false;
 let activeLoadPortfolioPromise: Promise<void> | null = null;
 
+function loadLocalUserBackup(email?: string): any {
+  if (typeof window === 'undefined' || !email) return null;
+  try {
+    const raw = localStorage.getItem(`tradingsims-user-backup-${email.toLowerCase().trim()}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalUserBackup(email?: string, userId?: string, data?: any): void {
+  if (typeof window === 'undefined' || !email || !data) return;
+  try {
+    localStorage.setItem(`tradingsims-user-backup-${email.toLowerCase().trim()}`, JSON.stringify(data));
+  } catch {}
+}
+
 
 export interface AppUser {
   id: string;

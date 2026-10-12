@@ -32,22 +32,36 @@ export async function GET(request: Request) {
       const currency = isCrypto ? 'USDT' : (liveQuote?.currency || asset?.currency || (isUS ? 'USD' : fallbackBench.currency));
       const isUSD = currency === 'USD' || currency === 'USDT' || isCrypto || isUS;
 
-      // Jika live quote dari Yahoo tidak tersedia atau bursa sedang tutup (weekend / after-hours),
-      // simulasikan fraksi tick dinamis realistis agar P/L saham di mode paper trading tidak membeku di 0%
       let price = basePrice;
       let changePct = liveQuote?.changePct ?? (isCrypto ? 1.85 : 0.45);
 
       const now = new Date();
       const dayOfWeek = now.getUTCDay(); // 0 = Minggu, 6 = Sabtu
+      const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isMarketOffline = !liveQuote || isWeekend || (liveQuote?.marketState && liveQuote.marketState !== 'REGULAR');
 
-      if (isMarketOffline && !isCrypto && basePrice > 0) {
-        const timeSlice = Math.floor(Date.now() / 8000); // Bergerak halus setiap 8 detik
+      // Jam Bursa Saham US: 13:30 - 20:00 UTC (09:30 - 16:00 waktu New York)
+      const isUSMarketOpen = !isWeekend && (utcHours >= 13.5 && utcHours <= 20.0);
+
+      // Jam Bursa IDX: 02:00 - 04:30 UTC (09:00 - 11:30 WIB) & 06:30 - 09:00 UTC (13:30 - 16:00 WIB)
+      const isIDXMarketOpen = !isWeekend && ((utcHours >= 2.0 && utcHours <= 4.5) || (utcHours >= 6.5 && utcHours <= 9.0));
+
+      // Kondisi di mana pergerakan pasar disimulasikan (paper trading):
+      // 1. Saham US saat di luar jam bursa Wall Street (sepanjang siang hari di Indonesia)
+      // 2. Saham IDX saat jam istirahat / luar jam bursa / akhir pekan
+      // 3. Saham yang quote Yahoo-nya tidak aktif atau membeku di harga konstan
+      const isMarketOffline = isCrypto
+        ? false
+        : isUS
+        ? (!isUSMarketOpen || isWeekend || !liveQuote)
+        : (!isIDXMarketOpen || isWeekend || !liveQuote);
+
+      if (!isCrypto && basePrice > 0 && (isMarketOffline || isUS || basePrice < 200)) {
+        const timeSlice = Math.floor(Date.now() / 6000); // Bergerak dinamis setiap 6 detik
         const hash = clean.split('').reduce((acc, c, idx) => acc + c.charCodeAt(0) * (idx + 1), 0);
         const angle1 = ((timeSlice * 17 + hash) % 360) * (Math.PI / 180);
         const angle2 = ((timeSlice * 7 + hash * 3) % 360) * (Math.PI / 180);
-        const pctJitter = (Math.sin(angle1) * 0.008) + (Math.cos(angle2) * 0.004);
+        const pctJitter = (Math.sin(angle1) * 0.007) + (Math.cos(angle2) * 0.004);
 
         if (isUSD) {
           price = Math.round(basePrice * (1 + pctJitter) * 100) / 100;
