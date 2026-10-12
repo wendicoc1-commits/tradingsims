@@ -30,15 +30,26 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
 
   useEffect(() => {
     setMounted(true);
+    const timer = setTimeout(() => {
+      setMounted(true);
+    }, 1200);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!mounted) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#09090b] text-emerald-400 font-sans">
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#09090b] text-emerald-400 font-sans gap-3 select-none">
         <div className="flex items-center gap-3">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-xs font-mono tracking-wider">MEMUAT TRADESIM PRO WORKSTATION...</span>
         </div>
+        <button
+          type="button"
+          onClick={() => setMounted(true)}
+          className="text-[11px] text-zinc-500 hover:text-emerald-400 underline transition-colors cursor-pointer"
+        >
+          Buka Workstation Langsung &rarr;
+        </button>
       </div>
     );
   }

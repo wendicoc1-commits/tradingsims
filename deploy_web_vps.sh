@@ -86,11 +86,13 @@ else
 fi
 
 echo "🔑 [3/6] Memeriksa file konfigurasi (.env.local)..."
-if [ ! -f "$APP_DIR/.env.local" ]; then
-    if [ -f "$APP_DIR/.env.example" ]; then
-        cp "$APP_DIR/.env.example" "$APP_DIR/.env.local"
-        echo "⚠️ .env.local dibuat dari template .env.example."
-    fi
+if [ ! -f "$APP_DIR/.env.local" ] || grep -q "your-project" "$APP_DIR/.env.local"; then
+    cat << 'ENVEOF' > "$APP_DIR/.env.local"
+NEXT_PUBLIC_SUPABASE_URL=https://wrbzwjriruttagqufalr.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyYnp3anJpcnV0dGFncXVmYWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODA3MTksImV4cCI6MjEwNjk1NjcxOX0.WLXn-Er7cOwydeMBZsgKuWpt2dhqR0mZICaTG5Zf2-8
+NEXT_PUBLIC_SITE_URL=https://tradingsims.my.id
+ENVEOF
+    echo "✅ .env.local telah dikonfigurasi dengan koneksi Supabase Cloud aktif!"
 fi
 
 echo "📦 [4/6] Menginstall package dan melakukan build Next.js..."
@@ -113,6 +115,20 @@ server {
     server_name tradingsims.my.id www.tradingsims.my.id;
 
     client_max_body_size 50M;
+
+    # Kompresi Gzip untuk loading kilat
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
 
     location / {
         proxy_pass http://127.0.0.1:3000;

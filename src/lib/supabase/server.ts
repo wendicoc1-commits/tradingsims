@@ -7,7 +7,9 @@ export const isSupabaseServerConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
   supabaseUrl.startsWith('https://') &&
-  !supabaseUrl.includes('placeholder')
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseUrl.includes('your-project') &&
+  !supabaseAnonKey.includes('your-anon-key')
 );
 
 let serverClient: SupabaseClient | null = null;
