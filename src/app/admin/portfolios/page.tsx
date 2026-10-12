@@ -24,6 +24,7 @@ import {
   deleteMemberAccount,
   MemberPortfolioItem 
 } from '../actions';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function AdminPortfoliosPage() {
   const [members, setMembers] = useState<MemberPortfolioItem[]>([]);
@@ -60,7 +61,16 @@ export default function AdminPortfoliosPage() {
   };
 
   useEffect(() => {
-    loadData();
+    const init = async () => {
+      try {
+        const u = useAuthStore.getState().user;
+        if (u) {
+          await useAuthStore.getState().syncPortfolioToDatabase();
+        }
+      } catch (_) {}
+      loadData();
+    };
+    init();
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -141,14 +151,32 @@ export default function AdminPortfoliosPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => loadData()}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-medium border border-blue-500/20 transition"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh Data
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                await useAuthStore.getState().syncPortfolioToDatabase();
+                setNotification({ type: 'success', text: 'Portofolio akun Anda berhasil disinkronkan ke Supabase Database!' });
+              } catch (_) {}
+              await loadData();
+            }}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 text-xs font-medium border border-emerald-500/20 transition cursor-pointer"
+          >
+            <Wallet className="w-3.5 h-3.5" />
+            Sinkronkan Akun Saya (wendicoc1)
+          </button>
+
+          <button
+            onClick={() => loadData()}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-medium border border-blue-500/20 transition cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </button>
+        </div>
       </div>
 
       {/* Action Notification */}

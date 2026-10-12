@@ -412,7 +412,7 @@ export const useAuthStore = create<AuthState>()(
       // Sinkronisasi data portofolio dari frontend ke Server Cloud Sync & Supabase
       syncPortfolioToDatabase: async () => {
         const user = get().user;
-        if (!user || user.provider === 'guest') return;
+        if (!user) return;
 
         if (isSyncingPortfolio) {
           needsPortfolioReSync = true;
@@ -425,9 +425,12 @@ export const useAuthStore = create<AuthState>()(
             needsPortfolioReSync = false;
             await waitForPortfolioHydration();
             const currentUser = get().user;
-            if (!currentUser || currentUser.provider === 'guest') break;
+            if (!currentUser) break;
 
             const portStore = usePortfolioStore.getState();
+            const rawEmail = currentUser.email || `${currentUser.id}@tradingsims.my.id`;
+            const userEmail = rawEmail.includes('@') ? rawEmail : `${rawEmail}@tradingsims.my.id`;
+            const userId = currentUser.id || `usr-${userEmail.replace(/[^a-z0-9]/g, '')}`;
 
             // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron ke Supabase Cloud!)
             try {
@@ -435,8 +438,8 @@ export const useAuthStore = create<AuthState>()(
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  email: currentUser.email,
-                  userId: currentUser.id,
+                  email: userEmail,
+                  userId: userId,
                   cash: portStore.cash,
                   realizedPL: portStore.realizedPL,
                   holdings: portStore.holdings,
@@ -450,15 +453,27 @@ export const useAuthStore = create<AuthState>()(
               console.warn('[SERVER PORTFOLIO SYNC WARN]', err);
             }
 
-            // 2. Simpan juga ke Supabase Database jika terkonfigurasi (Langsung ke tabel user_portfolios)
+            // 2. Simpan langsung ke Supabase Database (tabel app_users & user_portfolios)
             if (isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
                 const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
 
+                // Simpan profil user ke tabel app_users
+                await supabase.from('app_users').upsert({
+                  id: userId,
+                  email: userEmail.toLowerCase(),
+                  full_name: currentUser.fullName || userEmail.split('@')[0],
+                  role: currentUser.role || 'member',
+                  provider: currentUser.provider || 'email',
+                  password_hash: 'synced_client_session',
+                  created_at: currentUser.createdAt || updatedAtIso,
+                }, { onConflict: 'email' }).catch(() => {});
+
+                // Simpan portofolio ke tabel user_portfolios
                 await supabase.from('user_portfolios').upsert({
-                  user_id: currentUser.id,
-                  email: currentUser.email.toLowerCase(),
+                  user_id: userId,
+                  email: userEmail.toLowerCase(),
                   cash: portStore.cash,
                   realized_pl: portStore.realizedPL,
                   holdings: portStore.holdings,

@@ -48,17 +48,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Body JSON tidak valid' }, { status: 400 });
     }
 
-    const { email: rawEmail, userId: rawUserId, cash, realizedPL, holdings, orders, conditionalOrders, dividends, lastUpdated } = body;
-
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : undefined;
-    const userId = typeof rawUserId === 'string' ? rawUserId.trim() : undefined;
+    let email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : undefined;
+    const userId = typeof rawUserId === 'string' ? rawUserId.trim() : (email ? `usr-${email.replace(/[^a-z0-9]/g, '')}` : undefined);
 
     if (!email && !userId) {
       return NextResponse.json({ success: false, error: 'Email atau userId wajib diisi' }, { status: 400 });
     }
 
-    if (email && !EMAIL_REGEX.test(email)) {
-      return NextResponse.json({ success: false, error: 'Format email tidak valid' }, { status: 400 });
+    if (email && !email.includes('@')) {
+      email = `${email}@tradingsims.my.id`;
     }
 
     // Ambil data portofolio eksisting untuk mempertahankan saldo & posisi jika payload tidak lengkap
