@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   approveDeposit,
@@ -10,21 +10,21 @@ import {
   resetMemberPassword,
   resetMemberAccountToZero,
   deleteMemberAccount,
-  DepositRecord,
   MemberPortfolioItem,
 } from '@/app/admin/actions';
 import {
   TradingAdminState,
+  EnrichedDepositRecord,
   MemberHoldingRow,
   TradingOrderRecord,
   AssetMatrixRow,
+  RevenueChannelRow,
 } from '@/lib/server/steyerAdminState';
 import { useAdminAuth } from './AdminAuthGate';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export type AdminViewId = 'dashboard' | 'equipment' | 'deposits' | 'portfolios' | 'orders';
 type RoleId = 'manager' | 'treasury' | 'audit';
-type LangId = 'id' | 'en';
 
 interface RoleConfig {
   id: RoleId;
@@ -44,10 +44,10 @@ const ROLES: Record<RoleId, RoleConfig> = {
   },
   treasury: {
     id: 'treasury',
-    label: 'Treasury · Deposits & RDN',
-    title: 'Treasury & RDN Officer',
+    label: 'Treasury · Revenue & Deposits',
+    title: 'Treasury & Revenue Officer',
     user: 'Treasury Desk',
-    views: ['dashboard', 'deposits', 'portfolios'],
+    views: ['dashboard', 'equipment', 'deposits'],
   },
   audit: {
     id: 'audit',
@@ -56,6 +56,92 @@ const ROLES: Record<RoleId, RoleConfig> = {
     user: 'Risk Control',
     views: ['dashboard', 'equipment', 'portfolios', 'orders'],
   },
+};
+
+// Clean minimal SVG icons matching Steyer Studio 16x16 stroke=1.75
+const Icons = {
+  sidebar: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 3v18" />
+    </svg>
+  ),
+  dashboard: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  ),
+  equipment: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  deposits: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20" />
+    </svg>
+  ),
+  portfolios: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  orders: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+  ),
+  search: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  ),
+  plus: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
+  check: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ),
+  close: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  ),
+  dots: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  ),
+  cols: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 3v18M15 3v18" />
+    </svg>
+  ),
+  refresh: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+    </svg>
+  ),
+  chevUpDown: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="m7 15 5 5 5-5M7 9l5-5 5 5" />
+    </svg>
+  ),
 };
 
 function addDays(iso: string, n: number): string {
@@ -87,7 +173,7 @@ function fmtDateTime(iso: string): string {
 
 function fmtWeekday(iso: string): string {
   const d = new Date(iso + 'T12:00:00Z');
-  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
+  return ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][d.getUTCDay()];
 }
 
 function fmtIdr(n: number | undefined | null): string {
@@ -98,14 +184,28 @@ function fmtIdrCompact(n: number | undefined | null): string {
   const val = Number(n) || 0;
   const abs = Math.abs(val);
   const sign = val < 0 ? '-' : '';
-  if (abs >= 1_000_000_000) return `${sign}Rp ${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `${sign}Rp ${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}Rp ${(abs / 1_000).toFixed(0)}K`;
+  if (abs >= 1_000_000_000) return `${sign}Rp ${(abs / 1_000_000_000).toFixed(2)} Miliar`;
+  if (abs >= 1_000_000) return `${sign}Rp ${(abs / 1_000_000).toFixed(1)} Jt`;
+  if (abs >= 1_000) return `${sign}Rp ${(abs / 1_000).toFixed(0)} Rb`;
   return `${sign}Rp ${Math.round(abs)}`;
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const s = (status || '').toUpperCase();
+  if (s === 'APPROVED' || s === 'FILLED' || s === 'PROFIT' || s === 'ACTIVE') {
+    return <span className="bdg green">{s}</span>;
+  }
+  if (s === 'PENDING') {
+    return <span className="bdg amber">{s}</span>;
+  }
+  if (s === 'REJECTED' || s === 'CANCELLED' || s === 'LOSS') {
+    return <span className="bdg red">{s}</span>;
+  }
+  return <span className="bdg blue">{s}</span>;
+}
+
 // ============================================================================
-// Context Menu Component (Steyer Studio exact implementation)
+// Context Menu Component (Uses exact Steyer .ctx-menu.menu-pop classes)
 // ============================================================================
 interface ContextMenuItem {
   sep?: boolean;
@@ -152,32 +252,37 @@ function RenderContextMenu({
   }, [menu, onClose]);
 
   if (!menu) return null;
-  const w = 230;
-  const h = (menu.items?.length || 1) * 32 + 24;
+  const w = 236;
+  const h = (menu.items?.length || 1) * 32 + 28;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const left = Math.min(menu.x, vw - w - 8);
   const top = Math.min(menu.y, vh - h - 8);
 
   return (
-    <div ref={ref} className="ctx-menu" style={{ left, top }} onContextMenu={(e) => e.preventDefault()}>
-      {menu.header && <div className="ctx-head">{menu.header}</div>}
+    <div
+      ref={ref}
+      className="ctx-menu menu-pop"
+      style={{ left, top }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {menu.header && <div className="menu-label">{menu.header}</div>}
       {menu.items.map((it, i) =>
         it.sep ? (
-          <div key={i} className="ctx-sep" />
+          <hr key={i} />
         ) : (
           <button
             key={i}
             type="button"
             disabled={it.disabled}
-            className={`ctx-item ${it.danger ? 'danger' : ''}`}
+            className={`menu-item ${it.danger ? 'danger' : ''}`}
             onClick={() => {
               onClose();
               it.onClick?.();
             }}
           >
             <span>{it.label}</span>
-            {it.hint && <span className="ctx-hint">{it.hint}</span>}
+            {it.hint && <small className="end muted">{it.hint}</small>}
           </button>
         )
       )}
@@ -186,7 +291,7 @@ function RenderContextMenu({
 }
 
 // ============================================================================
-// Reusable Steyer Studio DataTable Component
+// Steyer Studio DataTable (Uses exact .dt, .dt-bar, .dt-wrap, .th-sort, .dt-f)
 // ============================================================================
 export interface DataTableColumn<T> {
   key: string;
@@ -213,10 +318,12 @@ function DataTable<T>({
   onRowClick,
   rowActions,
   rowActionsHeader,
+  renderInlineActions,
   defaultSort,
   defaultPageSize = 15,
-  searchPlaceholder = 'Search…',
-  emptyText = 'No matching entries',
+  searchPlaceholder = 'Cari data…',
+  emptyText = 'Tidak ada data yang cocok',
+  toolbarLeft,
   toolbarRight,
 }: {
   columns: DataTableColumn<T>[];
@@ -225,10 +332,12 @@ function DataTable<T>({
   onRowClick?: (row: T) => void;
   rowActions?: (row: T) => ContextMenuItem[];
   rowActionsHeader?: (row: T) => string;
+  renderInlineActions?: (row: T) => React.ReactNode;
   defaultSort?: { key: string; dir: 'asc' | 'desc' };
   defaultPageSize?: number;
   searchPlaceholder?: string;
   emptyText?: string;
+  toolbarLeft?: React.ReactNode;
   toolbarRight?: React.ReactNode;
 }) {
   const [search, setSearch] = useState('');
@@ -344,54 +453,57 @@ function DataTable<T>({
     if (!rowActions) return;
     const rect = e.currentTarget.getBoundingClientRect();
     setCtxMenu({
-      x: rect.right - 200,
+      x: rect.right - 210,
       y: rect.bottom + 4,
       header: rowActionsHeader ? rowActionsHeader(r) : undefined,
       items: rowActions(r) || [],
     });
   };
 
+  const hasActionsCol = Boolean(rowActions || renderInlineActions);
+
   return (
     <div className="dt">
       <div className="dt-bar">
-        <div className="dt-search">
-          <span className="dt-search-ico">⌕</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-          />
-          {search && (
-            <button type="button" className="dt-clear" onClick={() => setSearch('')}>
-              ×
-            </button>
-          )}
-        </div>
-        <div className="dt-bar-right">
+        <div className="dt-bar-l">
+          {toolbarLeft}
+          <label className="search">
+            {Icons.search}
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </label>
           {activeFilterCount > 0 && (
             <button
               type="button"
-              className="btn sm ghost"
+              className="btn-s sm ghost"
               onClick={() => {
                 setSearch('');
                 setFilters({});
               }}
             >
-              Reset filters ({activeFilterCount})
+              Reset ({activeFilterCount})
             </button>
           )}
-          {rowActions && <span className="dt-hint">Right-click any row for actions</span>}
-          <div className="dt-colwrap" ref={colBtnRef}>
+        </div>
+        <div className="dt-bar-r">
+          {rowActions && <span className="muted small hide-m">Klik kanan baris untuk aksi</span>}
+          <div className="menu" ref={colBtnRef}>
             <button
               type="button"
-              className="btn sm"
+              className="btn-s sm"
               onClick={() => setColMenuOpen((o) => !o)}
             >
-              Columns ({visibleCols.length}/{columns.length}) ▾
+              {Icons.cols}
+              <span>
+                Kolom ({visibleCols.length}/{columns.length})
+              </span>
             </button>
             {colMenuOpen && (
-              <div className="menu-pop">
-                <div className="ctx-head">Visible columns</div>
+              <div className="menu-pop at-bottom al-end">
+                <div className="menu-label">Tampilkan Kolom</div>
                 {columns.map((c) => (
                   <label key={c.key} className="menu-check">
                     <input
@@ -412,7 +524,7 @@ function DataTable<T>({
         </div>
       </div>
 
-      <div className="dt-scroll">
+      <div className="dt-wrap">
         <table className="tbl dt-tbl">
           <thead>
             <tr>
@@ -423,31 +535,34 @@ function DataTable<T>({
                   <th
                     key={c.key}
                     style={c.width ? { width: c.width } : undefined}
-                    className={`${c.num ? 'num' : ''} ${sortable ? 'sortable' : ''} ${
-                      isSorted ? 'sorted' : ''
-                    }`}
-                    onClick={() => toggleSort(c.key, c.sortable)}
+                    className={c.num ? 'num' : ''}
                   >
-                    <span className="th-in">
-                      <span>{c.label}</span>
-                      {sortable && (
-                        <span className="sort-ind">
+                    {sortable ? (
+                      <button
+                        type="button"
+                        className="th-sort"
+                        onClick={() => toggleSort(c.key, c.sortable)}
+                      >
+                        <span>{c.label}</span>
+                        <span className="muted">
                           {isSorted ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
                         </span>
-                      )}
-                    </span>
+                      </button>
+                    ) : (
+                      <span>{c.label}</span>
+                    )}
                   </th>
                 );
               })}
-              {rowActions && <th style={{ width: 38 }} />}
+              {hasActionsCol && <th className="num act">Aksi</th>}
             </tr>
             {hasFilterRow && (
-              <tr className="dt-filter-row">
+              <tr className="dt-filters">
                 {visibleCols.map((c) => (
                   <th key={c.key} className={c.num ? 'num' : ''}>
                     {c.filter?.type === 'text' && (
                       <input
-                        className="dt-finput"
+                        className="dt-f"
                         value={filters[c.key] || ''}
                         onChange={(e) =>
                           setFilters((f) => ({ ...f, [c.key]: e.target.value }))
@@ -457,13 +572,13 @@ function DataTable<T>({
                     )}
                     {c.filter?.type === 'select' && (
                       <select
-                        className="dt-finput"
+                        className="dt-f"
                         value={filters[c.key] || 'all'}
                         onChange={(e) =>
                           setFilters((f) => ({ ...f, [c.key]: e.target.value }))
                         }
                       >
-                        <option value="all">{c.filter.placeholder || 'All'}</option>
+                        <option value="all">{c.filter.placeholder || 'Semua'}</option>
                         {(c.filter.options || []).map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
@@ -473,7 +588,7 @@ function DataTable<T>({
                     )}
                   </th>
                 ))}
-                {rowActions && <th />}
+                {hasActionsCol && <th />}
               </tr>
             )}
           </thead>
@@ -481,7 +596,7 @@ function DataTable<T>({
             {pageRows.map((r, idx) => (
               <tr
                 key={rowKey ? rowKey(r) : (r as any).id ?? idx}
-                className={onRowClick || rowActions ? 'clickable' : ''}
+                className={onRowClick || rowActions ? 'click' : ''}
                 onClick={() => onRowClick && onRowClick(r)}
                 onContextMenu={(e) => openContext(e, r)}
               >
@@ -494,16 +609,21 @@ function DataTable<T>({
                       : (r as any)[c.key]}
                   </td>
                 ))}
-                {rowActions && (
-                  <td className="num" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="dots-btn"
-                      onClick={(e) => openDots(e, r)}
-                      title="Actions"
-                    >
-                      ⋯
-                    </button>
+                {hasActionsCol && (
+                  <td className="num act" onClick={(e) => e.stopPropagation()}>
+                    <div className="acts" style={{ justifyContent: 'flex-end' }}>
+                      {renderInlineActions && renderInlineActions(r)}
+                      {rowActions && (
+                        <button
+                          type="button"
+                          className="ibtn ghost-i"
+                          onClick={(e) => openDots(e, r)}
+                          title="Menu Aksi"
+                        >
+                          {Icons.dots}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -511,8 +631,8 @@ function DataTable<T>({
             {pageRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={visibleCols.length + (rowActions ? 1 : 0)}
-                  className="empty"
+                  colSpan={visibleCols.length + (hasActionsCol ? 1 : 0)}
+                  className="dt-empty muted"
                 >
                   {emptyText}
                 </td>
@@ -523,21 +643,20 @@ function DataTable<T>({
       </div>
 
       <div className="dt-foot">
-        <div className="dt-count">
-          Showing{' '}
-          <strong>
+        <div className="muted">
+          Menampilkan{' '}
+          <b style={{ color: 'var(--head)' }}>
             {sorted.length === 0 ? 0 : (curPage - 1) * pageSize + 1}–
             {Math.min(curPage * pageSize, sorted.length)}
-          </strong>{' '}
-          of <strong>{sorted.length}</strong>
-          {sorted.length !== rows.length && (
-            <span className="muted"> (filtered from {rows.length})</span>
-          )}
+          </b>{' '}
+          dari <b style={{ color: 'var(--head)' }}>{sorted.length}</b> data
+          {sorted.length !== rows.length && ` (difilter dari ${rows.length})`}
         </div>
         <div className="dt-pager">
-          <label className="dt-rpp">
-            <span>Rows</span>
+          <label className="muted">
+            <span>Baris</span>
             <select
+              className="dt-f"
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >
@@ -550,7 +669,7 @@ function DataTable<T>({
           </label>
           <button
             type="button"
-            className="btn sm"
+            className="ibtn"
             disabled={curPage <= 1}
             onClick={() => setPage(1)}
           >
@@ -558,26 +677,26 @@ function DataTable<T>({
           </button>
           <button
             type="button"
-            className="btn sm"
+            className="ibtn"
             disabled={curPage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            ‹ Prev
+            ‹
           </button>
-          <span className="dt-page-ind">
-            Page <strong>{curPage}</strong> / {totalPages}
+          <span className="mono muted" style={{ padding: '0 6px' }}>
+            {curPage} / {totalPages}
           </span>
           <button
             type="button"
-            className="btn sm"
+            className="ibtn"
             disabled={curPage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
-            Next ›
+            ›
           </button>
           <button
             type="button"
-            className="btn sm"
+            className="ibtn"
             disabled={curPage >= totalPages}
             onClick={() => setPage(totalPages)}
           >
@@ -592,14 +711,13 @@ function DataTable<T>({
 }
 
 // ============================================================================
-// Smooth Cubic-Bezier SVG AreaChart (Steyer Studio exact implementation)
+// Steyer Studio AreaChart (Uses exact .area, .grid, .ax, .dot, .cursor, .tip)
 // ============================================================================
 interface AreaPoint {
   date: string;
-  approvedIdr: number;
-  pendingIdr: number;
-  tradeVolumeIdr: number;
-  total: number;
+  approvedRevenueIdr: number;
+  pendingRevenueIdr: number;
+  virtualDisbursedIdr: number;
   txCount: number;
 }
 
@@ -607,13 +725,18 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const W = 720;
   const H = 220;
-  const padL = 54;
-  const padR = 14;
-  const padT = 16;
-  const padB = 28;
+  const padL = 56;
+  const padR = 16;
+  const padT = 18;
+  const padB = 30;
   const iW = W - padL - padR;
   const iH = H - padT - padB;
-  const maxVal = Math.max(10_000_000, ...series.map((p) => p.total)) * 1.12;
+
+  const maxVal =
+    Math.max(
+      50_000,
+      ...series.map((p) => p.approvedRevenueIdr + p.pendingRevenueIdr)
+    ) * 1.15;
   const xAt = (i: number) => padL + (i / Math.max(1, series.length - 1)) * iW;
   const yAt = (v: number) => padT + iH - (v / maxVal) * iH;
 
@@ -624,38 +747,35 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
       const [x0, y0] = pts[i];
       const [x1, y1] = pts[i + 1];
       const cx = (x0 + x1) / 2;
-      d += ` C ${cx.toFixed(1)} ${y0.toFixed(1)}, ${cx.toFixed(1)} ${y1.toFixed(1)}, ${x1.toFixed(
+      d += ` C ${cx.toFixed(1)} ${y0.toFixed(1)}, ${cx.toFixed(1)} ${y1.toFixed(
         1
-      )} ${y1.toFixed(1)}`;
+      )}, ${x1.toFixed(1)} ${y1.toFixed(1)}`;
     }
     return d;
   };
 
-  const totalPts: [number, number][] = series.map((p, i) => [xAt(i), yAt(p.total)]);
-  const depositPts: [number, number][] = series.map((p, i) => [xAt(i), yAt(p.approvedIdr)]);
-  const totalLine = smoothPath(totalPts);
-  const totalArea = `${totalLine} L ${xAt(series.length - 1).toFixed(1)} ${
-    padT + iH
-  } L ${xAt(0).toFixed(1)} ${padT + iH} Z`;
-  const depositLine = smoothPath(depositPts);
-  const depositArea = `${depositLine} L ${xAt(series.length - 1).toFixed(1)} ${
+  const pts: [number, number][] = series.map((p, i) => [
+    xAt(i),
+    yAt(p.approvedRevenueIdr + p.pendingRevenueIdr),
+  ]);
+  const line = smoothPath(pts);
+  const area = `${line} L ${xAt(series.length - 1).toFixed(1)} ${
     padT + iH
   } L ${xAt(0).toFixed(1)} ${padT + iH} Z`;
 
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(maxVal * t));
-  const todayIdx = series.findIndex((p) => p.date === today);
+  const ticks = [0, 0.5, 1].map((t) => Math.round(maxVal * t));
   const hp = hover !== null ? series[hover] : null;
 
   return (
-    <div className="area" onMouseLeave={() => setHover(null)}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="area-svg">
+    <div
+      className="area"
+      style={{ height: 225 }}
+      onMouseLeave={() => setHover(null)}
+    >
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         <defs>
-          <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.38" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
-          </linearGradient>
-          <linearGradient id="gDeposits" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--green)" stopOpacity="0.30" />
+          <linearGradient id="steyerRevGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--green)" stopOpacity="0.32" />
             <stop offset="100%" stopColor="var(--green)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
@@ -664,60 +784,26 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
           const y = yAt(v);
           return (
             <g key={idx}>
-              <line
-                x1={padL}
-                x2={W - padR}
-                y1={y}
-                y2={y}
-                stroke="var(--line)"
-                strokeDasharray={idx === 0 ? undefined : '2 3'}
-              />
-              <text
-                x={padL - 8}
-                y={y + 3}
-                textAnchor="end"
-                fontSize="10"
-                fill="var(--muted)"
-                fontFamily="var(--mono)"
-              >
+              <line x1={padL} x2={W - padR} y1={y} y2={y} className="grid" />
+              <text x={padL - 8} y={y + 4} textAnchor="end" className="ax sub">
                 {fmtIdrCompact(v).replace('Rp ', '')}
               </text>
             </g>
           );
         })}
 
-        <path d={totalArea} fill="url(#gTotal)" />
-        <path d={depositArea} fill="url(#gDeposits)" />
-        <path d={depositLine} fill="none" stroke="var(--green)" strokeWidth="1.6" strokeDasharray="3 2" />
-        <path d={totalLine} fill="none" stroke="var(--accent)" strokeWidth="2.2" />
-
-        {todayIdx >= 0 && (
-          <g>
-            <line
-              x1={xAt(todayIdx)}
-              x2={xAt(todayIdx)}
-              y1={padT}
-              y2={padT + iH}
-              stroke="var(--accent)"
-              strokeOpacity="0.45"
-              strokeDasharray="3 3"
-            />
-            <text
-              x={xAt(todayIdx)}
-              y={padT - 4}
-              textAnchor="middle"
-              fontSize="9.5"
-              fill="var(--accent)"
-              fontFamily="var(--mono)"
-            >
-              TODAY
-            </text>
-          </g>
-        )}
+        <path d={area} fill="url(#steyerRevGrad)" />
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--green)"
+          strokeWidth="2"
+        />
 
         {series.map((p, i) => {
           const x = xAt(i);
-          const y = yAt(p.total);
+          const y = yAt(p.approvedRevenueIdr + p.pendingRevenueIdr);
+          const isNow = p.date === today;
           const isH = hover === i;
           return (
             <g key={p.date}>
@@ -726,9 +812,7 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
                   x={x}
                   y={H - 8}
                   textAnchor="middle"
-                  fontSize="10"
-                  fill={p.date === today ? 'var(--accent)' : 'var(--muted)'}
-                  fontFamily="var(--mono)"
+                  className={`ax ${isNow ? 'now' : ''}`}
                 >
                   {fmtDateShort(p.date)}
                 </text>
@@ -739,17 +823,14 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
                   x2={x}
                   y1={padT}
                   y2={padT + iH}
-                  stroke="var(--ink2)"
-                  strokeOpacity="0.5"
+                  className="cursor"
                 />
               )}
               <circle
                 cx={x}
                 cy={y}
-                r={isH ? 4.5 : 2.5}
-                fill={isH ? 'var(--accent)' : 'var(--panel)'}
-                stroke="var(--accent)"
-                strokeWidth="2"
+                r={isH ? 4.5 : 3}
+                className={`dot ${isNow ? 'now' : ''}`}
               />
               <rect
                 x={x - iW / series.length / 2}
@@ -765,438 +846,49 @@ function AreaChart({ series, today }: { series: AreaPoint[]; today: string }) {
         })}
       </svg>
 
-      <div className="area-foot">
-        <div className="area-legend">
-          <span>
-            <i className="sw" style={{ background: 'var(--accent)' }} /> Total Desk Volume (Deposits + Trades)
-          </span>
-          <span>
-            <i className="sw" style={{ background: 'var(--green)' }} /> Approved RDN Deposits
-          </span>
+      {hp && hover !== null && (
+        <div
+          className="tip"
+          style={{
+            left: `${Math.min(85, Math.max(15, (hover / (series.length - 1)) * 100))}%`,
+            top: 12,
+          }}
+        >
+          {fmtDateShort(hp.date)} · Approved: {fmtIdr(hp.approvedRevenueIdr)}
+          {hp.pendingRevenueIdr > 0 ? ` (+${fmtIdr(hp.pendingRevenueIdr)} pending)` : ''}
         </div>
-        {hp ? (
-          <div className="area-tip">
-            <span className="mono">{fmtDateShort(hp.date)}</span>
-            <span>
-              Total <strong>{fmtIdr(hp.total)}</strong>
-            </span>
-            <span className="muted">Deposits {fmtIdrCompact(hp.approvedIdr)}</span>
-            <span className="muted">Trades {fmtIdrCompact(hp.tradeVolumeIdr)}</span>
-            <span className="muted">· {hp.txCount} tx</span>
-          </div>
-        ) : (
-          <div className="area-tip muted">Hover any day for desk breakdown</div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
 // ============================================================================
-// 1. DASHBOARD VIEW — Executive Trading Desk Overview (100% Real Trading Data)
+// 1. EQUIPMENT / REVENUE & ASSETS MATRIX VIEW (?view=equipment)
+//    100% Exact Steyer Studio Equipment View Layout & CSS Classes!
 // ============================================================================
-function DashboardView({
+function EquipmentRevenueAssetsView({
   state,
-  onNav,
   onSelectDeposit,
   onSelectMember,
   onRefresh,
   showToast,
 }: {
   state: TradingAdminState;
-  onNav: (v: AdminViewId) => void;
-  onSelectDeposit: (d: DepositRecord) => void;
+  onSelectDeposit: (d: EnrichedDepositRecord) => void;
   onSelectMember: (m: MemberPortfolioItem) => void;
   onRefresh: () => void;
   showToast: (msg: string, isErr?: boolean) => void;
 }) {
-  const { today, deposits, members, holdingsFlat, orders } = state;
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  const pendingDeposits = useMemo(
-    () => deposits.filter((d) => d.status === 'PENDING'),
-    [deposits]
-  );
-  const approvedDeposits = useMemo(
-    () => deposits.filter((d) => d.status === 'APPROVED'),
-    [deposits]
-  );
-
-  const totalCashRdn = useMemo(
-    () => members.reduce((sum, m) => sum + (Number(m.cash) || 0), 0),
-    [members]
-  );
-  const totalMarketValue = useMemo(
-    () => members.reduce((sum, m) => sum + (Number(m.totalMarketValue) || 0), 0),
-    [members]
-  );
-  const totalNetWorthAum = useMemo(
-    () => members.reduce((sum, m) => sum + (Number(m.totalAssetValue) || 0), 0),
-    [members]
-  );
-  const totalApprovedVolume = useMemo(
-    () => approvedDeposits.reduce((sum, d) => sum + (Number(d.amount) || 0), 0),
-    [approvedDeposits]
-  );
-  const totalUnrealizedPL = useMemo(
-    () => holdingsFlat.reduce((sum, h) => sum + (Number(h.unrealizedPLIdr) || 0), 0),
-    [holdingsFlat]
-  );
-  const activeTradersCount = useMemo(
-    () => members.filter((m) => (m.holdings?.length || 0) > 0 || m.cash > 0).length,
-    [members]
-  );
-
-  // Build 14-day series from real deposits & orders
-  const series: AreaPoint[] = useMemo(() => {
-    const days = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13));
-    return days.map((d) => {
-      const dayDeps = deposits.filter(
-        (x) => String(x.created_at || '').slice(0, 10) === d
-      );
-      const approvedIdr = dayDeps
-        .filter((x) => x.status === 'APPROVED')
-        .reduce((s, x) => s + (Number(x.amount) || 0), 0);
-      const pendingIdr = dayDeps
-        .filter((x) => x.status === 'PENDING')
-        .reduce((s, x) => s + (Number(x.amount) || 0), 0);
-
-      const dayOrders = orders.filter(
-        (o) =>
-          o.type !== 'DEPOSIT' &&
-          String(o.createdAt || '').slice(0, 10) === d
-      );
-      const tradeVolumeIdr = dayOrders.reduce(
-        (s, o) => s + (Number(o.total) || Number(o.price) * Math.max(1, Number(o.shares) || 0)),
-        0
-      );
-
-      return {
-        date: d,
-        approvedIdr,
-        pendingIdr,
-        tradeVolumeIdr,
-        total: approvedIdr + pendingIdr + tradeVolumeIdr,
-        txCount: dayDeps.length + dayOrders.length,
-      };
-    });
-  }, [today, deposits, orders]);
-
-  const recentFeed = useMemo(() => {
-    const items: Array<{
-      id: string;
-      kind: 'DEPOSIT' | 'ORDER';
-      title: string;
-      sub: string;
-      status: string;
-      amount: number;
-      created_at: string;
-      onClick: () => void;
-    }> = [];
-
-    for (const d of deposits.slice(0, 8)) {
-      items.push({
-        id: `dep-${d.id}`,
-        kind: 'DEPOSIT',
-        title: d.user?.full_name || d.user?.email || 'Member',
-        sub: `Top Up RDN · ${d.payment_method}`,
-        status: d.status.toLowerCase(),
-        amount: Number(d.amount) || 0,
-        created_at: d.created_at,
-        onClick: () => onSelectDeposit(d),
-      });
-    }
-
-    for (const o of orders.filter((x) => x.type !== 'DEPOSIT').slice(0, 8)) {
-      const m = members.find(
-        (mem) => mem.user_id === o.user_id || mem.email.toLowerCase() === o.user_email.toLowerCase()
-      );
-      items.push({
-        id: `ord-${o.id}`,
-        kind: 'ORDER',
-        title: o.user_name,
-        sub: `${o.type} ${o.displaySymbol} · ${o.lots > 0 ? `${o.lots} lot` : `${o.shares} unit`}`,
-        status: o.status.toLowerCase(),
-        amount: Number(o.total) || 0,
-        created_at: o.createdAt,
-        onClick: () => m && onSelectMember(m),
-      });
-    }
-
-    return items
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      .slice(0, 6);
-  }, [deposits, orders, members, onSelectDeposit, onSelectMember]);
-
-  const handleQuickApprove = async (id: string) => {
-    setBusyId(id);
-    try {
-      const res = await approveDeposit(id);
-      if (res.success) {
-        showToast(res.message || 'Deposit disetujui!');
-        onRefresh();
-      } else {
-        showToast(res.error || 'Gagal menyetujui deposit', true);
-      }
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  return (
-    <div className="stack">
-      <div className="kpis kpis-6">
-        <div className="kpi clickable" onClick={() => onNav('portfolios')}>
-          <div className="kpi-label">Registered Members</div>
-          <div className="kpi-val">{members.length}</div>
-          <div className="kpi-bar">
-            <div
-              style={{
-                width: `${members.length ? Math.round((activeTradersCount / members.length) * 100) : 100}%`,
-              }}
-            />
-          </div>
-          <div className="kpi-sub">{activeTradersCount} active accounts with equity</div>
-        </div>
-
-        <div className="kpi clickable" onClick={() => onNav('portfolios')}>
-          <div className="kpi-label">Total Cash RDN</div>
-          <div className="kpi-val">{fmtIdrCompact(totalCashRdn)}</div>
-          <div className="kpi-sub">{fmtIdr(totalCashRdn)} across wallets</div>
-        </div>
-
-        <div className="kpi clickable" onClick={() => onNav('portfolios')}>
-          <div className="kpi-label">Total Portfolio AUM</div>
-          <div className="kpi-val">{fmtIdrCompact(totalNetWorthAum)}</div>
-          <div className="kpi-sub">
-            Cash + {fmtIdrCompact(totalMarketValue)} market assets
-          </div>
-        </div>
-
-        <div className="kpi clickable" onClick={() => onNav('deposits')}>
-          <div className="kpi-label">Pending Deposits</div>
-          <div
-            className="kpi-val"
-            style={{ color: pendingDeposits.length > 0 ? 'var(--amber)' : undefined }}
-          >
-            {pendingDeposits.length}
-          </div>
-          <div className="kpi-sub">
-            {pendingDeposits.length > 0
-              ? 'Waiting for admin verification'
-              : 'All deposit queues cleared'}
-          </div>
-        </div>
-
-        <div className="kpi clickable" onClick={() => onNav('deposits')}>
-          <div className="kpi-label">Approved Top-Up Vol.</div>
-          <div className="kpi-val" style={{ color: 'var(--green)' }}>
-            {fmtIdrCompact(totalApprovedVolume)}
-          </div>
-          <div className="kpi-sub">{approvedDeposits.length} approved transactions</div>
-        </div>
-
-        <div className="kpi clickable" onClick={() => onNav('equipment')}>
-          <div className="kpi-label">Open Asset Positions</div>
-          <div className="kpi-val">{holdingsFlat.length}</div>
-          <div className="kpi-sub">
-            Net P/L:{' '}
-            <span style={{ color: totalUnrealizedPL >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {totalUnrealizedPL >= 0 ? '+' : ''}
-              {fmtIdrCompact(totalUnrealizedPL)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid-main">
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="eyebrow">Desk Liquidity & Activity · 14-day window</div>
-              <h3>Deposits & Trading Flow</h3>
-            </div>
-            <div className="big-num">
-              {fmtIdrCompact(series.reduce((s, p) => s + p.total, 0))}
-              <span className="muted"> / 14d</span>
-            </div>
-          </div>
-          <AreaChart series={series} today={today} />
-        </div>
-
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="eyebrow">Live Stream · Supabase Cloud</div>
-              <h3>Just in</h3>
-            </div>
-            <span className="live-dot">LIVE</span>
-          </div>
-          <div className="feed">
-            {recentFeed.map((b) => (
-              <div
-                key={b.id}
-                className="feed-row clickable"
-                onClick={b.onClick}
-              >
-                <span className={`tag tag-${b.kind.toLowerCase()}`}>{b.kind}</span>
-                <div className="feed-main">
-                  <div className="feed-title">
-                    {b.title} <span className="muted">· {b.sub}</span>
-                  </div>
-                  <div className="feed-sub">
-                    {fmtDateTime(b.created_at)} · <StatusPill status={b.status} />
-                  </div>
-                </div>
-                <div className="feed-amt">{fmtIdrCompact(b.amount)}</div>
-              </div>
-            ))}
-            {recentFeed.length === 0 && (
-              <div className="empty">Belum ada aktivitas deposit atau order terbaru.</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="eyebrow">Treasury Action Queue</div>
-              <h3>Pending Deposit Approvals ({pendingDeposits.length})</h3>
-            </div>
-            <button type="button" className="link" onClick={() => onNav('deposits')}>
-              Open deposit queue →
-            </button>
-          </div>
-          <table className="tbl compact">
-            <thead>
-              <tr>
-                <th>Ticket</th>
-                <th>Member</th>
-                <th>Method</th>
-                <th className="num">Amount (IDR)</th>
-                <th className="num">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingDeposits.slice(0, 6).map((d) => (
-                <tr key={d.id} className="clickable" onClick={() => onSelectDeposit(d)}>
-                  <td className="mono muted">#{d.id.slice(0, 8)}</td>
-                  <td>
-                    <strong>{d.user?.full_name || 'Member'}</strong>
-                    <div className="muted small mono">{d.user?.email || d.user_id}</div>
-                  </td>
-                  <td>
-                    <span className="tag">{d.payment_method}</span>
-                  </td>
-                  <td className="num mono" style={{ color: 'var(--green)' }}>
-                    <strong>{fmtIdr(d.amount)}</strong>
-                  </td>
-                  <td className="num" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="btn sm primary"
-                      disabled={busyId === d.id}
-                      onClick={() => handleQuickApprove(d.id)}
-                    >
-                      {busyId === d.id ? '...' : '✓ Approve'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {pendingDeposits.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Tidak ada antrean deposit PENDING saat ini.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="eyebrow">Account Equity Leaderboard</div>
-              <h3>Top Member Portfolios ({members.length})</h3>
-            </div>
-            <button type="button" className="link" onClick={() => onNav('portfolios')}>
-              All member portfolios →
-            </button>
-          </div>
-          <table className="tbl compact">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th className="num">Cash RDN</th>
-                <th className="num">Assets</th>
-                <th className="num">Total Net Worth</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...members]
-                .sort((a, b) => b.totalAssetValue - a.totalAssetValue)
-                .slice(0, 6)
-                .map((m) => (
-                  <tr
-                    key={m.user_id}
-                    className="clickable"
-                    onClick={() => onSelectMember(m)}
-                  >
-                    <td>
-                      <strong>{m.full_name}</strong>
-                      <div className="muted small mono">{m.email}</div>
-                    </td>
-                    <td className="num mono" style={{ color: 'var(--green)' }}>
-                      {fmtIdrCompact(m.cash)}
-                    </td>
-                    <td className="num mono">
-                      {m.holdings.length} pos · {fmtIdrCompact(m.totalMarketValue)}
-                    </td>
-                    <td className="num mono">
-                      <strong>{fmtIdrCompact(m.totalAssetValue)}</strong>
-                    </td>
-                  </tr>
-                ))}
-              {members.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="empty">
-                    Belum ada data portofolio member.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// 2. EQUIPMENT / ASSETS MATRIX VIEW (?view=equipment) — 100% Real Trading Assets!
-// ============================================================================
-function EquipmentAssetsView({
-  state,
-  onSelectMember,
-  onRefresh,
-  showToast,
-}: {
-  state: TradingAdminState;
-  onSelectMember: (m: MemberPortfolioItem) => void;
-  onRefresh: () => void;
-  showToast: (msg: string, isErr?: boolean) => void;
-}) {
-  const { today, assetMatrix, holdingsFlat, members } = state;
+  const { today, deposits, members, holdingsFlat, assetMatrix, revenueMatrix, summary } =
+    state;
+  const [matrixMode, setMatrixMode] = useState<'revenue' | 'assets'>('revenue');
+  const [tableMode, setTableMode] = useState<'deposits' | 'holdings'>('deposits');
   const [newOpen, setNewOpen] = useState(false);
   const [simUserId, setSimUserId] = useState(members[0]?.user_id || '');
-  const [simAmount, setSimAmount] = useState('50000000');
+  const [simPayIdr, setSimPayIdr] = useState('50000');
   const [simMethod, setSimMethod] = useState('QRIS');
   const [busy, setBusy] = useState(false);
 
-  // 10-day window ending today (real trading activity history)
   const days = useMemo(
     () => Array.from({ length: 10 }, (_, i) => addDays(today, -(9 - i))),
     [today]
@@ -1205,19 +897,23 @@ function EquipmentAssetsView({
   const handleCreateTopup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simUserId.trim()) {
-      showToast('Pilih atau masukkan User ID / Email member', true);
+      showToast('Pilih member terlebih dahulu', true);
       return;
     }
-    const amt = Number(simAmount);
-    if (!amt || amt <= 0) {
-      showToast('Masukkan nominal deposit yang valid', true);
+    const payAmt = Number(simPayIdr);
+    if (!payAmt || payAmt <= 0) {
+      showToast('Masukkan nominal pembayaran yang valid', true);
       return;
     }
+    // 1:100 package conversion (e.g. Bayar Rp 50.000 -> Saldo RDN Rp 5.000.000)
+    const virtualCashAmt = payAmt < 1_000_000 ? payAmt * 100 : payAmt;
     setBusy(true);
     try {
-      const res = await createDepositRequest(simUserId.trim(), amt, simMethod);
+      const res = await createDepositRequest(simUserId.trim(), virtualCashAmt, simMethod);
       if (res.success) {
-        showToast('Tiket deposit baru berhasil dibuat!');
+        showToast(
+          `Tiket deposit dibuat: Bayar ${fmtIdr(payAmt)} → Saldo RDN ${fmtIdr(virtualCashAmt)}`
+        );
         setNewOpen(false);
         onRefresh();
       } else {
@@ -1228,36 +924,146 @@ function EquipmentAssetsView({
     }
   };
 
-  const holdingColumns: DataTableColumn<MemberHoldingRow>[] = [
+  const handleApproveDeposit = async (d: EnrichedDepositRecord) => {
+    setBusy(true);
+    try {
+      const res = await approveDeposit(d.id);
+      if (res.success) {
+        showToast(
+          `Approved! Pendapatan +${fmtIdr(d.realRevenueIdr)} tercatat & RDN member bertambah.`
+        );
+        onRefresh();
+      } else {
+        showToast(res.error || 'Gagal menyetujui deposit', true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRejectDeposit = async (d: EnrichedDepositRecord) => {
+    const reason = window.prompt(
+      'Masukkan alasan penolakan deposit:',
+      'Bukti transfer tidak valid atau dana belum masuk'
+    );
+    if (reason === null) return;
+    setBusy(true);
+    try {
+      const res = await rejectDeposit(d.id, reason);
+      if (res.success) {
+        showToast('Tiket deposit ditolak.');
+        onRefresh();
+      } else {
+        showToast(res.error || 'Gagal menolak deposit', true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const depositColumns: DataTableColumn<EnrichedDepositRecord>[] = [
     {
       key: 'id',
-      label: 'Pos ID',
-      width: 90,
-      defaultHidden: true,
+      label: 'ID Tiket',
+      width: 95,
       value: (r) => r.id,
-      render: (r) => <span className="mono muted">{r.id.slice(0, 10)}</span>,
+      render: (r) => <span className="mono muted">#{r.id.slice(0, 8)}</span>,
+      filter: { type: 'text', placeholder: 'ID…' },
     },
     {
+      key: 'member',
+      label: 'Member & Email',
+      value: (r) => `${r.user?.full_name || 'Member'} ${r.user?.email || r.user_id}`,
+      render: (r) => (
+        <div>
+          <b style={{ color: 'var(--head)', fontWeight: 500 }}>
+            {r.user?.full_name || 'Member'}
+          </b>
+          <span className="block muted small mono">{r.user?.email || r.user_id}</span>
+        </div>
+      ),
+      filter: { type: 'text', placeholder: 'Cari member…' },
+    },
+    {
+      key: 'payment_method',
+      label: 'Channel / Bank',
+      width: 125,
+      value: (r) => r.payment_method,
+      render: (r) => <span className="bdg blue">{r.payment_method}</span>,
+      filter: { type: 'text', placeholder: 'Metode…' },
+    },
+    {
+      key: 'realRevenueIdr',
+      label: 'Pendapatan Website (Bayar IDR)',
+      num: true,
+      width: 190,
+      value: (r) => r.realRevenueIdr,
+      render: (r) => (
+        <div>
+          <b className="mono" style={{ color: 'var(--green)', fontWeight: 600 }}>
+            {fmtIdr(r.realRevenueIdr)}
+          </b>
+          <span className="block muted small">{r.packageName}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'virtualCashIdr',
+      label: 'Saldo RDN Member (Virtual)',
+      num: true,
+      width: 175,
+      value: (r) => r.virtualCashIdr,
+      render: (r) => <span className="mono">{fmtIdr(r.virtualCashIdr)}</span>,
+    },
+    {
+      key: 'created_at',
+      label: 'Waktu Masuk',
+      width: 135,
+      value: (r) => r.created_at,
+      render: (r) => <span className="mono muted">{fmtDateTime(r.created_at)}</span>,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      width: 115,
+      value: (r) => r.status,
+      render: (r) => <StatusBadge status={r.status} />,
+      filter: {
+        type: 'select',
+        placeholder: 'Semua Status',
+        options: [
+          { value: 'PENDING', label: 'PENDING' },
+          { value: 'APPROVED', label: 'APPROVED' },
+          { value: 'REJECTED', label: 'REJECTED' },
+        ],
+      },
+    },
+  ];
+
+  const holdingColumns: DataTableColumn<MemberHoldingRow>[] = [
+    {
       key: 'displaySymbol',
-      label: 'Ticker / Asset',
+      label: 'Emiten / Aset',
       value: (r) => `${r.displaySymbol} ${r.name}`,
       render: (r) => (
         <div>
-          <strong className="mono">{r.displaySymbol}</strong>
-          <div className="muted small">{r.name}</div>
+          <b className="mono" style={{ color: 'var(--head)', fontWeight: 600 }}>
+            {r.displaySymbol}
+          </b>
+          <span className="block muted small">{r.name}</span>
         </div>
       ),
-      filter: { type: 'text', placeholder: 'Ticker / name…' },
+      filter: { type: 'text', placeholder: 'Ticker…' },
     },
     {
       key: 'category',
-      label: 'Market',
-      width: 105,
+      label: 'Pasar',
+      width: 100,
       value: (r) => r.category,
-      render: (r) => <span className="tag">{r.category}</span>,
+      render: (r) => <span className="bdg">{r.category}</span>,
       filter: {
         type: 'select',
-        placeholder: 'All markets',
+        placeholder: 'Semua Pasar',
         options: [
           { value: 'IDX', label: 'IDX Saham' },
           { value: 'CRYPTO', label: 'Crypto' },
@@ -1267,21 +1073,21 @@ function EquipmentAssetsView({
     },
     {
       key: 'user_name',
-      label: 'Member Holder',
+      label: 'Member Pemegang',
       value: (r) => `${r.user_name} ${r.user_email}`,
       render: (r) => (
         <div>
-          <strong>{r.user_name}</strong>
-          <div className="muted small mono">{r.user_email}</div>
+          <b style={{ color: 'var(--head)', fontWeight: 500 }}>{r.user_name}</b>
+          <span className="block muted small mono">{r.user_email}</span>
         </div>
       ),
-      filter: { type: 'text', placeholder: 'Member…' },
+      filter: { type: 'text', placeholder: 'Nama / email…' },
     },
     {
       key: 'shares',
-      label: 'Quantity / Lots',
+      label: 'Jumlah Lot / Unit',
       num: true,
-      width: 135,
+      width: 140,
       value: (r) => r.shares,
       render: (r) => (
         <span className="mono">
@@ -1293,9 +1099,9 @@ function EquipmentAssetsView({
     },
     {
       key: 'avgPrice',
-      label: 'Avg Buy Price',
+      label: 'Harga Beli (Avg)',
       num: true,
-      width: 130,
+      width: 135,
       value: (r) => r.avgPrice,
       render: (r) => (
         <span className="mono muted">
@@ -1307,9 +1113,9 @@ function EquipmentAssetsView({
     },
     {
       key: 'currentPrice',
-      label: 'Market Price',
+      label: 'Harga Pasar',
       num: true,
-      width: 130,
+      width: 135,
       value: (r) => r.currentPrice,
       render: (r) => (
         <span className="mono">
@@ -1321,186 +1127,677 @@ function EquipmentAssetsView({
     },
     {
       key: 'marketValueIdr',
-      label: 'Market Value (IDR)',
+      label: 'Nilai Aset (IDR)',
       num: true,
       width: 155,
       value: (r) => r.marketValueIdr,
-      render: (r) => <strong className="mono">{fmtIdr(r.marketValueIdr)}</strong>,
+      render: (r) => (
+        <b className="mono" style={{ color: 'var(--head)' }}>
+          {fmtIdr(r.marketValueIdr)}
+        </b>
+      ),
     },
     {
       key: 'unrealizedPLIdr',
-      label: 'Unrealized P/L',
+      label: 'Floating P/L',
       num: true,
-      width: 165,
+      width: 160,
       value: (r) => r.unrealizedPLIdr,
       render: (r) => (
-        <div
-          className="mono"
-          style={{ color: r.unrealizedPLIdr >= 0 ? 'var(--green)' : 'var(--red)' }}
-        >
-          <strong>
+        <div className={`mono ${r.unrealizedPLIdr >= 0 ? 'ok-t' : 'err-t'}`}>
+          <b>
             {r.unrealizedPLIdr >= 0 ? '+' : ''}
             {fmtIdr(r.unrealizedPLIdr)}
-          </strong>
-          <div className="small">
+          </b>
+          <span className="block small">
             ({r.unrealizedPLIdr >= 0 ? '+' : ''}
             {r.unrealizedPLPercent}%)
-          </div>
+          </span>
         </div>
       ),
-      filter: {
-        type: 'select',
-        placeholder: 'All P/L',
-        options: [
-          { value: 'PROFIT', label: 'In Profit (+)' },
-          { value: 'LOSS', label: 'In Loss (-)' },
-        ],
-        match: (r, fv) => (fv === 'PROFIT' ? r.unrealizedPLIdr >= 0 : r.unrealizedPLIdr < 0),
-      },
     },
   ];
 
-  const holdingRowActions = (r: MemberHoldingRow): ContextMenuItem[] => {
-    const member = members.find((m) => m.user_id === r.user_id);
-    return [
-      {
-        label: 'Inspect member portfolio',
-        hint: r.user_name,
-        onClick: () => member && onSelectMember(member),
-      },
-      { sep: true },
-      {
-        label: 'Reset member account to Rp 0',
-        danger: true,
-        onClick: async () => {
-          if (!confirm(`Reset akun ${r.user_name} (${r.user_email}) ke Rp 0 dan kosongkan aset?`))
-            return;
-          const res = await resetMemberAccountToZero(r.user_id);
-          if (res.success) {
-            showToast(res.message || 'Akun berhasil direset ke Rp 0');
-            onRefresh();
-          } else {
-            showToast(res.error || 'Gagal mereset akun', true);
-          }
-        },
-      },
-    ];
-  };
-
   return (
     <div className="stack">
+      {/* Summary KPI Strip for Website Deposit Revenue & Trading Assets */}
+      <div className="kpis">
+        <div className="kpi">
+          <span>Pendapatan Deposit Website (Approved)</span>
+          <b style={{ color: 'var(--green)' }}>
+            {fmtIdr(summary.totalApprovedRevenueIdr)}
+            <small>{summary.approvedCount} transaksi lunas</small>
+          </b>
+        </div>
+        <div className="kpi">
+          <span>Pendapatan Menunggu Verifikasi (Pending)</span>
+          <b style={{ color: summary.pendingCount > 0 ? 'var(--amber)' : undefined }}>
+            {fmtIdr(summary.totalPendingRevenueIdr)}
+            <small>{summary.pendingCount} antrean tiket</small>
+          </b>
+        </div>
+        <div className="kpi">
+          <span>Pendapatan Masuk Hari Ini</span>
+          <b>
+            {fmtIdr(summary.todayApprovedRevenueIdr)}
+            <small>{fmtDateShort(today)}</small>
+          </b>
+        </div>
+        <div className="kpi">
+          <span>Saldo Virtual RDN Tersalurkan</span>
+          <b>
+            {fmtIdrCompact(summary.totalVirtualDisbursedIdr)}
+            <small>{members.length} akun member</small>
+          </b>
+        </div>
+      </div>
+
+      {/* Top Matrix Card (Exact Steyer Studio .card + .card-h + .tbl.matrix) */}
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">Asset Allocation & Liquidity · 10-day window</div>
-            <h3>Member Stock & Crypto Holdings Matrix</h3>
+        <div className="card-h">
+          <div className="tools">
+            <h2>
+              {matrixMode === 'revenue'
+                ? 'Matriks Pendapatan Deposit Website · 10 Hari Terakhir'
+                : 'Matriks Kepemilikan Saham & Crypto Member · 10 Hari Terakhir'}
+            </h2>
+            <div className="seg">
+              <button
+                type="button"
+                aria-pressed={matrixMode === 'revenue'}
+                onClick={() => setMatrixMode('revenue')}
+              >
+                Pendapatan Deposit ({revenueMatrix.length})
+              </button>
+              <button
+                type="button"
+                aria-pressed={matrixMode === 'assets'}
+                onClick={() => setMatrixMode('assets')}
+              >
+                Posisi Aset Member ({assetMatrix.length})
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => setNewOpen((v) => !v)}
-          >
-            {newOpen ? 'Close' : '+ New RDN Deposit'}
-          </button>
+          <div className="tools">
+            <button
+              type="button"
+              className="btn-s sm"
+              onClick={onRefresh}
+              title="Sinkronkan ulang dari Supabase"
+            >
+              {Icons.refresh}
+              <span>Refresh</span>
+            </button>
+            <button
+              type="button"
+              className="btn-s sm primary"
+              onClick={() => setNewOpen((v) => !v)}
+            >
+              {Icons.plus}
+              <span>{newOpen ? 'Tutup Form' : 'Buat Tiket Deposit'}</span>
+            </button>
+          </div>
         </div>
 
         {newOpen && (
-          <form className="inline-form" onSubmit={handleCreateTopup}>
-            <select
-              value={simUserId}
-              onChange={(e) => setSimUserId(e.target.value)}
-            >
-              <option value="">— Pilih Member —</option>
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name} ({m.email})
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={simAmount}
-              onChange={(e) => setSimAmount(e.target.value)}
-              placeholder="Nominal IDR (e.g. 50000000)"
-              style={{ width: 170 }}
-            />
-            <select value={simMethod} onChange={(e) => setSimMethod(e.target.value)}>
-              <option value="QRIS">QRIS</option>
-              <option value="BCA_VA">BCA Virtual Account</option>
-              <option value="MANDIRI_VA">Mandiri VA</option>
-              <option value="BANK_TRANSFER">Bank Transfer</option>
-            </select>
-            <button type="submit" className="btn primary" disabled={busy}>
-              {busy ? 'Creating…' : 'Create Deposit Ticket'}
+          <form className="form-row" onSubmit={handleCreateTopup}>
+            <label className="fld grow">
+              <span>Pilih Member</span>
+              <select
+                value={simUserId}
+                onChange={(e) => setSimUserId(e.target.value)}
+              >
+                <option value="">— Pilih Member —</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name} ({m.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>Paket Bayar (Pendapatan IDR)</span>
+              <select
+                value={simPayIdr}
+                onChange={(e) => setSimPayIdr(e.target.value)}
+              >
+                <option value="10000">Bayar Rp 10.000 → RDN Rp 1.000.000</option>
+                <option value="20000">Bayar Rp 20.000 → RDN Rp 2.000.000</option>
+                <option value="50000">Bayar Rp 50.000 → RDN Rp 5.000.000</option>
+                <option value="100000">Bayar Rp 100.000 → RDN Rp 10.000.000</option>
+                <option value="200000">Bayar Rp 200.000 → RDN Rp 20.000.000</option>
+                <option value="500000">Bayar Rp 500.000 → RDN Rp 50.000.000</option>
+              </select>
+            </label>
+            <label className="fld">
+              <span>Metode Pembayaran</span>
+              <select value={simMethod} onChange={(e) => setSimMethod(e.target.value)}>
+                <option value="QRIS">QRIS</option>
+                <option value="BCA">BCA</option>
+                <option value="Bank Mandiri">Bank Mandiri</option>
+                <option value="BRI">BRI</option>
+                <option value="GoPay">GoPay</option>
+                <option value="DANA">DANA</option>
+              </select>
+            </label>
+            <button type="submit" className="btn-s primary" disabled={busy}>
+              Simpan Tiket Deposit
             </button>
           </form>
         )}
 
-        <div className="matrix-wrap">
-          <table className="tbl matrix">
+        <div className="tbl-wrap">
+          {matrixMode === 'revenue' ? (
+            <table className="tbl matrix">
+              <thead>
+                <tr>
+                  <th>Channel / Metode Pembayaran</th>
+                  <th className="num">Tiket</th>
+                  <th className="num">Pendapatan Approved</th>
+                  <th className="num">Menunggu (Pending)</th>
+                  <th className="num">RDN Tersalurkan</th>
+                  {days.map((d) => (
+                    <th key={d} className={`num ${d === today ? 'today' : ''}`}>
+                      <div>{fmtWeekday(d)}</div>
+                      <small className="muted">{d.slice(8, 10)}</small>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {revenueMatrix.map((row: RevenueChannelRow) => (
+                  <tr key={row.method}>
+                    <td>
+                      <b style={{ color: 'var(--head)', fontWeight: 500 }}>{row.method}</b>
+                    </td>
+                    <td className="num">
+                      {row.approvedCount}/{row.ticketsCount}
+                    </td>
+                    <td className="num ok-t">
+                      <b>{fmtIdr(row.approvedRevenueIdr)}</b>
+                    </td>
+                    <td className="num" style={{ color: row.pendingRevenueIdr > 0 ? 'var(--amber)' : undefined }}>
+                      {row.pendingRevenueIdr > 0 ? fmtIdr(row.pendingRevenueIdr) : '—'}
+                    </td>
+                    <td className="num muted">{fmtIdrCompact(row.virtualDisbursedIdr)}</td>
+                    {days.map((d) => {
+                      const cell = row.dailyRevenue[d];
+                      const rev = cell?.revenueIdr || 0;
+                      const cnt = cell?.count || 0;
+                      return (
+                        <td
+                          key={d}
+                          className={`num cell ${d === today ? 'today' : ''} ${
+                            rev > 0 ? 'ok-t' : cnt > 0 ? 'low' : 'muted'
+                          }`}
+                          title={`${row.method} (${d}): Pendapatan ${fmtIdr(rev)} (${cnt} tiket)`}
+                        >
+                          {rev > 0
+                            ? `${Math.round(rev / 1000)}k`
+                            : cnt > 0
+                            ? `${cnt}p`
+                            : '·'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {revenueMatrix.length > 0 && (
+                  <tr className="sum">
+                    <td>Total Pendapatan Website</td>
+                    <td className="num">
+                      {summary.approvedCount}/{deposits.length}
+                    </td>
+                    <td className="num ok-t">{fmtIdr(summary.totalApprovedRevenueIdr)}</td>
+                    <td className="num" style={{ color: 'var(--amber)' }}>
+                      {summary.totalPendingRevenueIdr > 0
+                        ? fmtIdr(summary.totalPendingRevenueIdr)
+                        : '—'}
+                    </td>
+                    <td className="num">{fmtIdrCompact(summary.totalVirtualDisbursedIdr)}</td>
+                    {days.map((d) => {
+                      const dayTotal = revenueMatrix.reduce(
+                        (s, r) => s + (r.dailyRevenue[d]?.revenueIdr || 0),
+                        0
+                      );
+                      return (
+                        <td key={d} className={`num ${d === today ? 'today' : ''}`}>
+                          {dayTotal > 0 ? `${Math.round(dayTotal / 1000)}k` : '·'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )}
+                {revenueMatrix.length === 0 && (
+                  <tr>
+                    <td colSpan={15} className="dt-empty muted">
+                      Belum ada riwayat pendapatan deposit yang tercatat.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="tbl matrix">
+              <thead>
+                <tr>
+                  <th>Emiten / Instrumen</th>
+                  <th>Pasar</th>
+                  <th className="num">Harga Pasar</th>
+                  <th className="num">Pemegang</th>
+                  <th className="num">Total Eksposur</th>
+                  {days.map((d) => (
+                    <th key={d} className={`num ${d === today ? 'today' : ''}`}>
+                      <div>{fmtWeekday(d)}</div>
+                      <small className="muted">{d.slice(8, 10)}</small>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {assetMatrix.map((asset: AssetMatrixRow) => (
+                  <tr key={asset.displaySymbol}>
+                    <td>
+                      <b style={{ color: 'var(--head)', fontWeight: 600 }}>
+                        {asset.displaySymbol}
+                      </b>{' '}
+                      <small className="muted">· {asset.name}</small>
+                    </td>
+                    <td>
+                      <span className="bdg">{asset.category}</span>
+                    </td>
+                    <td className="num">
+                      {asset.currency === 'USD'
+                        ? `$${asset.currentPrice.toLocaleString('en-US')}`
+                        : fmtIdr(asset.currentPrice)}
+                    </td>
+                    <td className="num">{asset.holdersCount} member</td>
+                    <td className="num">
+                      <b>{fmtIdrCompact(asset.totalMarketValueIdr)}</b>
+                    </td>
+                    {days.map((d) => {
+                      const act = asset.dailyActivity[d];
+                      const tx = act?.orders || 0;
+                      return (
+                        <td
+                          key={d}
+                          className={`num cell ${d === today ? 'today' : ''} ${
+                            tx > 0 ? 'ok-t' : 'muted'
+                          }`}
+                        >
+                          {tx > 0 ? `${tx}tx` : `${asset.holdersCount}h`}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {assetMatrix.length === 0 && (
+                  <tr>
+                    <td colSpan={15} className="dt-empty muted">
+                      Belum ada kepemilikan saham atau crypto aktif di portofolio member.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom DataTable Card */}
+      <div className="card">
+        {tableMode === 'deposits' ? (
+          <DataTable
+            columns={depositColumns}
+            rows={deposits}
+            onRowClick={onSelectDeposit}
+            toolbarLeft={
+              <div className="seg">
+                <button
+                  type="button"
+                  aria-pressed={tableMode === 'deposits'}
+                  onClick={() => setTableMode('deposits')}
+                >
+                  Daftar Deposit & Pendapatan ({deposits.length})
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tableMode === 'holdings'}
+                  onClick={() => setTableMode('holdings')}
+                >
+                  Posisi Aset Member ({holdingsFlat.length})
+                </button>
+              </div>
+            }
+            renderInlineActions={(r) =>
+              r.status === 'PENDING' ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-s sm primary"
+                    disabled={busy}
+                    onClick={() => handleApproveDeposit(r)}
+                  >
+                    ✓ Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-s sm danger"
+                    disabled={busy}
+                    onClick={() => handleRejectDeposit(r)}
+                  >
+                    Tolak
+                  </button>
+                </>
+              ) : null
+            }
+            rowActions={(r) => [
+              {
+                label: 'Lihat rincian & bukti transfer',
+                hint: 'Enter',
+                onClick: () => onSelectDeposit(r),
+              },
+              { sep: true },
+              {
+                label: `Approve (+${fmtIdr(r.realRevenueIdr)})`,
+                disabled: r.status !== 'PENDING' || busy,
+                onClick: () => handleApproveDeposit(r),
+              },
+              {
+                label: 'Tolak tiket deposit…',
+                danger: true,
+                disabled: r.status !== 'PENDING' || busy,
+                onClick: () => handleRejectDeposit(r),
+              },
+            ]}
+            rowActionsHeader={(r) =>
+              `Tiket #${r.id.slice(0, 8)} · ${r.user?.full_name || 'Member'}`
+            }
+            defaultSort={{ key: 'created_at', dir: 'desc' }}
+            searchPlaceholder="Cari tiket, nama member, email, metode…"
+            emptyText="Belum ada data deposit member."
+          />
+        ) : (
+          <DataTable
+            columns={holdingColumns}
+            rows={holdingsFlat}
+            rowKey={(r) => r.id}
+            onRowClick={(r) => {
+              const m = members.find((mem) => mem.user_id === r.user_id);
+              if (m) onSelectMember(m);
+            }}
+            toolbarLeft={
+              <div className="seg">
+                <button
+                  type="button"
+                  aria-pressed={tableMode === 'deposits'}
+                  onClick={() => setTableMode('deposits')}
+                >
+                  Daftar Deposit & Pendapatan ({deposits.length})
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tableMode === 'holdings'}
+                  onClick={() => setTableMode('holdings')}
+                >
+                  Posisi Aset Member ({holdingsFlat.length})
+                </button>
+              </div>
+            }
+            rowActions={(r) => {
+              const m = members.find((mem) => mem.user_id === r.user_id);
+              return [
+                {
+                  label: 'Buka portofolio member',
+                  hint: r.user_name,
+                  onClick: () => m && onSelectMember(m),
+                },
+              ];
+            }}
+            rowActionsHeader={(r) => `${r.displaySymbol} · ${r.user_name}`}
+            defaultSort={{ key: 'marketValueIdr', dir: 'desc' }}
+            searchPlaceholder="Cari emiten, nama saham, atau nama member…"
+            emptyText="Belum ada posisi saham atau crypto aktif."
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// 2. DASHBOARD VIEW (?view=dashboard) — Exact Steyer .grid-dash Layout
+// ============================================================================
+function DashboardView({
+  state,
+  onNav,
+  onSelectDeposit,
+  onSelectMember,
+  onRefresh,
+  showToast,
+}: {
+  state: TradingAdminState;
+  onNav: (v: AdminViewId) => void;
+  onSelectDeposit: (d: EnrichedDepositRecord) => void;
+  onSelectMember: (m: MemberPortfolioItem) => void;
+  onRefresh: () => void;
+  showToast: (msg: string, isErr?: boolean) => void;
+}) {
+  const { today, deposits, members, holdingsFlat, summary } = state;
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const pendingDeposits = useMemo(
+    () => deposits.filter((d) => d.status === 'PENDING'),
+    [deposits]
+  );
+
+  const totalCashRdn = useMemo(
+    () => members.reduce((sum, m) => sum + (Number(m.cash) || 0), 0),
+    [members]
+  );
+  const totalNetWorthAum = useMemo(
+    () => members.reduce((sum, m) => sum + (Number(m.totalAssetValue) || 0), 0),
+    [members]
+  );
+
+  // Build 14-day revenue series
+  const series: AreaPoint[] = useMemo(() => {
+    const days = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13));
+    return days.map((d) => {
+      const dayDeps = deposits.filter(
+        (x) => String(x.created_at || '').slice(0, 10) === d
+      );
+      const approvedRevenueIdr = dayDeps
+        .filter((x) => x.status === 'APPROVED')
+        .reduce((s, x) => s + x.realRevenueIdr, 0);
+      const pendingRevenueIdr = dayDeps
+        .filter((x) => x.status === 'PENDING')
+        .reduce((s, x) => s + x.realRevenueIdr, 0);
+      const virtualDisbursedIdr = dayDeps
+        .filter((x) => x.status === 'APPROVED')
+        .reduce((s, x) => s + x.virtualCashIdr, 0);
+
+      return {
+        date: d,
+        approvedRevenueIdr,
+        pendingRevenueIdr,
+        virtualDisbursedIdr,
+        txCount: dayDeps.length,
+      };
+    });
+  }, [today, deposits]);
+
+  const handleQuickApprove = async (d: EnrichedDepositRecord) => {
+    setBusyId(d.id);
+    try {
+      const res = await approveDeposit(d.id);
+      if (res.success) {
+        showToast(
+          `Approved! Pendapatan +${fmtIdr(d.realRevenueIdr)} tercatat ke kas website.`
+        );
+        onRefresh();
+      } else {
+        showToast(res.error || 'Gagal menyetujui deposit', true);
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="grid-dash">
+      {/* Top 6 KPI Strip inside .grid-dash .kpis */}
+      <div className="kpis">
+        <div className="kpi" onClick={() => onNav('deposits')} style={{ cursor: 'pointer' }}>
+          <span>Pendapatan Deposit (Approved)</span>
+          <b style={{ color: 'var(--green)' }}>
+            {fmtIdr(summary.totalApprovedRevenueIdr)}
+            <small>{summary.approvedCount} lunas</small>
+          </b>
+        </div>
+        <div className="kpi" onClick={() => onNav('deposits')} style={{ cursor: 'pointer' }}>
+          <span>Menunggu Verifikasi (Pending)</span>
+          <b style={{ color: summary.pendingCount > 0 ? 'var(--amber)' : undefined }}>
+            {fmtIdr(summary.totalPendingRevenueIdr)}
+            <small>{summary.pendingCount} tiket</small>
+          </b>
+        </div>
+        <div className="kpi" onClick={() => onNav('deposits')} style={{ cursor: 'pointer' }}>
+          <span>Pendapatan Hari Ini</span>
+          <b>
+            {fmtIdr(summary.todayApprovedRevenueIdr)}
+            <small>{fmtDateShort(today)}</small>
+          </b>
+        </div>
+        <div className="kpi" onClick={() => onNav('portfolios')} style={{ cursor: 'pointer' }}>
+          <span>Total Saldo RDN Member</span>
+          <b>
+            {fmtIdrCompact(totalCashRdn)}
+            <small>Kas virtual</small>
+          </b>
+        </div>
+        <div className="kpi" onClick={() => onNav('portfolios')} style={{ cursor: 'pointer' }}>
+          <span>Total Ekuitas Portofolio</span>
+          <b>
+            {fmtIdrCompact(totalNetWorthAum)}
+            <small>AUM</small>
+          </b>
+        </div>
+        <div className="kpi" onClick={() => onNav('equipment')} style={{ cursor: 'pointer' }}>
+          <span>Total Member & Posisi</span>
+          <b>
+            {members.length} member
+            <small>{holdingsFlat.length} posisi saham</small>
+          </b>
+        </div>
+      </div>
+
+      {/* Main 14-Day Revenue Chart (2 columns wide) */}
+      <div className="card span2">
+        <div className="card-h">
+          <h2>Grafik Pendapatan Deposit Website · 14 Hari Terakhir</h2>
+          <div className="tools">
+            <span className="bdg green">
+              Total Approved: {fmtIdr(summary.totalApprovedRevenueIdr)}
+            </span>
+          </div>
+        </div>
+        <AreaChart series={series} today={today} />
+      </div>
+
+      {/* Right Live Feed Card */}
+      <div className="card">
+        <div className="card-h">
+          <h2>Transaksi Deposit Terbaru</h2>
+          <button type="button" className="lnk small" onClick={() => onNav('deposits')}>
+            Semua ({deposits.length}) →
+          </button>
+        </div>
+        <ul className="feed">
+          {deposits.slice(0, 6).map((d) => (
+            <li key={d.id}>
+              <button type="button" onClick={() => onSelectDeposit(d)}>
+                <StatusBadge status={d.status} />
+                <span className="feed-t">
+                  <b style={{ color: 'var(--head)', fontWeight: 500 }}>
+                    {d.user?.full_name || 'Member'}
+                  </b>{' '}
+                  · <span className="ok-t mono">{fmtIdr(d.realRevenueIdr)}</span>
+                  <span className="block muted small">
+                    {d.payment_method} → RDN {fmtIdrCompact(d.virtualCashIdr)}
+                  </span>
+                </span>
+                <small>{fmtDateShort(d.created_at)}</small>
+              </button>
+            </li>
+          ))}
+          {deposits.length === 0 && (
+            <li className="muted small" style={{ padding: '14px 0' }}>
+              Belum ada tiket deposit masuk.
+            </li>
+          )}
+        </ul>
+      </div>
+
+      {/* Bottom Left: Pending Deposit Approval Queue */}
+      <div className="card span2">
+        <div className="card-h">
+          <h2>Antrean Verifikasi Deposit Member ({pendingDeposits.length})</h2>
+          <button type="button" className="lnk small" onClick={() => onNav('deposits')}>
+            Buka Menu Approval →
+          </button>
+        </div>
+        <div className="tbl-wrap">
+          <table className="tbl">
             <thead>
               <tr>
-                <th>Instrument / Ticker</th>
-                <th>Market</th>
-                <th className="num">Last Price</th>
-                <th className="num">Holders</th>
-                <th className="num">Total Exposure</th>
-                {days.map((d) => (
-                  <th key={d} className={`num ${d === today ? 'today' : ''}`}>
-                    <div className="mono">{fmtWeekday(d)}</div>
-                    <div className="mono muted">{d.slice(8, 10)}</div>
-                  </th>
-                ))}
+                <th>ID Tiket</th>
+                <th>Member</th>
+                <th>Metode</th>
+                <th className="num">Pendapatan Website (Bayar)</th>
+                <th className="num">Saldo RDN Member</th>
+                <th className="num act">Aksi Cepat</th>
               </tr>
             </thead>
             <tbody>
-              {assetMatrix.map((asset: AssetMatrixRow) => (
-                <tr key={asset.displaySymbol}>
+              {pendingDeposits.slice(0, 6).map((d) => (
+                <tr
+                  key={d.id}
+                  className="click pending"
+                  onClick={() => onSelectDeposit(d)}
+                >
+                  <td className="mono muted">#{d.id.slice(0, 8)}</td>
                   <td>
-                    <strong className="mono">{asset.displaySymbol}</strong>
-                    <span className="muted small"> · {asset.name}</span>
+                    <b style={{ color: 'var(--head)', fontWeight: 500 }}>
+                      {d.user?.full_name || 'Member'}
+                    </b>
+                    <span className="block muted small mono">
+                      {d.user?.email || d.user_id}
+                    </span>
                   </td>
                   <td>
-                    <span className="tag">{asset.category}</span>
+                    <span className="bdg blue">{d.payment_method}</span>
                   </td>
-                  <td className="num mono">
-                    {asset.currency === 'USD'
-                      ? `$${asset.currentPrice.toLocaleString('en-US')}`
-                      : fmtIdr(asset.currentPrice)}
+                  <td className="num mono ok-t">
+                    <b>{fmtIdr(d.realRevenueIdr)}</b>
                   </td>
-                  <td className="num mono">
-                    <strong>{asset.holdersCount}</strong> member
+                  <td className="num mono">{fmtIdr(d.virtualCashIdr)}</td>
+                  <td className="num act" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="btn-s sm primary"
+                      disabled={busyId === d.id}
+                      onClick={() => handleQuickApprove(d)}
+                    >
+                      {busyId === d.id ? '...' : '✓ Approve'}
+                    </button>
                   </td>
-                  <td className="num mono">
-                    <strong>{fmtIdrCompact(asset.totalMarketValueIdr)}</strong>
-                  </td>
-                  {days.map((d) => {
-                    const act = asset.dailyActivity[d];
-                    const ordersCount = act?.orders || 0;
-                    const cls =
-                      ordersCount > 0
-                        ? 'ok'
-                        : asset.holdersCount > 0
-                        ? 'low'
-                        : 'empty';
-                    return (
-                      <td
-                        key={d}
-                        className={`num mono mcell ${cls}`}
-                        title={`${asset.displaySymbol} on ${d}: ${asset.holdersCount} active holders, ${ordersCount} orders executed`}
-                      >
-                        {ordersCount > 0
-                          ? `${ordersCount} tx`
-                          : `${asset.holdersCount}h`}
-                      </td>
-                    );
-                  })}
                 </tr>
               ))}
-              {assetMatrix.length === 0 && (
+              {pendingDeposits.length === 0 && (
                 <tr>
-                  <td colSpan={15} className="empty">
-                    Belum ada posisi saham atau crypto aktif yang dipegang oleh member saat ini.
+                  <td colSpan={6} className="dt-empty muted">
+                    Semua antrean deposit sudah diverifikasi.
                   </td>
                 </tr>
               )}
@@ -1509,63 +1806,72 @@ function EquipmentAssetsView({
         </div>
       </div>
 
+      {/* Bottom Right: Top Member Portfolios */}
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">Live Supabase Holdings Registry</div>
-            <h3>All Active Member Positions ({holdingsFlat.length})</h3>
-          </div>
-          <button type="button" className="btn sm" onClick={onRefresh}>
-            ↻ Refresh Positions
+        <div className="card-h">
+          <h2>Portofolio Member Terbesar</h2>
+          <button type="button" className="lnk small" onClick={() => onNav('portfolios')}>
+            Semua ({members.length}) →
           </button>
         </div>
-        <DataTable
-          columns={holdingColumns}
-          rows={holdingsFlat}
-          rowKey={(r) => r.id}
-          onRowClick={(r) => {
-            const m = members.find((mem) => mem.user_id === r.user_id);
-            if (m) onSelectMember(m);
-          }}
-          rowActions={holdingRowActions}
-          rowActionsHeader={(r) => `${r.displaySymbol} · ${r.user_name}`}
-          defaultSort={{ key: 'marketValueIdr', dir: 'desc' }}
-          searchPlaceholder="Search ticker, stock name, member name, email…"
-          emptyText="No active stock or crypto positions found across member portfolios"
-        />
+        <ul className="list">
+          {[...members]
+            .sort((a, b) => b.totalAssetValue - a.totalAssetValue)
+            .slice(0, 6)
+            .map((m, idx) => (
+              <li
+                key={m.user_id}
+                className="click"
+                onClick={() => onSelectMember(m)}
+              >
+                <span className="mono muted">#{idx + 1}</span>
+                <span>
+                  <b style={{ color: 'var(--head)', fontWeight: 500 }}>{m.full_name}</b>
+                  <small className="block muted mono">{m.email}</small>
+                </span>
+                <span className="mono">
+                  <b style={{ color: 'var(--head)' }}>
+                    {fmtIdrCompact(m.totalAssetValue)}
+                  </b>
+                  <small className="block muted">{m.holdings.length} emiten</small>
+                </span>
+              </li>
+            ))}
+        </ul>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// 3. DEPOSITS VIEW (?view=deposits) — Live Supabase Deposit Approvals
+// 3. DEPOSITS & REVENUE VIEW (?view=deposits)
 // ============================================================================
 function DepositsView({
-  deposits,
-  members,
+  state,
   onSelectDeposit,
   onRefresh,
   showToast,
 }: {
-  deposits: DepositRecord[];
-  members: MemberPortfolioItem[];
-  onSelectDeposit: (d: DepositRecord) => void;
+  state: TradingAdminState;
+  onSelectDeposit: (d: EnrichedDepositRecord) => void;
   onRefresh: () => void;
   showToast: (msg: string, isErr?: boolean) => void;
 }) {
+  const { deposits, members, summary } = state;
   const [newOpen, setNewOpen] = useState(false);
-  const [simUserId, setSimUserId] = useState('');
-  const [simAmount, setSimAmount] = useState('50000000');
+  const [simUserId, setSimUserId] = useState(members[0]?.user_id || '');
+  const [simPayIdr, setSimPayIdr] = useState('50000');
   const [simMethod, setSimMethod] = useState('QRIS');
   const [busy, setBusy] = useState(false);
 
-  const handleApprove = async (d: DepositRecord) => {
+  const handleApprove = async (d: EnrichedDepositRecord) => {
     setBusy(true);
     try {
       const res = await approveDeposit(d.id);
       if (res.success) {
-        showToast(res.message || 'Deposit berhasil disetujui!');
+        showToast(
+          `Deposit disetujui! Pendapatan +${fmtIdr(d.realRevenueIdr)} tercatat.`
+        );
         onRefresh();
       } else {
         showToast(res.error || 'Gagal menyetujui deposit', true);
@@ -1575,7 +1881,7 @@ function DepositsView({
     }
   };
 
-  const handleReject = async (d: DepositRecord) => {
+  const handleReject = async (d: EnrichedDepositRecord) => {
     const reason = window.prompt(
       'Masukkan alasan penolakan deposit:',
       'Bukti transfer tidak valid atau dana belum masuk'
@@ -1585,7 +1891,7 @@ function DepositsView({
     try {
       const res = await rejectDeposit(d.id, reason);
       if (res.success) {
-        showToast(res.message || 'Deposit berhasil ditolak.');
+        showToast('Deposit berhasil ditolak.');
         onRefresh();
       } else {
         showToast(res.error || 'Gagal menolak deposit', true);
@@ -1598,19 +1904,22 @@ function DepositsView({
   const handleCreateSim = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simUserId.trim()) {
-      showToast('Pilih atau masukkan User ID member', true);
+      showToast('Pilih member terlebih dahulu', true);
       return;
     }
-    const amt = Number(simAmount);
-    if (!amt || amt <= 0) {
-      showToast('Masukkan nominal yang valid', true);
+    const payAmt = Number(simPayIdr);
+    if (!payAmt || payAmt <= 0) {
+      showToast('Masukkan nominal pembayaran yang valid', true);
       return;
     }
+    const virtualCashAmt = payAmt < 1_000_000 ? payAmt * 100 : payAmt;
     setBusy(true);
     try {
-      const res = await createDepositRequest(simUserId.trim(), amt, simMethod);
+      const res = await createDepositRequest(simUserId.trim(), virtualCashAmt, simMethod);
       if (res.success) {
-        showToast('Tiket deposit berhasil dibuat!');
+        showToast(
+          `Tiket deposit dibuat: Bayar ${fmtIdr(payAmt)} → RDN ${fmtIdr(virtualCashAmt)}`
+        );
         setNewOpen(false);
         onRefresh();
       } else {
@@ -1621,69 +1930,76 @@ function DepositsView({
     }
   };
 
-  const pendingCount = deposits.filter((d) => d.status === 'PENDING').length;
-  const approvedCount = deposits.filter((d) => d.status === 'APPROVED').length;
-  const totalApprovedVol = deposits
-    .filter((d) => d.status === 'APPROVED')
-    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-
-  const columns: DataTableColumn<DepositRecord>[] = [
+  const columns: DataTableColumn<EnrichedDepositRecord>[] = [
     {
       key: 'id',
-      label: 'Ticket ID',
-      width: 110,
+      label: 'ID Tiket',
+      width: 95,
       value: (r) => r.id,
       render: (r) => <span className="mono muted">#{r.id.slice(0, 8)}</span>,
       filter: { type: 'text', placeholder: 'ID…' },
     },
     {
       key: 'member',
-      label: 'Member',
+      label: 'Member & Email',
       value: (r) => `${r.user?.full_name || 'Member'} ${r.user?.email || r.user_id}`,
       render: (r) => (
         <div>
-          <strong>{r.user?.full_name || 'Member'}</strong>
-          <div className="muted small mono">{r.user?.email || r.user_id}</div>
+          <b style={{ color: 'var(--head)', fontWeight: 500 }}>
+            {r.user?.full_name || 'Member'}
+          </b>
+          <span className="block muted small mono">{r.user?.email || r.user_id}</span>
         </div>
       ),
-      filter: { type: 'text', placeholder: 'Name / email…' },
-    },
-    {
-      key: 'amount',
-      label: 'Nominal (IDR)',
-      num: true,
-      width: 165,
-      value: (r) => Number(r.amount) || 0,
-      render: (r) => (
-        <strong className="mono" style={{ color: 'var(--green)' }}>
-          {fmtIdr(r.amount)}
-        </strong>
-      ),
+      filter: { type: 'text', placeholder: 'Cari member…' },
     },
     {
       key: 'payment_method',
-      label: 'Method',
-      width: 130,
+      label: 'Bank / Metode',
+      width: 125,
       value: (r) => r.payment_method,
-      render: (r) => <span className="tag">{r.payment_method}</span>,
-      filter: { type: 'text', placeholder: 'Method…' },
+      render: (r) => <span className="bdg blue">{r.payment_method}</span>,
+      filter: { type: 'text', placeholder: 'Metode…' },
+    },
+    {
+      key: 'realRevenueIdr',
+      label: 'Pendapatan Website (Bayar IDR)',
+      num: true,
+      width: 195,
+      value: (r) => r.realRevenueIdr,
+      render: (r) => (
+        <div>
+          <b className="mono ok-t" style={{ fontWeight: 600 }}>
+            {fmtIdr(r.realRevenueIdr)}
+          </b>
+          <span className="block muted small">{r.packageName}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'virtualCashIdr',
+      label: 'Saldo RDN Member (Virtual)',
+      num: true,
+      width: 175,
+      value: (r) => r.virtualCashIdr,
+      render: (r) => <span className="mono">{fmtIdr(r.virtualCashIdr)}</span>,
     },
     {
       key: 'created_at',
-      label: 'Created At',
-      width: 150,
+      label: 'Waktu Masuk',
+      width: 140,
       value: (r) => r.created_at,
       render: (r) => <span className="mono muted">{fmtDateTime(r.created_at)}</span>,
     },
     {
       key: 'status',
       label: 'Status',
-      width: 130,
+      width: 115,
       value: (r) => r.status,
-      render: (r) => <StatusPill status={r.status.toLowerCase()} />,
+      render: (r) => <StatusBadge status={r.status} />,
       filter: {
         type: 'select',
-        placeholder: 'All statuses',
+        placeholder: 'Semua Status',
         options: [
           { value: 'PENDING', label: 'PENDING' },
           { value: 'APPROVED', label: 'APPROVED' },
@@ -1693,104 +2009,101 @@ function DepositsView({
     },
   ];
 
-  const rowActions = (r: DepositRecord): ContextMenuItem[] => [
-    {
-      label: 'Inspect deposit ticket',
-      hint: 'Enter',
-      onClick: () => onSelectDeposit(r),
-    },
-    { sep: true },
-    {
-      label: 'Approve deposit (ACID RPC)',
-      disabled: r.status !== 'PENDING' || busy,
-      onClick: () => handleApprove(r),
-    },
-    {
-      label: 'Reject deposit…',
-      danger: true,
-      disabled: r.status !== 'PENDING' || busy,
-      onClick: () => handleReject(r),
-    },
-  ];
-
   return (
     <div className="stack">
       <div className="kpis">
         <div className="kpi">
-          <div className="kpi-label">Antrean Menunggu (PENDING)</div>
-          <div className="kpi-val" style={{ color: pendingCount > 0 ? 'var(--amber)' : undefined }}>
-            {pendingCount}
-          </div>
-          <div className="kpi-sub">Perlu tindakan verifikasi admin</div>
+          <span>Total Pendapatan Website (Approved)</span>
+          <b style={{ color: 'var(--green)' }}>
+            {fmtIdr(summary.totalApprovedRevenueIdr)}
+            <small>{summary.approvedCount} tiket lunas</small>
+          </b>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Total Berhasil Disetujui</div>
-          <div className="kpi-val" style={{ color: 'var(--green)' }}>
-            {approvedCount}
-          </div>
-          <div className="kpi-sub">Saldo langsung ditambahkan ke wallet RDN</div>
+          <span>Potensi Pendapatan (Pending)</span>
+          <b style={{ color: summary.pendingCount > 0 ? 'var(--amber)' : undefined }}>
+            {fmtIdr(summary.totalPendingRevenueIdr)}
+            <small>{summary.pendingCount} menunggu approval</small>
+          </b>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Volume Deposit Disetujui</div>
-          <div className="kpi-val">{fmtIdrCompact(totalApprovedVol)}</div>
-          <div className="kpi-sub">{fmtIdr(totalApprovedVol)} tersalurkan</div>
+          <span>Pendapatan Hari Ini</span>
+          <b>
+            {fmtIdr(summary.todayApprovedRevenueIdr)}
+            <small>Hari ini</small>
+          </b>
+        </div>
+        <div className="kpi">
+          <span>Total Saldo RDN Tersalurkan</span>
+          <b>
+            {fmtIdrCompact(summary.totalVirtualDisbursedIdr)}
+            <small>Ke wallet member</small>
+          </b>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">Supabase Cloud · Atomic PostgreSQL RPC</div>
-            <h3>Antrean Verifikasi & Approval Deposit ({deposits.length})</h3>
-          </div>
-          <div className="row-gap">
+        <div className="card-h">
+          <h2>Antrean Verifikasi Deposit & Laporan Pendapatan Website</h2>
+          <div className="tools">
             <button
               type="button"
-              className="btn sm"
+              className="btn-s sm"
               onClick={() => setNewOpen((v) => !v)}
             >
-              {newOpen ? 'Close' : '+ Buat Tiket Deposit'}
+              {Icons.plus}
+              <span>{newOpen ? 'Tutup Form' : 'Buat Tiket Deposit'}</span>
             </button>
-            <button type="button" className="btn sm primary" onClick={onRefresh}>
-              ↻ Refresh
+            <button type="button" className="btn-s sm primary" onClick={onRefresh}>
+              {Icons.refresh}
+              <span>Refresh</span>
             </button>
           </div>
         </div>
 
         {newOpen && (
-          <form className="inline-form" onSubmit={handleCreateSim}>
-            <select
-              value={simUserId}
-              onChange={(e) => setSimUserId(e.target.value)}
-            >
-              <option value="">— Pilih Member —</option>
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name} ({m.email})
-                </option>
-              ))}
-            </select>
-            <input
-              value={simUserId}
-              onChange={(e) => setSimUserId(e.target.value)}
-              placeholder="Atau ketik User ID / Email"
-              style={{ width: 200 }}
-            />
-            <input
-              type="number"
-              value={simAmount}
-              onChange={(e) => setSimAmount(e.target.value)}
-              placeholder="Nominal IDR"
-              style={{ width: 160 }}
-            />
-            <select value={simMethod} onChange={(e) => setSimMethod(e.target.value)}>
-              <option value="QRIS">QRIS</option>
-              <option value="BCA_VA">BCA VA</option>
-              <option value="MANDIRI_VA">Mandiri VA</option>
-              <option value="BANK_TRANSFER">Bank Transfer</option>
-            </select>
-            <button type="submit" className="btn primary" disabled={busy}>
-              Kirim Tiket Deposit
+          <form className="form-row" onSubmit={handleCreateSim}>
+            <label className="fld grow">
+              <span>Pilih Member</span>
+              <select
+                value={simUserId}
+                onChange={(e) => setSimUserId(e.target.value)}
+              >
+                <option value="">— Pilih Member —</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name} ({m.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>Paket Pembayaran (Pendapatan IDR)</span>
+              <select
+                value={simPayIdr}
+                onChange={(e) => setSimPayIdr(e.target.value)}
+              >
+                <option value="10000">Bayar Rp 10.000 → RDN Rp 1.000.000</option>
+                <option value="20000">Bayar Rp 20.000 → RDN Rp 2.000.000</option>
+                <option value="50000">Bayar Rp 50.000 → RDN Rp 5.000.000</option>
+                <option value="100000">Bayar Rp 100.000 → RDN Rp 10.000.000</option>
+                <option value="200000">Bayar Rp 200.000 → RDN Rp 20.000.000</option>
+                <option value="500000">Bayar Rp 500.000 → RDN Rp 50.000.000</option>
+              </select>
+            </label>
+            <label className="fld">
+              <span>Metode Pembayaran</span>
+              <select value={simMethod} onChange={(e) => setSimMethod(e.target.value)}>
+                <option value="QRIS">QRIS</option>
+                <option value="BCA">BCA</option>
+                <option value="Bank Mandiri">Bank Mandiri</option>
+                <option value="BRI">BRI</option>
+                <option value="GoPay">GoPay</option>
+                <option value="DANA">DANA</option>
+              </select>
+            </label>
+            <button type="submit" className="btn-s primary" disabled={busy}>
+              Simpan Tiket
             </button>
           </form>
         )}
@@ -1799,9 +2112,49 @@ function DepositsView({
           columns={columns}
           rows={deposits}
           onRowClick={onSelectDeposit}
-          rowActions={rowActions}
+          renderInlineActions={(r) =>
+            r.status === 'PENDING' ? (
+              <>
+                <button
+                  type="button"
+                  className="btn-s sm primary"
+                  disabled={busy}
+                  onClick={() => handleApprove(r)}
+                >
+                  ✓ Approve
+                </button>
+                <button
+                  type="button"
+                  className="btn-s sm danger"
+                  disabled={busy}
+                  onClick={() => handleReject(r)}
+                >
+                  Tolak
+                </button>
+              </>
+            ) : null
+          }
+          rowActions={(r) => [
+            {
+              label: 'Periksa rincian & bukti transfer',
+              hint: 'Enter',
+              onClick: () => onSelectDeposit(r),
+            },
+            { sep: true },
+            {
+              label: `Approve (+${fmtIdr(r.realRevenueIdr)})`,
+              disabled: r.status !== 'PENDING' || busy,
+              onClick: () => handleApprove(r),
+            },
+            {
+              label: 'Tolak permohonan deposit…',
+              danger: true,
+              disabled: r.status !== 'PENDING' || busy,
+              onClick: () => handleReject(r),
+            },
+          ]}
           rowActionsHeader={(r) =>
-            `Ticket #${r.id.slice(0, 8)} · ${r.user?.full_name || 'Member'}`
+            `Tiket #${r.id.slice(0, 8)} · ${r.user?.full_name || 'Member'}`
           }
           defaultSort={{ key: 'created_at', dir: 'desc' }}
           searchPlaceholder="Cari ID tiket, nama member, email, metode…"
@@ -1813,15 +2166,17 @@ function DepositsView({
 }
 
 // ============================================================================
-// 4. PORTFOLIOS VIEW (?view=portfolios) — Live Supabase Member Portfolios
+// 4. PORTFOLIOS VIEW (?view=portfolios) — Member Portfolios & Account Control
 // ============================================================================
 function PortfoliosView({
   members,
+  deposits,
   onSelectMember,
   onRefresh,
   showToast,
 }: {
   members: MemberPortfolioItem[];
+  deposits: EnrichedDepositRecord[];
   onSelectMember: (m: MemberPortfolioItem) => void;
   onRefresh: () => void;
   showToast: (msg: string, isErr?: boolean) => void;
@@ -1830,6 +2185,19 @@ function PortfoliosView({
 
   const totalCash = members.reduce((s, m) => s + (Number(m.cash) || 0), 0);
   const totalNetWorth = members.reduce((s, m) => s + (Number(m.totalAssetValue) || 0), 0);
+
+  // Calculate total real deposit revenue contributed per member
+  const memberRevenueMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of deposits) {
+      if (d.status !== 'APPROVED') continue;
+      const uid = d.user_id;
+      const email = d.user?.email?.toLowerCase();
+      if (uid) map.set(uid, (map.get(uid) || 0) + d.realRevenueIdr);
+      if (email) map.set(email, (map.get(email) || 0) + d.realRevenueIdr);
+    }
+    return map;
+  }, [deposits]);
 
   const handleSyncMyAccount = async () => {
     setBusy(true);
@@ -1914,34 +2282,30 @@ function PortfoliosView({
 
   const columns: DataTableColumn<MemberPortfolioItem>[] = [
     {
-      key: 'user_id',
-      label: 'User ID',
-      width: 120,
-      defaultHidden: true,
-      value: (r) => r.user_id,
-      render: (r) => <span className="mono muted">{r.user_id}</span>,
-    },
-    {
       key: 'full_name',
       label: 'Member & Email',
       value: (r) => `${r.full_name} ${r.email} ${r.user_id}`,
       render: (r) => (
         <div>
-          <strong>{r.full_name}</strong>
-          <div className="muted small mono">{r.email}</div>
+          <b style={{ color: 'var(--head)', fontWeight: 500 }}>{r.full_name}</b>
+          <span className="block muted small mono">{r.email}</span>
         </div>
       ),
-      filter: { type: 'text', placeholder: 'Name / email…' },
+      filter: { type: 'text', placeholder: 'Nama / email…' },
     },
     {
       key: 'role',
       label: 'Role',
-      width: 95,
+      width: 90,
       value: (r) => r.role,
-      render: (r) => <span className="tag">{r.role.toUpperCase()}</span>,
+      render: (r) => (
+        <span className={`bdg ${r.role === 'admin' ? 'violet' : ''}`}>
+          {r.role.toUpperCase()}
+        </span>
+      ),
       filter: {
         type: 'select',
-        placeholder: 'All roles',
+        placeholder: 'Semua',
         options: [
           { value: 'member', label: 'Member' },
           { value: 'admin', label: 'Admin' },
@@ -1949,43 +2313,44 @@ function PortfoliosView({
       },
     },
     {
+      key: 'contributedRevenue',
+      label: 'Total Deposit Dibayar (IDR)',
+      num: true,
+      width: 170,
+      value: (r) =>
+        memberRevenueMap.get(r.user_id) ||
+        memberRevenueMap.get(r.email.toLowerCase()) ||
+        0,
+      render: (r) => {
+        const rev =
+          memberRevenueMap.get(r.user_id) ||
+          memberRevenueMap.get(r.email.toLowerCase()) ||
+          0;
+        return rev > 0 ? (
+          <b className="mono ok-t">{fmtIdr(rev)}</b>
+        ) : (
+          <span className="muted mono">Rp 0</span>
+        );
+      },
+    },
+    {
       key: 'cash',
-      label: 'Cash Balance (Wallet)',
+      label: 'Saldo Kas RDN (Virtual)',
       num: true,
       width: 165,
       value: (r) => Number(r.cash) || 0,
-      render: (r) => (
-        <strong className="mono" style={{ color: 'var(--green)' }}>
-          {fmtIdr(r.cash)}
-        </strong>
-      ),
-    },
-    {
-      key: 'realized_pl',
-      label: 'Realized P/L',
-      num: true,
-      width: 145,
-      value: (r) => Number(r.realized_pl) || 0,
-      render: (r) => (
-        <span
-          className="mono"
-          style={{ color: r.realized_pl >= 0 ? 'var(--green)' : 'var(--red)' }}
-        >
-          {r.realized_pl >= 0 ? '+' : ''}
-          {fmtIdr(r.realized_pl)}
-        </span>
-      ),
+      render: (r) => <b className="mono">{fmtIdr(r.cash)}</b>,
     },
     {
       key: 'totalMarketValue',
-      label: 'Assets Market Value',
+      label: 'Nilai Aset Saham/Crypto',
       num: true,
-      width: 165,
+      width: 170,
       value: (r) => Number(r.totalMarketValue) || 0,
       render: (r) => (
         <div>
           <span className="mono">{fmtIdr(r.totalMarketValue)}</span>
-          <div className="muted small">{r.holdings.length} emiten dimiliki</div>
+          <span className="block muted small">{r.holdings.length} emiten dimiliki</span>
         </div>
       ),
     },
@@ -1995,33 +2360,11 @@ function PortfoliosView({
       num: true,
       width: 170,
       value: (r) => Number(r.totalAssetValue) || 0,
-      render: (r) => <strong className="mono">{fmtIdr(r.totalAssetValue)}</strong>,
-    },
-  ];
-
-  const rowActions = (r: MemberPortfolioItem): ContextMenuItem[] => [
-    {
-      label: 'Inspect portfolio holdings',
-      hint: 'Enter',
-      onClick: () => onSelectMember(r),
-    },
-    { sep: true },
-    {
-      label: 'Force reset password…',
-      disabled: busy,
-      onClick: () => handleResetPassword(r),
-    },
-    {
-      label: 'Reset account to Rp 0',
-      disabled: busy,
-      onClick: () => handleResetZero(r),
-    },
-    { sep: true },
-    {
-      label: 'Delete member account permanently',
-      danger: true,
-      disabled: busy || r.role === 'admin',
-      onClick: () => handleDeleteMember(r),
+      render: (r) => (
+        <b className="mono" style={{ color: 'var(--head)' }}>
+          {fmtIdr(r.totalAssetValue)}
+        </b>
+      ),
     },
   ];
 
@@ -2029,41 +2372,43 @@ function PortfoliosView({
     <div className="stack">
       <div className="kpis">
         <div className="kpi">
-          <div className="kpi-label">Total Member Terdaftar</div>
-          <div className="kpi-val">{members.length}</div>
-          <div className="kpi-sub">Pengguna aktif di platform</div>
+          <span>Total Member Terdaftar</span>
+          <b>
+            {members.length}
+            <small>Akun aktif</small>
+          </b>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Total Cash Balance (Wallet)</div>
-          <div className="kpi-val" style={{ color: 'var(--green)' }}>
+          <span>Total Saldo Kas RDN Member</span>
+          <b style={{ color: 'var(--green)' }}>
             {fmtIdrCompact(totalCash)}
-          </div>
-          <div className="kpi-sub">{fmtIdr(totalCash)} kas mengendap</div>
+            <small>Di seluruh wallet</small>
+          </b>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Total Estimasi Net Worth Aset</div>
-          <div className="kpi-val">{fmtIdrCompact(totalNetWorth)}</div>
-          <div className="kpi-sub">Cash + Market Value Saham/Crypto</div>
+          <span>Total Ekuitas Bersih (Net Worth)</span>
+          <b>
+            {fmtIdrCompact(totalNetWorth)}
+            <small>Cash + Saham/Crypto</small>
+          </b>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">Supabase Cloud · Portfolio & Account Control</div>
-            <h3>Monitoring Portofolio & Manajemen Member ({members.length})</h3>
-          </div>
-          <div className="row-gap">
+        <div className="card-h">
+          <h2>Monitoring Portofolio, Kontribusi Deposit & Manajemen Member</h2>
+          <div className="tools">
             <button
               type="button"
-              className="btn sm"
+              className="btn-s sm"
               disabled={busy}
               onClick={handleSyncMyAccount}
             >
               ⇄ Sinkronkan Akun Saya
             </button>
-            <button type="button" className="btn sm primary" onClick={onRefresh}>
-              ↻ Refresh Data
+            <button type="button" className="btn-s sm primary" onClick={onRefresh}>
+              {Icons.refresh}
+              <span>Refresh Data</span>
             </button>
           </div>
         </div>
@@ -2073,7 +2418,49 @@ function PortfoliosView({
           rows={members}
           rowKey={(r) => r.user_id}
           onRowClick={onSelectMember}
-          rowActions={rowActions}
+          renderInlineActions={(r) => (
+            <>
+              <button
+                type="button"
+                className="btn-s sm"
+                onClick={() => onSelectMember(r)}
+              >
+                Detail
+              </button>
+              <button
+                type="button"
+                className="btn-s sm"
+                onClick={() => handleResetZero(r)}
+              >
+                Reset 0
+              </button>
+            </>
+          )}
+          rowActions={(r) => [
+            {
+              label: 'Lihat rincian portofolio member',
+              hint: 'Enter',
+              onClick: () => onSelectMember(r),
+            },
+            { sep: true },
+            {
+              label: 'Ganti / Force Reset Password…',
+              disabled: busy,
+              onClick: () => handleResetPassword(r),
+            },
+            {
+              label: 'Reset Saldo & Portofolio ke Rp 0',
+              disabled: busy,
+              onClick: () => handleResetZero(r),
+            },
+            { sep: true },
+            {
+              label: 'Hapus akun member permanen',
+              danger: true,
+              disabled: busy || r.role === 'admin',
+              onClick: () => handleDeleteMember(r),
+            },
+          ]}
           rowActionsHeader={(r) => `${r.full_name} (${r.email})`}
           defaultSort={{ key: 'totalAssetValue', dir: 'desc' }}
           searchPlaceholder="Cari member berdasarkan nama, email, atau User ID…"
@@ -2085,7 +2472,7 @@ function PortfoliosView({
 }
 
 // ============================================================================
-// 5. ORDERS & ACTIVITY TAPE VIEW (?view=orders) — Gantt Tape + Order Ledger
+// 5. ORDERS & ACTIVITY TAPE VIEW (?view=orders) — Exact Steyer .tape classes
 // ============================================================================
 function OrdersTapeView({
   state,
@@ -2095,7 +2482,7 @@ function OrdersTapeView({
 }: {
   state: TradingAdminState;
   onSelectMember: (m: MemberPortfolioItem) => void;
-  onSelectDeposit: (d: DepositRecord) => void;
+  onSelectDeposit: (d: EnrichedDepositRecord) => void;
   onRefresh: () => void;
 }) {
   const { today, members, orders, deposits } = state;
@@ -2108,15 +2495,14 @@ function OrdersTapeView({
     {
       key: 'id',
       label: 'Order / Tx ID',
-      width: 110,
+      width: 100,
       value: (r) => r.id,
       render: (r) => <span className="mono muted">#{r.id.slice(0, 8)}</span>,
-      filter: { type: 'text', placeholder: 'ID…' },
     },
     {
       key: 'createdAt',
-      label: 'Timestamp',
-      width: 145,
+      label: 'Waktu',
+      width: 140,
       value: (r) => r.createdAt,
       render: (r) => <span className="mono muted">{fmtDateTime(r.createdAt)}</span>,
     },
@@ -2126,110 +2512,91 @@ function OrdersTapeView({
       value: (r) => `${r.user_name} ${r.user_email}`,
       render: (r) => (
         <div>
-          <strong>{r.user_name}</strong>
-          <div className="muted small mono">{r.user_email}</div>
+          <b style={{ color: 'var(--head)', fontWeight: 500 }}>{r.user_name}</b>
+          <span className="block muted small mono">{r.user_email}</span>
         </div>
       ),
       filter: { type: 'text', placeholder: 'Member…' },
     },
     {
       key: 'type',
-      label: 'Side / Type',
-      width: 110,
+      label: 'Tipe',
+      width: 105,
       value: (r) => r.type,
       render: (r) => (
         <span
-          className="tag"
-          style={{
-            color:
-              r.type === 'BUY' || r.type === 'DEPOSIT'
-                ? 'var(--green)'
-                : 'var(--red)',
-          }}
+          className={`bdg ${
+            r.type === 'BUY' || r.type === 'DEPOSIT' ? 'green' : 'red'
+          }`}
         >
           {r.type}
         </span>
       ),
       filter: {
         type: 'select',
-        placeholder: 'All types',
+        placeholder: 'Semua',
         options: [
+          { value: 'DEPOSIT', label: 'DEPOSIT' },
           { value: 'BUY', label: 'BUY' },
           { value: 'SELL', label: 'SELL' },
-          { value: 'DEPOSIT', label: 'DEPOSIT' },
         ],
       },
     },
     {
       key: 'displaySymbol',
-      label: 'Instrument',
+      label: 'Instrumen',
       width: 130,
       value: (r) => r.displaySymbol,
-      render: (r) => <strong className="mono">{r.displaySymbol}</strong>,
+      render: (r) => (
+        <b className="mono" style={{ color: 'var(--head)' }}>
+          {r.displaySymbol}
+        </b>
+      ),
       filter: { type: 'text', placeholder: 'Ticker…' },
     },
     {
-      key: 'shares',
-      label: 'Qty / Lots',
+      key: 'realRevenueIdr',
+      label: 'Pendapatan Deposit (IDR)',
       num: true,
-      width: 130,
-      value: (r) => r.shares,
-      render: (r) => (
-        <span className="mono">
-          {r.type === 'DEPOSIT'
-            ? 'Top-Up'
-            : r.lots > 0
-            ? `${r.lots} lot`
-            : `${r.shares} unit`}
-        </span>
-      ),
-    },
-    {
-      key: 'price',
-      label: 'Exec Price',
-      num: true,
-      width: 130,
-      value: (r) => r.price,
-      render: (r) => (
-        <span className="mono muted">
-          {r.type === 'DEPOSIT' ? '—' : fmtIdr(r.price)}
-        </span>
-      ),
+      width: 165,
+      value: (r) => r.realRevenueIdr || 0,
+      render: (r) =>
+        r.type === 'DEPOSIT' && r.realRevenueIdr ? (
+          <b className="mono ok-t">{fmtIdr(r.realRevenueIdr)}</b>
+        ) : (
+          <span className="muted">—</span>
+        ),
     },
     {
       key: 'total',
-      label: 'Total Value (IDR)',
+      label: 'Nilai RDN / Transaksi',
       num: true,
       width: 165,
       value: (r) => r.total,
-      render: (r) => <strong className="mono">{fmtIdr(r.total)}</strong>,
+      render: (r) => <b className="mono">{fmtIdr(r.total)}</b>,
     },
     {
       key: 'status',
       label: 'Status',
-      width: 120,
+      width: 115,
       value: (r) => r.status,
-      render: (r) => <StatusPill status={r.status.toLowerCase()} />,
+      render: (r) => <StatusBadge status={r.status} />,
     },
   ];
+
+  const colW = 54;
 
   return (
     <div className="stack">
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">14-Day Activity Timeline · Click any block to inspect</div>
-            <h3>Member Trading & Deposit Tape</h3>
-          </div>
+        <div className="card-h">
+          <h2>Peta Aktivitas Deposit & Order Member · 14 Hari Terakhir</h2>
           <div className="legend">
             <span>
-              <i className="dot" style={{ background: 'var(--green)' }} /> Approved Deposit / Buy
+              <i className="bar-k checked_in" /> Deposit Approved / Buy
             </span>
             <span>
-              <i className="dot" style={{ background: 'var(--amber)' }} /> Pending Deposit
-            </span>
-            <span>
-              <i className="dot" style={{ background: 'var(--blue)' }} /> Active Portfolio
+              <i className="bar-k confirmed" /> Transaksi Aktif
             </span>
           </div>
         </div>
@@ -2238,21 +2605,24 @@ function OrdersTapeView({
           <div
             className="tape"
             style={{
-              gridTemplateColumns: `220px repeat(${days.length}, minmax(54px, 1fr))`,
+              gridTemplateColumns: `210px repeat(${days.length}, ${colW}px)`,
             }}
           >
-            <div className="tape-corner">Member / Net Worth</div>
-            {days.map((d) => (
-              <div
-                key={d}
-                className={`tape-day ${d === today ? 'today' : ''} ${
-                  [0, 6].includes(new Date(d + 'T12:00:00Z').getUTCDay()) ? 'wknd' : ''
-                }`}
-              >
-                <div className="tape-dow">{fmtWeekday(d)}</div>
-                <div className="tape-dom">{d.slice(8, 10)}</div>
-              </div>
-            ))}
+            <div className="tape-h corner">Member</div>
+            {days.map((d) => {
+              const isWe = [0, 6].includes(new Date(d + 'T12:00:00Z').getUTCDay());
+              return (
+                <div
+                  key={d}
+                  className={`tape-h ${d === today ? 'today' : ''} ${
+                    isWe ? 'we' : ''
+                  }`}
+                >
+                  {fmtWeekday(d)}
+                  <small>{d.slice(8, 10)}</small>
+                </div>
+              );
+            })}
 
             {members.slice(0, 12).map((m) => {
               const memberOrders = orders.filter(
@@ -2263,54 +2633,55 @@ function OrdersTapeView({
               return (
                 <React.Fragment key={m.user_id}>
                   <div
-                    className="tape-room clickable"
+                    className="tape-u"
+                    style={{ cursor: 'pointer' }}
                     onClick={() => onSelectMember(m)}
                   >
-                    <div>
-                      <div className="tape-rnum">{m.full_name}</div>
-                      <div className="tape-rname mono">
-                        {fmtIdrCompact(m.totalAssetValue)} · {m.holdings.length} pos
-                      </div>
+                    <div className="clip">
+                      <b>{m.full_name}</b>{' '}
+                      <small className="muted">({fmtIdrCompact(m.totalAssetValue)})</small>
                     </div>
                   </div>
                   <div
-                    className="tape-row-cells"
+                    className="tape-track"
                     style={{
                       gridColumn: `2 / span ${days.length}`,
-                      gridTemplateColumns: `repeat(${days.length}, minmax(54px, 1fr))`,
                     }}
                   >
-                    {days.map((d) => {
+                    {days.map((d, idx) => {
+                      const isWe = [0, 6].includes(
+                        new Date(d + 'T12:00:00Z').getUTCDay()
+                      );
                       const dayTx = memberOrders.filter(
                         (o) => String(o.createdAt || '').slice(0, 10) === d
                       );
                       return (
-                        <div
-                          key={d}
-                          className={`tape-cell ${d === today ? 'today' : ''}`}
-                          onClick={() => onSelectMember(m)}
-                        >
+                        <React.Fragment key={d}>
+                          <i
+                            className={`${isWe ? 'we' : ''} ${
+                              d === today ? 'today' : ''
+                            }`}
+                            style={{ left: idx * colW, width: colW }}
+                          />
                           {dayTx.length > 0 && (
-                            <div
-                              className={`tape-bar st-${
-                                dayTx.some((x) => x.status === 'PENDING')
-                                  ? 'pending'
+                            <button
+                              type="button"
+                              className={`bar ${
+                                dayTx.some((x) => x.type === 'DEPOSIT')
+                                  ? 'checked_in'
                                   : 'confirmed'
                               }`}
                               style={{
-                                left: '6%',
-                                width: '88%',
-                                position: 'relative',
-                                top: 6,
+                                left: idx * colW + 3,
+                                width: colW - 6,
                               }}
-                              title={`${m.full_name} on ${d}: ${dayTx.length} transactions`}
+                              onClick={() => onSelectMember(m)}
+                              title={`${m.full_name} (${d}): ${dayTx.length} transaksi`}
                             >
-                              <span className="tape-bar-name">
-                                {dayTx.length} tx
-                              </span>
-                            </div>
+                              {dayTx.length} tx
+                            </button>
                           )}
-                        </div>
+                        </React.Fragment>
                       );
                     })}
                   </div>
@@ -2322,13 +2693,11 @@ function OrdersTapeView({
       </div>
 
       <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="eyebrow">Order & Deposit Execution Ledger</div>
-            <h3>All Member Orders & Transactions ({orders.length})</h3>
-          </div>
-          <button type="button" className="btn sm" onClick={onRefresh}>
-            ↻ Refresh Ledger
+        <div className="card-h">
+          <h2>Riwayat Seluruh Order & Transaksi Deposit ({orders.length})</h2>
+          <button type="button" className="btn-s sm" onClick={onRefresh}>
+            {Icons.refresh}
+            <span>Refresh Ledger</span>
           </button>
         </div>
         <DataTable
@@ -2351,8 +2720,8 @@ function OrdersTapeView({
             if (m) onSelectMember(m);
           }}
           defaultSort={{ key: 'createdAt', dir: 'desc' }}
-          searchPlaceholder="Search order ID, member, ticker, side…"
-          emptyText="No orders or transactions recorded yet."
+          searchPlaceholder="Cari ID order, nama member, ticker…"
+          emptyText="Belum ada riwayat order atau transaksi."
         />
       </div>
     </div>
@@ -2360,7 +2729,7 @@ function OrdersTapeView({
 }
 
 // ============================================================================
-// Slide-Over Detail Sheets (Deposit Ticket & Member Portfolio)
+// Slide-Over Detail Sheets (Uses exact Steyer .scrim, .sheet, .sheet-h, .sheet-b, .dl)
 // ============================================================================
 function DepositSheet({
   deposit,
@@ -2368,7 +2737,7 @@ function DepositSheet({
   onRefresh,
   showToast,
 }: {
-  deposit: DepositRecord;
+  deposit: EnrichedDepositRecord;
   onClose: () => void;
   onRefresh: () => void;
   showToast: (msg: string, isErr?: boolean) => void;
@@ -2380,7 +2749,9 @@ function DepositSheet({
     try {
       const res = await approveDeposit(deposit.id);
       if (res.success) {
-        showToast(res.message || 'Deposit disetujui!');
+        showToast(
+          `Deposit disetujui! Pendapatan +${fmtIdr(deposit.realRevenueIdr)} tercatat.`
+        );
         onRefresh();
         onClose();
       } else {
@@ -2401,7 +2772,7 @@ function DepositSheet({
     try {
       const res = await rejectDeposit(deposit.id, reason);
       if (res.success) {
-        showToast(res.message || 'Deposit ditolak.');
+        showToast('Deposit ditolak.');
         onRefresh();
         onClose();
       } else {
@@ -2413,96 +2784,115 @@ function DepositSheet({
   };
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
-          <div>
-            <div className="eyebrow">Deposit Ticket · #{deposit.id.slice(0, 8)}</div>
-            <h3>{deposit.user?.full_name || 'Member Deposit'}</h3>
-            <div className="muted mono">{deposit.user?.email || deposit.user_id}</div>
-          </div>
-          <button type="button" className="icon-btn" onClick={onClose}>
-            ✕
+    <>
+      <div className="scrim" onClick={onClose} />
+      <aside className="sheet">
+        <div className="sheet-h">
+          <h2>Tiket Deposit #{deposit.id.slice(0, 8)}</h2>
+          <button type="button" className="ibtn ghost-i" onClick={onClose}>
+            {Icons.close}
           </button>
         </div>
 
-        <div className="sheet-sec">
-          <div className="kv">
-            <span>Status</span>
-            <strong>
-              <StatusPill status={deposit.status.toLowerCase()} />
-            </strong>
+        <div className="sheet-b">
+          <div className="sheet-status">
+            <div>
+              <b style={{ color: 'var(--head)', fontSize: 15 }}>
+                {deposit.user?.full_name || 'Member'}
+              </b>
+              <div className="muted small mono">
+                {deposit.user?.email || deposit.user_id}
+              </div>
+            </div>
+            <StatusBadge status={deposit.status} />
           </div>
-          <div className="kv">
-            <span>Payment Method</span>
-            <strong className="mono">{deposit.payment_method}</strong>
-          </div>
-          <div className="kv">
-            <span>Created At</span>
-            <strong className="mono">{fmtDateTime(deposit.created_at)}</strong>
-          </div>
-          {deposit.approved_at && (
-            <div className="kv">
-              <span>Approved At</span>
-              <strong className="mono">{fmtDateTime(deposit.approved_at)}</strong>
+
+          <dl className="dl">
+            <div>
+              <dt>Paket Top-Up</dt>
+              <dd>{deposit.packageName}</dd>
+            </div>
+            <div>
+              <dt>Pendapatan Website</dt>
+              <dd className="mono ok-t">
+                <b>{fmtIdr(deposit.realRevenueIdr)}</b> (Uang Masuk Asli)
+              </dd>
+            </div>
+            <div>
+              <dt>Saldo RDN Member</dt>
+              <dd className="mono">
+                <b>{fmtIdr(deposit.virtualCashIdr)}</b> (Saldo Virtual)
+              </dd>
+            </div>
+            <div>
+              <dt>Metode / Channel</dt>
+              <dd>
+                <span className="bdg blue">{deposit.payment_method}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Waktu Pengajuan</dt>
+              <dd className="mono">{fmtDateTime(deposit.created_at)}</dd>
+            </div>
+            {deposit.approved_at && (
+              <div>
+                <dt>Waktu Disetujui</dt>
+                <dd className="mono">{fmtDateTime(deposit.approved_at)}</dd>
+              </div>
+            )}
+          </dl>
+
+          {deposit.notes && (
+            <div>
+              <div className="sub">Catatan Transaksi</div>
+              <p className="msg" style={{ marginTop: 6 }}>
+                {deposit.notes}
+              </p>
             </div>
           )}
-          <div className="kv total">
-            <span>Nominal Deposit</span>
-            <strong className="mono" style={{ color: 'var(--green)' }}>
-              {fmtIdr(deposit.amount)}
-            </strong>
-          </div>
-        </div>
 
-        {deposit.notes && (
-          <div className="sheet-sec">
-            <div className="eyebrow">Transaction Notes</div>
-            <p className="small" style={{ lineHeight: 1.5 }}>
-              {deposit.notes}
-            </p>
-          </div>
-        )}
-
-        {deposit.proof_url && (
-          <div className="sheet-sec">
-            <div className="eyebrow">Transfer Proof</div>
-            <a
-              href={deposit.proof_url}
-              target="_blank"
-              rel="noreferrer"
-              className="btn sm"
-            >
-              Lihat Bukti Transfer ↗
-            </a>
-          </div>
-        )}
-
-        {deposit.status === 'PENDING' && (
-          <div className="sheet-sec">
-            <div className="eyebrow">Verification Decision</div>
-            <div className="btn-row">
-              <button
-                type="button"
-                className="btn primary"
-                disabled={busy}
-                onClick={handleApprove}
-              >
-                ✓ Approve & Credit Wallet
-              </button>
-              <button
-                type="button"
-                className="btn danger"
-                disabled={busy}
-                onClick={handleReject}
-              >
-                ✕ Reject Ticket
-              </button>
+          {deposit.proof_url && (
+            <div>
+              <div className="sub">Bukti Transfer</div>
+              <div style={{ marginTop: 8 }}>
+                <a
+                  href={deposit.proof_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-s"
+                >
+                  Buka Bukti Transfer ↗
+                </a>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )}
+
+          {deposit.status === 'PENDING' && (
+            <div>
+              <div className="sub">Keputusan Verifikasi Admin</div>
+              <div className="sheet-actions" style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn-s primary"
+                  disabled={busy}
+                  onClick={handleApprove}
+                >
+                  ✓ Approve & Tambah Saldo RDN
+                </button>
+                <button
+                  type="button"
+                  className="btn-s danger"
+                  disabled={busy}
+                  onClick={handleReject}
+                >
+                  ✕ Tolak Tiket
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -2537,135 +2927,152 @@ function MemberPortfolioSheet({
   };
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
-          <div>
-            <div className="eyebrow">Member Portfolio · {member.role.toUpperCase()}</div>
-            <h3>{member.full_name}</h3>
-            <div className="muted mono">{member.email}</div>
-          </div>
-          <button type="button" className="icon-btn" onClick={onClose}>
-            ✕
+    <>
+      <div className="scrim" onClick={onClose} />
+      <aside className="sheet">
+        <div className="sheet-h">
+          <h2>Portofolio · {member.full_name}</h2>
+          <button type="button" className="ibtn ghost-i" onClick={onClose}>
+            {Icons.close}
           </button>
         </div>
 
-        <div className="sheet-sec">
-          <div className="kv">
-            <span>User ID</span>
-            <strong className="mono">{member.user_id}</strong>
+        <div className="sheet-b">
+          <div className="sheet-status">
+            <div>
+              <b style={{ color: 'var(--head)', fontSize: 15 }}>{member.full_name}</b>
+              <div className="muted small mono">{member.email}</div>
+            </div>
+            <span className="bdg blue">{member.role.toUpperCase()}</span>
           </div>
-          <div className="kv">
-            <span>Cash Balance (RDN Wallet)</span>
-            <strong className="mono" style={{ color: 'var(--green)' }}>
-              {fmtIdr(member.cash)}
-            </strong>
-          </div>
-          <div className="kv">
-            <span>Realized P/L</span>
-            <strong
-              className="mono"
-              style={{ color: member.realized_pl >= 0 ? 'var(--green)' : 'var(--red)' }}
-            >
-              {member.realized_pl >= 0 ? '+' : ''}
-              {fmtIdr(member.realized_pl)}
-            </strong>
-          </div>
-          <div className="kv">
-            <span>Portfolio Market Value</span>
-            <strong className="mono">{fmtIdr(member.totalMarketValue)}</strong>
-          </div>
-          <div className="kv total">
-            <span>Total Net Worth Equity</span>
-            <strong className="mono">{fmtIdr(member.totalAssetValue)}</strong>
-          </div>
-        </div>
 
-        <div className="sheet-sec">
-          <div className="eyebrow">Holdings ({member.holdings.length})</div>
-          {member.holdings.length === 0 ? (
-            <div className="muted small">Member belum memiliki aset saham/kripto (100% Cash).</div>
-          ) : (
-            member.holdings.map((h, i) => {
-              const isForeign =
-                h.currency === 'USD' ||
-                h.currency === 'USDT' ||
-                h.assetClass === 'US' ||
-                h.assetClass === 'CRYPTO';
-              const shares =
-                (h.shares || 0) > 0 ? h.shares : (h.lots || 0) * (isForeign ? 1 : 100);
-              const curPrice = h.currentPrice || h.avgPrice;
-              const rate = isForeign ? (h as any).exchangeRate || 16000 : 1;
-              const mv = shares * curPrice * rate;
-              const unPl = Math.round((curPrice - h.avgPrice) * shares * rate);
-              return (
-                <div key={i} className="line-item">
-                  <div>
-                    <strong className="mono">{h.displaySymbol || h.symbol}</strong>
-                    <div className="muted small">
-                      {isForeign ? `${shares} unit` : `${h.lots} lot`} · Avg{' '}
-                      {isForeign
-                        ? `$${h.avgPrice.toLocaleString('en-US')}`
-                        : fmtIdr(h.avgPrice)}
-                    </div>
-                  </div>
-                  <div className="num mono">
-                    <div>{fmtIdr(mv)}</div>
-                    <div
-                      className="small"
-                      style={{ color: unPl >= 0 ? 'var(--green)' : 'var(--red)' }}
-                    >
-                      {unPl >= 0 ? '+' : ''}
-                      {fmtIdr(unPl)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+          <dl className="dl">
+            <div>
+              <dt>User ID</dt>
+              <dd className="mono">{member.user_id}</dd>
+            </div>
+            <div>
+              <dt>Saldo Kas RDN</dt>
+              <dd className="mono ok-t">
+                <b>{fmtIdr(member.cash)}</b>
+              </dd>
+            </div>
+            <div>
+              <dt>Realized P/L</dt>
+              <dd className={`mono ${member.realized_pl >= 0 ? 'ok-t' : 'err-t'}`}>
+                {member.realized_pl >= 0 ? '+' : ''}
+                {fmtIdr(member.realized_pl)}
+              </dd>
+            </div>
+            <div>
+              <dt>Nilai Aset Pasar</dt>
+              <dd className="mono">{fmtIdr(member.totalMarketValue)}</dd>
+            </div>
+            <div>
+              <dt>Total Net Worth</dt>
+              <dd className="mono">
+                <b>{fmtIdr(member.totalAssetValue)}</b>
+              </dd>
+            </div>
+          </dl>
 
-        <div className="sheet-sec">
-          <div className="eyebrow">Quick Admin Actions</div>
-          <div className="btn-row">
-            <button
-              type="button"
-              className="btn danger"
-              disabled={busy}
-              onClick={handleResetZero}
-            >
-              Reset Saldo & Portofolio ke Rp 0
-            </button>
+          <div>
+            <div className="sub">Kepemilikan Aset ({member.holdings.length})</div>
+            {member.holdings.length === 0 ? (
+              <div className="muted small" style={{ marginTop: 8 }}>
+                Member belum memiliki aset saham/crypto (100% Kas RDN).
+              </div>
+            ) : (
+              <table className="tbl" style={{ marginTop: 6 }}>
+                <thead>
+                  <tr>
+                    <th>Emiten</th>
+                    <th className="num">Qty</th>
+                    <th className="num">Market Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.holdings.map((h, i) => {
+                    const isForeign =
+                      h.currency === 'USD' ||
+                      h.currency === 'USDT' ||
+                      h.assetClass === 'US' ||
+                      h.assetClass === 'CRYPTO';
+                    const shares =
+                      (h.shares || 0) > 0
+                        ? h.shares
+                        : (h.lots || 0) * (isForeign ? 1 : 100);
+                    const curPrice = h.currentPrice || h.avgPrice;
+                    const rate = isForeign ? (h as any).exchangeRate || 16000 : 1;
+                    const mv = shares * curPrice * rate;
+                    const unPl = Math.round((curPrice - h.avgPrice) * shares * rate);
+                    return (
+                      <tr key={i}>
+                        <td>
+                          <b className="mono" style={{ color: 'var(--head)' }}>
+                            {h.displaySymbol || h.symbol}
+                          </b>
+                        </td>
+                        <td className="num mono">
+                          {isForeign ? `${shares} u` : `${h.lots} lot`}
+                        </td>
+                        <td className="num mono">
+                          <div>{fmtIdrCompact(mv)}</div>
+                          <small className={unPl >= 0 ? 'ok-t' : 'err-t'}>
+                            {unPl >= 0 ? '+' : ''}
+                            {fmtIdrCompact(unPl)}
+                          </small>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div>
+            <div className="sub">Tindakan Administrator</div>
+            <div className="sheet-actions" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn-s danger"
+                disabled={busy}
+                onClick={handleResetZero}
+              >
+                Reset Saldo & Portofolio ke Rp 0
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </aside>
+    </>
   );
 }
 
 // ============================================================================
-// Quick Tour & Helper Components
+// Quick Tour Overlay (Uses exact Steyer .tour, .tour-card, .tour-n, .tour-actions)
 // ============================================================================
 const TOUR_STEPS: Array<{ view: AdminViewId; title: string; body: string }> = [
   {
     view: 'equipment',
-    title: '1/4 · Asset Holdings Matrix (?view=equipment)',
-    body: 'Pantau distribusi kepemilikan saham IDX, Crypto, dan US Stocks seluruh member dalam matriks 10 hari beserta tabel posisi lengkap.',
+    title: 'Matriks Pendapatan Deposit & Aset (?view=equipment)',
+    body: 'Pantau pendapatan asli website (uang masuk IDR dari deposit member) selama 10 hari terakhir per metode pembayaran serta matriks posisi saham & crypto member.',
   },
   {
     view: 'dashboard',
-    title: '2/4 · Executive Trading Desk Overview',
-    body: '6 KPI utama secara real-time dari Supabase Cloud, kurva arus likuiditas 14 hari, dan antrean verifikasi cepat.',
+    title: 'Executive Dashboard & Kurva Pendapatan',
+    body: 'Ringkasan 6 KPI utama (Total Pendapatan Website Approved, Antrean Pending, Pendapatan Hari Ini, Kas RDN, dan Ekuitas Portofolio) beserta kurva 14 hari.',
   },
   {
     view: 'deposits',
-    title: '3/4 · Atomic Deposit Approvals',
-    body: 'Klik kanan baris tiket deposit untuk menyetujui (Approve via PostgreSQL RPC) atau menolak permohonan top-up RDN member.',
+    title: 'Verifikasi Deposit & Laporan Pendapatan',
+    body: 'Setujui atau tolak permohonan top-up member secara atomik. Tabel memisahkan dengan jelas Pendapatan Website (uang asli IDR) dan Saldo RDN Virtual member.',
   },
   {
     view: 'portfolios',
-    title: '4/4 · Member Portfolios & Risk Control',
-    body: 'Inspeksi saldo kas RDN, rincian lot saham/crypto per member, force reset password, atau reset saldo akun ke Rp 0.',
+    title: 'Monitoring Portofolio & Kontrol Akun Member',
+    body: 'Pantau kontribusi deposit per member, rincian kepemilikan saham/crypto, ganti password, atau reset saldo akun ke Rp 0.',
   },
 ];
 
@@ -2682,68 +3089,54 @@ function QuickTour({
   if (!cur) return null;
   return (
     <div className="tour">
-      <div className="tour-card">
-        <div className="tour-head">
-          <span className="eyebrow">Interactive Tour · TradeSim Backoffice</span>
-          <button type="button" className="icon-btn" onClick={onClose}>
-            ✕
-          </button>
+      <div className="tour-dim" onClick={onClose} />
+      <div
+        className="tour-card"
+        style={{ right: 24, bottom: 24 }}
+      >
+        <div className="tour-n">
+          LANGKAH {step + 1} DARI {TOUR_STEPS.length}
         </div>
-        <h4>{cur.title}</h4>
-        <p className="muted">{cur.body}</p>
-        <div className="tour-foot">
-          <div className="tour-dots">
-            {TOUR_STEPS.map((_, i) => (
-              <span
-                key={i}
-                className={`tour-dot ${i === step ? 'active' : ''}`}
-                onClick={() => onStep(i)}
-              />
-            ))}
-          </div>
-          <div className="row-gap">
+        <h2>{cur.title}</h2>
+        <p>{cur.body}</p>
+        <div className="tour-actions">
+          <button type="button" className="tour-skip" onClick={onClose}>
+            Tutup tur
+          </button>
+          <span>
             {step > 0 && (
-              <button
-                type="button"
-                className="btn sm"
-                onClick={() => onStep(step - 1)}
-              >
-                ← Back
+              <button type="button" onClick={() => onStep(step - 1)}>
+                ← Kembali
               </button>
             )}
             {step < TOUR_STEPS.length - 1 ? (
               <button
                 type="button"
-                className="btn sm primary"
+                className="tour-next"
                 onClick={() => onStep(step + 1)}
               >
-                Next →
+                Lanjut →
               </button>
             ) : (
-              <button type="button" className="btn sm primary" onClick={onClose}>
-                Done
+              <button type="button" className="tour-next" onClick={onClose}>
+                Selesai
               </button>
             )}
-          </div>
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  return <span className={`pill st-${status}`}>{status}</span>;
-}
-
 // ============================================================================
-// Main SteyerAdminApp Shell Component (100% Pure TradingSim Data)
+// Main SteyerAdminApp Shell Component (100% Exact Steyer CSS Classes)
 // ============================================================================
 export default function SteyerAdminApp({
   initialView = 'equipment',
 }: {
   initialView?: AdminViewId;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { logout } = useAdminAuth();
@@ -2763,21 +3156,37 @@ export default function SteyerAdminApp({
 
   const [view, setView] = useState<AdminViewId>(resolvedInitialView);
   const [role, setRole] = useState<RoleId>('manager');
-  const [lang, setLang] = useState<LangId>('id');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileSideOpen, setMobileSideOpen] = useState(false);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [state, setState] = useState<TradingAdminState | null>(null);
   const [toast, setToast] = useState<{ msg: string; isErr?: boolean } | null>(null);
-  const [selectedDeposit, setSelectedDeposit] = useState<DepositRecord | null>(null);
-  const [selectedMember, setSelectedMember] = useState<MemberPortfolioItem | null>(null);
+  const [selectedDeposit, setSelectedDeposit] =
+    useState<EnrichedDepositRecord | null>(null);
+  const [selectedMember, setSelectedMember] =
+    useState<MemberPortfolioItem | null>(null);
   const [tourStep, setTourStep] = useState<number | null>(null);
+  const roleMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setView(resolvedInitialView);
   }, [resolvedInitialView]);
 
+  useEffect(() => {
+    if (!roleMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target as Node)) {
+        setRoleMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [roleMenuOpen]);
+
   const showToast = useCallback((msg: string, isErr?: boolean) => {
     setToast({ msg, isErr });
-    setTimeout(() => setToast(null), 2800);
+    setTimeout(() => setToast(null), 3200);
   }, []);
 
   const load = useCallback(async () => {
@@ -2799,6 +3208,7 @@ export default function SteyerAdminApp({
 
   const navigateView = (v: AdminViewId) => {
     setView(v);
+    setMobileSideOpen(false);
     try {
       const url = new URL(window.location.href);
       url.pathname = '/admin';
@@ -2809,6 +3219,7 @@ export default function SteyerAdminApp({
 
   const changeRole = (r: RoleId) => {
     setRole(r);
+    setRoleMenuOpen(false);
     const allowed = ROLES[r].views;
     if (!allowed.includes(view)) {
       navigateView(allowed[0]);
@@ -2817,44 +3228,54 @@ export default function SteyerAdminApp({
 
   if (!state) {
     return (
-      <div className="steyer-scope" data-theme={theme}>
-        <div className="loading">Memuat data trading live dari Supabase Cloud…</div>
+      <div className="steyer-scope">
+        <div className="app" data-theme={theme}>
+          <div className="app-loading">
+            Memuat data trading & pendapatan deposit dari Supabase Cloud…
+          </div>
+        </div>
       </div>
     );
   }
 
-  const pendingDepCount = state.deposits.filter((d) => d.status === 'PENDING').length;
+  const pendingDepCount = state.summary.pendingCount;
 
   const allNav = [
     {
       group: 'Overview',
-      items: [{ id: 'dashboard' as AdminViewId, label: 'Dashboard', icon: '◫' }],
+      items: [
+        {
+          id: 'dashboard' as AdminViewId,
+          label: 'Dashboard & Revenue',
+          icon: Icons.dashboard,
+        },
+      ],
     },
     {
-      group: 'Trading Operations',
+      group: 'Operations & Treasury',
       items: [
         {
           id: 'equipment' as AdminViewId,
-          label: 'Assets & Positions',
-          icon: '◈',
-          badge: state.holdingsFlat.length || undefined,
+          label: 'Revenue & Assets Matrix',
+          icon: Icons.equipment,
+          badge: state.deposits.length || undefined,
         },
         {
           id: 'deposits' as AdminViewId,
           label: 'Deposit Approvals',
-          icon: '💳',
+          icon: Icons.deposits,
           badge: pendingDepCount || undefined,
         },
         {
           id: 'portfolios' as AdminViewId,
           label: 'Member Portfolios',
-          icon: '👥',
+          icon: Icons.portfolios,
           badge: state.members.length || undefined,
         },
         {
           id: 'orders' as AdminViewId,
           label: 'Order & Activity Tape',
-          icon: '▦',
+          icon: Icons.orders,
           badge: state.orders.length || undefined,
         },
       ],
@@ -2869,101 +3290,88 @@ export default function SteyerAdminApp({
     }))
     .filter((g) => g.items.length > 0);
 
+  const currentTitle =
+    allNav.flatMap((g) => g.items).find((i) => i.id === view)?.label ||
+    'Revenue & Assets Matrix';
+
   return (
-    <div className="steyer-scope" data-theme={theme}>
-      {/* Top Demo Bar */}
-      <div className="demo-bar">
-        <div className="demo-bar-left">
-          <span className="demo-pill">TRADESIM BACKOFFICE</span>
-          <span className="demo-bar-text">
-            Steyer Studio Workstation · Live Supabase PostgreSQL Trading Data
-          </span>
-        </div>
-        <div className="demo-bar-right">
-          <div className="demo-switch" title="Switch view">
-            <Link href="/" className="demo-switch-item">
-              <span className="demo-switch-dot" />
-              <span>Trading App</span>
-              <span className="demo-switch-tag">Terminal</span>
-            </Link>
-            <span className="demo-switch-item active">
-              <span className="demo-switch-dot" />
-              <span>Admin</span>
-              <span className="demo-switch-tag">Backoffice</span>
-            </span>
-          </div>
-
-          <label className="demo-role" title="Preview role-based navigation">
-            <span className="demo-role-lbl">Role</span>
-            <select
-              value={role}
-              onChange={(e) => changeRole(e.target.value as RoleId)}
+    <div className="steyer-scope">
+      {/* Top Demo Bar (Exact Steyer Studio .demo-bar.compact > .wrap > p + nav) */}
+      <div className="demo-bar compact">
+        <div className="wrap">
+          <p>
+            TradeSim Pro Backoffice — Pendapatan Deposit Approved:{' '}
+            <strong style={{ color: 'var(--head)' }}>
+              {fmtIdr(state.summary.totalApprovedRevenueIdr)}
+            </strong>
+          </p>
+          <nav>
+            <button
+              type="button"
+              className="bar-link"
+              onClick={() => {
+                setTourStep(0);
+                navigateView(TOUR_STEPS[0].view);
+              }}
             >
-              {Object.values(ROLES).map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            className="demo-btn"
-            onClick={() => {
-              setTourStep(0);
-              navigateView(TOUR_STEPS[0].view);
-            }}
-          >
-            Quick tour
-          </button>
-
-          <button type="button" className="demo-btn" onClick={load}>
-            ↻ Sync Supabase
-          </button>
-
-          <div className="demo-langs">
-            {(['id', 'en'] as LangId[]).map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLang(l)}
-                className={l === lang ? 'active' : ''}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
+              Quick tour
+            </button>
+            <button
+              type="button"
+              className="bar-link"
+              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? '☀ Light mode' : '☾ Dark mode'}
+            </button>
+            <button type="button" className="bar-link" onClick={load}>
+              ↻ Sync Supabase
+            </button>
+            <Link href="/">← Kembali ke Trading App</Link>
+          </nav>
         </div>
       </div>
 
-      {/* Main App Grid */}
-      <div className="app">
-        <aside className="side">
-          <div className="brand">
-            <div className="brand-mark">T</div>
-            <div>
-              <div className="brand-title">TradeSim Pro</div>
-              <div className="brand-sub">Backoffice · Trading Desk</div>
-            </div>
-          </div>
+      {/* Main App Grid (Exact Steyer Studio .app[data-theme]) */}
+      <div
+        className={`app ${collapsed ? 'collapsed' : ''}`}
+        data-theme={theme}
+      >
+        {mobileSideOpen && (
+          <div
+            className="scrim side-scrim show-phone"
+            onClick={() => setMobileSideOpen(false)}
+          />
+        )}
 
-          <nav className="nav">
+        {/* Sidebar (Exact Steyer Studio .side > .side-btn.big + nav > .side-group + .side-foot) */}
+        <aside className={`side ${mobileSideOpen ? 'open' : ''}`}>
+          <button
+            type="button"
+            className="side-btn big"
+            onClick={() => navigateView('dashboard')}
+          >
+            <span className="logo">T</span>
+            <span className="side-txt">
+              <b>TradeSim Pro</b>
+              <small>Backoffice & Revenue</small>
+            </span>
+          </button>
+
+          <nav>
             {nav.map((g) => (
-              <div key={g.group} className="nav-group">
-                <div className="nav-group-label">{g.group}</div>
+              <div key={g.group} className="side-group">
+                <span className="side-txt">{g.group}</span>
                 {g.items.map((it) => (
                   <button
                     key={it.id}
                     type="button"
-                    className={`nav-item ${view === it.id ? 'active' : ''}`}
+                    aria-current={view === it.id ? 'page' : undefined}
+                    data-tip={it.label}
                     onClick={() => navigateView(it.id)}
                   >
-                    <span className="nav-ic">{it.icon}</span>
-                    <span>{it.label}</span>
-                    {it.badge !== undefined && (
-                      <span className="nav-badge">{it.badge}</span>
-                    )}
+                    {it.icon}
+                    <span className="side-txt">{it.label}</span>
+                    {it.badge !== undefined && <i>{it.badge}</i>}
                   </button>
                 ))}
               </div>
@@ -2971,60 +3379,103 @@ export default function SteyerAdminApp({
           </nav>
 
           <div className="side-foot">
-            <div className="role-card">
-              <div className="avatar">{ROLES[role].user[0]}</div>
-              <div>
-                <div className="role-name">{ROLES[role].user}</div>
-                <div className="role-sub">{ROLES[role].title}</div>
-              </div>
-            </div>
-            <div className="side-actions">
+            <div className="menu" ref={roleMenuRef}>
               <button
                 type="button"
-                className="side-link"
-                onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+                className="side-btn big"
+                aria-expanded={roleMenuOpen}
+                onClick={() => setRoleMenuOpen((o) => !o)}
               >
-                <span>{theme === 'dark' ? '☀ Light mode' : '☾ Dark mode'}</span>
-                <span className="muted">Theme</span>
+                <span className="avatar">{ROLES[role].user[0]}</span>
+                <span className="side-txt">
+                  <b>{ROLES[role].user}</b>
+                  <small>{ROLES[role].title}</small>
+                </span>
+                <span className="side-txt dim">{Icons.chevUpDown}</span>
               </button>
-              <Link href="/" className="side-link">
-                <span>← Back to Trading App</span>
-                <span>↗</span>
-              </Link>
-              <button
-                type="button"
-                className="side-link"
-                style={{ color: 'var(--red)' }}
-                onClick={logout}
-              >
-                <span>⎋ Logout Admin</span>
-                <span className="muted">Exit</span>
-              </button>
+
+              {roleMenuOpen && (
+                <div className="menu-pop at-top">
+                  <div className="menu-label">Role Akses Desk</div>
+                  {Object.values(ROLES).map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="menu-item"
+                      aria-checked={role === r.id}
+                      onClick={() => changeRole(r.id)}
+                    >
+                      <div className="menu-acc">
+                        <b>{r.user}</b>
+                        <small>{r.label}</small>
+                      </div>
+                      {role === r.id && <span className="end">✓</span>}
+                    </button>
+                  ))}
+                  <hr />
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => {
+                      setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+                      setRoleMenuOpen(false);
+                    }}
+                  >
+                    <span>
+                      {theme === 'dark' ? '☀ Ganti ke Light Mode' : '☾ Ganti ke Dark Mode'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item danger"
+                    onClick={logout}
+                  >
+                    <span>⎋ Logout Administrator</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </aside>
 
+        {/* Main Content Column (Exact Steyer Studio .main > .top + .content) */}
         <div className="main">
           <header className="top">
-            <div className="top-title">
-              <span className="top-crumb">TradeSim Backoffice</span>
-              <span className="top-sep">/</span>
-              <h1>
-                {allNav.flatMap((g) => g.items).find((i) => i.id === view)?.label ||
-                  'Assets & Positions'}
-              </h1>
+            <button
+              type="button"
+              className="ibtn ghost-i hide-phone"
+              onClick={() => setCollapsed((c) => !c)}
+              title="Toggle Sidebar"
+            >
+              {Icons.sidebar}
+            </button>
+            <button
+              type="button"
+              className="ibtn ghost-i show-phone"
+              onClick={() => setMobileSideOpen((o) => !o)}
+              title="Buka Menu"
+            >
+              {Icons.sidebar}
+            </button>
+            <div className="top-sep" />
+            <div className="crumbs">
+              <span className="muted hide-s">Backoffice</span>
+              <span className="muted hide-s">/</span>
+              <h1>{currentTitle}</h1>
             </div>
-            <div className="top-right">
-              <span className="today-pill">
-                <span className="pulse" /> Supabase live · Today{' '}
-                {fmtDateShort(state.today)}
+            <div className="top-r">
+              <span className="live-dot hide-m">
+                Pendapatan Deposit:{' '}
+                <strong style={{ color: 'var(--green)' }}>
+                  {fmtIdr(state.summary.totalApprovedRevenueIdr)}
+                </strong>
               </span>
               <button
                 type="button"
-                className="btn primary"
+                className="btn-s primary"
                 onClick={() => navigateView('deposits')}
               >
-                + Verify Deposits ({pendingDepCount})
+                Verifikasi Deposit ({pendingDepCount})
               </button>
             </div>
           </header>
@@ -3041,8 +3492,9 @@ export default function SteyerAdminApp({
               />
             )}
             {view === 'equipment' && (
-              <EquipmentAssetsView
+              <EquipmentRevenueAssetsView
                 state={state}
+                onSelectDeposit={setSelectedDeposit}
                 onSelectMember={setSelectedMember}
                 onRefresh={load}
                 showToast={showToast}
@@ -3050,8 +3502,7 @@ export default function SteyerAdminApp({
             )}
             {view === 'deposits' && (
               <DepositsView
-                deposits={state.deposits}
-                members={state.members}
+                state={state}
                 onSelectDeposit={setSelectedDeposit}
                 onRefresh={load}
                 showToast={showToast}
@@ -3060,6 +3511,7 @@ export default function SteyerAdminApp({
             {view === 'portfolios' && (
               <PortfoliosView
                 members={state.members}
+                deposits={state.deposits}
                 onSelectMember={setSelectedMember}
                 onRefresh={load}
                 showToast={showToast}
@@ -3105,9 +3557,7 @@ export default function SteyerAdminApp({
           />
         )}
 
-        {toast && (
-          <div className={`toast ${toast.isErr ? 'err' : ''}`}>{toast.msg}</div>
-        )}
+        {toast && <div className="toast">{toast.msg}</div>}
       </div>
     </div>
   );
