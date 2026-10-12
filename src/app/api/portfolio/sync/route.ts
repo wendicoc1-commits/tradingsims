@@ -16,11 +16,15 @@ export async function GET(req: NextRequest) {
     const rawEmail = searchParams.get('email');
     const rawUserId = searchParams.get('userId');
 
-    const email = rawEmail ? rawEmail.trim().toLowerCase() : undefined;
+    let email = rawEmail ? rawEmail.trim().toLowerCase() : undefined;
     const userId = rawUserId ? rawUserId.trim() : undefined;
 
     if (!email && !userId) {
       return NextResponse.json({ success: false, error: 'Email atau userId wajib diberikan' }, { status: 400 });
+    }
+
+    if (email && !email.includes('@')) {
+      email = `${email}@tradingsims.my.id`;
     }
 
     if (email && !EMAIL_REGEX.test(email)) {
@@ -48,6 +52,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Body JSON tidak valid' }, { status: 400 });
     }
 
+    const {
+      email: rawEmail,
+      userId: rawUserId,
+      cash,
+      realizedPL,
+      holdings,
+      orders,
+      conditionalOrders,
+      dividends,
+      lastUpdated
+    } = body || {};
+
     let email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : undefined;
     const userId = typeof rawUserId === 'string' ? rawUserId.trim() : (email ? `usr-${email.replace(/[^a-z0-9]/g, '')}` : undefined);
 
@@ -63,10 +79,9 @@ export async function POST(req: NextRequest) {
     const currentPortfolio = await getUserPortfolioAsync({ email, userId });
 
     // Validasi & Sanitasi Batas Finansial:
-    // Jika cash tidak valid / tidak disertakan, pertahankan saldo eksisting agar tidak ter-reset ke 100M!
     const sanitizedCash = typeof cash === 'number' && Number.isFinite(cash)
       ? Math.max(0, Math.min(cash, MAX_ALLOWED_CASH))
-      : (typeof currentPortfolio?.cash === 'number' ? currentPortfolio.cash : 100_000_000);
+      : (typeof currentPortfolio?.cash === 'number' ? currentPortfolio.cash : 0);
 
     const sanitizedRealizedPL = typeof realizedPL === 'number' && Number.isFinite(realizedPL)
       ? realizedPL
@@ -93,18 +108,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let finalHoldings = sanitizedHoldings;
-
-    // 2. Proteksi Saldo Arbitrer:
-    // Jika ada portofolio eksisting dan selisih cash melompat naik drastis (> Rp 1 Miliar) tanpa adanya order jual baru,
-    // tolak kenaikan saldo liar untuk menjaga integritas kompetisi & simulasi pasar
-    let finalCash = sanitizedCash;
-    if (currentPortfolio && typeof currentPortfolio.cash === 'number') {
-      const cashDelta = sanitizedCash - currentPortfolio.cash;
-      if (cashDelta > 1_000_000_000 && sanitizedOrders.length === (currentPortfolio.orders?.length || 0)) {
-        finalCash = currentPortfolio.cash; // Pertahankan saldo sah
-      }
-    }
+    const finalHoldings = sanitizedHoldings;
+    const finalCash = sanitizedCash;
 
     // 1. Simpan langsung ke Supabase Cloud (public.app_users dan public.user_portfolios)
     const { getSupabaseServerClient } = await import('@/lib/supabase/server');

@@ -122,23 +122,6 @@ export default function TradeSimHeader() {
 
   useEffect(() => {
     checkSession();
-
-    const handleSyncOnFocus = () => {
-      checkSession();
-    };
-
-    window.addEventListener('focus', handleSyncOnFocus);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkSession();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', handleSyncOnFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
   }, [checkSession]);
 
   useEffect(() => {

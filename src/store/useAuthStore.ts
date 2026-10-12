@@ -636,16 +636,29 @@ export const useAuthStore = create<AuthState>()(
 
               if (data.success && data.portfolio && typeof data.portfolio.cash === 'number') {
                 const sPort = data.portfolio;
-                // CLOUD-FIRST: Data Cloud adalah otoritas tunggal! Selalu gunakan data dari Cloud.
-                usePortfolioStore.setState({
-                  cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
-                  realizedPL: sPort.realizedPL || 0,
-                  holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
-                  orders: Array.isArray(sPort.orders) ? sPort.orders : [],
-                  conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
-                  dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
-                  lastUpdated: sPort.lastUpdated || Date.now(),
-                });
+                const localPort = usePortfolioStore.getState();
+                const cloudUpdated = Number(sPort.lastUpdated) || 0;
+                const localUpdated = Number(localPort.lastUpdated) || 0;
+
+                const isLocalEmpty = (localPort.cash === 0 || typeof localPort.cash !== 'number') &&
+                  (!localPort.holdings || localPort.holdings.length === 0) &&
+                  (!localPort.orders || localPort.orders.length === 0);
+
+                // Hanya timpa memori lokal jika data cloud lebih baru atau data lokal masih kosong
+                if (isLocalEmpty || cloudUpdated >= localUpdated) {
+                  usePortfolioStore.setState({
+                    cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
+                    realizedPL: sPort.realizedPL || 0,
+                    holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
+                    orders: Array.isArray(sPort.orders) ? sPort.orders : [],
+                    conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
+                    dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
+                    lastUpdated: sPort.lastUpdated || Date.now(),
+                  });
+                } else if (localUpdated > cloudUpdated && !isLocalEmpty) {
+                  // Jika data lokal baru saja diupdate oleh user (lebih baru), unggah ke cloud
+                  get().syncPortfolioToDatabase().catch(() => {});
+                }
                 return;
               }
             } catch (serverErr) {
@@ -663,15 +676,24 @@ export const useAuthStore = create<AuthState>()(
                   .maybeSingle();
 
                 if (!portErr && cloudPort && typeof cloudPort.cash === 'number') {
-                  usePortfolioStore.setState({
-                    cash: Number(cloudPort.cash) || 0,
-                    realizedPL: Number(cloudPort.realized_pl || 0),
-                    holdings: sanitizeHoldings(Array.isArray(cloudPort.holdings) ? cloudPort.holdings : []),
-                    orders: Array.isArray(cloudPort.orders) ? cloudPort.orders : [],
-                    conditionalOrders: Array.isArray(cloudPort.conditional_orders) ? cloudPort.conditional_orders : [],
-                    dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
-                    lastUpdated: Number(cloudPort.last_updated || 0) || Date.now(),
-                  });
+                  const localPort = usePortfolioStore.getState();
+                  const cloudUpdated = Number(cloudPort.last_updated) || 0;
+                  const localUpdated = Number(localPort.lastUpdated) || 0;
+                  const isLocalEmpty = (localPort.cash === 0 || typeof localPort.cash !== 'number') && (!localPort.holdings || localPort.holdings.length === 0);
+
+                  if (isLocalEmpty || cloudUpdated >= localUpdated) {
+                    usePortfolioStore.setState({
+                      cash: Number(cloudPort.cash) || 0,
+                      realizedPL: Number(cloudPort.realized_pl || 0),
+                      holdings: sanitizeHoldings(Array.isArray(cloudPort.holdings) ? cloudPort.holdings : []),
+                      orders: Array.isArray(cloudPort.orders) ? cloudPort.orders : [],
+                      conditionalOrders: Array.isArray(cloudPort.conditional_orders) ? cloudPort.conditional_orders : [],
+                      dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
+                      lastUpdated: Number(cloudPort.last_updated || 0) || Date.now(),
+                    });
+                  } else if (localUpdated > cloudUpdated && !isLocalEmpty) {
+                    get().syncPortfolioToDatabase().catch(() => {});
+                  }
                   return;
                 }
               } catch (cloudErr) {
