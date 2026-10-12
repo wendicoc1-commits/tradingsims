@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useMarketStore } from '@/store';
 import { useAuthStore } from '@/store/useAuthStore';
 import TradeSimHeader from '@/components/layout/TradeSimHeader';
@@ -13,6 +14,8 @@ import { Toaster } from 'sonner';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
+  const pathname = usePathname() || '';
+  const isAdmin = pathname.startsWith('/admin');
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -23,6 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Otomatis sinkronkan data member aktif ke Supabase Cloud saat login
   useEffect(() => {
+    if (isAdmin) return;
     const timer = setTimeout(() => {
       const authUser = useAuthStore.getState().user;
       if (authUser && authUser.email && authUser.provider !== 'guest') {
@@ -30,7 +34,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isAdmin]);
+
+  // Rute admin memiliki layout dan auth tersendiri, bypass shell trading
+  if (isAdmin) {
+    return (
+      <>
+        <Toaster position="top-right" theme="dark" richColors closeButton />
+        {children}
+      </>
+    );
+  }
 
   return (
     <TradeSimAuthGate>
