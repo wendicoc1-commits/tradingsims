@@ -18,9 +18,9 @@ export default function AdminLayout({
 }) {
   return (
     <AdminAuthGate>
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col md:flex-row font-sans">
+      <div className="h-screen w-full bg-neutral-950 text-neutral-100 flex flex-col md:flex-row font-sans overflow-hidden">
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 border-r border-neutral-800 bg-neutral-900/60 backdrop-blur-xl flex flex-col justify-between p-4 shrink-0">
+      <aside className="w-full md:w-64 border-r border-neutral-800 bg-neutral-900/60 backdrop-blur-xl flex flex-col justify-between p-4 shrink-0 md:h-full overflow-y-auto">
         <div>
           {/* Logo / Header */}
           <div className="flex items-center gap-3 px-3 py-4 mb-4 border-b border-neutral-800">
@@ -83,7 +83,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-neutral-950/40 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 h-full bg-neutral-950/40 overflow-y-auto">
         {/* Topbar */}
         <header className="h-14 border-b border-neutral-800/80 bg-neutral-900/30 backdrop-blur-md px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs text-neutral-400">
@@ -102,7 +102,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page Container */}
-        <div className="p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto">
+        <div className="p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto pb-32">
           {children}
         </div>
       </main>

@@ -307,19 +307,29 @@ export async function GET(request: Request) {
         const hash = clean.split('').reduce((acc, c, idx) => acc + c.charCodeAt(0) * (idx + 1), 0);
         const angle1 = ((timeSlice * 17 + hash) % 360) * (Math.PI / 180);
         const angle2 = ((timeSlice * 7 + hash * 3) % 360) * (Math.PI / 180);
-        const pctJitter = (Math.sin(angle1) * 0.012) + (Math.cos(angle2) * 0.006);
-        const raw = bench.price * (1 + pctJitter);
-        const tick = raw >= 5000 ? 25 : raw >= 2000 ? 10 : raw >= 500 ? 5 : raw >= 200 ? 2 : 1;
-        const dynPrice = Math.max(tick, Math.round(raw / tick) * tick);
-        const dynChangePct = Number((((dynPrice - bench.prevClose) / bench.prevClose) * 100).toFixed(2));
+        let dynPrice: number;
+        let dynChangePct: number;
+
+        if (bench.price < 200) {
+          const tickWave = Math.sin(angle1) * 2.2 + Math.cos(angle2) * 1.2;
+          const tickDelta = Math.round(tickWave);
+          dynPrice = Math.max(1, bench.price + tickDelta);
+          dynChangePct = Number((((dynPrice - bench.prevClose) / bench.prevClose) * 100).toFixed(2));
+        } else {
+          const pctJitter = (Math.sin(angle1) * 0.012) + (Math.cos(angle2) * 0.006);
+          const raw = bench.price * (1 + pctJitter);
+          const tick = raw >= 5000 ? 25 : raw >= 2000 ? 10 : raw >= 500 ? 5 : raw >= 200 ? 2 : 1;
+          dynPrice = Math.max(tick, Math.round(raw / tick) * tick);
+          dynChangePct = Number((((dynPrice - bench.prevClose) / bench.prevClose) * 100).toFixed(2));
+        }
 
         results[t] = {
           ticker: t,
           price: dynPrice,
           changePct: dynChangePct,
           changePoint: Math.round((dynPrice - bench.prevClose) * 100) / 100,
-          high: Math.round(bench.price * 1.01),
-          low: Math.round(bench.price * 0.99),
+          high: Math.round(bench.price * 1.02),
+          low: Math.round(bench.price * 0.98),
           volume: 14500000,
           prevClose: bench.prevClose,
           currency: bench.currency,

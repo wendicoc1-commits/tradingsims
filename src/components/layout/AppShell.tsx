@@ -36,6 +36,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [isAdmin]);
 
+  // Pastikan rute admin bisa scroll penuh dengan melepas overflow-hidden pada body
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isAdmin) {
+      document.body.classList.remove('overflow-hidden');
+      document.body.classList.add('overflow-y-auto');
+    } else {
+      document.body.classList.remove('overflow-y-auto');
+      document.body.classList.add('overflow-hidden');
+    }
+  }, [isAdmin]);
+
   // Rute admin memiliki layout dan auth tersendiri, bypass shell trading
   if (isAdmin) {
     return (

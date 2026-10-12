@@ -151,7 +151,7 @@ export function isUSSymbol(symbol: string): boolean {
   const upper = symbol.trim().toUpperCase();
   if (upper.endsWith('.JK')) return false;
   const clean = upper.replace('.JK', '');
-  return GLOBAL_SET.has(clean);
+  return GLOBAL_SET.has(clean) || POPULAR_GLOBAL.has(clean);
 }
 
 /**

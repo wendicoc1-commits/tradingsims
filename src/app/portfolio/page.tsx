@@ -631,14 +631,15 @@ export default function PortfolioPage() {
       if (holdings.length === 0) return;
       try {
         const symbols = holdings.map((h) => {
+          const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
           const isCrypto =
             h.assetClass === 'CRYPTO' ||
             h.currency === 'USDT' ||
             h.symbol.endsWith('USDT') ||
-            isCryptoSymbol(h.displaySymbol);
-          if (isCrypto) return h.symbol;
-          if (isUSSymbol(h.displaySymbol) || h.currency === 'USD' || h.assetClass === 'US') return h.displaySymbol;
-          return h.symbol.includes('.') ? h.symbol : `${h.displaySymbol}.JK`;
+            isCryptoSymbol(cleanSym);
+          if (isCrypto) return `${cleanSym}USDT`;
+          if (isUSSymbol(cleanSym) || h.currency === 'USD' || h.assetClass === 'US') return cleanSym;
+          return h.symbol.includes('.') ? h.symbol : `${cleanSym}.JK`;
         });
         const { fetchBatchQuotes } = await import('@/lib/api');
         const raw = await fetchBatchQuotes(symbols).catch(() => null);
@@ -648,6 +649,9 @@ export default function PortfolioPage() {
           if (q?.price > 0) {
             map[q.symbol] = q.price;
             map[q.displaySymbol] = q.price;
+            const clean = (q.displaySymbol || q.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+            map[clean] = q.price;
+            map[`${clean}.JK`] = q.price;
             if (q.symbol.endsWith('USDT')) {
               map[q.symbol.replace(/USDT$/, '')] = q.price;
             }
@@ -1342,7 +1346,7 @@ export default function PortfolioPage() {
                         .map((h) => {
                           const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
                           const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                          const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym));
+                          const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'PLTR', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN'].includes(cleanSym));
                           const rate = h.exchangeRate || 16000;
                           const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
                           let effectiveAvg = h.avgPrice;
@@ -1355,7 +1359,7 @@ export default function PortfolioPage() {
                             }
                           }
                           const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
-                          const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - effectiveAvg) * units * rate) : (h.unrealizedPL || Math.round((h.currentPrice - effectiveAvg) * units));
+                          const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - effectiveAvg) * units * rate) : Math.round((h.currentPrice - effectiveAvg) * units);
                           const isPositive = (pl || 0) >= 0;
                           let plPct = effectiveAvg > 0 ? ((h.currentPrice - effectiveAvg) / effectiveAvg) * 100 : (h.unrealizedPLPercent || 0);
                           if (plPct > 500) plPct = 500;

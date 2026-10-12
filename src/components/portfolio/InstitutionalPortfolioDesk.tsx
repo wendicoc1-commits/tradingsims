@@ -228,7 +228,7 @@ export default function InstitutionalPortfolioDesk() {
     if (isCrypto || isUS) {
       return acc + Math.round((curPrice - effectiveAvgPrice) * units * rate);
     }
-    return acc + (h.unrealizedPL || Math.round((curPrice - effectiveAvgPrice) * units));
+    return acc + Math.round((curPrice - effectiveAvgPrice) * units);
   }, 0);
   const totalReturnPct = totalNav > 0 ? (unrealizedPl / (totalNav - unrealizedPl || 1)) * 100 : 0;
 
@@ -644,11 +644,11 @@ export default function InstitutionalPortfolioDesk() {
 
                     const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
                     const pl = (isCrypto || isUS)
-                      ? (curPrice - effectiveAvgPrice) * units * rate
-                      : (h.unrealizedPL || (curPrice - effectiveAvgPrice) * units);
+                      ? Math.round((curPrice - effectiveAvgPrice) * units * rate)
+                      : Math.round((curPrice - effectiveAvgPrice) * units);
                     let plPct = effectiveAvgPrice > 0
-                      ? ((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100
-                      : (h.unrealizedPLPercent || 0);
+                      ? Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
+                      : 0;
 
                     // Hard-cap pengaman agar tidak meledak ke ribuan persen
                     if (plPct > 500) plPct = 500;

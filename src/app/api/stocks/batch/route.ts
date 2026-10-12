@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAssetBySymbol, isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
-import { fetchYahooQuote } from '../realtime/route';
+import { fetchYahooQuote, US_STOCKS } from '../realtime/route';
 import type { StockQuote } from '@/types';
 
 export async function GET(request: Request) {
@@ -22,10 +22,11 @@ export async function GET(request: Request) {
       const cleanCryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
 
       const isCrypto = rawSymbol.toUpperCase().endsWith('USDT') || isCryptoSymbol(clean) || isCryptoSymbol(cleanCryptoKey);
-      const isUS = !isCrypto && (isUSSymbol(clean) || isUSSymbol(rawSymbol));
+      const isUS = !isCrypto && (isUSSymbol(clean) || isUSSymbol(rawSymbol) || US_STOCKS.has(clean));
       const asset = getAssetBySymbol(clean) || getAssetBySymbol(cleanCryptoKey) || getAssetBySymbol(`${cleanCryptoKey}USDT`);
 
-      const liveQuote = await fetchYahooQuote(rawSymbol).catch(() => null);
+      const querySym = isCrypto ? `${cleanCryptoKey}USDT` : isUS ? clean : rawSymbol;
+      const liveQuote = await fetchYahooQuote(querySym).catch(() => null);
       const fallbackBench = getVerifiedBenchmarkPrice(isCrypto ? `${cleanCryptoKey}USDT` : clean);
 
       const basePrice = liveQuote?.price || asset?.defaultPrice || fallbackBench.price;
@@ -67,10 +68,19 @@ export async function GET(request: Request) {
           price = Math.round(basePrice * (1 + pctJitter) * 100) / 100;
           changePct = Math.round(((liveQuote?.changePct || 0) + pctJitter * 100) * 100) / 100;
         } else {
-          const raw = basePrice * (1 + pctJitter);
-          const tick = raw >= 5000 ? 25 : raw >= 2000 ? 10 : raw >= 500 ? 5 : raw >= 200 ? 2 : 1;
-          price = Math.max(tick, Math.round(raw / tick) * tick);
-          changePct = Number((((price - basePrice) / basePrice) * 100).toFixed(2));
+          // Untuk saham nominal kecil (< Rp 200 seperti BUKA Rp 103, GOTO Rp 96):
+          // Variasi tick ±1 s/d ±3 rupiah agar harga tidak membeku di angka konstan saat pasar libur/offline
+          if (basePrice < 200) {
+            const tickWave = Math.sin(angle1) * 2.2 + Math.cos(angle2) * 1.2;
+            const tickDelta = Math.round(tickWave);
+            price = Math.max(1, basePrice + tickDelta);
+            changePct = Number((((price - basePrice) / basePrice) * 100).toFixed(2));
+          } else {
+            const raw = basePrice * (1 + pctJitter);
+            const tick = raw >= 5000 ? 25 : raw >= 2000 ? 10 : raw >= 500 ? 5 : raw >= 200 ? 2 : 1;
+            price = Math.max(tick, Math.round(raw / tick) * tick);
+            changePct = Number((((price - basePrice) / basePrice) * 100).toFixed(2));
+          }
         }
       }
 

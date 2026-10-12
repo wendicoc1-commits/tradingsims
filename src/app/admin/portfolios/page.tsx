@@ -439,12 +439,13 @@ export default function AdminPortfoliosPage() {
                     </tr>
                   ) : (
                     selectedMember.holdings.map((h, idx) => {
-                      const shares = (h.shares || 0) > 0 ? h.shares : ((h.lots || 0) * 100);
+                      const isForeign = h.currency === 'USD' || h.currency === 'USDT' || h.assetClass === 'US' || h.assetClass === 'CRYPTO';
+                      const shares = (h.shares || 0) > 0 ? h.shares : ((h.lots || 0) * (isForeign ? 1 : 100));
                       const curPrice = h.currentPrice || h.avgPrice;
-                      const rate = h.currency === 'USD' || h.assetClass === 'US' ? 16000 : 1;
+                      const rate = isForeign ? (h.exchangeRate || 16000) : 1;
                       const marketValue = shares * curPrice * rate;
-                      const unPl = h.unrealizedPL || 0;
-                      const unPlPct = h.unrealizedPLPercent || 0;
+                      const unPl = Math.round((curPrice - h.avgPrice) * shares * rate);
+                      const unPlPct = h.avgPrice > 0 ? Number((((curPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(2)) : (h.unrealizedPLPercent || 0);
 
                       return (
                         <tr key={idx} className="hover:bg-neutral-800/20">
@@ -453,13 +454,13 @@ export default function AdminPortfoliosPage() {
                             <span className="block text-[10px] text-neutral-500 font-sans">{h.name || h.symbol}</span>
                           </td>
                           <td className="px-3 py-2.5 text-neutral-300">
-                            {h.lots} lot ({shares.toLocaleString('id-ID')} lembar)
+                            {isForeign ? `${shares.toLocaleString('id-ID')} unit` : `${h.lots} lot (${shares.toLocaleString('id-ID')} lembar)`}
                           </td>
                           <td className="px-3 py-2.5 text-neutral-400">
-                            Rp {new Intl.NumberFormat('id-ID').format(h.avgPrice)}
+                            {isForeign ? `$${h.avgPrice.toLocaleString('en-US')}` : `Rp ${new Intl.NumberFormat('id-ID').format(h.avgPrice)}`}
                           </td>
                           <td className="px-3 py-2.5 text-neutral-200">
-                            Rp {new Intl.NumberFormat('id-ID').format(curPrice)}
+                            {isForeign ? `$${curPrice.toLocaleString('en-US')}` : `Rp ${new Intl.NumberFormat('id-ID').format(curPrice)}`}
                           </td>
                           <td className="px-3 py-2.5 text-white font-semibold">
                             Rp {new Intl.NumberFormat('id-ID').format(marketValue)}

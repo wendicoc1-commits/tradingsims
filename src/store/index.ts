@@ -737,7 +737,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       takeProfitPrice: params.takeProfitPrice,
       stopLossPrice: params.stopLossPrice,
       validityType: params.validityType || 'GTC',
-      assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
+      assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
       currency,
       cryptoUnits: isCrypto ? lots : undefined,
       exchangeRate: (isCrypto || isUS) ? rate : undefined,
@@ -832,7 +832,7 @@ export const usePortfolioStore = create<PortfolioState>()(
           ? Number((execPrice * 0.94).toFixed(2))
           : Math.round(execPrice * 0.94),
         validityType: params.validityType || 'GTC',
-        assetClass: isCrypto ? 'CRYPTO' : 'EQUITY',
+        assetClass: isCrypto ? 'CRYPTO' : isUS ? 'US' : 'EQUITY',
         currency: isCrypto ? 'USDT' : isUS ? 'USD' : 'IDR',
         cryptoUnits: isCrypto ? lots : undefined,
         exchangeRate: isForeign ? rate : undefined,
