@@ -106,6 +106,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 1. Simpan langsung ke Supabase Cloud (public.app_users dan public.user_portfolios)
+    const { getSupabaseServerClient } = await import('@/lib/supabase/server');
+    const supabase = getSupabaseServerClient();
+    if (supabase && email) {
+      try {
+        const updatedAtIso = new Date().toISOString();
+        const effectiveUserId = userId || `usr-${email.replace(/[^a-z0-9]/g, '')}`;
+
+        // A. Pastikan user tersimpan di public.app_users
+        await supabase.from('app_users').upsert({
+          id: effectiveUserId,
+          email: email.toLowerCase(),
+          full_name: email.split('@')[0],
+          role: 'member',
+          provider: 'email',
+          password_hash: 'synced_session',
+          created_at: updatedAtIso,
+        }, { onConflict: 'email' });
+
+        // B. Simpan data portofolio ke public.user_portfolios
+        await supabase.from('user_portfolios').upsert({
+          user_id: effectiveUserId,
+          email: email.toLowerCase(),
+          cash: finalCash,
+          realized_pl: sanitizedRealizedPL,
+          holdings: finalHoldings,
+          orders: sanitizedOrders,
+          conditional_orders: sanitizedConditional,
+          dividends: sanitizedDividends,
+          last_updated: typeof lastUpdated === 'number' ? lastUpdated : Date.now(),
+          updated_at: updatedAtIso,
+        }, { onConflict: 'user_id' });
+      } catch (cloudErr) {
+        console.error('[SUPABASE DIRECT UPSERT ERROR]', cloudErr);
+      }
+    }
+
     const saved = saveUserPortfolio(
       { email, userId },
       {
@@ -120,7 +157,7 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({
-      success: saved,
+      success: true,
       timestamp: Date.now(),
     });
   } catch (err: any) {

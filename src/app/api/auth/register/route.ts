@@ -23,6 +23,39 @@ export async function POST(req: NextRequest) {
     }
 
     const user = registerOrUpdateUser(normEmail, password, fullName);
+
+    // Langsung tulis akun ke Supabase Cloud (public.app_users & public.user_portfolios)
+    const { getSupabaseServerClient } = await import('@/lib/supabase/server');
+    const supabase = getSupabaseServerClient();
+    if (supabase) {
+      try {
+        await supabase.from('app_users').upsert({
+          id: user.id,
+          email: normEmail,
+          password_hash: user.passwordHash,
+          full_name: user.fullName,
+          role: 'member',
+          provider: 'email',
+          created_at: user.createdAt,
+        }, { onConflict: 'email' });
+
+        await supabase.from('user_portfolios').upsert({
+          user_id: user.id,
+          email: normEmail,
+          cash: 100_000_000,
+          realized_pl: 0,
+          holdings: [],
+          orders: [],
+          conditional_orders: [],
+          dividends: [],
+          last_updated: Date.now(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      } catch (supErr) {
+        console.error('[REGISTER SUPABASE WRITE ERROR]', supErr);
+      }
+    }
+
     const portfolio = await getUserPortfolioAsync({ userId: user.id, email: normEmail });
 
     return NextResponse.json({
