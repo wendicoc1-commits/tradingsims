@@ -154,6 +154,13 @@ CRYPTO_BENCHMARK_PRICES['KAS'] = { price: 0.0403, name: 'Kaspa (KAS)' };
 CRYPTO_BENCHMARK_PRICES['KASUSDT'] = { price: 0.0403, name: 'Kaspa (KAS)' };
 CRYPTO_BENCHMARK_PRICES['AKT'] = { price: 0.733, name: 'Akash Network (AKT)' };
 CRYPTO_BENCHMARK_PRICES['AKTUSDT'] = { price: 0.733, name: 'Akash Network (AKT)' };
+// Maker (MKR) & Sky Protocol (SKY)
+CRYPTO_BENCHMARK_PRICES['MKR'] = { price: 1813.7, name: 'Maker (MKR)' };
+CRYPTO_BENCHMARK_PRICES['MKRUSDT'] = { price: 1813.7, name: 'Maker (MKR)' };
+CRYPTO_BENCHMARK_PRICES['MKR-USD'] = { price: 1813.7, name: 'Maker (MKR)' };
+CRYPTO_BENCHMARK_PRICES['SKY'] = { price: 0.0755, name: 'Sky Protocol (SKY)' };
+CRYPTO_BENCHMARK_PRICES['SKYUSDT'] = { price: 0.0755, name: 'Sky Protocol (SKY)' };
+CRYPTO_BENCHMARK_PRICES['SKY-USD'] = { price: 0.0755, name: 'Sky Protocol (SKY)' };
 
 const GLOBAL_STOCKS_MAP = new Map<string, { price: number; currency: string; name: string }>();
 for (const s of MASTER_GLOBAL_STOCKS) {

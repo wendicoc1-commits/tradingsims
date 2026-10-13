@@ -192,6 +192,8 @@ export function getGroundedStockIntelligence(
     APT: { name: 'Aptos', price: 0.7161, upside: 55.0, target: 1.12, thesis: 'Infrastruktur L1 Move konsensus AptosBFT dengan latensi transaksi sub-detik.' },
     TAO: { name: 'Bittensor', price: 540, upside: 45.0, target: 780, thesis: 'Pasar terdesentralisasi untuk komoditas kecerdasan buatan (machine intelligence).' },
     FET: { name: 'ASI Alliance', price: 1.35, upside: 52.0, target: 2.05, thesis: 'Ekosistem multi-agent autonomous AI untuk otomatisasi web3.' },
+    MKR: { name: 'MakerDAO', price: 1813.7, upside: 32.0, target: 2390, thesis: 'Protokol pelopor stablecoin DAI/USDS & integrasi aset dunia nyata RWA.' },
+    SKY: { name: 'Sky Protocol', price: 0.0755, upside: 40.0, target: 0.105, thesis: 'Evolusi MakerDAO dengan rebrand tata kelola token SKY dan yield USDS.' },
   };
 
   const isCryptoAsset = !!CRYPTO_PROFILES[cleanSym] || masterAsset?.category === 'CRYPTO';

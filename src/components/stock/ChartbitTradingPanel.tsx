@@ -80,14 +80,25 @@ export default function ChartbitTradingPanel({
     }
   }, [quote.price, quote.symbol, checkPriceTriggers]);
 
-  const cleanSymbol = quote.symbol.replace('.JK', '').toUpperCase();
+  const cleanSymbol = (quote.displaySymbol || quote.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
   const currentPrice = quote.price || 1000;
 
-  // Cek apakah user memiliki saham ini di portofolio
+  // Cek apakah user memiliki saham ini di portofolio (kompatibel penuh ticker crypto e.g. MKR vs MKRUSDT)
   const currentHolding = useMemo(() => {
-    return holdings.find(
-      (h) => h.displaySymbol.toUpperCase() === cleanSymbol || h.symbol.toUpperCase() === quote.symbol.toUpperCase()
-    );
+    const symUpper = quote.symbol.toUpperCase();
+    const cleanUpper = cleanSymbol.toUpperCase();
+    return holdings.find((h) => {
+      const hClean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const hSym = h.symbol.toUpperCase();
+      return (
+        hClean === cleanUpper ||
+        hSym === symUpper ||
+        h.displaySymbol.toUpperCase() === cleanUpper ||
+        h.displaySymbol.toUpperCase() === symUpper ||
+        hSym === `${cleanUpper}USDT` ||
+        symUpper === `${hClean}USDT`
+      );
+    });
   }, [holdings, cleanSymbol, quote.symbol]);
 
   // Sinkronisasi target TP/SL dari holding yang sudah ada jika tersedia

@@ -826,14 +826,23 @@ export default function StockDetailPage() {
   const { holdings, checkPriceTriggers } = usePortfolioStore();
   const activeWatchlist = watchlists[0];
 
-  const cleanSymbol = rawSymbol.replace('.JK', '').toUpperCase();
+  const cleanSymbol = rawSymbol.replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
   const currentHolding = useMemo(() => {
-    return holdings.find(
-      (h) =>
-        h.displaySymbol.toUpperCase() === cleanSymbol ||
-        h.symbol.toUpperCase() === rawSymbol.toUpperCase() ||
-        h.symbol.toUpperCase() === (quote?.symbol || '').toUpperCase()
-    );
+    const rawUpper = rawSymbol.toUpperCase();
+    const cleanUpper = cleanSymbol.toUpperCase();
+    const quoteUpper = (quote?.symbol || '').toUpperCase();
+    return holdings.find((h) => {
+      const hClean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const hSym = h.symbol.toUpperCase();
+      return (
+        hClean === cleanUpper ||
+        hSym === rawUpper ||
+        hSym === quoteUpper ||
+        h.displaySymbol.toUpperCase() === cleanUpper ||
+        hSym === `${cleanUpper}USDT` ||
+        rawUpper === `${hClean}USDT`
+      );
+    });
   }, [holdings, cleanSymbol, rawSymbol, quote?.symbol]);
 
   const positionLines = useMemo(() => {

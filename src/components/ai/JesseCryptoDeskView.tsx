@@ -52,7 +52,7 @@ import { bloombergAudio } from '@/lib/bloombergAudio';
 import TopUpModal from '@/components/portfolio/TopUpModal';
 import { formatCryptoPrice } from '@/lib/utils';
 import { CRYPTO_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
-import { isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
+import { isCryptoSymbol, mapToTradingViewSymbol } from '@/lib/universe/masterAssetUniverse';
 
 export default function JesseCryptoDeskView() {
   const { cash, holdings, orders, placeBuyOrder, placeSellOrder } = usePortfolioStore();
@@ -624,7 +624,7 @@ export default function JesseCryptoDeskView() {
           <div className="rounded-xl border border-zinc-800 bg-[#090d16] overflow-hidden shadow-lg h-[440px] relative">
             <iframe
               title={`${currentAsset.baseAsset} Chart`}
-              src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_${selectedPair}&symbol=BINANCE:${selectedPair}&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=090d16&studies=%5B%5D&theme=dark&style=1&timezone=Asia%2FJakarta&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en`}
+              src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_${selectedPair}&symbol=${encodeURIComponent(mapToTradingViewSymbol(selectedPair))}&interval=15&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=090d16&studies=%5B%5D&theme=dark&style=1&timezone=Asia%2FJakarta&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en`}
               className="w-full h-full border-0"
               loading="lazy"
             />

@@ -128,7 +128,7 @@ for (const a of MASTER_ASSETS) {
 // Global sets for fast O(1) membership checks
 const CRYPTO_SET = new Set([
   ...CRYPTO_MASTER.map((c) => c.symbol.toUpperCase()),
-  'S', 'SONIC', 'FTM', 'MATIC', 'POL',
+  'S', 'SONIC', 'FTM', 'MATIC', 'POL', 'SKY', 'MKR',
 ]);
 const GLOBAL_SET = new Set(GLOBAL_MASTER.map((g) => g.symbol.toUpperCase()));
 
@@ -278,9 +278,15 @@ export function mapToTradingViewSymbol(symbol: string): string {
   if (s === '^NDX' || s === 'NDX') return 'NASDAQ:NDX';
   if (s === '^DJI' || s === 'DJI') return 'DJ:DJI';
 
-  // Crypto spot pairs (Binance)
+  // Crypto spot pairs (Binance / Bybit fallback for delisted or special pairs)
   if (isCryptoSymbol(s) || s.endsWith('USDT') || s.endsWith('-USD')) {
     const clean = s.replace(/USDT$/i, '').replace(/-USD$/i, '');
+    if (clean === 'MKR') return 'BYBIT:MKRUSDT';
+    if (clean === 'POPCAT') return 'BYBIT:POPCATUSDT';
+    if (clean === 'MEW') return 'BYBIT:MEWUSDT';
+    if (clean === 'KAS') return 'BYBIT:KASUSDT';
+    if (clean === 'AKT') return 'BYBIT:AKTUSDT';
+    if (clean === 'SKY') return 'BINANCE:SKYUSDT';
     return `BINANCE:${clean}USDT`;
   }
 

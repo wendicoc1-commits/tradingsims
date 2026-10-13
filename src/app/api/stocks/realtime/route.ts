@@ -37,7 +37,7 @@ export const CRYPTO_SYMBOLS = new Set([
   ...MASTER_GLOBAL_CRYPTO.map((c) => c.symbol.replace(/USDT$/, '')),
   'BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE',
   'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET', 'MATIC', 'POL', 'LTC', 'BCH', 'UNI', 'APT',
-  'S', 'SONIC',
+  'S', 'SONIC', 'SKY', 'MKR',
 ]);
 
 // Map friendly tickers to Yahoo Finance symbols
@@ -242,6 +242,44 @@ async function fetchUpstreamQuoteRaw(symbol: string): Promise<LiveStockQuote | n
       } catch {
         // Try next Binance endpoint
       }
+    }
+
+    // Secondary fallback to Bybit Spot API (supports active pairs like MKRUSDT delisted on Binance)
+    try {
+      const bybitRes = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${binancePair}`, {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 5 },
+      });
+      if (bybitRes.ok) {
+        const bybitData = await bybitRes.json();
+        const item = bybitData?.result?.list?.[0];
+        if (item) {
+          const curPrice = parseFloat(item.lastPrice);
+          const changePct = parseFloat(item.price24hPcnt) * 100;
+          const high = parseFloat(item.highPrice24h);
+          const low = parseFloat(item.lowPrice24h);
+          const prevClose = parseFloat(item.prevPrice24h) || curPrice;
+          const volume = parseFloat(item.volume24h || '0');
+          if (curPrice > 0) {
+            return {
+              ticker: symbol.toUpperCase(),
+              price: roundPriceAdaptive(curPrice),
+              changePct: Math.round(changePct * 100) / 100,
+              changePoint: roundPriceAdaptive(curPrice - prevClose),
+              high: roundPriceAdaptive(high),
+              low: roundPriceAdaptive(low),
+              volume: Math.min(Math.round(volume), 999_999_999_999),
+              prevClose: roundPriceAdaptive(prevClose),
+              currency: 'USD',
+              marketState: 'REGULAR',
+              updatedAt: new Date().toISOString(),
+              live: true,
+            };
+          }
+        }
+      }
+    } catch {
+      // Bybit fallback failed
     }
   }
 

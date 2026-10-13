@@ -181,7 +181,41 @@ export async function GET(request: Request) {
           next: { revalidate: 60 },
         });
       }
-      if (bRes.ok) {
+      if (!bRes.ok) {
+        // Fallback ke Bybit Spot Klines untuk koin yang delisted dari Binance seperti MKR
+        const bybitInterval = timeframe === '1W' ? 'W' : timeframe === '1M' || timeframe === '1Y' ? 'M' : 'D';
+        const bybitKRes = await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${binancePair}&interval=${bybitInterval}&limit=${count}`, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 60 },
+        });
+        if (bybitKRes.ok) {
+          const bybitJson = await bybitKRes.json();
+          const list = bybitJson?.result?.list;
+          if (Array.isArray(list) && list.length > 0) {
+            // Bybit returns newest first, so reverse to chronological
+            const sortedList = [...list].reverse();
+            const bybitCandles = sortedList.map((k: any) => {
+              const d = new Date(parseInt(k[0], 10));
+              const dateStr = d.toISOString().split('T')[0];
+              return {
+                time: dateStr,
+                open: parseFloat(k[1]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                close: parseFloat(k[4]),
+                volume: Math.round(parseFloat(k[5])),
+              };
+            });
+            if (bybitCandles.length > 3) {
+              fetchedCandles = bybitCandles;
+              fetchedPrice = bybitCandles[bybitCandles.length - 1].close;
+              fetchedCurrency = 'USD';
+              dataSource = 'Bybit Spot API';
+            }
+          }
+        }
+      }
+      if (bRes.ok && fetchedCandles.length === 0) {
         const klines = await bRes.json();
         if (Array.isArray(klines) && klines.length > 0) {
           const bCandles = klines.map((k: any) => {
@@ -210,7 +244,7 @@ export async function GET(request: Request) {
         }
       }
     } catch {
-      // Binance klines failed, proceed to Yahoo Finance
+      // Crypto klines failed, proceed to Yahoo Finance
     }
   }
 

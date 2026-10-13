@@ -366,6 +366,16 @@ export const SUPPORTED_CRYPTO_PAIRS: CryptoAssetMeta[] = [
     description: 'Pencipta stablecoin DAI/USDS dan pelopor integrasi aset dunia nyata RWA.',
   },
   {
+    symbol: 'SKYUSDT',
+    baseAsset: 'SKY',
+    name: 'Sky Protocol',
+    category: 'DeFi',
+    logo: 'https://assets.coingecko.com/coins/images/39926/small/sky.png',
+    minNotional: 5,
+    stepSize: 1,
+    description: 'Evolusi protokol MakerDAO dengan token tata kelola SKY dan tabungan USDS.',
+  },
+  {
     symbol: 'ONDOUSDT',
     baseAsset: 'ONDO',
     name: 'Ondo Finance',

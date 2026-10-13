@@ -271,7 +271,7 @@ export const KNOWN_CRYPTO_SYMBOLS = [
   'ONDO', 'PENDLE', 'INJ', 'JUP', 'ENA', 'CRV', 'LDO', 'RUNE', 'DYDX', 'RAY',
   'AKT', 'AR', 'FIL', 'GRT', 'THETA', 'WIF', 'BONK', 'FLOKI', 'POPCAT', 'MEW',
   'BOME', 'NEIRO', 'PYTH', 'W', 'JTO', 'STX', 'CHZ', 'ENS', 'GALA', 'SAND',
-  'MANA', 'APE', 'S', 'SONIC', 'MATIC',
+  'MANA', 'APE', 'S', 'SONIC', 'MATIC', 'SKY',
 ]
 
 export const INITIAL_CASH = 0 // Rp 0 modal awal simulasi bersih
