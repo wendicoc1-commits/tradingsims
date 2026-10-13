@@ -79,8 +79,10 @@ export const useAuthStore = create<AuthState>()(
           const apiData = await apiRes.json();
 
           if (apiData.success && apiData.user) {
+            const normUserEmail = String(apiData.user.email || email).trim().toLowerCase();
             // 1. ISOLASI TOTAL: Bersihkan portofolio lokal lama agar sisa data akun sebelumnya tidak bocor!
             usePortfolioStore.setState({
+              ownerEmail: normUserEmail,
               cash: 0,
               realizedPL: 0,
               holdings: [],
@@ -122,6 +124,7 @@ export const useAuthStore = create<AuthState>()(
             if (resolvedPortfolio && typeof resolvedPortfolio.cash === 'number') {
               const sPort = resolvedPortfolio;
               usePortfolioStore.setState({
+                ownerEmail: normUserEmail,
                 cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
                 realizedPL: sPort.realizedPL || 0,
                 holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
@@ -136,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
             } else {
               // Jika ini akun baru pertama kali, beri modal awal bersih Rp 0
               const initialNewPort = {
+                ownerEmail: normUserEmail,
                 cash: 0,
                 realizedPL: 0,
                 holdings: [],
@@ -184,8 +188,10 @@ export const useAuthStore = create<AuthState>()(
           const apiData = await apiRes.json();
 
           if (apiData.success && apiData.user) {
+            const normUserEmail = String(apiData.user.email || email).trim().toLowerCase();
             // Bersihkan portofolio lokal lama dan berikan modal awal murni Rp 0 untuk member baru
             usePortfolioStore.setState({
+              ownerEmail: normUserEmail,
               cash: 0,
               realizedPL: 0,
               holdings: [],
@@ -367,13 +373,14 @@ export const useAuthStore = create<AuthState>()(
 
         // 1. Reset memori portofolio dan user secara instan (0ms delay)
         usePortfolioStore.setState({
+          ownerEmail: null,
           cash: 0,
           realizedPL: 0,
           holdings: [],
           orders: [],
           conditionalOrders: [],
           dividends: [],
-          lastUpdated: Date.now(),
+          lastUpdated: 0,
         });
         set({ user: null, isLoading: false, authError: null });
 
@@ -393,9 +400,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkSession: async () => {
+        await waitForAuthHydration();
+        await waitForPortfolioHydration();
+
         const currentUser = get().user;
         if (currentUser && currentUser.email) {
-          // Selalu sinkronkan portofolio terbaru dari server cloud
+          // Selalu sinkronkan portofolio terbaru dari server cloud untuk akun yang sedang login
           await get().loadPortfolioFromDatabase();
           return;
         }
@@ -407,12 +417,14 @@ export const useAuthStore = create<AuthState>()(
           const supabase = getSupabaseBrowserClient();
           const { data } = await supabase.auth.getSession();
 
-          if (data.session?.user) {
+          if (data.session?.user && data.session.user.email) {
             const u = data.session.user;
+            const normEmail = u.email.trim().toLowerCase();
+            const deterministicId = `usr-${normEmail.replace(/[^a-z0-9]/g, '')}`;
             const appUser: AppUser = {
-              id: u.id,
-              email: u.email || '',
-              fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Member',
+              id: deterministicId,
+              email: normEmail,
+              fullName: u.user_metadata?.full_name || u.user_metadata?.name || normEmail.split('@')[0] || 'Member',
               avatarUrl: u.user_metadata?.avatar_url || null,
               provider: (u.app_metadata?.provider as any) || 'email',
               role: (u.user_metadata?.role as any) || 'member',
@@ -429,7 +441,7 @@ export const useAuthStore = create<AuthState>()(
       // Sinkronisasi data portofolio dari frontend ke Server Cloud Sync & Supabase
       syncPortfolioToDatabase: async () => {
         const user = get().user;
-        if (!user) return;
+        if (!user || user.provider === 'guest') return;
 
         if (isSyncingPortfolio) {
           needsPortfolioReSync = true;
@@ -442,16 +454,33 @@ export const useAuthStore = create<AuthState>()(
             needsPortfolioReSync = false;
             await waitForPortfolioHydration();
             const currentUser = get().user;
-            if (!currentUser) break;
+            if (!currentUser || currentUser.provider === 'guest') break;
 
             const portStore = usePortfolioStore.getState();
             const rawEmail = currentUser.email || `${currentUser.id}@tradingsims.my.id`;
-            const userEmail = rawEmail.includes('@') ? rawEmail : `${rawEmail}@tradingsims.my.id`;
+            const userEmail = (rawEmail.includes('@') ? rawEmail : `${rawEmail}@tradingsims.my.id`).trim().toLowerCase();
             const userId = currentUser.id || `usr-${userEmail.replace(/[^a-z0-9]/g, '')}`;
+            const syncTimestamp = portStore.lastUpdated || Date.now();
 
-            // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron ke Supabase Cloud!)
+            // Pastikan ownerEmail tercatat pada localStorage & backup lokal per-akun selalu diperbarui
+            if (portStore.ownerEmail !== userEmail) {
+              usePortfolioStore.setState({ ownerEmail: userEmail });
+            }
+            saveLocalUserBackup(userEmail, userId, {
+              ownerEmail: userEmail,
+              cash: portStore.cash,
+              realizedPL: portStore.realizedPL,
+              holdings: portStore.holdings,
+              orders: portStore.orders,
+              conditionalOrders: portStore.conditionalOrders,
+              dividends: portStore.dividends,
+              lastUpdated: syncTimestamp,
+            });
+
+            // 1. Simpan ke Server Cloud Sync (menjamin data tersinkron ke Supabase Cloud dengan canonicalUserId tunggal!)
+            let serverSyncOk = false;
             try {
-              await fetch('/api/portfolio/sync', {
+              const syncRes = await fetch('/api/portfolio/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -463,23 +492,29 @@ export const useAuthStore = create<AuthState>()(
                   orders: portStore.orders,
                   conditionalOrders: portStore.conditionalOrders,
                   dividends: portStore.dividends,
-                  lastUpdated: portStore.lastUpdated || Date.now(),
+                  lastUpdated: syncTimestamp,
                 }),
               });
+              const syncJson = await syncRes.json().catch(() => null);
+              if (syncRes.ok && syncJson?.success) {
+                serverSyncOk = true;
+                if (syncJson.canonicalUserId && syncJson.canonicalUserId !== currentUser.id) {
+                  set({ user: { ...currentUser, id: syncJson.canonicalUserId } });
+                }
+              }
             } catch (err) {
               console.warn('[SERVER PORTFOLIO SYNC WARN]', err);
             }
 
-            // 2. Simpan langsung ke Supabase Database (tabel app_users & user_portfolios)
-            if (isSupabaseConfigured) {
+            // 2. Fallback langsung ke Supabase HANYA jika server API gagal dihubungi (mencegah duplikasi baris user_id berbeda)
+            if (!serverSyncOk && isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
-                const updatedAtIso = new Date(portStore.lastUpdated || Date.now()).toISOString();
+                const updatedAtIso = new Date(syncTimestamp).toISOString();
 
-                // Simpan profil user ke tabel app_users
                 await supabase.from('app_users').upsert({
                   id: userId,
-                  email: userEmail.toLowerCase(),
+                  email: userEmail,
                   full_name: currentUser.fullName || userEmail.split('@')[0],
                   role: currentUser.role || 'member',
                   provider: currentUser.provider || 'email',
@@ -487,17 +522,16 @@ export const useAuthStore = create<AuthState>()(
                   created_at: currentUser.createdAt || updatedAtIso,
                 }, { onConflict: 'email' }).catch(() => {});
 
-                // Simpan portofolio ke tabel user_portfolios
                 await supabase.from('user_portfolios').upsert({
                   user_id: userId,
-                  email: userEmail.toLowerCase(),
+                  email: userEmail,
                   cash: portStore.cash,
                   realized_pl: portStore.realizedPL,
                   holdings: portStore.holdings,
                   orders: portStore.orders,
                   conditional_orders: portStore.conditionalOrders || [],
                   dividends: portStore.dividends || [],
-                  last_updated: portStore.lastUpdated || Date.now(),
+                  last_updated: syncTimestamp,
                   updated_at: updatedAtIso,
                 }, { onConflict: 'user_id' }).catch(() => {});
               } catch {}
@@ -633,6 +667,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Ambil data portofolio dari Server Cloud Sync & Supabase saat login di browser apa pun
       loadPortfolioFromDatabase: async () => {
+        await waitForAuthHydration();
         const user = get().user;
         if (!user || user.provider === 'guest') return;
 
@@ -644,18 +679,34 @@ export const useAuthStore = create<AuthState>()(
           try {
             await waitForPortfolioHydration();
 
+            // Jika sedang ada proses syncPortfolioToDatabase yang aktif, tunggu hingga selesai agar trade lokal tidak tertimpa
+            let waitCount = 0;
+            while (isSyncingPortfolio && waitCount < 15) {
+              await new Promise((r) => setTimeout(r, 100));
+              waitCount++;
+            }
+
+            const normEmail = user.email.trim().toLowerCase();
+
             // 1. Ambil dari Server Cloud Sync API (Single Source of Truth terhubung ke Supabase Cloud)
             try {
-              const res = await fetch(`/api/portfolio/sync?email=${encodeURIComponent(user.email)}&userId=${encodeURIComponent(user.id)}`, {
+              const res = await fetch(`/api/portfolio/sync?email=${encodeURIComponent(normEmail)}&userId=${encodeURIComponent(user.id)}`, {
                 cache: 'no-store',
               });
               const data = await res.json();
+
+              if (data.canonicalUserId && data.canonicalUserId !== user.id) {
+                set({ user: { ...user, id: data.canonicalUserId } });
+              }
 
               if (data.success && data.portfolio && typeof data.portfolio.cash === 'number') {
                 const sPort = data.portfolio;
                 const localPort = usePortfolioStore.getState();
                 const cloudUpdated = Number(sPort.lastUpdated) || 0;
                 const localUpdated = Number(localPort.lastUpdated) || 0;
+                const isDifferentOwner = Boolean(
+                  localPort.ownerEmail && localPort.ownerEmail.trim().toLowerCase() !== normEmail
+                );
 
                 const isLocalEmpty = (localPort.cash === 0 || typeof localPort.cash !== 'number') &&
                   (!localPort.holdings || localPort.holdings.length === 0) &&
@@ -680,19 +731,26 @@ export const useAuthStore = create<AuthState>()(
                   });
                 };
 
-                // Hanya timpa memori lokal jika data cloud lebih baru atau data lokal masih kosong
-                if (isLocalEmpty || cloudUpdated >= localUpdated) {
-                  usePortfolioStore.setState({
+                // Gunakan data cloud jika owner berbeda, lokal masih kosong, atau data cloud >= lokal
+                if (isDifferentOwner || isLocalEmpty || cloudUpdated >= localUpdated) {
+                  const nextHoldings = sanitizeHoldings(mergeLivePrices(Array.isArray(sPort.holdings) ? sPort.holdings : []));
+                  const nextState = {
+                    ownerEmail: normEmail,
                     cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
                     realizedPL: sPort.realizedPL || 0,
-                    holdings: sanitizeHoldings(mergeLivePrices(Array.isArray(sPort.holdings) ? sPort.holdings : [])),
+                    holdings: nextHoldings,
                     orders: Array.isArray(sPort.orders) ? sPort.orders : [],
                     conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
                     dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
-                    lastUpdated: sPort.lastUpdated || Date.now(),
-                  });
+                    lastUpdated: cloudUpdated || Date.now(),
+                  };
+                  usePortfolioStore.setState(nextState);
+                  saveLocalUserBackup(normEmail, data.canonicalUserId || user.id, nextState);
                 } else if (localUpdated > cloudUpdated && !isLocalEmpty) {
-                  // Jika data lokal baru saja diupdate oleh user (lebih baru), unggah ke cloud
+                  // Jika data lokal milik user ini memang lebih baru, tandai ownerEmail dan unggah ke cloud
+                  if (localPort.ownerEmail !== normEmail) {
+                    usePortfolioStore.setState({ ownerEmail: normEmail });
+                  }
                   get().syncPortfolioToDatabase().catch(() => {});
                 }
                 return;
@@ -705,16 +763,30 @@ export const useAuthStore = create<AuthState>()(
             if (isSupabaseConfigured) {
               try {
                 const supabase = getSupabaseBrowserClient();
-                const { data: cloudPort, error: portErr } = await supabase
+                const { data: rows, error: portErr } = await supabase
                   .from('user_portfolios')
                   .select('*')
-                  .or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase()}`)
-                  .maybeSingle();
+                  .or(`user_id.eq.${user.id},email.eq.${normEmail}`)
+                  .order('last_updated', { ascending: false })
+                  .limit(5);
+
+                const populated = Array.isArray(rows)
+                  ? rows.filter(
+                      (r: any) =>
+                        (Number(r.cash) || 0) > 0 ||
+                        (Array.isArray(r.holdings) && r.holdings.length > 0) ||
+                        (Array.isArray(r.orders) && r.orders.length > 0)
+                    )
+                  : [];
+                const cloudPort = populated.length > 0 ? populated[0] : (Array.isArray(rows) && rows.length > 0 ? rows[0] : null);
 
                 if (!portErr && cloudPort && typeof cloudPort.cash === 'number') {
                   const localPort = usePortfolioStore.getState();
                   const cloudUpdated = Number(cloudPort.last_updated) || 0;
                   const localUpdated = Number(localPort.lastUpdated) || 0;
+                  const isDifferentOwner = Boolean(
+                    localPort.ownerEmail && localPort.ownerEmail.trim().toLowerCase() !== normEmail
+                  );
                   const isLocalEmpty = (localPort.cash === 0 || typeof localPort.cash !== 'number') && (!localPort.holdings || localPort.holdings.length === 0);
 
                   const mergeLivePrices = (incomingHoldings: any[]) => {
@@ -735,17 +807,21 @@ export const useAuthStore = create<AuthState>()(
                     });
                   };
 
-                  if (isLocalEmpty || cloudUpdated >= localUpdated) {
+                  if (isDifferentOwner || isLocalEmpty || cloudUpdated >= localUpdated) {
                     usePortfolioStore.setState({
+                      ownerEmail: normEmail,
                       cash: Number(cloudPort.cash) || 0,
                       realizedPL: Number(cloudPort.realized_pl || 0),
                       holdings: sanitizeHoldings(mergeLivePrices(Array.isArray(cloudPort.holdings) ? cloudPort.holdings : [])),
                       orders: Array.isArray(cloudPort.orders) ? cloudPort.orders : [],
                       conditionalOrders: Array.isArray(cloudPort.conditional_orders) ? cloudPort.conditional_orders : [],
                       dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
-                      lastUpdated: Number(cloudPort.last_updated || 0) || Date.now(),
+                      lastUpdated: cloudUpdated || Date.now(),
                     });
                   } else if (localUpdated > cloudUpdated && !isLocalEmpty) {
+                    if (localPort.ownerEmail !== normEmail) {
+                      usePortfolioStore.setState({ ownerEmail: normEmail });
+                    }
                     get().syncPortfolioToDatabase().catch(() => {});
                   }
                   return;
@@ -769,3 +845,22 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+export async function waitForAuthHydration(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (useAuthStore.persist?.hasHydrated?.()) return;
+
+  return new Promise<void>((resolve) => {
+    if (useAuthStore.persist?.hasHydrated?.()) {
+      resolve();
+      return;
+    }
+    const unsub = useAuthStore.persist?.onFinishHydration?.(() => {
+      unsub?.();
+      resolve();
+    });
+    setTimeout(() => {
+      resolve();
+    }, 300);
+  });
+}

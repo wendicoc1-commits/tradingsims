@@ -31,11 +31,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Format email tidak valid' }, { status: 400 });
     }
 
-    const portfolio = await getUserPortfolioAsync({ email, userId });
+    const [portfolio, existingUser] = await Promise.all([
+      getUserPortfolioAsync({ email, userId }),
+      email ? getUserByEmailAsync(email) : Promise.resolve(null),
+    ]);
 
     return NextResponse.json({
       success: true,
       portfolio: portfolio || null,
+      canonicalUserId: existingUser?.id || userId || null,
       isNew: !portfolio,
     });
   } catch (err: any) {
@@ -101,38 +105,50 @@ export async function POST(req: NextRequest) {
       ? dividends.slice(0, 200)
       : (Array.isArray(currentPortfolio?.dividends) ? currentPortfolio.dividends : []);
 
-    if (email) {
-      const existing = await getUserByEmailAsync(email);
-      if (!existing) {
-        registerOrUpdateUser(email, undefined, email.split('@')[0]);
-      }
+    let existingUser = email ? await getUserByEmailAsync(email) : null;
+    if (email && !existingUser) {
+      existingUser = registerOrUpdateUser(email, undefined, email.split('@')[0]);
     }
+    const canonicalUserId = existingUser?.id || userId || (email ? `usr-${email.replace(/[^a-z0-9]/g, '')}` : undefined);
 
     const finalHoldings = sanitizedHoldings;
     const finalCash = sanitizedCash;
 
-    // 1. Simpan langsung ke Supabase Cloud (public.app_users dan public.user_portfolios)
+    // 1. Simpan langsung ke Supabase Cloud (public.app_users dan public.user_portfolios) dengan deduplikasi baris email
     const { getSupabaseServerClient } = await import('@/lib/supabase/server');
     const supabase = getSupabaseServerClient();
-    if (supabase && email) {
+    if (supabase && email && canonicalUserId) {
       try {
         const updatedAtIso = new Date().toISOString();
-        const effectiveUserId = userId || `usr-${email.replace(/[^a-z0-9]/g, '')}`;
 
         // A. Pastikan user tersimpan di public.app_users
         await supabase.from('app_users').upsert({
-          id: effectiveUserId,
+          id: canonicalUserId,
           email: email.toLowerCase(),
-          full_name: email.split('@')[0],
+          full_name: existingUser?.fullName || email.split('@')[0],
           role: 'member',
           provider: 'email',
-          password_hash: 'synced_session',
-          created_at: updatedAtIso,
+          password_hash: existingUser?.passwordHash || 'synced_session',
+          created_at: existingUser?.createdAt || updatedAtIso,
         }, { onConflict: 'email' });
 
-        // B. Simpan data portofolio ke public.user_portfolios
+        // B. Hapus baris user_portfolios duplikat yang memiliki email sama namun user_id berbeda
+        const { data: existingRows } = await supabase
+          .from('user_portfolios')
+          .select('user_id')
+          .eq('email', email.toLowerCase());
+        if (Array.isArray(existingRows) && existingRows.length > 0) {
+          const staleIds = existingRows
+            .map((r: any) => r.user_id)
+            .filter((id: string) => id && id !== canonicalUserId);
+          if (staleIds.length > 0) {
+            await supabase.from('user_portfolios').delete().in('user_id', staleIds);
+          }
+        }
+
+        // C. Simpan data portofolio ke public.user_portfolios dengan canonicalUserId tunggal
         await supabase.from('user_portfolios').upsert({
-          user_id: effectiveUserId,
+          user_id: canonicalUserId,
           email: email.toLowerCase(),
           cash: finalCash,
           realized_pl: sanitizedRealizedPL,
@@ -148,8 +164,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const saved = saveUserPortfolio(
-      { email, userId },
+    saveUserPortfolio(
+      { email, userId: canonicalUserId },
       {
         cash: finalCash,
         realizedPL: sanitizedRealizedPL,
@@ -163,6 +179,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      canonicalUserId: canonicalUserId || null,
       timestamp: Date.now(),
     });
   } catch (err: any) {

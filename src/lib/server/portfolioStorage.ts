@@ -169,6 +169,7 @@ async function syncUserToSupabase(user: StoredUser): Promise<void> {
 
 /**
  * Sync portfolio ke Supabase Cloud (Background Non-Blocking)
+ * Menjamin 1 email = 1 baris portofolio tunggal di user_portfolios (tanpa split-brain duplikat user_id)
  */
 async function syncPortfolioToSupabase(
   userId: string,
@@ -177,10 +178,28 @@ async function syncPortfolioToSupabase(
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return;
+  const normEmail = email.trim().toLowerCase();
   try {
+    // Cek apakah sudah ada baris dengan email ini namun user_id berbeda
+    const { data: existingRows } = await supabase
+      .from('user_portfolios')
+      .select('user_id, email, last_updated')
+      .or(`user_id.eq.${userId},email.eq.${normEmail}`);
+
+    let canonicalUserId = userId;
+    if (Array.isArray(existingRows) && existingRows.length > 0) {
+      // Gunakan user_id dari baris utama, dan bersihkan baris duplikat lain agar tidak ada 2 portofolio berbeda
+      const staleIds = existingRows
+        .map((r: any) => r.user_id)
+        .filter((id: string) => id && id !== canonicalUserId);
+      if (staleIds.length > 0) {
+        await supabase.from('user_portfolios').delete().in('user_id', staleIds);
+      }
+    }
+
     await supabase.from('user_portfolios').upsert({
-      user_id: userId,
-      email: email,
+      user_id: canonicalUserId,
+      email: normEmail,
       cash: data.cash,
       realized_pl: data.realizedPL,
       holdings: data.holdings,
@@ -212,12 +231,13 @@ export async function getUserByEmailAsync(email: string): Promise<StoredUser | n
   const supabase = getSupabaseServerClient();
   if (supabase) {
     try {
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from('app_users')
         .select('*')
         .eq('email', normEmail)
-        .maybeSingle();
+        .limit(1);
 
+      const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
       if (data) {
         const cloudUser: StoredUser = {
           id: data.id,
@@ -254,8 +274,9 @@ export function registerOrUpdateUser(email: string, password?: string, fullName?
   const existing = db.users[normEmail];
 
   const now = new Date().toISOString();
+  const deterministicId = `usr-${normEmail.replace(/[^a-z0-9]/g, '')}`;
   const user: StoredUser = {
-    id: existing?.id || `usr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: existing?.id || deterministicId,
     email: normEmail,
     passwordHash: password ? hashPassword(password) : (existing?.passwordHash || hashPassword('default_guest_pwd')),
     fullName: fullName?.trim() || existing?.fullName || normEmail.split('@')[0],
@@ -264,20 +285,8 @@ export function registerOrUpdateUser(email: string, password?: string, fullName?
 
   db.users[normEmail] = user;
 
-  // Jika portofolio belum ada untuk akun ini, beri modal awal standar Rp 0
-  if (!db.portfolios[normEmail] && !db.portfolios[user.id]) {
-    const initialPortfolio: UserPortfolioData = {
-      cash: 0,
-      realizedPL: 0,
-      holdings: [],
-      orders: [],
-      conditionalOrders: [],
-      dividends: [],
-      lastUpdated: Date.now(),
-    };
-    db.portfolios[normEmail] = initialPortfolio;
-    db.portfolios[user.id] = initialPortfolio;
-  } else if (db.portfolios[normEmail] && !db.portfolios[user.id]) {
+  // Jika portofolio sudah ada di salah satu key, tautkan keduanya tanpa pernah menimpa dengan portofolio kosong
+  if (db.portfolios[normEmail] && !db.portfolios[user.id]) {
     db.portfolios[user.id] = db.portfolios[normEmail];
   } else if (db.portfolios[user.id] && !db.portfolios[normEmail]) {
     db.portfolios[normEmail] = db.portfolios[user.id];
@@ -285,11 +294,8 @@ export function registerOrUpdateUser(email: string, password?: string, fullName?
 
   saveDatabase(db);
 
-  // Sync ke Supabase Cloud
+  // Sync user ke Supabase Cloud (JANGAN menimpa user_portfolios dengan portofolio kosong di sini!)
   syncUserToSupabase(user);
-  if (db.portfolios[user.id]) {
-    syncPortfolioToSupabase(user.id, user.email, db.portfolios[user.id]);
-  }
 
   return user;
 }
@@ -460,8 +466,28 @@ export async function getUserPortfolioAsync(identifier: { userId?: string; email
         query = query.eq('email', emailKey);
       }
 
-      const { data } = await query.maybeSingle();
-      if (data) {
+      const { data: rows } = await query.order('last_updated', { ascending: false });
+      if (Array.isArray(rows) && rows.length > 0) {
+        // Jika terdapat >1 baris karena perbedaan user_id historis untuk email yang sama:
+        // Pilih baris yang memiliki aset/saldo aktif dengan last_updated paling mutakhir
+        const populatedRows = rows.filter(
+          (r: any) =>
+            (Number(r.cash) || 0) > 0 ||
+            (Array.isArray(r.holdings) && r.holdings.length > 0) ||
+            (Array.isArray(r.orders) && r.orders.length > 0)
+        );
+        const data = populatedRows.length > 0 ? populatedRows[0] : rows[0];
+
+        // Bersihkan baris duplikat lainnya di Supabase secara otomatis agar tidak pernah terjadi split-brain 2 portofolio
+        if (rows.length > 1) {
+          const duplicateIds = rows
+            .map((r: any) => r.user_id)
+            .filter((id: string) => id && id !== data.user_id);
+          if (duplicateIds.length > 0) {
+            supabase.from('user_portfolios').delete().in('user_id', duplicateIds).then(() => {});
+          }
+        }
+
         const cloudPortfolio: UserPortfolioData = {
           cash: typeof data.cash === 'number' ? data.cash : (Number(data.cash) || 0),
           realizedPL: Number(data.realized_pl) || 0,
@@ -469,13 +495,15 @@ export async function getUserPortfolioAsync(identifier: { userId?: string; email
           orders: deduplicateOrders(Array.isArray(data.orders) ? data.orders : []),
           conditionalOrders: Array.isArray(data.conditional_orders) ? data.conditional_orders : [],
           dividends: Array.isArray(data.dividends) ? data.dividends : [],
-          lastUpdated: data.last_updated || Date.now(),
+          lastUpdated: Number(data.last_updated) || Date.now(),
         };
 
         // Cache di RAM proses
         const db = loadDatabase();
         if (data.email) db.portfolios[data.email.toLowerCase()] = cloudPortfolio;
+        if (emailKey) db.portfolios[emailKey] = cloudPortfolio;
         if (data.user_id) db.portfolios[data.user_id] = cloudPortfolio;
+        if (userIdKey) db.portfolios[userIdKey] = cloudPortfolio;
 
         return cloudPortfolio;
       }

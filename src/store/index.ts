@@ -235,6 +235,7 @@ export interface OrderParams {
 }
 
 export interface PortfolioState {
+  ownerEmail?: string | null
   cash: number
   realizedPL: number // Akumulasi total keuntungan/kerugian modal terealisasi
   holdings: PortfolioHolding[]
@@ -487,13 +488,14 @@ export const KNOWN_DIVIDENDS: Record<string, DividendItemInfo> = buildKnownDivid
 export const usePortfolioStore = create<PortfolioState>()(
   persist(
     (set, get) => ({
+      ownerEmail: null,
       cash: INITIAL_CASH,
-  realizedPL: 0,
-  holdings: JSON.parse(JSON.stringify(INITIAL_HOLDINGS)),
-  orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
-  conditionalOrders: [],
-  dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
-  lastUpdated: Date.now(),
+      realizedPL: 0,
+      holdings: JSON.parse(JSON.stringify(INITIAL_HOLDINGS)),
+      orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
+      conditionalOrders: [],
+      dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
+      lastUpdated: 0,
 
   resetCashOnly: (amount = INITIAL_CASH) => {
     const now = Date.now()
@@ -1818,47 +1820,30 @@ export const usePortfolioStore = create<PortfolioState>()(
       version: 2,
       migrate: (persistedState: any) => {
         if (!persistedState) {
-          if (typeof window !== 'undefined') {
-            try {
-              const legacyRaw = localStorage.getItem('stockbit_portfolio_storage')
-              if (legacyRaw) {
-                const parsed = JSON.parse(legacyRaw)
-                const legacyState = parsed?.state || parsed
-                if (legacyState && typeof legacyState.cash === 'number') {
-                  return {
-                    cash: legacyState.cash,
-                    realizedPL: legacyState.realizedPL || 0,
-                    holdings: Array.isArray(legacyState.holdings) ? sanitizeHoldings(legacyState.holdings) : [],
-                    orders: Array.isArray(legacyState.orders) ? legacyState.orders : [],
-                    conditionalOrders: Array.isArray(legacyState.conditionalOrders) ? legacyState.conditionalOrders : [],
-                    dividends: Array.isArray(legacyState.dividends) ? legacyState.dividends : [],
-                    lastUpdated: typeof legacyState.lastUpdated === 'number' ? legacyState.lastUpdated : Date.now(),
-                  }
-                }
-              }
-            } catch {}
-          }
           return {
+            ownerEmail: null,
             cash: 0,
             realizedPL: 0,
             holdings: [],
             orders: [],
             conditionalOrders: [],
             dividends: [],
-            lastUpdated: Date.now(),
+            lastUpdated: 0,
           }
         }
         return {
+          ownerEmail: typeof persistedState.ownerEmail === 'string' ? persistedState.ownerEmail : null,
           cash: typeof persistedState.cash === 'number' ? persistedState.cash : 0,
           realizedPL: typeof persistedState.realizedPL === 'number' ? persistedState.realizedPL : 0,
           holdings: Array.isArray(persistedState.holdings) ? sanitizeHoldings(persistedState.holdings) : [],
           orders: Array.isArray(persistedState.orders) ? persistedState.orders : [],
           conditionalOrders: Array.isArray(persistedState.conditionalOrders) ? persistedState.conditionalOrders : [],
           dividends: Array.isArray(persistedState.dividends) ? persistedState.dividends : [],
-          lastUpdated: typeof persistedState.lastUpdated === 'number' ? persistedState.lastUpdated : Date.now(),
+          lastUpdated: typeof persistedState.lastUpdated === 'number' ? persistedState.lastUpdated : 0,
         }
       },
       partialize: (state) => ({
+        ownerEmail: state.ownerEmail,
         cash: state.cash,
         realizedPL: state.realizedPL,
         holdings: state.holdings,

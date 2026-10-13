@@ -45,6 +45,8 @@ export default function GlobalAutonomousAgentRunner() {
       };
     }
 
+    let hasSyncedInitialCloud = false;
+
     const runCycle = async () => {
       // Leader Election: Hanya 1 tab aktif yang mengeksekusi siklus bot.
       // Tab lain tetap standby untuk menghindari duplicate execution!
@@ -53,6 +55,20 @@ export default function GlobalAutonomousAgentRunner() {
       isExecutingRef.current = true;
 
       try {
+        if (!hasSyncedInitialCloud) {
+          hasSyncedInitialCloud = true;
+          try {
+            const { waitForAuthHydration, useAuthStore } = await import('@/store/useAuthStore');
+            const { waitForPortfolioHydration } = await import('@/store');
+            await waitForAuthHydration();
+            await waitForPortfolioHydration();
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser && currentUser.provider !== 'guest') {
+              await useAuthStore.getState().loadPortfolioFromDatabase();
+            }
+          } catch {}
+        }
+
         // 1. Ambil berita pasar terbaru dari crawler
         let news = [];
         try {
