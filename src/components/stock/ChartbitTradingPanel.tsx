@@ -337,6 +337,25 @@ export default function ChartbitTradingPanel({
       return;
     }
 
+    // 🛡️ PROTEKSI BATAS ARA & ARB REAL-TIME
+    if (!isForeign && araPrice > 0 && priceNum > araPrice) {
+      setNotification({
+        type: 'error',
+        message: `Harga Rp ${priceNum.toLocaleString('id-ID')} melampaui batas Auto Rejection Atas (ARA) BEI maksimum Rp ${araPrice.toLocaleString('id-ID')}.`,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!isForeign && arbPrice > 0 && priceNum < arbPrice) {
+      setNotification({
+        type: 'error',
+        message: `Harga Rp ${priceNum.toLocaleString('id-ID')} berada di bawah batas Auto Rejection Bawah (ARB) BEI minimum Rp ${arbPrice.toLocaleString('id-ID')}.`,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const parsedTp = enableTP && parseFloat(tpInput) > 0 ? parseFloat(tpInput) : undefined;
     const parsedSl = enableSL && parseFloat(slInput) > 0 ? parseFloat(slInput) : undefined;
 

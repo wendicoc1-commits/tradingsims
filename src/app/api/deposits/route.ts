@@ -16,14 +16,28 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { ticketId, userId, userEmail, senderName, senderBank, nominalPay, virtualCashAmount, proofImage, notes } = body;
+    const { ticketId, userId, userEmail, senderName, senderBank, nominalPay, proofImage, notes } = body;
 
-    if (!senderName || !nominalPay || !virtualCashAmount) {
+    const payNum = Number(nominalPay);
+    if (!senderName || !payNum || isNaN(payNum) || payNum <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Data formulir tidak lengkap' },
+        { success: false, error: 'Data formulir tidak lengkap atau nominal bayar tidak valid' },
         { status: 400 }
       );
     }
+
+    if (payNum < 10000) {
+      return NextResponse.json(
+        { success: false, error: 'Nominal transfer minimal Rp 10.000' },
+        { status: 400 }
+      );
+    }
+
+    // 🛡️ KALKULASI SERVER-SIDE KETAT (Rasio Resmi 1:100):
+    // Setiap Rp 10.000 uang asli = Rp 1.000.000 saldo kas virtual
+    // Menolak injeksi angka fiktif virtualCashAmount dari client!
+    const multiplier = Math.floor(payNum / 10000);
+    const verifiedVirtualCashAmount = multiplier * 1000000;
 
     const result = await submitDepositTicket({
       ticketId,
@@ -31,8 +45,8 @@ export async function POST(req: NextRequest) {
       userEmail,
       senderName,
       senderBank: senderBank || 'QRIS',
-      nominalPay: Number(nominalPay),
-      virtualCashAmount: Number(virtualCashAmount),
+      nominalPay: payNum,
+      virtualCashAmount: verifiedVirtualCashAmount,
       proofImage,
       notes,
     });

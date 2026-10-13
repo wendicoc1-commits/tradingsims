@@ -83,9 +83,27 @@ export async function POST(req: NextRequest) {
     const currentPortfolio = await getUserPortfolioAsync({ email, userId });
 
     // Validasi & Sanitasi Batas Finansial:
-    const sanitizedCash = typeof cash === 'number' && Number.isFinite(cash)
+    let sanitizedCash = typeof cash === 'number' && Number.isFinite(cash)
       ? Math.max(0, Math.min(cash, MAX_ALLOWED_CASH))
       : (typeof currentPortfolio?.cash === 'number' ? currentPortfolio.cash : 0);
+
+    // 🛡️ ANTI-TAMPERING ANOMALY GUARD:
+    // Mencegah manipulasi DevTools di mana kas tiba-tiba melonjak ratusan juta/miliar tanpa order sah
+    if (currentPortfolio && typeof currentPortfolio.cash === 'number' && currentPortfolio.cash >= 0) {
+      const prevCash = currentPortfolio.cash;
+      const surgeDelta = sanitizedCash - prevCash;
+      if (surgeDelta > 100_000_000) {
+        // Cek apakah ada order SELL atau DEPOSIT terbaru di sanitizedOrders yang memvalidasi lonjakan ini
+        const hasLegitSellOrDeposit = sanitizedOrders.some((o: any) => {
+          const isRecent = o.createdAt ? (Date.now() - new Date(o.createdAt).getTime() < 3600_000) : false;
+          return isRecent && ((o.type === 'SELL' && o.status === 'FILLED') || (o.type === 'DEPOSIT' && o.status === 'APPROVED'));
+        });
+        if (!hasLegitSellOrDeposit && surgeDelta > 500_000_000) {
+          console.warn(`[PORTFOLIO SYNC GUARD] Anomali lonjakan kas fiktif terdeteksi untuk ${email}: ${prevCash} -> ${sanitizedCash}. Mempertahankan saldo riil.`);
+          sanitizedCash = prevCash;
+        }
+      }
+    }
 
     const sanitizedRealizedPL = typeof realizedPL === 'number' && Number.isFinite(realizedPL)
       ? realizedPL

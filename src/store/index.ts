@@ -508,7 +508,9 @@ export const usePortfolioStore = create<PortfolioState>()(
   },
 
   topUpCashWithBonus: (transferNominalIDR: number) => {
-    const multiplier = Math.floor(transferNominalIDR / 10000)
+    // 🛡️ BATAS TOP-UP MAKSIMAL PER TRANSAKSI (Maksimal Rp 50 Juta per transfer)
+    const safeTransferIDR = Math.min(Math.max(0, transferNominalIDR), 500_000)
+    const multiplier = Math.floor(safeTransferIDR / 10000)
     const addedVirtualCash = multiplier * 1000000
     if (addedVirtualCash <= 0) {
       return { addedVirtualCash: 0, newTotalCash: get().cash }
@@ -610,7 +612,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     const { cash, holdings, orders } = get()
     const { symbol, displaySymbol, price, lots, name = displaySymbol, orderType = 'LIMIT' } = params
 
-    if (lots <= 0 || price <= 0) {
+    if (!price || price <= 0 || isNaN(price) || !lots || lots <= 0 || isNaN(lots)) {
       return { order: null, error: 'Jumlah koin/lot dan harga harus bernilai positif.' }
     }
 
@@ -636,6 +638,29 @@ export const usePortfolioStore = create<PortfolioState>()(
       ? cleanSym
       : (symbol.includes('.') || symbol.startsWith('^') ? symbol : `${cleanSym}.JK`)
     const isIDX = !isCrypto && !isUS && (resolvedSym.endsWith('.JK') || (!symbol.includes('.') && cleanSym.length === 4))
+
+    // 🛡️ PROTEKSI BATAS ARA & ARB HARGA BELI BEI:
+    const benchBuy = getVerifiedBenchmarkPrice(cleanSym)
+    const refBuyMarketPrice = benchBuy?.price && benchBuy.price > 0 ? benchBuy.price : price
+    if (isIDX && refBuyMarketPrice > 0) {
+      const maxAraPct = refBuyMarketPrice <= 200 ? 0.35 : refBuyMarketPrice <= 5000 ? 0.25 : 0.20
+      const minArbPct = refBuyMarketPrice <= 200 ? 0.35 : refBuyMarketPrice <= 5000 ? 0.25 : 0.20
+      const maxAllowedBuyPrice = Math.round(refBuyMarketPrice * (1 + maxAraPct))
+      const minAllowedBuyPrice = Math.max(50, Math.round(refBuyMarketPrice * (1 - minArbPct)))
+
+      if (price > maxAllowedBuyPrice) {
+        return {
+          order: null,
+          error: `⛔ Penolakan Bursa: Harga beli Rp ${price.toLocaleString('id-ID')} melampaui batas Auto Rejection Atas (ARA) BEI (Maks: Rp ${maxAllowedBuyPrice.toLocaleString('id-ID')}).`,
+        }
+      }
+      if (price < minAllowedBuyPrice) {
+        return {
+          order: null,
+          error: `⛔ Penolakan Bursa: Harga beli Rp ${price.toLocaleString('id-ID')} berada di bawah batas Auto Rejection Bawah (ARB) BEI (Min: Rp ${minAllowedBuyPrice.toLocaleString('id-ID')}).`,
+        }
+      }
+    }
 
     // Validasi Jam Bursa BEI: Bot dilarang membeli saham BEI di luar jam bursa (Senin–Jumat 09:00–16:00 WIB)
     // Kripto dan Saham Global bebas aktif 24 jam nonstop
@@ -1132,7 +1157,7 @@ export const usePortfolioStore = create<PortfolioState>()(
     const { cash, holdings, orders, realizedPL: currentTotalRealizedPL } = get()
     const { symbol, displaySymbol, price, lots, orderType = 'LIMIT' } = params
 
-    if (lots <= 0 || price <= 0) {
+    if (!price || price <= 0 || isNaN(price) || !lots || lots <= 0 || isNaN(lots)) {
       return { order: null, error: 'Jumlah koin/lot dan harga jual harus bernilai positif.' }
     }
 
@@ -1183,6 +1208,60 @@ export const usePortfolioStore = create<PortfolioState>()(
     }
 
     const existing = holdings[existingHoldingIndex]
+
+    // 🛡️ ANTI-DUPLIKASI UANG: VALIDASI BATAS ARA/ARB & DEVIASI HARGA PASAR
+    const bench = getVerifiedBenchmarkPrice(cleanSym)
+    const refMarketPrice = (existing.currentPrice && existing.currentPrice > 0)
+      ? existing.currentPrice
+      : (bench?.price && bench.price > 0 ? bench.price : (existing.avgPrice || price))
+
+    if (isIDX && refMarketPrice > 0) {
+      // Batas Auto Rejection Atas (ARA) & Bawah (ARB) BEI
+      const maxAraPct = refMarketPrice <= 200 ? 0.35 : refMarketPrice <= 5000 ? 0.25 : 0.20
+      const minArbPct = refMarketPrice <= 200 ? 0.35 : refMarketPrice <= 5000 ? 0.25 : 0.20
+      const maxAllowedSellPrice = Math.round(refMarketPrice * (1 + maxAraPct))
+      const minAllowedSellPrice = Math.max(50, Math.round(refMarketPrice * (1 - minArbPct)))
+
+      if (price > maxAllowedSellPrice) {
+        return {
+          order: null,
+          error: `⛔ Penolakan Bursa: Harga jual Rp ${price.toLocaleString('id-ID')} melampaui batas Auto Rejection Atas (ARA) BEI (Maksimal: Rp ${maxAllowedSellPrice.toLocaleString('id-ID')}). Order ditolak demi integritas pasar.`,
+        }
+      }
+      if (price < minAllowedSellPrice) {
+        return {
+          order: null,
+          error: `⛔ Penolakan Bursa: Harga jual Rp ${price.toLocaleString('id-ID')} berada di bawah batas Auto Rejection Bawah (ARB) BEI (Minimal: Rp ${minAllowedSellPrice.toLocaleString('id-ID')}).`,
+        }
+      }
+
+      // Pada Limit Order: Jika user memasang harga jual di atas harga pasar saat ini,
+      // order tidak boleh mengeksekusi harga fiktif instan yang menciptakan uang gaib!
+      if (orderType === 'LIMIT') {
+        const maxInstantFillPrice = Math.round(refMarketPrice * 1.02)
+        if (price > maxInstantFillPrice) {
+          return {
+            order: null,
+            error: `Order jual Limit (Rp ${price.toLocaleString('id-ID')}) berada di atas harga pasar saat ini (Rp ${refMarketPrice.toLocaleString('id-ID')}). Belum ada antrean pembeli di harga tersebut. Gunakan Market Order untuk eksekusi instan.`,
+          }
+        }
+        execPrice = Math.min(price, maxInstantFillPrice)
+      }
+    } else if ((isCrypto || isUS) && refMarketPrice > 0) {
+      if (price > refMarketPrice * 1.25) {
+        return {
+          order: null,
+          error: `Harga jual ($${price}) menyimpang lebih dari 25% dari harga pasar ($${refMarketPrice}). Order ditolak untuk mencegah anomali portofolio.`,
+        }
+      }
+      if (orderType === 'LIMIT' && price > refMarketPrice * 1.03) {
+        return {
+          order: null,
+          error: `Order jual Limit di atas harga pasar saat ini ($${refMarketPrice}). Belum ada pembeli di harga tersebut. Gunakan Market Order.`,
+        }
+      }
+    }
+
     const effectiveIsCrypto = isCrypto || existing.assetClass === 'CRYPTO' || existing.currency === 'USDT' || Boolean(existing.cryptoUnits)
     const availableLots = effectiveIsCrypto ? (existing.cryptoUnits ?? existing.lots) : existing.lots
 
@@ -1535,23 +1614,44 @@ export const usePortfolioStore = create<PortfolioState>()(
       return { success: false, amount: 0, message: `Anda tidak memiliki saham ${cleanSym} untuk menerima dividen.` }
     }
 
+    // 🛡️ ANTI-DUPLIKASI DIVIDEN: Verifikasi DPS resmi & Anti-Spam Klaim Harian
+    const divInfo = KNOWN_DIVIDENDS[cleanSym]
+    const officialDps = divInfo?.dps || dps
+    const effectiveDps = officialDps > 0 ? Math.min(dps, officialDps) : Math.min(dps, 500)
+
+    const todayStr = new Date().toISOString().split('T')[0]
+    const alreadyClaimed = (dividends || []).some(
+      (d) =>
+        (d.displaySymbol?.toUpperCase() === cleanSym || d.symbol?.toUpperCase() === holding.symbol?.toUpperCase()) &&
+        d.status === 'PAID' &&
+        (d.paymentDate === todayStr || (d.id && d.id.includes(todayStr)))
+    )
+
+    if (alreadyClaimed) {
+      return {
+        success: false,
+        amount: 0,
+        message: `⚠️ Dividen ${cleanSym} sudah pernah diklaim hari ini. Setiap emiten hanya dapat diklaim 1x per periode distribusi.`,
+      }
+    }
+
     const totalShares = holding.lots * SHARES_PER_LOT
-    const gross = totalShares * dps
+    const gross = totalShares * effectiveDps
     const tax = 0 // Dividen dalam negeri bebas pajak jika diinvestasikan kembali (PPh 0%)
     const net = gross - tax
 
     const record: DividendRecord = {
-      id: `div-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `div-${todayStr}-${cleanSym}-${Date.now()}`,
       symbol: holding.symbol,
       displaySymbol: holding.displaySymbol,
       name: holding.name,
-      dividendPerShare: dps,
+      dividendPerShare: effectiveDps,
       shares: totalShares,
       grossAmount: gross,
       taxAmount: tax,
       netAmount: net,
-      cumDate: new Date().toISOString().split('T')[0],
-      paymentDate: new Date().toISOString().split('T')[0],
+      cumDate: divInfo?.cumDate || todayStr,
+      paymentDate: todayStr,
       status: 'PAID',
     }
 
@@ -1593,13 +1693,24 @@ export const usePortfolioStore = create<PortfolioState>()(
       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').trim().toUpperCase()
       const divInfo = KNOWN_DIVIDENDS[cleanSym]
       if (divInfo && divInfo.dps > 0 && h.lots > 0) {
+        // 🛡️ CEK ANTI-DUPLIKASI: Lewati jika sudah pernah diklaim periode ini
+        const alreadyClaimed = (dividends || []).some(
+          (d) =>
+            (d.displaySymbol?.toUpperCase() === cleanSym || d.symbol?.toUpperCase() === h.symbol?.toUpperCase()) &&
+            d.status === 'PAID' &&
+            (d.paymentDate === nowStr || d.cumDate === (divInfo.cumDate || nowStr))
+        )
+        if (alreadyClaimed) {
+          return h // Lewati emiten yang sudah pernah diklaim!
+        }
+
         const totalShares = h.shares || (h.lots * SHARES_PER_LOT)
         const net = totalShares * divInfo.dps
         totalClaimed += net
         claimedSymbols.push(cleanSym)
 
         newRecords.push({
-          id: `div-${Date.now()}-${cleanSym}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `div-${nowStr}-${cleanSym}-${Date.now()}`,
           symbol: h.symbol,
           displaySymbol: h.displaySymbol || cleanSym,
           name: h.name || `${cleanSym} Tbk`,
@@ -1650,8 +1761,31 @@ export const usePortfolioStore = create<PortfolioState>()(
       return { success: false, newLots: 0, leftoverCash: 0, totalDividend: 0, message: `Anda tidak memiliki saham ${cleanSym}.` }
     }
 
+    // 🛡️ ANTI-DUPLIKASI: Verifikasi DPS & Cegah Klaim Berulang di Hari yang Sama
+    const divInfo = KNOWN_DIVIDENDS[cleanSym]
+    const officialDps = divInfo?.dps || dps
+    const effectiveDps = officialDps > 0 ? Math.min(dps, officialDps) : Math.min(dps, 500)
+
+    const todayStr = new Date().toISOString().split('T')[0]
+    const alreadyClaimed = (dividends || []).some(
+      (d) =>
+        (d.displaySymbol?.toUpperCase() === cleanSym || d.symbol?.toUpperCase() === holding.symbol?.toUpperCase()) &&
+        d.status === 'PAID' &&
+        (d.paymentDate === todayStr || (d.id && d.id.includes(todayStr)))
+    )
+
+    if (alreadyClaimed) {
+      return {
+        success: false,
+        newLots: 0,
+        leftoverCash: 0,
+        totalDividend: 0,
+        message: `⚠️ Dividen DRIP ${cleanSym} sudah pernah diklaim hari ini. Setiap emiten hanya dapat diklaim 1x per periode distribusi.`,
+      }
+    }
+
     const totalShares = holding.shares || (holding.lots * SHARES_PER_LOT)
-    const totalDividend = totalShares * dps
+    const totalDividend = totalShares * effectiveDps
     const currentPrice = holding.currentPrice || holding.avgPrice || 1000
     const costPerLot = Math.max(1, currentPrice * SHARES_PER_LOT)
 
@@ -1660,17 +1794,17 @@ export const usePortfolioStore = create<PortfolioState>()(
     const leftoverCash = totalDividend - costUsed
 
     const record: DividendRecord = {
-      id: `div-drip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `div-drip-${todayStr}-${cleanSym}-${Date.now()}`,
       symbol: holding.symbol,
       displaySymbol: holding.displaySymbol,
       name: `${holding.name} (DRIP Reinvest)`,
-      dividendPerShare: dps,
+      dividendPerShare: effectiveDps,
       shares: totalShares,
       grossAmount: totalDividend,
       taxAmount: 0,
       netAmount: totalDividend,
-      cumDate: new Date().toISOString().split('T')[0],
-      paymentDate: new Date().toISOString().split('T')[0],
+      cumDate: divInfo?.cumDate || todayStr,
+      paymentDate: todayStr,
       status: 'PAID',
     }
 
@@ -1739,6 +1873,17 @@ export const usePortfolioStore = create<PortfolioState>()(
       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').trim().toUpperCase()
       const divInfo = KNOWN_DIVIDENDS[cleanSym]
       if (divInfo && divInfo.dps > 0 && h.lots > 0) {
+        // 🛡️ CEK ANTI-DUPLIKASI: Lewati jika sudah pernah diklaim periode ini
+        const alreadyClaimed = (dividends || []).some(
+          (d) =>
+            (d.displaySymbol?.toUpperCase() === cleanSym || d.symbol?.toUpperCase() === h.symbol?.toUpperCase()) &&
+            d.status === 'PAID' &&
+            (d.paymentDate === nowStr || d.cumDate === (divInfo.cumDate || nowStr))
+        )
+        if (alreadyClaimed) {
+          return h // Lewati!
+        }
+
         const totalShares = h.shares || (h.lots * SHARES_PER_LOT)
         const totalDividend = totalShares * divInfo.dps
         const currentPrice = h.currentPrice || h.avgPrice || 1000
@@ -1754,7 +1899,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         symbols.push(`${cleanSym} (+${newLots} lot)`)
 
         newRecords.push({
-          id: `div-drip-${Date.now()}-${cleanSym}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `div-drip-${nowStr}-${cleanSym}-${Date.now()}`,
           symbol: h.symbol,
           displaySymbol: h.displaySymbol || cleanSym,
           name: `${h.name} (DRIP Reinvest)`,

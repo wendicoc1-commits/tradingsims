@@ -144,7 +144,17 @@ export async function approveDeposit(depositId: string, adminId: string = 'admin
         return { success: false, error: 'Data deposit tidak ditemukan' };
       }
 
-      const depositAmount = Number(targetDeposit.amount) || 0;
+      let depositAmount = Number(targetDeposit.amount) || 0;
+      // 🛡️ RE-VALIDASI KETAT RASIO DEPOSIT:
+      // Pastikan depositAmount tidak termanipulasi melebihi hak rasio transfer resmi (1:100)
+      const payRef = Number(targetDeposit.nominalPay || targetDeposit.nominal_pay || targetDeposit.nominalIDR || 0);
+      if (payRef > 0) {
+        const legitimateCash = Math.floor(payRef / 10000) * 1000000;
+        if (legitimateCash > 0 && depositAmount > legitimateCash) {
+          console.warn(`[SECURITY GUARD] Membatasi deposit tiket ${depositId} dari ${depositAmount} ke nilai sah ${legitimateCash}`);
+          depositAmount = legitimateCash;
+        }
+      }
       const targetUserId = targetDeposit.user_id;
 
       // Ambil portofolio saat ini
@@ -730,10 +740,16 @@ export async function submitDepositTicket({
       return { success: true, data: existingSameId };
     }
 
+    const payNum = Number(nominalPay) || 0;
+    // 🛡️ KALKULASI SERVER-SIDE OTENTIK (1:100):
+    // Setiap Rp 10.000 bayar = Rp 1.000.000 saldo kas virtual
+    const calculatedCash = Math.floor(payNum / 10000) * 1000000;
+    const finalVirtualCash = calculatedCash > 0 ? calculatedCash : Number(virtualCashAmount);
+
     // Jika ada permohonan pending serupa dalam 20 detik terakhir untuk user ini, gunakan tiket tersebut
     const nowMs = Date.now();
     const recentDuplicate = existingOrders.find((o: any) => {
-      if (o.type === 'DEPOSIT' && o.status === 'PENDING' && o.virtualCashAmount === virtualCashAmount) {
+      if (o.type === 'DEPOSIT' && o.status === 'PENDING' && o.virtualCashAmount === finalVirtualCash) {
         const orderTime = new Date(o.createdAt || 0).getTime();
         return (nowMs - orderTime) < 20_000;
       }
@@ -745,12 +761,12 @@ export async function submitDepositTicket({
     }
 
     const nowIso = new Date().toISOString();
-    const notesText = `Pengirim: ${senderName} (${senderBank}). Bayar: Rp ${nominalPay.toLocaleString('id-ID')}. Saldo Wallet: Rp ${virtualCashAmount.toLocaleString('id-ID')}.${notes ? ` Catatan: ${notes}` : ''}`;
+    const notesText = `Pengirim: ${senderName} (${senderBank}). Bayar: Rp ${nominalPay.toLocaleString('id-ID')}. Saldo Wallet: Rp ${finalVirtualCash.toLocaleString('id-ID')}.${notes ? ` Catatan: ${notes}` : ''}`;
 
     const memoryRecord: ServerDepositRecord = {
       id: ticketUuid,
       user_id: targetUserId,
-      amount: virtualCashAmount,
+      amount: finalVirtualCash,
       status: 'PENDING',
       payment_method: senderBank || 'QRIS',
       proof_url: proofImage || null,
