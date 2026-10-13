@@ -9,6 +9,7 @@
 
 import { usePortfolioStore, useWatchlistStore } from '@/store';
 import { useAIAgentStore, type AIPriceAnalysis } from '@/store/aiAgentStore';
+import { useCryptoPriceStore } from '@/store/useCryptoPriceStore';
 import { scanUniverseForTopAlpha, selectDiversifiedCandidate, type StockAlphaEvaluation } from './autonomousStockPicker';
 import { computePositionSizing, roundTick, portfolioNav, type LiveQuote, type NewsItem, type PortfolioSnapshot } from './deskReports';
 import { getGroundedStockIntelligence } from '../agents/groundedStockIntelligence';
@@ -164,8 +165,27 @@ export async function runAutonomousAgentCycle(
     }));
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 0. SINKRONISASI HARGA PASAR SELURUH PORTOFOLIO DENGAN QUOTES REALTIME
+  // 0. SINKRONISASI HARGA PASAR SELURUH PORTOFOLIO DENGAN QUOTES REALTIME & WEBSOCKET BINANCE
   // ─────────────────────────────────────────────────────────────────────────────
+  const wsCryptoTickerMap = useCryptoPriceStore.getState().tickerMap || {};
+  for (const [wsSym, wsData] of Object.entries(wsCryptoTickerMap)) {
+    if (wsData && wsData.price > 0) {
+      const cleanCoin = wsSym.toUpperCase().replace(/USDT$/i, '');
+      const liveCryptoQuote: LiveQuote = {
+        symbol: cleanCoin,
+        price: wsData.price,
+        change: (wsData.price * (wsData.change24h || 0)) / 100,
+        changePct: wsData.change24h || 0,
+        high: wsData.high24h || wsData.price * 1.02,
+        low: wsData.low24h || wsData.price * 0.98,
+        open: wsData.price / (1 + (wsData.change24h || 0) / 100),
+        volume: parseFloat(wsData.volume24h || '0') || 0,
+      };
+      liveQuotesMap[cleanCoin] = liveCryptoQuote;
+      liveQuotesMap[`${cleanCoin}USDT`] = liveCryptoQuote;
+    }
+  }
+
   if (Object.keys(liveQuotesMap).length > 0) {
     const priceMap: Record<string, number> = {};
     for (const [ticker, q] of Object.entries(liveQuotesMap)) {
@@ -806,7 +826,11 @@ export async function runAutonomousAgentCycle(
         return { actionTaken, tradeExecuted: false, topPick };
       }
 
-      const intel = getGroundedStockIntelligence(target.symbol, liveQuotesMap[target.symbol]?.price);
+      const liveTargetPrice =
+        liveQuotesMap[target.symbol]?.price ||
+        liveQuotesMap[cleanSym]?.price ||
+        liveQuotesMap[`${cleanSym}USDT`]?.price;
+      const intel = getGroundedStockIntelligence(target.symbol, liveTargetPrice);
       const sizing = computePositionSizing(intel, snapshot);
 
       // 🛡️ SECTOR CONCENTRATION CHECK (Maksimal 30% NAV per sektor)
@@ -814,14 +838,16 @@ export async function runAutonomousAgentCycle(
       const currentSectorExp = sectorExposureOf(targetSector);
       
       // 🛡️ SLIPPAGE & LIQUIDITY FRICTION MODEL
+      const isTargetIdx = isIndonesianStock(target.symbol);
       const isLiquidBluechip = ['BBCA', 'BBRI', 'BMRI', 'TLKM', 'ASII', 'BTC', 'ETH', 'SOL'].includes(cleanSym);
-      const slippageRate = isLiquidBluechip ? 0.0015 : 0.0035; // 0.15% bluechip vs 0.35% mid/small-cap
-      const rawEntryPrice = sizing.entry;
-      const effectiveEntryPrice = isIndonesianStock(target.symbol)
+      const slippageRate = isTargetIdx ? (isLiquidBluechip ? 0.0015 : 0.0035) : 0; // Kripto & US dieksekusi tepat di harga pasar spot aktual
+      const rawEntryPrice = liveTargetPrice && liveTargetPrice > 0 ? liveTargetPrice : sizing.entry;
+      const foreignPrec = rawEntryPrice < 0.001 ? 8 : rawEntryPrice < 0.1 ? 6 : rawEntryPrice < 10 ? 4 : 2;
+      const effectiveEntryPrice = isTargetIdx
         ? roundTick(Math.round(rawEntryPrice * (1 + slippageRate)))
-        : Number((rawEntryPrice * (1 + slippageRate)).toFixed(4));
+        : Number(rawEntryPrice.toFixed(foreignPrec));
       sizing.entry = effectiveEntryPrice;
-      sizing.notional = Math.round(effectiveEntryPrice * (isIndonesianStock(target.symbol) ? sizing.lots * 100 : sizing.lots));
+      sizing.notional = Math.round(effectiveEntryPrice * (isTargetIdx ? sizing.lots * 100 : sizing.lots * 16000));
 
       // Hitung total biaya pembelian termasuk broker fee (0.15%)
       const totalBuyCost = Math.round(sizing.notional * 1.0015);

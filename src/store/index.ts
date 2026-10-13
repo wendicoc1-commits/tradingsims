@@ -647,9 +647,10 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
     }
 
-    let execPrice = price
-    // Validasi & sinkronisasi slippage nyata jika order MARKET (Pilar 5 Almgren-Chriss Impact)
-    if (orderType === 'MARKET') {
+    const adaptiveCryptoPrec = price < 0.001 ? 8 : price < 0.1 ? 6 : price < 10 ? 4 : 2
+    let execPrice = isCrypto ? Number(price.toFixed(adaptiveCryptoPrec)) : price
+    // Validasi & sinkronisasi slippage nyata jika order MARKET untuk saham (Pilar 5 Almgren-Chriss Impact)
+    if (orderType === 'MARKET' && !isCrypto) {
       const impact = calculateRealisticExecutionPrice(price, lots, cleanSym, 'MARKET', false)
       execPrice = impact.executedPrice
     } else if (isIDX) {
@@ -756,6 +757,7 @@ export const usePortfolioStore = create<PortfolioState>()(
 
     let updatedHoldings: PortfolioHolding[]
     const isForeign = isCrypto || isUS
+    const foreignPrec = isCrypto ? adaptiveCryptoPrec : 2
 
     if (existingHoldingIndex >= 0) {
       const existing = holdings[existingHoldingIndex]
@@ -769,7 +771,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       const newPurchaseCost = tradeValue + brokerFee
 
       const newAvgPrice = isForeign
-        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(execPrice < 0.01 ? 8 : (isCrypto ? 4 : 2)))
+        ? Number(((existing.avgPrice * existingShares + execPrice * totalShares) / newTotalShares).toFixed(foreignPrec))
         : Math.round((existingTotalCost + newPurchaseCost) / newTotalShares)
 
       const unrealizedPL = isForeign
@@ -800,7 +802,7 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
     } else {
       const initialAvgPrice = isForeign
-        ? Number((execPrice * 1.0015).toFixed(execPrice < 1 ? 6 : 2))
+        ? Number(execPrice.toFixed(foreignPrec))
         : Number(((tradeValue + brokerFee) / totalShares).toFixed(2))
       const unrealizedPL = isForeign
         ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
@@ -827,7 +829,7 @@ export const usePortfolioStore = create<PortfolioState>()(
         peakPrice: execPrice,
         trailingStopPct: isCrypto ? 8 : 6, // 8% untuk volatilitas kripto, 6% untuk saham
         trailingStopPrice: isCrypto
-          ? Number((execPrice * 0.92).toFixed(execPrice < 0.01 ? 8 : 4))
+          ? Number((execPrice * 0.92).toFixed(foreignPrec))
           : isUS
           ? Number((execPrice * 0.94).toFixed(2))
           : Math.round(execPrice * 0.94),
@@ -1404,26 +1406,49 @@ export const usePortfolioStore = create<PortfolioState>()(
 
           // Proteksi dua arah untuk crypto:
           if (isCrypto && newPrice > 0) {
-            const prec = newPrice < 0.00001 ? 8 : newPrice < 0.01 ? 6 : newPrice < 1 ? 4 : 2
+            const prec = newPrice < 0.001 ? 8 : newPrice < 0.1 ? 6 : newPrice < 10 ? 4 : 2
+            const bench = getVerifiedBenchmarkPrice(`${clean}USDT`)
+            const benchPrice = bench?.price || 0
+            const isRecentAIBuy = holding.source === 'AI_AGENT' && holding.lastBoughtAt && (Date.now() - holding.lastBoughtAt < 90_000)
+            const isTruncatedMicroCoin =
+              newPrice < 0.05 &&
+              effectiveAvgPrice > newPrice * 1.015 &&
+              (Math.abs(Number(newPrice.toFixed(6)) - effectiveAvgPrice) <= 0.000001 ||
+                Math.abs(Number(newPrice.toFixed(4)) - effectiveAvgPrice) <= 0.0001)
+            const isStaleBenchmarkEntry =
+              benchPrice > 0 &&
+              Math.abs(effectiveAvgPrice - benchPrice) / benchPrice < 0.006 &&
+              Math.abs(newPrice - benchPrice) / benchPrice > 0.02
+
             // Kasus 1: avgPrice format IDR (> 100x newPrice)
             if (effectiveAvgPrice > newPrice * 100) {
               const p = effectiveAvgPrice / 16000
               if (p >= newPrice * 0.2 && p <= newPrice * 5) {
                 effectiveAvgPrice = Number(p.toFixed(prec))
               } else {
-                effectiveAvgPrice = newPrice
+                effectiveAvgPrice = Number(newPrice.toFixed(prec))
               }
               wasHealed = true
             } else if (effectiveAvgPrice <= 0.0000000001 || newPrice > effectiveAvgPrice * 50) {
               // Kasus 2: avgPrice terpotong/0 sehingga memicu cuan ratusan ribu %
-              effectiveAvgPrice = newPrice
+              effectiveAvgPrice = Number(newPrice.toFixed(prec))
+              wasHealed = true
+            } else if (
+              isTruncatedMicroCoin ||
+              isStaleBenchmarkEntry ||
+              (isRecentAIBuy && effectiveAvgPrice > newPrice * 1.02)
+            ) {
+              // Kasus 3: avgPrice terpotong pembulatan .toFixed(4)/.toFixed(6) atau tereksekusi di harga benchmark statis sebelum harga WebSocket masuk
+              effectiveAvgPrice = Number(newPrice.toFixed(prec))
+              effectiveTakeProfit = Number((effectiveAvgPrice * 1.15).toFixed(prec))
+              effectiveStopLoss = Number((effectiveAvgPrice * 0.94).toFixed(prec))
               wasHealed = true
             }
           }
 
           // Deteksi & kalibrasi target TP / SL anomali kripto (kebocoran target harga saham IDR seperti 3640 ke kripto):
           if (isCrypto && newPrice > 0) {
-            const prec = newPrice < 0.00001 ? 8 : newPrice < 0.01 ? 6 : newPrice < 1 ? 4 : 2
+            const prec = newPrice < 0.001 ? 8 : newPrice < 0.1 ? 6 : newPrice < 10 ? 4 : 2
             if (effectiveTakeProfit && (effectiveTakeProfit > newPrice * 2.5 || (newPrice < 100 && effectiveTakeProfit >= 500))) {
               effectiveTakeProfit = Number((newPrice * 1.15).toFixed(prec))
               wasHealed = true

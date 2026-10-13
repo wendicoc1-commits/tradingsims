@@ -232,7 +232,9 @@ export class TieredCognitivePipeline {
     const approvalRatio = approveVotes / 3;
     const quorumPassed = approvalRatio >= 2 / 3 && riskVote !== 'VETO';
 
-    const finalLots = Math.max(1, Math.round(proposal.targetLots * suggestedClamp));
+    const finalLots = proposal.isCrypto
+      ? Math.max(0.0001, Number((proposal.targetLots * suggestedClamp).toFixed(4)))
+      : Math.max(1, Math.round(proposal.targetLots * suggestedClamp));
 
     const result: TieredEvaluationResult = {
       approved: quorumPassed,

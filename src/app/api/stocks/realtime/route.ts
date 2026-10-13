@@ -95,11 +95,24 @@ export function classifySymbolMarket(rawTicker: string): {
   }
 
   if (isExplicitCrypto || CRYPTO_SYMBOLS.has(cleanCryptoKey)) {
+    const YAHOO_CRYPTO_MAP: Record<string, string> = {
+      PEPE: 'PEPE24478-USD',
+      SUI: 'SUI20947-USD',
+      APT: 'APT21794-USD',
+      ARB: 'ARB11841-USD',
+      TAO: 'TAO22974-USD',
+      RENDER: 'RNDR-USD',
+      TI: 'TIA22861-USD',
+      TIA: 'TIA22861-USD',
+      SEI: 'SEI23149-USD',
+      WIF: 'WIF28752-USD',
+      BONK: 'BONK-USD',
+    };
     return {
       canonicalKey: `CRYPTO:${cleanCryptoKey}`,
       clean,
       cleanCryptoKey,
-      yahooSymbol: `${cleanCryptoKey}-USD`,
+      yahooSymbol: YAHOO_CRYPTO_MAP[cleanCryptoKey] || `${cleanCryptoKey}-USD`,
       marketType: 'CRYPTO',
     };
   }
@@ -187,21 +200,21 @@ async function fetchUpstreamQuoteRaw(symbol: string): Promise<LiveStockQuote | n
   const isCrypto = marketType === 'CRYPTO';
   const isIDX = marketType === 'IDX';
 
-  // 1. For crypto, try Binance server-side REST API first (fast & accurate)
+  // 1. For crypto, try Binance server-side REST API first (starting with data-api.binance.vision which is never geo-blocked on US VPS IPs)
   if (isCrypto) {
-    try {
-      const binancePair = `${cleanCryptoKey}USDT`;
-      let bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binancePair}`, {
-        headers: { Accept: 'application/json' },
-        next: { revalidate: 5 },
-      });
-      if (!bRes.ok) {
-        bRes = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${binancePair}`, {
+    const binancePair = `${cleanCryptoKey}USDT`;
+    const binanceEndpoints = [
+      `https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${binancePair}`,
+      `https://api.binance.com/api/v3/ticker/24hr?symbol=${binancePair}`,
+      `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${binancePair}`,
+    ];
+    for (const bUrl of binanceEndpoints) {
+      try {
+        const bRes = await fetch(bUrl, {
           headers: { Accept: 'application/json' },
           next: { revalidate: 5 },
         });
-      }
-      if (bRes.ok) {
+        if (!bRes.ok) continue;
         const bData = await bRes.json();
         const curPrice = parseFloat(bData.lastPrice);
         const changePct = parseFloat(bData.priceChangePercent);
@@ -226,9 +239,9 @@ async function fetchUpstreamQuoteRaw(symbol: string): Promise<LiveStockQuote | n
             live: true,
           };
         }
+      } catch {
+        // Try next Binance endpoint
       }
-    } catch {
-      // Binance server-side fetch failed, proceed to Yahoo Finance
     }
   }
 
@@ -259,6 +272,14 @@ async function fetchUpstreamQuoteRaw(symbol: string): Promise<LiveStockQuote | n
       const meta = result.meta;
       const currentPrice = meta.regularMarketPrice ?? meta.previousClose ?? 0;
       if (currentPrice <= 0) continue;
+
+      // For crypto, guard against ambiguous Yahoo tickers returning a completely unrelated equity/token price
+      if (isCrypto) {
+        const bench = getVerifiedBenchmarkPrice(cleanCryptoKey);
+        if (bench.price > 0 && (currentPrice > bench.price * 6 || currentPrice < bench.price * 0.15)) {
+          continue;
+        }
+      }
 
       const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? currentPrice;
       const changePoint = currentPrice - prevClose;

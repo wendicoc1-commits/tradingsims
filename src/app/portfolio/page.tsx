@@ -645,15 +645,20 @@ export default function PortfolioPage() {
         const raw = await fetchBatchQuotes(symbols).catch(() => null);
         const quotesList = Array.isArray(raw) ? raw : (raw as any)?.quotes || [];
         const map: Record<string, number> = {};
+        const liveWsCryptoMap = useCryptoPriceStore.getState().tickerMap || {};
         quotesList.forEach((q: any) => {
           if (q?.price > 0) {
-            map[q.symbol] = q.price;
-            map[q.displaySymbol] = q.price;
             const clean = (q.displaySymbol || q.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-            map[clean] = q.price;
-            map[`${clean}.JK`] = q.price;
+            const wsCrypto = liveWsCryptoMap[clean] || liveWsCryptoMap[`${clean}USDT`];
+            const effectivePrice = (isCryptoSymbol(clean) || q.symbol?.endsWith('USDT')) && wsCrypto?.price > 0
+              ? wsCrypto.price
+              : q.price;
+            map[q.symbol] = effectivePrice;
+            map[q.displaySymbol] = effectivePrice;
+            map[clean] = effectivePrice;
+            map[`${clean}.JK`] = effectivePrice;
             if (q.symbol.endsWith('USDT')) {
-              map[q.symbol.replace(/USDT$/, '')] = q.price;
+              map[q.symbol.replace(/USDT$/, '')] = effectivePrice;
             }
           }
         });

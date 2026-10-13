@@ -107,8 +107,11 @@ function short(s: string, n = 84): string {
 
 export function roundTick(p: number): number {
   if (p <= 0) return 0;
-  // Jika harga desimal kecil (kripto / pecahan dolar), jangan dibulatkan dengan fraksi rupiah BEI
-  if (p < 50) return Number(p.toFixed(p < 1 ? 6 : 2));
+  // Jika harga desimal kecil (kripto / pecahan dolar), gunakan presisi adaptif hingga 8 desimal
+  if (p < 50) {
+    const prec = p < 0.001 ? 8 : p < 0.1 ? 6 : p < 10 ? 4 : 2;
+    return Number(p.toFixed(prec));
+  }
   const tick = p > 5000 ? 25 : p > 2000 ? 10 : p > 500 ? 5 : p > 200 ? 2 : 1;
   return Math.max(tick, Math.round(p / tick) * tick);
 }
@@ -201,8 +204,9 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const rr = intel.technicals.suggestedRiskReward;
   const nav = Math.max(10_000_000, portfolioNav(portfolio));
   const isIDR = intel.currency === 'IDR';
-  const rawEntry = rr.entry || intel.currentPrice || 100;
-  const entry = isIDR ? roundTick(rawEntry) : (rawEntry < 50 ? Number(rawEntry.toFixed(rawEntry < 1 ? 6 : 2)) : Number(rawEntry.toFixed(2)));
+  const rawEntry = intel.currentPrice || rr.entry || 100;
+  const prec = rawEntry < 0.001 ? 8 : rawEntry < 0.1 ? 6 : rawEntry < 10 ? 4 : 2;
+  const entry = isIDR ? roundTick(rawEntry) : Number(rawEntry.toFixed(prec));
   // Ambil parameter risiko manual yang ditentukan pengguna dari aiAgentStore
   let userTpPct = 10;
   let userSlPct = 5;
@@ -226,12 +230,12 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const rawTp = (rr.tp1 && rr.tp1 >= entry * (1 + (userTpPct * 0.7) / 100))
     ? rr.tp1
     : (isIDR ? Math.round(entry * defaultTpDistance) : entry * defaultTpDistance);
-  const stop = isIDR ? roundTick(rawStop) : (rawStop < 50 ? Number(rawStop.toFixed(rawStop < 1 ? 6 : 2)) : Number(rawStop.toFixed(2)));
-  const takeProfit = isIDR ? roundTick(rawTp) : (rawTp < 50 ? Number(rawTp.toFixed(rawTp < 1 ? 6 : 2)) : Number(rawTp.toFixed(2)));
+  const stop = isIDR ? roundTick(rawStop) : Number(rawStop.toFixed(prec));
+  const takeProfit = isIDR ? roundTick(rawTp) : Number(rawTp.toFixed(prec));
 
   const rate = isIDR ? 1 : 16000;
   const unitCostIDR = isIDR ? entry * 100 : entry * rate; // Biaya per 1 lot IDX (100 lembar) atau per 1 unit koin/shares US
-  const riskPerUnit = Math.max(0.0001, entry - stop);
+  const riskPerUnit = isIDR ? Math.max(1, entry - stop) : Math.max(entry * 0.01, entry - stop);
   const riskPerUnitIDR = isIDR ? riskPerUnit * 100 : riskPerUnit * rate;
 
   // Proteksi Kas Minimum Bot AI (Rp 1.000.000):
@@ -255,17 +259,24 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
   const availableTradingCash = Math.max(0, portfolio.cash - MIN_BOT_CASH_RESERVE);
 
   // Batas alokasi risiko: 1% NAV
-  const riskBudget = Math.max(nav * 0.01, unitCostIDR);
-  let lots = Math.max(isIDR ? 1 : 0.01, Math.floor(riskBudget / riskPerUnitIDR));
-  if (isIDR) lots = Math.max(1, lots);
+  const riskBudget = Math.max(nav * 0.01, isIDR ? unitCostIDR : Math.min(2_500_000, availableTradingCash * 0.1));
+  let lots = isIDR
+    ? Math.max(1, Math.floor(riskBudget / riskPerUnitIDR))
+    : Number((riskBudget / Math.max(1, riskPerUnitIDR)).toFixed(6));
 
-  const maxByCash = unitCostIDR > 0 ? Math.floor(availableTradingCash / (unitCostIDR * 1.0015)) : 0;
-  if (maxByCash >= (isIDR ? 1 : 0.01)) {
-    lots = Math.max(isIDR ? 1 : 0.01, Math.min(lots, maxByCash));
+  // Untuk aset kripto/US pecahan, batasi per-trade maksimal 15% kas aktif agar terdiversifikasi
+  const maxTradeCashBudget = isIDR ? availableTradingCash : Math.min(availableTradingCash, Math.max(1_000_000, availableTradingCash * 0.15));
+  const maxByCash = unitCostIDR > 0
+    ? (isIDR ? Math.floor(maxTradeCashBudget / (unitCostIDR * 1.0015)) : Number((maxTradeCashBudget / (unitCostIDR * 1.0015)).toFixed(6)))
+    : 0;
+
+  const minRequiredUnits = isIDR ? 1 : Number((500_000 / Math.max(1, unitCostIDR)).toFixed(6));
+  if (maxByCash >= minRequiredUnits && maxByCash > 0) {
+    lots = Math.max(minRequiredUnits, Math.min(lots, maxByCash));
   } else {
     return {
       ok: false,
-      reason: `Sisa kas yang dapat digunakan setelah cadangan Rp 1.000.000 tidak mencukupi untuk membeli 1 ${isIDR ? 'lot' : 'unit'} (Butuh Rp ${Math.round(unitCostIDR * 1.0015).toLocaleString('id-ID')}, tersedia Rp ${Math.round(availableTradingCash).toLocaleString('id-ID')}).`,
+      reason: `Sisa kas yang dapat digunakan setelah cadangan Rp 1.000.000 tidak mencukupi untuk membeli ${isIDR ? '1 lot' : 'minimal Rp 500.000'} (Tersedia Rp ${Math.round(availableTradingCash).toLocaleString('id-ID')}).`,
       entry,
       stop,
       takeProfit,
@@ -284,7 +295,7 @@ export function computePositionSizing(intel: GroundedStockIntelligence, portfoli
     entry,
     stop,
     takeProfit,
-    lots: isIDR ? Math.max(1, Math.round(lots)) : Number(lots.toFixed(entry < 1 ? 6 : 2)),
+    lots: isIDR ? Math.max(1, Math.round(lots)) : Number(lots.toFixed(6)),
     riskIdr: Math.round(lots * riskPerUnitIDR),
     notional: notionalIDR,
     navUsed: nav,
