@@ -1354,14 +1354,31 @@ export const usePortfolioStore = create<PortfolioState>()(
         })
         .map((holding) => {
           const clean = (holding.displaySymbol || holding.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
-          const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || isCryptoSymbol(clean)
+          const isCrypto = holding.assetClass === 'CRYPTO' || holding.symbol.endsWith('USDT') || holding.currency === 'USDT' || isCryptoSymbol(clean)
           const KNOWN_US = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR']
           const isUS = !isCrypto && (holding.currency === 'USD' || holding.assetClass === 'US' || isUSSymbol(clean) || KNOWN_US.includes(clean))
-          let candidatePrice =
-            priceMap[holding.symbol] ??
-            priceMap[clean] ??
-            priceMap[`${clean}USDT`] ??
-            holding.currentPrice
+
+          let candidatePrice: number | undefined
+          if (isCrypto) {
+            candidatePrice =
+              priceMap[`${clean}USDT`] ??
+              priceMap[holding.symbol] ??
+              priceMap[clean]
+          } else if (isUS) {
+            candidatePrice =
+              priceMap[clean] ??
+              priceMap[holding.symbol]
+          } else {
+            // Saham Indonesia (IDX): prioritaskan kunci eksplisit .JK, JANGAN PERNAH membaca kunci USDT!
+            candidatePrice =
+              priceMap[`${clean}.JK`] ??
+              priceMap[holding.symbol] ??
+              priceMap[clean]
+            // Proteksi anti-collision: Saham IDX (IDR >= Rp 50) tidak boleh tertimpa harga pecahan USD/Crypto (< 50)
+            if (candidatePrice !== undefined && holding.currentPrice >= 50 && candidatePrice < 50) {
+              candidatePrice = holding.currentPrice
+            }
+          }
 
           // Proteksi: jika candidatePrice adalah angka IDR ribuan padahal crypto, konversi ke USD
           // Hati-hati: BTC ($81,000), ETH ($2,450), MKR ($1,789), BNB ($585) adalah harga USD riil > 500!

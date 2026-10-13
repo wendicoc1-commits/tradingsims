@@ -168,26 +168,30 @@ export async function runAutonomousCryptoAgentCycle(
   const exchangeRate = 16000; // Kurs acuan USDT/IDR
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 0. SINKRONISASI HARGA PASAR SELURUH HOLDING CRYPTO
+  // 0. SINKRONISASI HARGA PASAR KHUSUS HOLDING CRYPTO (ANTI-COLLISION DENGAN SAHAM)
   // ─────────────────────────────────────────────────────────────────────────────
-  if (Object.keys(tickerMap).length > 0) {
+  const cryptoHoldings = portfolioStore.holdings.filter(
+    (h) => h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT'
+  );
+
+  if (Object.keys(tickerMap).length > 0 && cryptoHoldings.length > 0) {
     const priceMap: Record<string, number> = {};
-    for (const [sym, t] of Object.entries(tickerMap)) {
-      if (t?.price > 0) {
-        priceMap[sym] = t.price;
-        const clean = sym.replace(/USDT$/i, '');
-        priceMap[clean] = t.price;
+    for (const h of cryptoHoldings) {
+      const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const live = tickerMap[`${clean}USDT`] || tickerMap[clean] || tickerMap[h.symbol];
+      if (live && live.price > 0) {
+        priceMap[`${clean}USDT`] = live.price;
+        priceMap[h.symbol] = live.price;
       }
     }
-    portfolioStore.updateHoldingPrices(priceMap);
+    if (Object.keys(priceMap).length > 0) {
+      portfolioStore.updateHoldingPrices(priceMap);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. MONITORING TAKE PROFIT & STOP LOSS PADA HOLDING CRYPTO AKTIF
   // ─────────────────────────────────────────────────────────────────────────────
-  const cryptoHoldings = portfolioStore.holdings.filter(
-    (h) => h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT')
-  );
 
   for (const holding of cryptoHoldings) {
     // 0. Jangan sentuh koin yang dibeli manual oleh pengguna (source === 'USER')

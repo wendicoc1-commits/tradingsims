@@ -72,6 +72,21 @@ export const IDX_BENCHMARK_PRICES: Record<string, IDXStockBenchmark> = {
   INKP: { ticker: 'INKP', name: 'Indah Kiat Pulp & Paper Tbk', sector: 'Basic Materials', price: 8450, currency: 'IDR', prevClose: 8150, changePct: 3.68 },
   TKIM: { ticker: 'TKIM', name: 'Pabrik Kertas Tjiwi Kimia Tbk', sector: 'Basic Materials', price: 7400, currency: 'IDR', prevClose: 7200, changePct: 2.78 },
 
+  // Digital Banks, Infrastructure, Renewables, Retail & High-Liquidity Universe Leaders
+  ARTO: { ticker: 'ARTO', name: 'Bank Jago Tbk', sector: 'Financials', price: 2450, currency: 'IDR', prevClose: 2400, changePct: 2.08 },
+  ENRG: { ticker: 'ENRG', name: 'Energi Mega Persada Tbk', sector: 'Energy', price: 230, currency: 'IDR', prevClose: 226, changePct: 1.77 },
+  PGEO: { ticker: 'PGEO', name: 'Pertamina Geothermal Energy Tbk', sector: 'Utilities', price: 1145, currency: 'IDR', prevClose: 1130, changePct: 1.33 },
+  TOWR: { ticker: 'TOWR', name: 'Sarana Menara Nusantara Tbk', sector: 'Infrastructures', price: 795, currency: 'IDR', prevClose: 785, changePct: 1.27 },
+  TBIG: { ticker: 'TBIG', name: 'Tower Bersama Infrastructure Tbk', sector: 'Infrastructures', price: 1950, currency: 'IDR', prevClose: 1935, changePct: 0.78 },
+  JSMR: { ticker: 'JSMR', name: 'Jasa Marga (Persero) Tbk', sector: 'Infrastructures', price: 4850, currency: 'IDR', prevClose: 4800, changePct: 1.04 },
+  CUAN: { ticker: 'CUAN', name: 'Petrindo Jaya Kreasi Tbk', sector: 'Energy', price: 12150, currency: 'IDR', prevClose: 11900, changePct: 2.10 },
+  PTRO: { ticker: 'PTRO', name: 'Petrosea Tbk', sector: 'Energy', price: 18500, currency: 'IDR', prevClose: 18100, changePct: 2.21 },
+  PANI: { ticker: 'PANI', name: 'Pantai Indah Kapuk Dua Tbk', sector: 'Properties', price: 14200, currency: 'IDR', prevClose: 13950, changePct: 1.79 },
+  MBMA: { ticker: 'MBMA', name: 'Merdeka Battery Materials Tbk', sector: 'Basic Materials', price: 545, currency: 'IDR', prevClose: 535, changePct: 1.87 },
+  NCKL: { ticker: 'NCKL', name: 'Trimegah Bangun Persada Tbk', sector: 'Basic Materials', price: 915, currency: 'IDR', prevClose: 900, changePct: 1.67 },
+  ACES: { ticker: 'ACES', name: 'Aspirasi Hidup Indonesia Tbk', sector: 'Consumer Cyclicals', price: 845, currency: 'IDR', prevClose: 830, changePct: 1.81 },
+  MAPI: { ticker: 'MAPI', name: 'Mitra Adiperkasa Tbk', sector: 'Consumer Cyclicals', price: 1470, currency: 'IDR', prevClose: 1450, changePct: 1.38 },
+
   // Indices
   '^JKSE': { ticker: '^JKSE', name: 'IHSG (Indeks Harga Saham Gabungan)', sector: 'Index', price: 6093.76, currency: 'IDR', prevClose: 6031.29, changePct: 1.04 },
   JKSE: { ticker: 'JKSE', name: 'IHSG (Indeks Harga Saham Gabungan)', sector: 'Index', price: 6093.76, currency: 'IDR', prevClose: 6031.29, changePct: 1.04 },
@@ -79,6 +94,41 @@ export const IDX_BENCHMARK_PRICES: Record<string, IDXStockBenchmark> = {
 };
 
 import { MASTER_GLOBAL_CRYPTO, MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
+import { ALL_ID_HEATMAP_UNIVERSE } from '@/data/heatmap_stocks_universe';
+import idxDividendJson from '@/data/idx_dividend_all.json';
+
+// Populate any additional stocks from ALL_ID_HEATMAP_UNIVERSE into IDX_BENCHMARK_PRICES so all heatmaps & benchmarks share 100% identical numbers
+for (const h of ALL_ID_HEATMAP_UNIVERSE) {
+  const code = h.displaySymbol.toUpperCase().trim();
+  if (!IDX_BENCHMARK_PRICES[code] && h.price > 0) {
+    const prevClose = Math.max(1, Math.round(h.price / (1 + (h.change1D || 0) / 100)));
+    IDX_BENCHMARK_PRICES[code] = {
+      ticker: code,
+      name: h.name,
+      sector: h.sector,
+      price: h.price,
+      currency: 'IDR',
+      prevClose,
+      changePct: h.change1D || 0,
+    };
+  }
+}
+
+// Build O(1) fallback lookup from idx_dividend_all.json so masterAssetUniverse and getVerifiedBenchmarkPrice never diverge
+const IDX_DIVIDEND_FALLBACK_MAP = new Map<string, { price: number; name: string; sector: string }>();
+for (const item of idxDividendJson as any[]) {
+  const code = (item.code || '').toUpperCase().trim();
+  if (!code) continue;
+  const computedPrice =
+    item.dps && item.yield && item.yield > 0
+      ? Math.round((item.dps / item.yield) * 100)
+      : 1000;
+  IDX_DIVIDEND_FALLBACK_MAP.set(code, {
+    price: computedPrice > 0 ? computedPrice : 1000,
+    name: item.name || `${code} Tbk`,
+    sector: item.sector || 'Equities',
+  });
+}
 
 export const CRYPTO_BENCHMARK_PRICES: Record<string, { price: number; name: string }> = {};
 for (const c of MASTER_GLOBAL_CRYPTO) {
@@ -129,12 +179,16 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
       const b = IDX_BENCHMARK_PRICES[clean] || IDX_BENCHMARK_PRICES[`^${clean}`];
       return { price: b.price, currency: b.currency, name: b.name };
     }
+    if (IDX_DIVIDEND_FALLBACK_MAP.has(clean)) {
+      const d = IDX_DIVIDEND_FALLBACK_MAP.get(clean)!;
+      return { price: d.price, currency: 'IDR', name: d.name };
+    }
   }
 
   // 1. Check Crypto benchmarks (e.g. BTC, BTCUSDT, BTC-USD)
   const isExplicitCrypto = ticker.toUpperCase().endsWith('USDT') || ticker.toUpperCase().endsWith('-USD');
   const cryptoKey = clean.replace(/USDT$/, '').replace(/-USD$/, '');
-  if (CRYPTO_BENCHMARK_PRICES[cryptoKey] || CRYPTO_BENCHMARK_PRICES[clean]) {
+  if (!isExplicitJK && (CRYPTO_BENCHMARK_PRICES[cryptoKey] || CRYPTO_BENCHMARK_PRICES[clean])) {
     const c = CRYPTO_BENCHMARK_PRICES[cryptoKey] || CRYPTO_BENCHMARK_PRICES[clean];
     return { price: c.price, currency: 'USD', name: c.name };
   }
@@ -157,6 +211,10 @@ export function getVerifiedBenchmarkPrice(ticker: string): { price: number; curr
   if (IDX_BENCHMARK_PRICES[`^${clean}`]) {
     const b = IDX_BENCHMARK_PRICES[`^${clean}`];
     return { price: b.price, currency: b.currency, name: b.name };
+  }
+  if (IDX_DIVIDEND_FALLBACK_MAP.has(clean)) {
+    const d = IDX_DIVIDEND_FALLBACK_MAP.get(clean)!;
+    return { price: d.price, currency: 'IDR', name: d.name };
   }
 
   // 4. Heuristic for unknown Indonesian ticker (typical 4 uppercase letters, only if clearly not crypto or foreign)

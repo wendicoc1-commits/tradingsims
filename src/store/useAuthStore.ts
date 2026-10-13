@@ -661,12 +661,31 @@ export const useAuthStore = create<AuthState>()(
                   (!localPort.holdings || localPort.holdings.length === 0) &&
                   (!localPort.orders || localPort.orders.length === 0);
 
+                // Helper untuk mempertahankan currentPrice live di memori agar tidak melompat balik ke harga lama di database
+                const mergeLivePrices = (incomingHoldings: any[]) => {
+                  if (!Array.isArray(incomingHoldings)) return [];
+                  const localMap = new Map<string, number>();
+                  for (const lh of localPort.holdings || []) {
+                    if (lh && lh.currentPrice > 0) {
+                      const k = (lh.displaySymbol || lh.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      localMap.set(`${lh.assetClass || ''}:${k}`, lh.currentPrice);
+                      localMap.set(lh.symbol, lh.currentPrice);
+                    }
+                  }
+                  return incomingHoldings.map((ih) => {
+                    if (!ih) return ih;
+                    const k = (ih.displaySymbol || ih.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                    const liveP = localMap.get(`${ih.assetClass || ''}:${k}`) ?? localMap.get(ih.symbol);
+                    return liveP && liveP > 0 ? { ...ih, currentPrice: liveP } : ih;
+                  });
+                };
+
                 // Hanya timpa memori lokal jika data cloud lebih baru atau data lokal masih kosong
                 if (isLocalEmpty || cloudUpdated >= localUpdated) {
                   usePortfolioStore.setState({
                     cash: typeof sPort.cash === 'number' ? sPort.cash : 0,
                     realizedPL: sPort.realizedPL || 0,
-                    holdings: sanitizeHoldings(Array.isArray(sPort.holdings) ? sPort.holdings : []),
+                    holdings: sanitizeHoldings(mergeLivePrices(Array.isArray(sPort.holdings) ? sPort.holdings : [])),
                     orders: Array.isArray(sPort.orders) ? sPort.orders : [],
                     conditionalOrders: Array.isArray(sPort.conditionalOrders) ? sPort.conditionalOrders : [],
                     dividends: Array.isArray(sPort.dividends) ? sPort.dividends : [],
@@ -698,11 +717,29 @@ export const useAuthStore = create<AuthState>()(
                   const localUpdated = Number(localPort.lastUpdated) || 0;
                   const isLocalEmpty = (localPort.cash === 0 || typeof localPort.cash !== 'number') && (!localPort.holdings || localPort.holdings.length === 0);
 
+                  const mergeLivePrices = (incomingHoldings: any[]) => {
+                    if (!Array.isArray(incomingHoldings)) return [];
+                    const localMap = new Map<string, number>();
+                    for (const lh of localPort.holdings || []) {
+                      if (lh && lh.currentPrice > 0) {
+                        const k = (lh.displaySymbol || lh.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                        localMap.set(`${lh.assetClass || ''}:${k}`, lh.currentPrice);
+                        localMap.set(lh.symbol, lh.currentPrice);
+                      }
+                    }
+                    return incomingHoldings.map((ih) => {
+                      if (!ih) return ih;
+                      const k = (ih.displaySymbol || ih.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      const liveP = localMap.get(`${ih.assetClass || ''}:${k}`) ?? localMap.get(ih.symbol);
+                      return liveP && liveP > 0 ? { ...ih, currentPrice: liveP } : ih;
+                    });
+                  };
+
                   if (isLocalEmpty || cloudUpdated >= localUpdated) {
                     usePortfolioStore.setState({
                       cash: Number(cloudPort.cash) || 0,
                       realizedPL: Number(cloudPort.realized_pl || 0),
-                      holdings: sanitizeHoldings(Array.isArray(cloudPort.holdings) ? cloudPort.holdings : []),
+                      holdings: sanitizeHoldings(mergeLivePrices(Array.isArray(cloudPort.holdings) ? cloudPort.holdings : [])),
                       orders: Array.isArray(cloudPort.orders) ? cloudPort.orders : [],
                       conditionalOrders: Array.isArray(cloudPort.conditional_orders) ? cloudPort.conditional_orders : [],
                       dividends: Array.isArray(cloudPort.dividends) ? cloudPort.dividends : [],
