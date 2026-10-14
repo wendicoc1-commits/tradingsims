@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { MessageSquare, Star, ShieldCheck, TrendingUp, Award, CheckCircle2 } from 'lucide-react';
 
 interface Testimonial {
@@ -75,13 +74,9 @@ export const Testimonials: React.FC = () => {
         {/* Testimonials Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {testimonials.map((t, idx) => (
-            <motion.div
+            <div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.1 }}
-              className="relative rounded-2xl border border-white/10 bg-[#06080E]/80 backdrop-blur-md p-6 sm:p-7 flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-300 group shadow-xl"
+              className="relative rounded-2xl border border-white/10 bg-[#06080E]/80 backdrop-blur-md p-6 sm:p-7 flex flex-col justify-between hover:border-emerald-500/30 hover:scale-[1.01] transition-all duration-300 group shadow-xl"
             >
               {/* Tech corner accent */}
               <div className="absolute top-2 right-3 font-mono text-[9px] text-zinc-600 group-hover:text-cyan-400/60 transition-colors">
@@ -135,7 +130,7 @@ export const Testimonials: React.FC = () => {
                   {t.verifiedBadge}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

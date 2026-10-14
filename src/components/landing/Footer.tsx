@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Terminal, ArrowRight, Shield, Zap, Sparkles, Check, Globe, Lock } from 'lucide-react';
 
 interface FooterProps {

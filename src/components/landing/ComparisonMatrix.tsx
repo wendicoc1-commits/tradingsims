@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { Check, X, ShieldAlert, Zap, Terminal, Sparkles, TrendingUp, Layers } from 'lucide-react';
 
 interface ComparisonFeature {
@@ -120,13 +119,9 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onLaunchTerm
           {/* Table Rows */}
           <div className="divide-y divide-white/5 font-mono text-xs sm:text-sm">
             {features.map((feature, idx) => (
-              <motion.div
+              <div
                 key={idx}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: idx * 0.04 }}
-                className={`grid grid-cols-12 items-center p-4 sm:p-5 transition-colors hover:bg-white/[0.02] ${
+                className={`grid grid-cols-12 items-center p-4 sm:p-5 transition-colors hover:bg-white/[0.04] ${
                   feature.highlight ? 'bg-emerald-500/[0.02]' : ''
                 }`}
               >
@@ -166,7 +161,7 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onLaunchTerm
                     </span>
                   )}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
 
