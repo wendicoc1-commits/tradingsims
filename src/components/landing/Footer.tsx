@@ -206,6 +206,16 @@ export const Footer: React.FC<FooterProps> = ({ onLaunchTerminal, onOpenAuth, us
                 </a>
               </li>
               <li>
+                <a href="/tools/kalkulator-fee-saham" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
+                  Kalkulator Fee Saham BEI
+                </a>
+              </li>
+              <li>
+                <a href="/tools/kalkulator-lot" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+                  Kalkulator Lot &amp; Money Management
+                </a>
+              </li>
+              <li>
                 <a href="#" className="hover:text-emerald-400 transition-colors">
                   API Documentation
                 </a>

@@ -17,7 +17,7 @@ export default function TradeSimAuthGate({ children }: { children: React.ReactNo
   const { user } = useAuthStore();
   const [isAuthorized, setIsAuthorized] = useState(false);
 
-  const isPublicRoute = pathname === '/' || pathname === '/landing' || pathname.startsWith('/admin');
+  const isPublicRoute = pathname === '/' || pathname === '/landing' || pathname.startsWith('/tools') || pathname.startsWith('/admin');
 
   useEffect(() => {
     if (isPublicRoute) {

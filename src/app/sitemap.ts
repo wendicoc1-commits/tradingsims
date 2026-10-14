@@ -20,6 +20,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/ipo', changeFrequency: 'weekly' as const, priority: 0.7 },
     { path: '/bandar', changeFrequency: 'hourly' as const, priority: 0.85 },
     { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.8 },
+    { path: '/tools/kalkulator-fee-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/tools/kalkulator-lot', changeFrequency: 'monthly' as const, priority: 0.9 },
   ];
 
   // Static list of popular IDX tickers (murni server-side safe tanpa import 'use client')
