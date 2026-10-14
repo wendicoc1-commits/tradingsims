@@ -78,7 +78,7 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
               </button>
             </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onOpenAuth('login')}
@@ -88,13 +88,13 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
               </button>
               <button
                 type="button"
-                onClick={onEnterTerminal}
+                onClick={() => onOpenAuth('register')}
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-extrabold text-xs font-mono flex items-center gap-1.5 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all cursor-pointer"
               >
                 <Zap className="w-3.5 h-3.5 fill-black" />
-                <span>Launch Terminal</span>
+                <span>Daftar Akun</span>
               </button>
-            </>
+            </div>
           )}
         </div>
 
@@ -146,26 +146,41 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
             Community Traders
           </a>
           <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth('login');
-              }}
-              className="w-full py-2.5 rounded-lg border border-white/10 text-white font-bold text-center"
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onEnterTerminal();
-              }}
-              className="w-full py-2.5 rounded-lg bg-emerald-500 text-black font-extrabold text-center shadow-lg shadow-emerald-500/25"
-            >
-              Launch Terminal ⚡
-            </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onEnterTerminal();
+                }}
+                className="w-full py-2.5 rounded-lg bg-emerald-500 text-black font-extrabold text-center shadow-lg shadow-emerald-500/25"
+              >
+                Buka Workstation Terminal ⚡
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('login');
+                  }}
+                  className="w-full py-2.5 rounded-lg border border-white/10 text-white font-bold text-center"
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('register');
+                  }}
+                  className="w-full py-2.5 rounded-lg bg-emerald-500 text-black font-extrabold text-center shadow-lg shadow-emerald-500/25"
+                >
+                  Daftar Akun Baru ⚡
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

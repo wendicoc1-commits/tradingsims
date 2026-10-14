@@ -386,6 +386,8 @@ export const useAuthStore = create<AuthState>()(
 
         if (typeof window !== 'undefined') {
           try {
+            sessionStorage.removeItem('tradingsims-auth-user-storage');
+            sessionStorage.removeItem('tradesim_session_entered_v1');
             localStorage.removeItem('tradingsims-auth-user-storage');
           } catch {}
         }
@@ -396,6 +398,13 @@ export const useAuthStore = create<AuthState>()(
             const supabase = getSupabaseBrowserClient();
             supabase.auth.signOut().catch(() => {});
           } catch {}
+        }
+
+        // 3. Otomatis arahkan ke beranda setelah keluar
+        if (typeof window !== 'undefined') {
+          if (window.location.pathname !== '/') {
+            window.location.href = '/';
+          }
         }
       },
 
@@ -842,6 +851,21 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'tradingsims-auth-user-storage',
+      storage: {
+        getItem: (name) => {
+          if (typeof window === 'undefined') return null;
+          const str = sessionStorage.getItem(name);
+          return str ? JSON.parse(str) : null;
+        },
+        setItem: (name, value) => {
+          if (typeof window === 'undefined') return;
+          sessionStorage.setItem(name, JSON.stringify(value));
+        },
+        removeItem: (name) => {
+          if (typeof window === 'undefined') return;
+          sessionStorage.removeItem(name);
+        },
+      },
     }
   )
 );

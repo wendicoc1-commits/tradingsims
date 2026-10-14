@@ -69,10 +69,14 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
     if (mode === 'login') {
       const res = await loginWithEmail(email, password);
       if (res.success) {
-        setSuccessMsg('Login berhasil! Selamat datang kembali.');
+        setSuccessMsg('Login berhasil! Mengalihkan ke Workstation Terminal...');
         setTimeout(() => {
           onClose();
-        }, 1200);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('tradesim_session_entered_v1', 'true');
+            window.location.href = '/terminal';
+          }
+        }, 800);
       } else {
         setLocalError(res.error || 'Login gagal, periksa email dan password Anda.');
       }
@@ -98,10 +102,14 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
     } else {
       const res = await registerWithEmail(email, password, fullName);
       if (res.success) {
-        setSuccessMsg('Pendaftaran berhasil! Akun dan modal awal portofolio Rp 100 Juta telah aktif.');
+        setSuccessMsg('Pendaftaran berhasil! Mengalihkan ke Workstation Terminal...');
         setTimeout(() => {
           onClose();
-        }, 1500);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('tradesim_session_entered_v1', 'true');
+            window.location.href = '/terminal';
+          }
+        }, 1000);
       } else {
         setLocalError(res.error || 'Pendaftaran gagal. Silakan coba lagi.');
       }
@@ -398,18 +406,6 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
               )}
             </button>
           </form>
-
-          {/* Mode Tamu Demo */}
-          <div className="pt-2 border-t border-zinc-850 flex items-center justify-between text-[11px] text-zinc-400">
-            <span>Mau eksplorasi tanpa login?</span>
-            <button
-              type="button"
-              onClick={handleGuestLogin}
-              className="text-amber-400 hover:underline font-semibold cursor-pointer"
-            >
-              Masuk sebagai Tamu &rarr;
-            </button>
-          </div>
         </div>
       </div>
     </div>

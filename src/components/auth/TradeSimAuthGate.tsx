@@ -1,13 +1,58 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAuthStore, waitForAuthHydration } from '@/store/useAuthStore';
+import WorkstationSkeleton from '@/components/skeletons/WorkstationSkeleton';
 
 /**
  * TradeSimAuthGate
  * 
- * Workstation Paper Trading terbuka secara instan (0ms delay) tanpa blocking screen.
- * Autentikasi dan login cloud dikelola melalui AuthModal di TradeSimHeader.
+ * Enforces strict authentication for all internal platform routes (terminal, markets, crypto, portfolio, etc.).
+ * If the user is not authenticated or closes their tab/logs out, they are instantly redirected to the beranda (/).
  */
 export default function TradeSimAuthGate({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname() || '';
+  const { user } = useAuthStore();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  const isPublicRoute = pathname === '/' || pathname === '/landing' || pathname.startsWith('/admin');
+
+  useEffect(() => {
+    if (isPublicRoute) {
+      setIsAuthorized(true);
+      return;
+    }
+
+    let mounted = true;
+
+    async function checkUserAuth() {
+      await waitForAuthHydration();
+      const currentUser = useAuthStore.getState().user;
+
+      if (!currentUser) {
+        if (mounted) {
+          router.replace('/');
+        }
+        return;
+      }
+
+      if (mounted) {
+        setIsAuthorized(true);
+      }
+    }
+
+    checkUserAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pathname, isPublicRoute, router, user]);
+
+  if (!isAuthorized && !isPublicRoute) {
+    return <WorkstationSkeleton />;
+  }
+
   return <>{children}</>;
 }

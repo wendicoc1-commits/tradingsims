@@ -69,9 +69,11 @@ const features: ComparisonFeature[] = [
 
 interface ComparisonMatrixProps {
   onLaunchTerminal: () => void;
+  onOpenAuth?: (mode: 'login' | 'register') => void;
+  user?: any;
 }
 
-export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onLaunchTerminal }) => {
+export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onLaunchTerminal, onOpenAuth, user }) => {
   return (
     <section id="comparison" className="relative py-28 px-4 sm:px-6 lg:px-8 border-t border-white/10 bg-[#06080E]/70 overflow-hidden">
       {/* Background HUD Accents */}
@@ -177,13 +179,23 @@ export const ComparisonMatrix: React.FC<ComparisonMatrixProps> = ({ onLaunchTerm
               </div>
             </div>
 
-            <button
-              onClick={onLaunchTerminal}
-              className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] flex items-center gap-2 whitespace-nowrap"
-            >
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              LAUNCH SIMULATOR NOW
-            </button>
+            {user ? (
+              <button
+                onClick={onLaunchTerminal}
+                className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] flex items-center gap-2 whitespace-nowrap"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                LAUNCH SIMULATOR NOW
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenAuth?.('login')}
+                className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] flex items-center gap-2 whitespace-nowrap"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                SIGN IN KE SIMULATOR
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -1,8 +1,8 @@
 'use client';
-
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { useAuthStore, waitForAuthHydration } from '@/store/useAuthStore';
 import WorkstationSkeleton from '@/components/skeletons/WorkstationSkeleton';
 
 // Dynamic import dengan skeleton loading instan untuk workstation terminal
@@ -16,23 +16,42 @@ const FinceptCustomizableDashboard = dynamic(
 
 export default function TerminalPage() {
   const router = useRouter();
-  const [hasEnteredSession, setHasEnteredSession] = useState(false);
+  const { user } = useAuthStore();
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    try {
-      // Pastikan setiap sesi baru selalu melewati landing page terlebih dahulu
-      const isSessionActive = sessionStorage.getItem('tradesim_session_entered_v1');
-      if (!isSessionActive) {
-        router.replace('/');
+    let mounted = true;
+
+    async function verifyAccess() {
+      await waitForAuthHydration();
+      const currentUser = useAuthStore.getState().user;
+
+      // 1. Jika belum sign in, paksa kembali ke beranda
+      if (!currentUser) {
+        if (mounted) {
+          router.replace('/');
+        }
         return;
       }
-      setHasEnteredSession(true);
-    } catch {
-      setHasEnteredSession(true);
-    }
-  }, [router]);
 
-  if (!hasEnteredSession) {
+      // 2. Pastikan sesi valid
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('tradesim_session_entered_v1', 'true');
+      }
+
+      if (mounted) {
+        setIsAuthorized(true);
+      }
+    }
+
+    verifyAccess();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router, user]);
+
+  if (!isAuthorized) {
     return <WorkstationSkeleton />;
   }
 

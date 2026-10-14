@@ -58,6 +58,7 @@ export default function TradeSimLandingPage() {
         <Hero
           onOpenAuth={handleOpenAuth}
           onEnterTerminal={handleEnterTerminal}
+          user={user}
         />
 
         {/* Live Market Stats Bar (Volume, Uptime, Latency, Traders) */}
@@ -67,10 +68,18 @@ export default function TradeSimLandingPage() {
         <BentoGrid />
 
         {/* Terminal in Action: 3 Specialized Desks Showcase */}
-        <TerminalShowcase onEnterTerminal={handleEnterTerminal} />
+        <TerminalShowcase
+          onEnterTerminal={handleEnterTerminal}
+          onOpenAuth={handleOpenAuth}
+          user={user}
+        />
 
         {/* Comparison Matrix: Traditional Brokers vs. TradeSim Pro */}
-        <ComparisonMatrix onLaunchTerminal={handleEnterTerminal} />
+        <ComparisonMatrix
+          onLaunchTerminal={handleEnterTerminal}
+          onOpenAuth={handleOpenAuth}
+          user={user}
+        />
 
         {/* Verified Community & Trader Testimonials */}
         <Testimonials />
@@ -80,6 +89,7 @@ export default function TradeSimLandingPage() {
       <Footer
         onLaunchTerminal={handleEnterTerminal}
         onOpenAuth={handleOpenAuth}
+        user={user}
       />
 
       {/* ── 6. Auth Modal Popup ── */}

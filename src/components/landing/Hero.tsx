@@ -7,9 +7,10 @@ import TerminalMockup from './TerminalMockup';
 interface HeroProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
   onEnterTerminal: (e?: React.MouseEvent) => void;
+  user?: any;
 }
 
-export default function Hero({ onOpenAuth, onEnterTerminal }: HeroProps) {
+export default function Hero({ onOpenAuth, onEnterTerminal, user }: HeroProps) {
   return (
     <section className="relative z-10 pt-12 pb-16 md:pt-18 md:pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       {/* ── Top Eyebrow Tag + Live Mini Ticker Badges ── */}
@@ -57,24 +58,38 @@ export default function Hero({ onOpenAuth, onEnterTerminal }: HeroProps) {
 
       {/* ── CTA Button Group ── */}
       <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={onEnterTerminal}
-          className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 transition-all group cursor-pointer"
-        >
-          <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
-          <span>LAUNCH SIMULATOR FREE</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </button>
+        {user ? (
+          <button
+            type="button"
+            onClick={onEnterTerminal}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 transition-all group cursor-pointer"
+          >
+            <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
+            <span>BUKA WORKSTATION TERMINAL</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onOpenAuth('login')}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 transition-all group cursor-pointer"
+            >
+              <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
+              <span>MASUK / SIGN IN UNTUK TRADING</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
 
-        <button
-          type="button"
-          onClick={() => onOpenAuth('register')}
-          className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/15 text-white font-bold text-sm font-mono flex items-center justify-center gap-2 backdrop-blur-md transition-all active:scale-95 cursor-pointer"
-        >
-          <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
-          <span>Explore Live Demo (10s Setup)</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => onOpenAuth('register')}
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/15 text-white font-bold text-sm font-mono flex items-center justify-center gap-2 backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
+              <span>Daftar Akun Gratis (Modal Rp 100 Jt)</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── Instant Virtual Balance Callout ── */}

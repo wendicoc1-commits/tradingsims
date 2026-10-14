@@ -6,9 +6,10 @@ import { Terminal, ArrowRight, Shield, Zap, Sparkles, Check, Globe, Lock } from 
 interface FooterProps {
   onLaunchTerminal: () => void;
   onOpenAuth: (mode?: 'login' | 'register') => void;
+  user?: any;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onLaunchTerminal, onOpenAuth }) => {
+export const Footer: React.FC<FooterProps> = ({ onLaunchTerminal, onOpenAuth, user }) => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -65,13 +66,23 @@ export const Footer: React.FC<FooterProps> = ({ onLaunchTerminal, onOpenAuth }) 
               )}
             </form>
 
-            <button
-              onClick={onLaunchTerminal}
-              className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_25px_rgba(16,185,129,0.5)] hover:shadow-[0_0_35px_rgba(16,185,129,0.7)] flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <Terminal className="w-4 h-4" />
-              LAUNCH TERMINAL FREE
-            </button>
+            {user ? (
+              <button
+                onClick={onLaunchTerminal}
+                className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_25px_rgba(16,185,129,0.5)] hover:shadow-[0_0_35px_rgba(16,185,129,0.7)] flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <Terminal className="w-4 h-4" />
+                LAUNCH TERMINAL FREE
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenAuth('login')}
+                className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-mono font-bold text-xs uppercase tracking-wider transition-all duration-200 shadow-[0_0_25px_rgba(16,185,129,0.5)] hover:shadow-[0_0_35px_rgba(16,185,129,0.7)] flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <Lock className="w-4 h-4" />
+                SIGN IN KE WORKSTATION
+              </button>
+            )}
           </div>
 
           {/* Trust points */}

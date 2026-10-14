@@ -5,9 +5,11 @@ import { Terminal, Cpu, Newspaper, ArrowRight, CheckCircle2, TrendingUp, BarChar
 
 interface ShowcaseProps {
   onEnterTerminal: (e?: React.MouseEvent) => void;
+  onOpenAuth?: (mode: 'login' | 'register') => void;
+  user?: any;
 }
 
-export default function TerminalShowcase({ onEnterTerminal }: ShowcaseProps) {
+export default function TerminalShowcase({ onEnterTerminal, onOpenAuth, user }: ShowcaseProps) {
   const [activeTab, setActiveTab] = useState<'paper' | 'quant' | 'sentiment'>('paper');
 
   const TABS = [
@@ -80,14 +82,25 @@ export default function TerminalShowcase({ onEnterTerminal }: ShowcaseProps) {
                 </div>
 
                 <div className="pt-4">
-                  <button
-                    type="button"
-                    onClick={onEnterTerminal}
-                    className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
-                  >
-                    <span>Launch Paper Terminal</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={onEnterTerminal}
+                      className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                    >
+                      <span>Launch Paper Terminal</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth?.('login')}
+                      className="px-6 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-xs font-mono flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <span>Masuk untuk Buka Simulator</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -143,14 +156,25 @@ export default function TerminalShowcase({ onEnterTerminal }: ShowcaseProps) {
                 </div>
 
                 <div className="pt-4">
-                  <button
-                    type="button"
-                    onClick={onEnterTerminal}
-                    className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
-                  >
-                    <span>Open Quant Studio</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={onEnterTerminal}
+                      className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+                    >
+                      <span>Open Quant Studio</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth?.('login')}
+                      className="px-6 py-3 rounded-xl bg-cyan-500/20 border border-cyan-500/40 hover:bg-cyan-500/30 text-cyan-300 font-extrabold text-xs font-mono flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <span>Masuk untuk Buka Quant Studio</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -207,14 +231,25 @@ export default function TerminalShowcase({ onEnterTerminal }: ShowcaseProps) {
                 </div>
 
                 <div className="pt-4">
-                  <button
-                    type="button"
-                    onClick={onEnterTerminal}
-                    className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-                  >
-                    <span>View Live News Feed</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={onEnterTerminal}
+                      className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs font-mono flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+                    >
+                      <span>View Live News Feed</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth?.('login')}
+                      className="px-6 py-3 rounded-xl bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 font-extrabold text-xs font-mono flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <span>Masuk untuk Buka News Feed</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
