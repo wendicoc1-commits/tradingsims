@@ -173,7 +173,7 @@ export default function TradeSimLandingPage() {
     return () => clearTimeout(timer);
   }, [displayedText, isDeleting, wordIdx]);
 
-  // 3. Constellation Quant Particle Canvas
+  // 3. Interstellar Gargantua Black Hole & Rotating Accretion Vortex Simulation
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -183,62 +183,207 @@ export default function TradeSimLandingPage() {
     if (!ctx) return;
 
     let animId: number;
-    let width = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth);
-    let height = (canvas.height = canvas.parentElement?.clientHeight || 650);
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
 
     const handleResize = () => {
       if (!canvas) return;
-      width = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
-      height = canvas.height = canvas.parentElement?.clientHeight || 650;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     };
     window.addEventListener('resize', handleResize);
 
-    const count = Math.min(48, Math.max(24, Math.floor(width / 28)));
-    const particles = Array.from({ length: count }).map(() => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      radius: Math.random() * 1.5 + 0.8,
-      isGold: Math.random() > 0.45,
-      alpha: Math.random() * 0.5 + 0.25,
-    }));
+    // Singularity center & dynamic radius based on viewport
+    const getCenter = () => ({
+      cx: width / 2,
+      cy: Math.min(420, height * 0.44),
+      rh: Math.min(108, Math.max(65, width * 0.08)),
+    });
+
+    // 1. Accretion Disk Plasma Particles (Gas orbiting the singularity)
+    const particleCount = Math.min(360, Math.max(160, Math.floor(width / 4.2)));
+    const { rh: initRh } = getCenter();
+
+    const particles = Array.from({ length: particleCount }).map(() => {
+      const distRatio = Math.pow(Math.random(), 0.72); // density increases toward photon sphere
+      const r = initRh * 1.18 + distRatio * (initRh * 3.6);
+      return {
+        r,
+        angle: Math.random() * Math.PI * 2,
+        // Keplerian velocity: particles closer to singularity orbit substantially faster
+        speed: (0.006 + (1 - distRatio) * 0.018) * (Math.random() * 0.25 + 0.88),
+        size: Math.random() * 1.8 + 0.6,
+        // Palette: Incandescent white-gold, amber, solar flare orange, and interstellar cyan
+        color:
+          Math.random() > 0.72
+            ? '255, 255, 255'
+            : Math.random() > 0.32
+            ? '245, 158, 11'
+            : Math.random() > 0.12
+            ? '249, 115, 22'
+            : '6, 182, 212',
+        alpha: Math.random() * 0.65 + 0.25,
+        streakLen: Math.random() * 2.4 + 1.2,
+      };
+    });
+
+    // 2. Rotating Distant Cosmic Stars & Galactic Dust
+    const starCount = Math.min(130, Math.floor(width / 11));
+    const stars = Array.from({ length: starCount }).map(() => {
+      const dist = Math.random() * (Math.max(width, height) * 0.85) + 60;
+      return {
+        dist,
+        angle: Math.random() * Math.PI * 2,
+        speed: 0.00025 + Math.random() * 0.00035,
+        size: Math.random() * 1.5 + 0.5,
+        baseAlpha: Math.random() * 0.6 + 0.2,
+        twinkleFreq: Math.random() * 0.03 + 0.012,
+        phase: Math.random() * Math.PI * 2,
+      };
+    });
+
+    let time = 0;
 
     const render = () => {
+      if (document.hidden) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      time += 1;
       ctx.clearRect(0, 0, width, height);
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
+      const { cx, cy, rh } = getCenter();
+      const tilt = 0.33; // 3D perspective angle of accretion disk
 
-        if (p.x < 0 || p.x > width) p.vx *= -1;
-        if (p.y < 0 || p.y > height) p.vy *= -1;
+      // ── Step A: Draw Rotating Distant Cosmic Starfield ──
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.angle += s.speed;
+        const sx = cx + s.dist * Math.cos(s.angle);
+        const sy = cy + s.dist * Math.sin(s.angle) * 0.7;
+        const twinkle = Math.sin(time * s.twinkleFreq + s.phase) * 0.3 + 0.7;
 
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = p.isGold
-          ? `rgba(245, 158, 11, ${p.alpha})`
-          : `rgba(16, 185, 129, ${p.alpha})`;
+        ctx.arc(sx, sy, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${s.baseAlpha * twinkle})`;
         ctx.fill();
+      }
 
-        for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j];
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+      // ── Step B: Gravitational Lensing Halo (Behind Horizon) ──
+      // Signature Nolan / Thorne arched light distortion around the black hole
+      ctx.save();
+      const lensGrad = ctx.createRadialGradient(cx, cy, rh * 0.95, cx, cy, rh * 2.9);
+      lensGrad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
+      lensGrad.addColorStop(0.32, 'rgba(217, 119, 6, 0.22)');
+      lensGrad.addColorStop(0.68, 'rgba(16, 185, 129, 0.08)');
+      lensGrad.addColorStop(1, 'transparent');
 
-          if (dist < 110) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            const lineAlpha = (1 - dist / 110) * 0.14;
-            ctx.strokeStyle = `rgba(245, 158, 11, ${lineAlpha})`;
-            ctx.lineWidth = 0.75;
-            ctx.stroke();
-          }
+      // Upper Gravitational Arch
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - rh * 0.26, rh * 2.25, rh * 1.6, 0, Math.PI, 0, false);
+      ctx.lineWidth = rh * 0.34;
+      ctx.strokeStyle = lensGrad;
+      ctx.stroke();
+
+      // Lower Counter-Arch
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + rh * 0.24, rh * 1.85, rh * 0.98, 0, 0, Math.PI, false);
+      ctx.lineWidth = rh * 0.25;
+      ctx.strokeStyle = lensGrad;
+      ctx.stroke();
+      ctx.restore();
+
+      // ── Step C: Back-half of Accretion Disk (y < cy, behind black hole) ──
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.angle += p.speed;
+
+        const sinA = Math.sin(p.angle);
+        const cosA = Math.cos(p.angle);
+        const px = cx + p.r * cosA;
+        const py = cy + p.r * sinA * tilt;
+
+        if (sinA < 0) {
+          const prevAngle = p.angle - p.speed * p.streakLen;
+          const trailX = cx + p.r * Math.cos(prevAngle);
+          const trailY = cy + p.r * Math.sin(prevAngle) * tilt;
+
+          ctx.beginPath();
+          ctx.moveTo(trailX, trailY);
+          ctx.lineTo(px, py);
+
+          // Doppler beaming: light approaching on left (cosA < 0) is brighter
+          const doppler = cosA < 0 ? 1.35 : 0.78;
+          ctx.strokeStyle = `rgba(${p.color}, ${Math.min(1, p.alpha * doppler * 0.72)})`;
+          ctx.lineWidth = p.size * 0.88;
+          ctx.stroke();
         }
       }
+
+      // ── Step D: The Event Horizon (Central Black Hole Void & Photon Ring) ──
+      // 1. Incandescent Inner Photon Ring
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rh * 1.07, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(254, 240, 138, 0.95)';
+      ctx.lineWidth = 2.4;
+      ctx.shadowBlur = 32;
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.95)';
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Pure Black Sphere (Singularity Event Horizon Void)
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rh, 0, Math.PI * 2);
+      ctx.fillStyle = '#05070a';
+      ctx.shadowBlur = 22;
+      ctx.shadowColor = '#000000';
+      ctx.fill();
+      ctx.restore();
+
+      // ── Step E: Front-half of Accretion Disk (y >= cy, in front of black hole) ──
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const sinA = Math.sin(p.angle);
+        const cosA = Math.cos(p.angle);
+        const px = cx + p.r * cosA;
+        const py = cy + p.r * sinA * tilt;
+
+        if (sinA >= 0) {
+          const prevAngle = p.angle - p.speed * p.streakLen;
+          const trailX = cx + p.r * Math.cos(prevAngle);
+          const trailY = cy + p.r * Math.sin(prevAngle) * tilt;
+
+          ctx.beginPath();
+          ctx.moveTo(trailX, trailY);
+          ctx.lineTo(px, py);
+
+          const doppler = cosA < 0 ? 1.35 : 0.78;
+          ctx.strokeStyle = `rgba(${p.color}, ${Math.min(1, p.alpha * doppler)})`;
+          ctx.lineWidth = p.size;
+          ctx.stroke();
+
+          // Particle core
+          ctx.beginPath();
+          ctx.arc(px, py, p.size * 0.75, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${p.color}, ${Math.min(1, p.alpha * 1.25)})`;
+          ctx.fill();
+        }
+      }
+
+      // ── Step F: Luminous Accretion Ambient Glow ──
+      ctx.save();
+      const flareGrad = ctx.createRadialGradient(cx, cy, rh * 1.2, cx, cy, rh * 4.3);
+      flareGrad.addColorStop(0, 'rgba(245, 158, 11, 0.18)');
+      flareGrad.addColorStop(0.45, 'rgba(217, 119, 6, 0.07)');
+      flareGrad.addColorStop(1, 'transparent');
+
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rh * 4.3, rh * 1.55, 0, 0, Math.PI * 2);
+      ctx.fillStyle = flareGrad;
+      ctx.fill();
+      ctx.restore();
 
       animId = requestAnimationFrame(render);
     };
@@ -303,9 +448,12 @@ export default function TradeSimLandingPage() {
       onMouseMove={handleMouseMove}
       className="min-h-screen bg-[#07090e] text-white selection:bg-amber-500 selection:text-black font-sans relative overflow-x-hidden"
     >
-      {/* ── Background Ambient Glow Effects + Mouse Spotlight ── */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b from-amber-500/12 via-emerald-500/8 to-transparent rounded-full blur-3xl opacity-80" />
+      {/* ── Background Ambient Glow Effects + Interstellar Vortex + Mouse Spotlight ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Interstellar Gargantua Rotating Accretion Vortex Canvas */}
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-90" />
+
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b from-amber-500/10 via-emerald-500/6 to-transparent rounded-full blur-3xl opacity-70" />
         <div className="absolute top-[40%] -left-48 w-96 h-96 bg-cyan-500/8 rounded-full blur-3xl" />
         <div className="absolute top-[65%] -right-48 w-96 h-96 bg-amber-500/8 rounded-full blur-3xl" />
         {/* Interactive Mouse Spotlight Radial Glow */}
@@ -419,12 +567,7 @@ export default function TradeSimLandingPage() {
       </header>
 
       {/* ── 3. Hero Section ── */}
-      <section className="relative z-10 pt-16 pb-20 md:pt-24 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center overflow-hidden">
-        {/* Quant Constellation Particle Canvas Background */}
-        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-          <canvas ref={canvasRef} className="w-full h-full opacity-70" />
-        </div>
-
+      <section className="relative z-10 pt-16 pb-20 md:pt-24 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Animated Badge Pill */}
         <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono font-semibold mb-6 shadow-sm animate-pulse">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
