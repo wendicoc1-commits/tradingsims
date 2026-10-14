@@ -321,29 +321,33 @@ export default function InstitutionalPortfolioDesk() {
       </div>
 
       {/* ── Top Level Executive Telemetry (Matching Fincept Screenshot 4) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-        <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Total Portfolio NAV</div>
-          <div className="text-sm md:text-base font-bold text-white">
-            Rp {totalNav.toLocaleString('id-ID')}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm flex flex-col justify-between">
+          <div>
+            <div className="text-[10px] text-[#71717a] uppercase font-mono">Total Portfolio NAV</div>
+            <div className="text-sm md:text-base font-bold text-white">
+              Rp {totalNav.toLocaleString('id-ID')}
+            </div>
           </div>
-          <div className="text-[10px] text-[#22c55e] flex items-center gap-0.5">
-            <ArrowUpRight className="w-3 h-3" />
-            <span>+1.42% Today</span>
-          </div>
-        </div>
-
-        {/* ── Kartu Untung Bersih Riil ── */}
-        <div className="bg-[#09090b] border border-emerald-500/40 p-2.5 rounded-sm shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-          <div className="text-[10px] text-emerald-400 font-bold uppercase flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Untung Bersih Riil
-          </div>
-          <div className={`text-sm md:text-base font-bold ${netRealProfit >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-            {netRealProfit >= 0 ? '+' : ''}Rp {netRealProfit.toLocaleString('id-ID')}
-          </div>
-          <div className="text-[10px] text-[#22c55e] font-semibold">
-            ({netRealProfitPct >= 0 ? '+' : ''}{netRealProfitPct.toFixed(2)}% Net Gain)
+          <div className="mt-1 flex items-center gap-1 text-[11px] font-mono flex-wrap">
+            <span className="text-[10px] text-[#71717a] uppercase font-semibold">Return:</span>
+            <span
+              className={`font-bold flex items-center gap-0.5 ${
+                netRealProfit >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'
+              }`}
+            >
+              {netRealProfit >= 0 ? (
+                <ArrowUpRight className="w-3 h-3 text-[#22c55e] inline shrink-0" />
+              ) : (
+                <ArrowDownRight className="w-3 h-3 text-[#ef4444] inline shrink-0" />
+              )}
+              <span>
+                {netRealProfit >= 0 ? '+' : ''}Rp {netRealProfit.toLocaleString('id-ID')}
+              </span>
+              <span className="text-[10px] font-semibold ml-0.5">
+                ({netRealProfitPct >= 0 ? '+' : ''}{netRealProfitPct.toFixed(2)}%)
+              </span>
+            </span>
           </div>
         </div>
 

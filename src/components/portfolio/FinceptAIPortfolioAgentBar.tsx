@@ -181,7 +181,7 @@ export default function FinceptAIPortfolioAgentBar() {
             <div>
               <span className="text-emerald-400 text-[10px] font-bold block flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                UNTUNG BERSIH RIIL
+                RETURN RIIL
               </span>
               <span className={`font-bold ${isProfitPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {isProfitPositive ? '+' : '-'}Rp {Math.abs(Math.round(netRealProfit)).toLocaleString('id-ID')}
