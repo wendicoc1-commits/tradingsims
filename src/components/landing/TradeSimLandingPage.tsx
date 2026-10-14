@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import AuthModal from '@/components/auth/AuthModal';
 
-// High-tech cyberpunk HUD & modular components inspired by max.areebali.com
+// High-tech cyberpunk HUD & modular components inspired by max.areebali.com & aicommon.creamu.co.jp
 import HudOverlay from '@/components/landing/HudOverlay';
-import InterstellarBlackHole from '@/components/landing/InterstellarBlackHole';
+import AIBreathingSphere from '@/components/landing/AIBreathingSphere';
 import Navbar from '@/components/landing/Navbar';
 import Hero from '@/components/landing/Hero';
 import MarketStatsBar from '@/components/landing/MarketStatsBar';
@@ -36,13 +36,13 @@ export default function TradeSimLandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#06080E] text-zinc-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-300 overflow-x-hidden">
+    <div className="relative min-h-screen bg-[#0a0a09] text-zinc-100 font-sans selection:bg-[#e2c58e]/30 selection:text-[#ebd9b8] overflow-x-hidden">
       {/* ── 1. Cyberpunk Tech-Brutalist HUD Instrument Overlay ── */}
       <HudOverlay />
 
-      {/* ── 2. Atmospheric Background: Dynamic Interstellar Black Hole Shader ── */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-40">
-        <InterstellarBlackHole />
+      {/* ── 2. Atmospheric WebGL Background: Breathing Champagne Gold Sphere (from aicommon.creamu.co.jp) ── */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <AIBreathingSphere />
       </div>
 
       {/* ── 3. High-Tech Navigation Bar ── */}

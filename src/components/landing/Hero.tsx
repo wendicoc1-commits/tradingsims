@@ -36,16 +36,22 @@ export default function Hero({ onOpenAuth, onEnterTerminal }: HeroProps) {
         </div>
       </div>
 
-      {/* ── Main Headline ── */}
-      <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] max-w-5xl mx-auto uppercase font-sans">
-        Master the Markets Without the Risk.{' '}
-        <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-          Trade Smarter, Faster, and Real-Time.
+      {/* ── Main Headline with Masked Line Reveal & Refined Aesthetics ── */}
+      <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light tracking-tight leading-[1.08] max-w-5xl mx-auto uppercase font-sans text-zinc-100">
+        <span className="block overflow-hidden pb-1">
+          <span className="inline-block transition-transform duration-1000 ease-out transform translate-y-0">
+            Master the Markets <span className="font-extralight text-zinc-400">Without Risk.</span>
+          </span>
+        </span>
+        <span className="block overflow-hidden pt-1">
+          <span className="inline-block bg-gradient-to-r from-[#e2c58e] via-[#ebd9b8] to-[#10b981] bg-clip-text text-transparent font-medium drop-shadow-[0_0_35px_rgba(226,197,142,0.2)]">
+            Trade Smarter, Faster, Real-Time.
+          </span>
         </span>
       </h1>
 
-      {/* ── Subheadline ── */}
-      <p className="mt-6 text-base sm:text-lg md:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed">
+      {/* ── Subheadline with subtle breathing typography ── */}
+      <p className="mt-6 text-base sm:text-lg md:text-xl text-[#9c978b] max-w-3xl mx-auto font-normal leading-relaxed">
         An institutional-grade trading terminal and simulation ecosystem. Test automated strategies, analyze deep orderbooks, and simulate live stock &amp; crypto execution with zero capital on the line.
       </p>
 
