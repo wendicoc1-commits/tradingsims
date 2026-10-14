@@ -282,6 +282,10 @@ export function mapToTradingViewSymbol(symbol: string): string {
   if (isCryptoSymbol(s) || s.endsWith('USDT') || s.endsWith('-USD')) {
     const clean = s.replace(/USDT$/i, '').replace(/-USD$/i, '');
     if (clean === 'MKR') return 'BYBIT:MKRUSDT';
+    if (clean === 'FTM') return 'BINANCE:SUSDT';
+    if (clean === 'SONIC' || clean === 'S') return 'BINANCE:SUSDT';
+    if (clean === 'MATIC') return 'BINANCE:POLUSDT';
+    if (clean === 'RNDR') return 'BINANCE:RENDERUSDT';
     if (clean === 'POPCAT') return 'BYBIT:POPCATUSDT';
     if (clean === 'MEW') return 'BYBIT:MEWUSDT';
     if (clean === 'KAS') return 'BYBIT:KASUSDT';

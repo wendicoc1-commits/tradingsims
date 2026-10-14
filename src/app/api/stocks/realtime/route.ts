@@ -201,10 +201,16 @@ async function fetchUpstreamQuoteRaw(symbol: string): Promise<LiveStockQuote | n
   const isIDX = marketType === 'IDX';
 
   // 1. For crypto, try Binance server-side REST API first (starting with data-api.binance.vision which is never geo-blocked on US VPS IPs)
-  if (isCrypto) {
+    const mappedBinanceSymbol =
+      cleanCryptoKey === 'FTM' ? 'SUSDT' :
+      cleanCryptoKey === 'MATIC' ? 'POLUSDT' :
+      cleanCryptoKey === 'RNDR' ? 'RENDERUSDT' :
+      `${cleanCryptoKey}USDT`;
     const binancePair = `${cleanCryptoKey}USDT`;
     const binanceEndpoints = [
+      `https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${mappedBinanceSymbol}`,
       `https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${binancePair}`,
+      `https://api.binance.com/api/v3/ticker/24hr?symbol=${mappedBinanceSymbol}`,
       `https://api.binance.com/api/v3/ticker/24hr?symbol=${binancePair}`,
       `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${binancePair}`,
     ];

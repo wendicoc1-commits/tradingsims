@@ -306,6 +306,26 @@ function processIncomingTickers(rawTickers: any[]) {
     pendingTickersBatch[sym] = tickerData;
     pendingTickersBatch[base] = { ...tickerData, symbol: base };
     globalPrevPrices[base] = curPrice;
+
+    // Propagate 1:1 rebrand aliases so users searching legacy or new tickers get real-time price
+    if (sym === 'SUSDT') {
+      pendingTickersBatch['FTMUSDT'] = { ...tickerData, symbol: 'FTMUSDT' };
+      pendingTickersBatch['FTM'] = { ...tickerData, symbol: 'FTM' };
+      pendingTickersBatch['SONICUSDT'] = { ...tickerData, symbol: 'SONICUSDT' };
+      pendingTickersBatch['SONIC'] = { ...tickerData, symbol: 'SONIC' };
+      globalPrevPrices['FTMUSDT'] = curPrice;
+      globalPrevPrices['FTM'] = curPrice;
+    } else if (sym === 'POLUSDT') {
+      pendingTickersBatch['MATICUSDT'] = { ...tickerData, symbol: 'MATICUSDT' };
+      pendingTickersBatch['MATIC'] = { ...tickerData, symbol: 'MATIC' };
+      globalPrevPrices['MATICUSDT'] = curPrice;
+      globalPrevPrices['MATIC'] = curPrice;
+    } else if (sym === 'RENDERUSDT') {
+      pendingTickersBatch['RNDRUSDT'] = { ...tickerData, symbol: 'RNDRUSDT' };
+      pendingTickersBatch['RNDR'] = { ...tickerData, symbol: 'RNDR' };
+      globalPrevPrices['RNDRUSDT'] = curPrice;
+      globalPrevPrices['RNDR'] = curPrice;
+    }
   }
 
   if (!batchFlushTimer) {
