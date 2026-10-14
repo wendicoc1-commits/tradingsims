@@ -117,6 +117,7 @@ export default function TradeSimHeader() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState(false);
   const cliInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -455,22 +456,69 @@ export default function TradeSimHeader() {
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthModalMode('login');
-                  setIsAuthModalOpen(true);
-                }}
-                aria-label="Buka form masuk akun member"
-                className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
-              >
-                <User className="w-3 h-3" aria-hidden="true" />
-                <span>Masuk</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthModalMode('login');
+                    setIsAuthModalOpen(true);
+                  }}
+                  aria-label="Buka form masuk akun member"
+                  className="px-2 py-1 rounded hover:bg-white/10 text-zinc-300 hover:text-white text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <User className="w-3 h-3" aria-hidden="true" />
+                  <span>Masuk</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthModalMode('register');
+                    setIsAuthModalOpen(true);
+                  }}
+                  aria-label="Buka form daftar akun gratis"
+                  className="px-2.5 py-1 rounded bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-sm active:scale-95"
+                >
+                  <Sparkles className="w-3 h-3 text-black" aria-hidden="true" />
+                  <span>Daftar Gratis</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* ── Smart Guest Cloud Conversion Banner ── */}
+      {(!user || user.provider === 'guest') && !isGuestBannerDismissed && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-[#080b11] border-b border-amber-500/30 px-3 py-1 flex items-center justify-between text-[11px] font-sans text-zinc-300">
+          <div className="flex items-center gap-2 overflow-hidden truncate">
+            <span className="flex h-2 w-2 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span className="truncate">
+              <strong className="text-amber-300 font-semibold">Mode Tamu:</strong> Saldo kas &amp; transaksi hanya tersimpan di memori browser lokal.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthModalMode('register');
+                setIsAuthModalOpen(true);
+              }}
+              className="ml-1 text-emerald-400 hover:text-emerald-300 underline font-bold underline-offset-2 shrink-0 cursor-pointer"
+            >
+              Simpan Permanen ke Cloud Gratis &rarr;
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsGuestBannerDismissed(true)}
+            className="text-zinc-500 hover:text-zinc-300 p-0.5 ml-2 cursor-pointer shrink-0"
+            title="Tutup pemberitahuan ini"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* ── Navigation Tabs Matching Image 1 (Fincept Terminal) ── */}
       <nav aria-label="Navigasi Cepat Workstation" className="flex items-center px-2 bg-[#080b11] text-xs h-8 border-b border-white/[0.08] overflow-x-auto no-scrollbar gap-0.5 font-mono">

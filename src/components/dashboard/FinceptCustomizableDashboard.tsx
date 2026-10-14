@@ -246,6 +246,38 @@ export default function FinceptCustomizableDashboard() {
   const [importError, setImportError] = useState<string | null>(null);
   const quickTickerInputRef = useRef<HTMLInputElement>(null);
 
+  // ── First-Time User Onboarding Welcome Modal ──
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const hasWelcomed = localStorage.getItem('tradesim_welcomed_v1');
+      if (!hasWelcomed) {
+        setIsWelcomeModalOpen(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleSelectOnboardingMode = (mode: 'beginner' | 'pro') => {
+    try {
+      localStorage.setItem('tradesim_welcomed_v1', '1');
+    } catch {}
+    setIsWelcomeModalOpen(false);
+
+    if (mode === 'beginner') {
+      const beginnerPreset = PRESET_LAYOUTS.find((p) => p.id === 'cleanBeginnerDesk');
+      if (beginnerPreset) {
+        setWidgets(beginnerPreset.widgets);
+        setActivePreset('cleanBeginnerDesk');
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(beginnerPreset.widgets));
+        } catch {}
+      }
+    } else {
+      setActivePreset('traderDesk');
+    }
+  };
+
   // ── Live UTC Clock (Fincept Terminal Header) ──
   const [utcTime, setUtcTime] = useState<string>('00:00:00');
   useEffect(() => {
@@ -1754,6 +1786,113 @@ export default function FinceptCustomizableDashboard() {
                 className="px-3 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#a1a1aa] rounded text-xs transition-colors cursor-pointer"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Onboarding Welcome Modal for First-Time Visitors ── */}
+      {isWelcomeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0e121b] border border-amber-500/40 rounded-xl p-5 md:p-6 max-w-lg w-full shadow-[0_0_50px_rgba(245,158,11,0.2)] text-white relative">
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500 text-black flex items-center justify-center text-xl font-bold font-mono shadow-md shadow-amber-500/30">
+                  ⚡
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold font-mono text-amber-400 tracking-wider">TRADESIM PRO WORKSTATION</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      LIVE REALTIME
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                    Selamat Datang di TradeSim Pro!
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  try { localStorage.setItem('tradesim_welcomed_v1', '1'); } catch {}
+                  setIsWelcomeModalOpen(false);
+                }}
+                className="text-zinc-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+                title="Tutup & Lanjutkan"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3.5">
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                Platform simulator trading saham Indonesia (BEI/IDX) &amp; crypto spot 24/7 tercanggih di Indonesia. Uji strategi Anda dengan data harga riil tanpa risiko uang asli.
+              </p>
+
+              {/* Saldo Virtual Highlight Box */}
+              <div className="bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-transparent border border-emerald-500/30 rounded-lg p-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-400 font-medium">💼 Saldo Kas Virtual RDN Anda:</span>
+                  <span className="text-emerald-400 font-extrabold font-mono text-sm">Rp 50.000.000</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Saldo sudah terisi dan siap dipakai untuk membeli saham (BBCA, BMRI, GOTO) atau crypto (BTC, ETH) secara instan.
+                </p>
+              </div>
+
+              {/* Pilih Mode Tampilan Awal */}
+              <div>
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-2 font-mono">
+                  PILIH TAMPILAN KERJA AWAL:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectOnboardingMode('beginner')}
+                    className="p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all group cursor-pointer active:scale-98"
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-300 text-xs font-mono">
+                      <span>🌱</span>
+                      <span>Mode Pemula</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-1 leading-normal group-hover:text-zinc-300">
+                      Tampilan bersih &amp; mudah: Candlestick Chart, Slip Order, dan Portofolio. Cocok untuk mulai belajar.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectOnboardingMode('pro')}
+                    className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-left transition-all group cursor-pointer active:scale-98"
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-xs font-mono">
+                      <span>⚡</span>
+                      <span>Mode Pro Terminal</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-1 leading-normal group-hover:text-zinc-300">
+                      Workstation multi-panel lengkap: Bandarmologi, DOM Orderbook, Foreign Flow, &amp; AI Autonomous Desk.
+                    </p>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-zinc-500">
+              <span className="text-[10px] flex items-center gap-1">
+                <span>🛡️</span>
+                <span>Data tersimpan aman di browser lokal</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  try { localStorage.setItem('tradesim_welcomed_v1', '1'); } catch {}
+                  setIsWelcomeModalOpen(false);
+                }}
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 cursor-pointer"
+              >
+                Langsung Masuk &rarr;
               </button>
             </div>
           </div>

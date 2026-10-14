@@ -64,7 +64,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Skip link — keyboard a11y: skip nav to main content */}
       <SkipToContent />
       <GlobalAutonomousAgentRunner />
-      <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="flex min-h-[100dvh] h-[100dvh] max-h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
         {/* Main Column (Full-Width without Sidebar) */}
         <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
           {/* TradeSim Pro Header */}

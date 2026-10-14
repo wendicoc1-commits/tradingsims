@@ -76,6 +76,14 @@ export default function StatusBar() {
         </div>
       </div>
 
+      {/* Center: Educational Trust & Paper Trading Disclaimer Badge */}
+      <div className="hidden xl:flex items-center gap-1.5 text-zinc-400">
+        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+        <span className="text-[9px] tracking-wide text-zinc-400">
+          SIMULATOR EDUKASI FINANSIAL · DATA PASAR REAL-TIME · BEBAS RISIKO DANA ASLI
+        </span>
+      </div>
+
       {/* Right: Latency, Memory, and Real-time Dual Clocks */}
       <div className="flex items-center gap-3 font-mono-num">
         <div className="hidden lg:flex items-center gap-1">

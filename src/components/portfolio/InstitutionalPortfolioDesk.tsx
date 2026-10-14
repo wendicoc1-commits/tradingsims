@@ -324,13 +324,13 @@ export default function InstitutionalPortfolioDesk() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm flex flex-col justify-between">
           <div>
-            <div className="text-[10px] text-[#71717a] uppercase font-mono">Total Portfolio NAV</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono">Total Portfolio NAV</div>
             <div className="text-sm md:text-base font-bold text-white">
               Rp {totalNav.toLocaleString('id-ID')}
             </div>
           </div>
           <div className="mt-1 flex items-center gap-1 text-[11px] font-mono flex-wrap">
-            <span className="text-[10px] text-[#71717a] uppercase font-semibold">Return:</span>
+            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Return:</span>
             <span
               className={`font-bold flex items-center gap-0.5 ${
                 netRealProfit >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'
@@ -354,7 +354,7 @@ export default function InstitutionalPortfolioDesk() {
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <div className="text-[10px] text-[#71717a] uppercase">Cash Reserves</div>
+              <div className="text-[10px] text-zinc-400 uppercase">Cash Reserves</div>
               <span className="text-[9px] text-[#f59e0b] font-semibold">{cashPct}%</span>
             </div>
             <div className="text-sm md:text-base font-bold text-[#f59e0b]">
@@ -373,7 +373,7 @@ export default function InstitutionalPortfolioDesk() {
         </div>
 
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Unrealized P&L</div>
+          <div className="text-[10px] text-zinc-400 uppercase">Unrealized P&L</div>
           <div
             className={`text-sm md:text-base font-bold ${
               unrealizedPl >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'
@@ -381,25 +381,25 @@ export default function InstitutionalPortfolioDesk() {
           >
             {unrealizedPl >= 0 ? '+' : ''}Rp {unrealizedPl.toLocaleString('id-ID')}
           </div>
-          <div className="text-[10px] text-[#71717a]">
+          <div className="text-[10px] text-zinc-400">
             ({totalReturnPct >= 0 ? '+' : ''}{totalReturnPct.toFixed(2)}% ROI)
           </div>
         </div>
 
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Sharpe Ratio</div>
+          <div className="text-[10px] text-zinc-400 uppercase">Sharpe Ratio</div>
           <div className="text-sm md:text-base font-bold text-[#22c55e]">
             1.84 <span className="text-[10px] font-normal text-[#a1a1aa]">(High Alpha)</span>
           </div>
-          <div className="text-[10px] text-[#71717a]">Benchmark: Rf 6.0%</div>
+          <div className="text-[10px] text-zinc-400">Benchmark: Rf 6.0%</div>
         </div>
 
         <div className="bg-[#09090b] border border-[#27272a] p-2.5 rounded-sm">
-          <div className="text-[10px] text-[#71717a] uppercase">Max Drawdown (MDD)</div>
+          <div className="text-[10px] text-zinc-400 uppercase">Max Drawdown (MDD)</div>
           <div className="text-sm md:text-base font-bold text-[#f59e0b]">
             -8.2% <span className="text-[10px] font-normal text-[#a1a1aa]">(Controlled)</span>
           </div>
-          <div className="text-[10px] text-[#71717a]">1Y Peak-to-Trough</div>
+          <div className="text-[10px] text-zinc-400">1Y Peak-to-Trough</div>
         </div>
       </div>
 
