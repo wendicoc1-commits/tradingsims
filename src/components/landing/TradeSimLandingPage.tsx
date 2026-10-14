@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -28,6 +28,8 @@ import {
   ChevronDown,
   Terminal,
   Play,
+  Cpu,
+  Radio,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import AuthModal from '@/components/auth/AuthModal';
@@ -43,6 +45,21 @@ const TICKER_TAPE = [
   { sym: 'TLKM', price: '2.920', chg: '-1.02%', up: false },
   { sym: 'NVDA', price: '$124.5', chg: '+4.15%', up: true },
   { sym: 'GOTO', price: '58', chg: '+1.75%', up: true },
+];
+
+const MORPH_WORDS = [
+  'Pasar Saham BEI',
+  'Crypto Spot 24/7',
+  'Radar Bandarmologi',
+  'Autonomous AI Desk',
+];
+
+const LIVE_SIM_TELEMETRY = [
+  { icon: '⚡', tag: 'AI EXECUTION', text: 'Raditya AI: BUY 10 Lot BBCA @ Rp 10.450 (Latency 14ms)', color: 'text-emerald-400' },
+  { icon: '🌊', tag: 'SMART MONEY', text: 'Broker AK Akumulasi Rp 48,2 Miliar di Saham BBCA', color: 'text-cyan-400' },
+  { icon: '🛡️', tag: 'RISK GUARD', text: 'CRO Bambang: Trailing Stop Dinaikkan ke Rp 10.350 (+0.95%)', color: 'text-amber-400' },
+  { icon: '🚀', tag: 'CRYPTO DESK', text: 'Kevin Zhang AI: Long BTC/USDT @ $67.820 (Target $69.500)', color: 'text-purple-400' },
+  { icon: '💼', tag: 'NAV TRACKER', text: 'Saldo Kas Virtual Terproteksi: Rp 53.420.000 (Return +6.84%)', color: 'text-emerald-300' },
 ];
 
 const FEATURES = [
@@ -127,6 +144,179 @@ export default function TradeSimLandingPage() {
   const [activePreviewTab, setActivePreviewTab] = useState<'chart' | 'ai' | 'bandar' | 'portfolio'>('chart');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
+  // 1. Interactive Mouse Spotlight
+  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  // 2. Typewriter / Dynamic Text Morphing
+  const [wordIdx, setWordIdx] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentWord = MORPH_WORDS[wordIdx];
+    const typingSpeed = isDeleting ? 38 : 75;
+
+    const timer = setTimeout(() => {
+      if (!isDeleting) {
+        if (displayedText.length < currentWord.length) {
+          setDisplayedText(currentWord.slice(0, displayedText.length + 1));
+        } else {
+          // Pause at full word before deleting
+          setTimeout(() => setIsDeleting(true), 2200);
+        }
+      } else {
+        if (displayedText.length > 0) {
+          setDisplayedText(currentWord.slice(0, displayedText.length - 1));
+        } else {
+          setIsDeleting(false);
+          setWordIdx((prev) => (prev + 1) % MORPH_WORDS.length);
+        }
+      }
+    }, typingSpeed);
+
+    return () => clearTimeout(timer);
+  }, [displayedText, isDeleting, wordIdx]);
+
+  // 3. Constellation Quant Particle Canvas
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let width = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth);
+    let height = (canvas.height = canvas.parentElement?.clientHeight || 650);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
+      height = canvas.height = canvas.parentElement?.clientHeight || 650;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const count = Math.min(48, Math.max(24, Math.floor(width / 28)));
+    const particles = Array.from({ length: count }).map(() => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      radius: Math.random() * 1.5 + 0.8,
+      isGold: Math.random() > 0.45,
+      alpha: Math.random() * 0.5 + 0.25,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.isGold
+          ? `rgba(245, 158, 11, ${p.alpha})`
+          : `rgba(16, 185, 129, ${p.alpha})`;
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 110) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            const lineAlpha = (1 - dist / 110) * 0.14;
+            ctx.strokeStyle = `rgba(245, 158, 11, ${lineAlpha})`;
+            ctx.lineWidth = 0.75;
+            ctx.stroke();
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // 4. Live Candlestick Tick & Simulated Telemetry Cycling
+  const [liveCandleTick, setLiveCandleTick] = useState<{ height: number; isUp: boolean }>({
+    height: 94,
+    isUp: true,
+  });
+  const [telemetryIndex, setTelemetryIndex] = useState(0);
+
+  useEffect(() => {
+    const tickInterval = setInterval(() => {
+      setLiveCandleTick({
+        height: Math.floor(Math.random() * 18) + 82, // 82% to 100%
+        isUp: Math.random() > 0.28,
+      });
+    }, 2200);
+
+    const telInterval = setInterval(() => {
+      setTelemetryIndex((prev) => (prev + 1) % LIVE_SIM_TELEMETRY.length);
+    }, 3600);
+
+    return () => {
+      clearInterval(tickInterval);
+      clearInterval(telInterval);
+    };
+  }, []);
+
+  // 5. Animated Counter Numbers (CountUp)
+  const [counters, setCounters] = useState({
+    cash: 0,
+    assets: 0,
+    latency: 50,
+    agents: 0,
+  });
+
+  useEffect(() => {
+    const duration = 1600;
+    const startTime = performance.now();
+
+    const frame = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutExpo
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+
+      setCounters({
+        cash: Math.floor(ease * 50),
+        assets: Math.floor(ease * 250),
+        latency: Math.max(18, Math.floor(50 - ease * 32)),
+        agents: Math.floor(ease * 3),
+      });
+
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    requestAnimationFrame(frame);
+  }, []);
+
   const handleOpenAuth = (mode: 'login' | 'register') => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
@@ -141,12 +331,22 @@ export default function TradeSimLandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-white selection:bg-amber-500 selection:text-black font-sans relative overflow-x-hidden">
-      {/* ── Background Ambient Glow Effects ── */}
+    <div
+      onMouseMove={handleMouseMove}
+      className="min-h-screen bg-[#07090e] text-white selection:bg-amber-500 selection:text-black font-sans relative overflow-x-hidden"
+    >
+      {/* ── Background Ambient Glow Effects + Mouse Spotlight ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b from-amber-500/12 via-emerald-500/8 to-transparent rounded-full blur-3xl opacity-80" />
         <div className="absolute top-[40%] -left-48 w-96 h-96 bg-cyan-500/8 rounded-full blur-3xl" />
         <div className="absolute top-[65%] -right-48 w-96 h-96 bg-amber-500/8 rounded-full blur-3xl" />
+        {/* Interactive Mouse Spotlight Radial Glow */}
+        <div
+          className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
+          style={{
+            background: `radial-gradient(650px circle at ${mousePos.x}px ${mousePos.y}px, rgba(245, 158, 11, 0.08), transparent 75%)`,
+          }}
+        />
         {/* Subtle Grid Overlay */}
         <div
           className="absolute inset-0 opacity-[0.03]"
@@ -252,28 +452,37 @@ export default function TradeSimLandingPage() {
       </header>
 
       {/* ── 3. Hero Section ── */}
-      <section className="relative z-10 pt-16 pb-20 md:pt-24 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative z-10 pt-16 pb-20 md:pt-24 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center overflow-hidden">
+        {/* Quant Constellation Particle Canvas Background */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          <canvas ref={canvasRef} className="w-full h-full opacity-70" />
+        </div>
+
         {/* Animated Badge Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono font-semibold mb-6 shadow-sm animate-pulse">
+        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono font-semibold mb-6 shadow-sm animate-pulse">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span>⚡ PLATFORM SIMULASI SAHAM BEI &amp; CRYPTO 24/7 #1 DI INDONESIA</span>
         </div>
 
-        {/* Main Title */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] max-w-5xl mx-auto">
-          Kuasai Pasar Saham &amp; Crypto{' '}
-          <span className="bg-gradient-to-r from-amber-400 via-emerald-300 to-cyan-400 bg-clip-text text-transparent">
+        {/* Main Title with Dynamic Text Morphing / Typewriter */}
+        <h1 className="relative z-10 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.15] max-w-5xl mx-auto min-h-[135px] sm:min-h-[160px] md:min-h-[190px] flex flex-col items-center justify-center">
+          <span>Kuasai</span>
+          <span className="bg-gradient-to-r from-amber-400 via-emerald-300 to-cyan-400 bg-clip-text text-transparent inline-flex items-center">
+            {displayedText}
+            <span className="inline-block w-1.5 sm:w-2.5 h-8 sm:h-12 bg-amber-400 ml-1.5 animate-cursor rounded-xs shadow-[0_0_12px_rgba(245,158,11,0.9)]" />
+          </span>
+          <span className="text-white text-3xl sm:text-4xl md:text-5xl font-extrabold mt-1">
             Tanpa Risiko Uang Riil.
           </span>
         </h1>
 
         {/* Subtitle */}
-        <p className="mt-6 text-base sm:text-lg md:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed">
+        <p className="relative z-10 mt-6 text-base sm:text-lg md:text-xl text-zinc-400 max-w-3xl mx-auto font-normal leading-relaxed">
           Simulator trading institusional dengan data real-time Bursa Efek Indonesia (BEI) dan crypto spot 24/7. Didukung radar bandarmologi, chart teknikal live, serta <strong className="text-white">Autonomous AI Portfolio Agents</strong> pertama di Indonesia.
         </p>
 
         {/* Saldo Virtual Callout Pill */}
-        <div className="mt-8 inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-[#0f141f] border border-emerald-500/40 text-xs font-mono shadow-[0_0_25px_rgba(34,197,94,0.15)]">
+        <div className="relative z-10 mt-8 inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-[#0f141f]/90 backdrop-blur-md border border-emerald-500/40 text-xs font-mono shadow-[0_0_25px_rgba(34,197,94,0.15)] animate-pulse-subtle">
           <span className="text-zinc-400">💼 Saldo Awal Otomatis:</span>
           <span className="text-emerald-400 font-extrabold text-sm tracking-wide">Rp 50.000.000 (Kas Virtual RDN)</span>
           <span className="hidden sm:inline text-zinc-500">•</span>
@@ -281,7 +490,7 @@ export default function TradeSimLandingPage() {
         </div>
 
         {/* Action CTA Buttons */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="relative z-10 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             type="button"
             onClick={handleEnterTerminal}
@@ -302,22 +511,30 @@ export default function TradeSimLandingPage() {
           </button>
         </div>
 
-        {/* Quick Highlights / Trust Metric Badges */}
-        <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto pt-8 border-t border-white/[0.08]">
-          <div className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">Rp 50 Juta</div>
+        {/* Quick Highlights / Trust Metric Badges with CountUp */}
+        <div className="relative z-10 mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto pt-8 border-t border-white/[0.08]">
+          <div className="p-3 bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/[0.05] hover:border-emerald-500/30 transition-colors">
+            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">
+              Rp {counters.cash} Juta
+            </div>
             <div className="text-[11px] text-zinc-400 mt-0.5">Kas Virtual Siap Pakai</div>
           </div>
-          <div className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-            <div className="text-xl sm:text-2xl font-black font-mono text-amber-400">250+ Aset</div>
+          <div className="p-3 bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/[0.05] hover:border-amber-500/30 transition-colors">
+            <div className="text-xl sm:text-2xl font-black font-mono text-amber-400">
+              {counters.assets}+ Aset
+            </div>
             <div className="text-[11px] text-zinc-400 mt-0.5">Saham BEI &amp; Crypto 24/7</div>
           </div>
-          <div className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-            <div className="text-xl sm:text-2xl font-black font-mono text-cyan-400">&lt; 18ms</div>
+          <div className="p-3 bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/[0.05] hover:border-cyan-500/30 transition-colors">
+            <div className="text-xl sm:text-2xl font-black font-mono text-cyan-400">
+              &lt; {counters.latency}ms
+            </div>
             <div className="text-[11px] text-zinc-400 mt-0.5">WebSocket Live Latency</div>
           </div>
-          <div className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-            <div className="text-xl sm:text-2xl font-black font-mono text-purple-400">3 AI Agent</div>
+          <div className="p-3 bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/[0.05] hover:border-purple-500/30 transition-colors">
+            <div className="text-xl sm:text-2xl font-black font-mono text-purple-400">
+              {counters.agents} AI Agent
+            </div>
             <div className="text-[11px] text-zinc-400 mt-0.5">Autonomous Risk &amp; TP/SL</div>
           </div>
         </div>
@@ -361,89 +578,164 @@ export default function TradeSimLandingPage() {
             </div>
           </div>
 
-          {/* Interactive Mockup Window */}
-          <div className="bg-[#090b10] border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
-            {/* Window Topbar */}
-            <div className="h-10 bg-[#10141f] border-b border-white/10 px-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-rose-500/80" />
-                <span className="w-3 h-3 rounded-full bg-amber-500/80" />
-                <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                <span className="text-[11px] font-mono text-zinc-400 ml-2 hidden sm:inline">
-                  tradesim://terminal/workstation-live
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>LIVE FEED • BEI &amp; BINANCE</span>
+          {/* Interactive Mockup Window Container with Border Beam and Floating Glass Badges */}
+          <div className="relative">
+            {/* Floating Glass Badge 1: Top-Right (AI Raditya Alert) */}
+            <div className="absolute -top-7 -right-2 sm:-right-6 z-30 hidden sm:flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#0c101d]/90 border border-emerald-500/40 backdrop-blur-xl shadow-[0_8px_32px_rgba(16,185,129,0.22)] animate-float-slow pointer-events-none">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <div className="font-mono text-left">
+                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Bot className="w-3 h-3 text-emerald-400" />
+                  <span>AI Alpha Signal</span>
+                </div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Raditya: BUY BBCA</span>
+                  <span className="text-emerald-400 font-extrabold">+3.8% TP</span>
+                </div>
               </div>
             </div>
 
-            {/* Window Content based on selected tab */}
-            <div className="p-4 sm:p-6 bg-[#07090f] min-h-[380px] flex items-center justify-center">
-              {activePreviewTab === 'chart' && (
-                <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
-                  <div className="lg:col-span-2 bg-[#0d111a] border border-zinc-800 rounded-xl p-4">
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold font-mono text-white text-sm">BBCA • Bank Central Asia</span>
-                        <span className="text-emerald-400 font-mono text-xs font-bold">10.450 (+1.45%)</span>
-                      </div>
-                      <span className="text-[10px] font-mono text-zinc-500">TIMEFRAME 1D • CANDLE</span>
-                    </div>
-                    {/* Simulated Candlestick Chart SVG graphic */}
-                    <div className="h-48 w-full flex items-end gap-2 px-2 py-4 border-b border-zinc-800/60 bg-gradient-to-t from-emerald-500/5 to-transparent">
-                      {[40, 55, 48, 65, 72, 60, 78, 85, 70, 92, 88, 96].map((h, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
-                          <div className="w-0.5 h-3 bg-emerald-400/40" />
-                          <div
-                            style={{ height: `${h}%` }}
-                            className={`w-full rounded-xs ${i % 3 === 1 ? 'bg-rose-500' : 'bg-emerald-500'} transition-all`}
-                          />
-                          <div className="w-0.5 h-3 bg-emerald-400/40" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 mt-2">
-                      <span>Vol: 78.4M Lembar</span>
-                      <span>High: 10.500 | Low: 10.350 | VWAP: 10.420</span>
-                    </div>
-                  </div>
+            {/* Floating Glass Badge 2: Bottom-Left (Realized Return) */}
+            <div className="absolute -bottom-6 -left-2 sm:-left-6 z-30 hidden sm:flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#0c101d]/90 border border-amber-500/40 backdrop-blur-xl shadow-[0_8px_32px_rgba(245,158,11,0.22)] animate-float-delayed pointer-events-none">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="font-mono text-left">
+                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                  Real Return Portofolio
+                </div>
+                <div className="text-xs font-bold text-emerald-400">
+                  +Rp 3.420.000 (+6.84%)
+                </div>
+              </div>
+            </div>
 
-                  <div className="bg-[#0d111a] border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
-                    <div>
-                      <div className="font-bold text-xs font-mono text-amber-400 uppercase tracking-wide mb-3">
-                        ⚡ Quick Execution Slip
-                      </div>
-                      <div className="space-y-2.5 text-xs font-mono">
-                        <div className="flex justify-between text-zinc-400">
-                          <span>Simbol:</span>
-                          <span className="font-bold text-white">BBCA.JK</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-400">
-                          <span>Harga Beli:</span>
-                          <span className="font-bold text-emerald-400">Rp 10.450</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-400">
-                          <span>Jumlah Lot:</span>
-                          <span className="font-bold text-white">10 Lot (1.000 Lembar)</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-400 border-t border-zinc-800 pt-2">
-                          <span>Estimasi Total:</span>
-                          <span className="font-bold text-amber-300">Rp 10.450.000</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleEnterTerminal}
-                      className="mt-4 w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono text-center transition-all shadow-md active:scale-95 cursor-pointer"
-                    >
-                      Coba Beli di Terminal &rarr;
-                    </button>
+            {/* Floating Glass Badge 3: Top-Left (Risk Guard CRO) */}
+            <div className="absolute -top-6 -left-2 sm:-left-4 z-30 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0c101d]/90 border border-cyan-500/40 backdrop-blur-xl shadow-[0_8px_24px_rgba(6,182,212,0.2)] animate-float-reverse pointer-events-none">
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="font-mono text-[11px] font-bold text-cyan-300">
+                CRO Risk Guard: 100% SL Protected
+              </span>
+            </div>
+
+            {/* Main Mockup Box with Border Beam Glow */}
+            <div className="p-[1.5px] rounded-2xl border-beam-active shadow-[0_0_60px_rgba(0,0,0,0.85)]">
+              <div className="bg-[#090b10] rounded-[15px] overflow-hidden relative z-10 border border-white/10">
+                {/* Window Topbar */}
+                <div className="h-10 bg-[#10141f] border-b border-white/10 px-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-rose-500/80" />
+                    <span className="w-3 h-3 rounded-full bg-amber-500/80" />
+                    <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                    <span className="text-[11px] font-mono text-zinc-400 ml-2 hidden sm:inline">
+                      tradesim://terminal/workstation-live
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>LIVE FEED • BEI &amp; BINANCE</span>
                   </div>
                 </div>
-              )}
+
+                {/* Window Content based on selected tab */}
+                <div className="p-4 sm:p-6 bg-[#07090f] min-h-[380px] flex items-center justify-center">
+                  {activePreviewTab === 'chart' && (
+                    <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+                      <div className="lg:col-span-2 bg-[#0d111a] border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold font-mono text-white text-sm">BBCA • Bank Central Asia</span>
+                              <span className="text-emerald-400 font-mono text-xs font-bold">10.450 (+1.45%)</span>
+                            </div>
+                            <span className="text-[10px] font-mono text-zinc-500">TIMEFRAME 1D • CANDLE</span>
+                          </div>
+                          {/* Simulated Candlestick Chart SVG graphic with Live Tick */}
+                          <div className="h-48 w-full flex items-end gap-2 px-2 py-4 border-b border-zinc-800/60 bg-gradient-to-t from-emerald-500/5 to-transparent relative">
+                            {[40, 55, 48, 65, 72, 60, 78, 85, 70, 92, 88].map((h, i) => (
+                              <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                                <div className="w-0.5 h-3 bg-emerald-400/40" />
+                                <div
+                                  style={{ height: `${h}%` }}
+                                  className={`w-full rounded-xs ${i % 3 === 1 ? 'bg-rose-500' : 'bg-emerald-500'} transition-all`}
+                                />
+                                <div className="w-0.5 h-3 bg-emerald-400/40" />
+                              </div>
+                            ))}
+                            {/* Live Active Ticking Candle 12 */}
+                            <div className="flex-1 flex flex-col items-center gap-1 relative">
+                              <div className="w-0.5 h-3 bg-emerald-400/60" />
+                              <div
+                                style={{ height: `${liveCandleTick.height}%` }}
+                                className={`w-full rounded-xs transition-all duration-500 ${
+                                  liveCandleTick.isUp
+                                    ? 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]'
+                                    : 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.7)]'
+                                }`}
+                              />
+                              <div className="w-0.5 h-3 bg-emerald-400/60" />
+                              <span className="absolute -top-1 w-2 h-2 rounded-full bg-emerald-300 animate-ping pointer-events-none" />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 mt-2">
+                            <span>Vol: 78.4M Lembar</span>
+                            <span>High: 10.500 | Low: 10.350 | VWAP: 10.420</span>
+                          </div>
+                        </div>
+
+                        {/* Live Telemetry Ticker Ribbon inside preview */}
+                        <div className="mt-3 px-3 py-2 rounded-lg bg-black/60 border border-zinc-800 flex items-center justify-between font-mono text-[11px] overflow-hidden">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 font-bold uppercase shrink-0">
+                              {LIVE_SIM_TELEMETRY[telemetryIndex].tag}
+                            </span>
+                            <span className={`${LIVE_SIM_TELEMETRY[telemetryIndex].color} font-semibold truncate transition-all duration-300`}>
+                              {LIVE_SIM_TELEMETRY[telemetryIndex].text}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 hidden sm:inline shrink-0 font-mono">
+                            FEED: REALTIME
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-[#0d111a] border border-zinc-800 rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <div className="font-bold text-xs font-mono text-amber-400 uppercase tracking-wide mb-3 flex items-center justify-between">
+                            <span>⚡ Quick Execution Slip</span>
+                            <span className="text-[10px] text-emerald-400 font-bold animate-pulse">0.0% FEE</span>
+                          </div>
+                          <div className="space-y-2.5 text-xs font-mono">
+                            <div className="flex justify-between text-zinc-400">
+                              <span>Simbol:</span>
+                              <span className="font-bold text-white">BBCA.JK</span>
+                            </div>
+                            <div className="flex justify-between text-zinc-400">
+                              <span>Harga Beli:</span>
+                              <span className="font-bold text-emerald-400">Rp 10.450</span>
+                            </div>
+                            <div className="flex justify-between text-zinc-400">
+                              <span>Jumlah Lot:</span>
+                              <span className="font-bold text-white">10 Lot (1.000 Lembar)</span>
+                            </div>
+                            <div className="flex justify-between text-zinc-400 border-t border-zinc-800 pt-2">
+                              <span>Estimasi Total:</span>
+                              <span className="font-bold text-amber-300">Rp 10.450.000</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleEnterTerminal}
+                          className="mt-4 w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono text-center transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 group"
+                        >
+                          <span>Coba Beli di Terminal</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
               {activePreviewTab === 'ai' && (
                 <div className="w-full bg-[#0d111a] border border-amber-500/30 rounded-xl p-5 animate-in fade-in duration-300">
@@ -558,10 +850,13 @@ export default function TradeSimLandingPage() {
                   </div>
                 </div>
               )}
+              {/* close tabs content */}
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </section>
 
       {/* ── 5. 6 Fitur Unggulan Grid ── */}
       <section id="fitur" className="relative z-10 py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -581,9 +876,9 @@ export default function TradeSimLandingPage() {
           {FEATURES.map((feat, idx) => (
             <div
               key={idx}
-              className={`p-6 rounded-2xl bg-gradient-to-b ${feat.gradient} border ${feat.border} hover:border-white/30 transition-all duration-300 group hover:-translate-y-1`}
+              className={`p-6 rounded-2xl bg-gradient-to-b ${feat.gradient} border ${feat.border} hover:border-white/40 transition-all duration-300 group hover:-translate-y-1.5 hover:shadow-[0_12px_36px_rgba(245,158,11,0.12)] relative overflow-hidden hover-shine-sweep cursor-default`}
             >
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform group-hover:border-amber-400/50">
                 {feat.icon}
               </div>
               <span className="text-[10px] font-mono font-bold text-zinc-400 tracking-wider uppercase block mb-1">
