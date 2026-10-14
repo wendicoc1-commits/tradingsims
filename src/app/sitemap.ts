@@ -28,7 +28,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     'GOTO', 'AMMN', 'ANTM', 'PTBA', 'BRPT', 'PGAS', 'INDF', 'KLBF', 'CPIN',
     'SMGR', 'INKP', 'MEDC', 'MDKA', 'TPIA', 'BUKA', 'ARTO', 'ESSA', 'AKRA',
     'ACES', 'MYOR', 'INCO', 'HRUM', 'ITMG', 'PGEO', 'MAPA', 'MAPI', 'CTRA',
-    'BSDE', 'PWON', 'SMRA', 'BUMI', 'DEWA', 'BRMS', 'ENRG', 'ERAA', 'EXCL'
+    'BSDE', 'PWON', 'SMRA', 'BUMI', 'DEWA', 'BRMS', 'ENRG', 'ERAA', 'EXCL',
+    'ISAT', 'GGRM', 'HMSP', 'BTPS', 'BBTN', 'TOWR', 'TBIG', 'SCMA', 'MNCN',
+    'AVIA', 'HEAL', 'MIKA', 'SILO', 'SIDO', 'CMRY', 'NISP', 'BDMN', 'AUTO'
   ];
 
   const stockRoutes = popularIdxTickers.map((ticker) => ({

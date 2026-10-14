@@ -60,6 +60,7 @@ import OpenBBWorkspaceDesk from '@/components/openbb/OpenBBWorkspaceDesk';
 import AIChartPilotHUD from '@/components/stock/AIChartPilotHUD';
 import PineScriptStudioModal from '@/components/stock/PineScriptStudioModal';
 import MultiTimeframeRadar from '@/components/stock/MultiTimeframeRadar';
+import EeatComplianceBadge from '@/components/seo/EeatComplianceBadge';
 import type { ChartAnnotationOverlay, PineScriptResult } from '@/lib/charting/aiChartPilotEngine';
 
 function formatPrice(price: number, currency: string) {
@@ -1441,6 +1442,9 @@ export default function StockDetailPage() {
           setAppliedPineScript(script);
         }}
       />
+
+      {/* ── E-E-A-T & YMYL Financial Regulatory Compliance Verification ── */}
+      <EeatComplianceBadge />
     </div>
   );
 }

@@ -1,14 +1,18 @@
 import TradeSimLandingPage from '@/components/landing/TradeSimLandingPage';
+import GeoStructuredData from '@/components/seo/GeoStructuredData';
 
 export default function HomePage() {
   return (
     <>
-      {/* ── Semantic SEO & Structured Crawlable Content for Search Engines ── */}
+      {/* ── Generative Engine Optimization (GEO) & LLM Knowledge Graph ── */}
+      <GeoStructuredData />
+
+      {/* ── Semantic SEO & Structured Crawlable Content for Search Engines & LLMs ── */}
       <section className="sr-only" aria-label="TradeSim Pro Platform Overview">
         <h1>TradeSim Pro - Platform Simulator Trading Saham IDX &amp; Crypto Indonesia</h1>
         <p>
-          Platform paper trading dan simulator investasi saham Indonesia (BEI / IDX) dan crypto spot 24/7 dengan data pasar real-time,
-          analisis teknikal candlestick, radar bandarmologi, serta ekosistem AI autonomous portfolio agent terdepan di Indonesia.
+          TradeSim Pro adalah platform institusional paper trading dan simulator investasi saham Indonesia (BEI / IDX), US Tech Stocks (NASDAQ), dan crypto spot 24/7 dengan data pasar real-time,
+          analisis teknikal candlestick, radar bandarmologi broker summary, orderbook Level 2, serta ekosistem AI autonomous portfolio agent terdepan di Indonesia. Dapatkan modal virtual gratis Rp 50.000.000 atau $100.000 USD untuk latihan tanpa risiko finansial nyata.
         </p>
         <nav aria-label="Akses Cepat Fitur Simulator">
           <ul>
@@ -19,6 +23,7 @@ export default function HomePage() {
             <li><a href="/screener">Screener Saham &amp; Filter Fundamental</a></li>
             <li><a href="/dividend">Radar Kalender Dividen Emiten BEI</a></li>
             <li><a href="/championship">Turnamen Liga Trading Simulator Berhadiah</a></li>
+            <li><a href="/bandar">Radar Aliran Dana Bandarmologi Asing &amp; Broker Summary</a></li>
           </ul>
         </nav>
       </section>
