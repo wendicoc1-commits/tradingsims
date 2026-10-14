@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticRoutes = [
     { path: '', changeFrequency: 'always' as const, priority: 1.0 },
+    { path: '/terminal', changeFrequency: 'always' as const, priority: 0.95 },
     { path: '/markets', changeFrequency: 'hourly' as const, priority: 0.9 },
     { path: '/crypto', changeFrequency: 'always' as const, priority: 0.95 },
     { path: '/hedge-fund', changeFrequency: 'hourly' as const, priority: 0.9 },

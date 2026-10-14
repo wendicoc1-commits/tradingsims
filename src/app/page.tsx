@@ -1,16 +1,4 @@
-'use client';
-
-import dynamic from 'next/dynamic';
-import WorkstationSkeleton from '@/components/skeletons/WorkstationSkeleton';
-
-// Dynamic import dengan skeleton loading instan untuk eliminasi CSR lock & blank freeze
-const FinceptCustomizableDashboard = dynamic(
-  () => import('@/components/dashboard/FinceptCustomizableDashboard'),
-  {
-    ssr: false,
-    loading: () => <WorkstationSkeleton />,
-  }
-);
+import TradeSimLandingPage from '@/components/landing/TradeSimLandingPage';
 
 export default function HomePage() {
   return (
@@ -24,6 +12,7 @@ export default function HomePage() {
         </p>
         <nav aria-label="Akses Cepat Fitur Simulator">
           <ul>
+            <li><a href="/terminal">Buka Workstation Terminal Fincept</a></li>
             <li><a href="/markets">Peta Pasar &amp; Sektoral IHSG</a></li>
             <li><a href="/crypto">Simulator Trading Crypto 24/7 (BTC, ETH, SOL)</a></li>
             <li><a href="/portfolio">Portofolio Investasi &amp; Saldo Kas Virtual RDN</a></li>
@@ -34,7 +23,7 @@ export default function HomePage() {
         </nav>
       </section>
 
-      <FinceptCustomizableDashboard />
+      <TradeSimLandingPage />
     </>
   );
 }

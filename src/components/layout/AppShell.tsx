@@ -16,6 +16,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme } = useMarketStore();
   const pathname = usePathname() || '';
   const isAdmin = pathname.startsWith('/admin');
+  const isLanding = pathname === '/' || pathname === '/landing';
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -26,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Otomatis sinkronkan data member aktif ke Supabase Cloud saat login
   useEffect(() => {
-    if (isAdmin) return;
+    if (isAdmin || isLanding) return;
     const timer = setTimeout(() => {
       const authUser = useAuthStore.getState().user;
       if (authUser && authUser.email && authUser.provider !== 'guest') {
@@ -34,22 +35,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [isAdmin]);
+  }, [isAdmin, isLanding]);
 
-  // Pastikan rute admin bisa scroll penuh dengan melepas overflow-hidden pada body
+  // Pastikan rute admin dan landing page bisa scroll penuh secara alami
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    if (isAdmin) {
+    if (isAdmin || isLanding) {
       document.body.classList.remove('overflow-hidden');
       document.body.classList.add('overflow-y-auto');
     } else {
       document.body.classList.remove('overflow-y-auto');
       document.body.classList.add('overflow-hidden');
     }
-  }, [isAdmin]);
+  }, [isAdmin, isLanding]);
 
-  // Rute admin memiliki layout dan auth tersendiri, bypass shell trading
-  if (isAdmin) {
+  // Rute admin & landing page memiliki layout mandiri (bypass Bloomberg cockpit shell)
+  if (isAdmin || isLanding) {
     return (
       <>
         <Toaster position="top-right" theme="dark" richColors closeButton />

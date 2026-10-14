@@ -216,7 +216,9 @@ export default function TradeSimHeader() {
       return;
     }
 
-    if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
+    if (cmd === 'TERM' || cmd === 'TERMINAL' || cmd === 'DASHBOARD') router.push('/terminal');
+    else if (cmd === 'HOME' || cmd === 'BERANDA' || cmd === 'LANDING') router.push('/');
+    else if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
     else if (cmd === 'TOPUP' || cmd === 'DEPOSIT') setIsTopUpOpen(true);
     else if (cmd === 'ADMIN' || cmd === 'APPROVAL') router.push('/admin/deposits');
     else if (cmd === 'LIGA' || cmd === 'CHAMPIONSHIP' || cmd === 'TOURNAMENT') router.push('/championship');
@@ -526,8 +528,17 @@ export default function TradeSimHeader() {
           href="/"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname === '/' ? 'page' : undefined}
+          className="px-2.5 py-1 text-xs font-bold transition-all tracking-wider shrink-0 text-amber-400 hover:text-amber-300 hover:bg-white/5 flex items-center gap-1 border-r border-white/10 mr-1"
+          title="Buka Landing Page TradeSim Pro"
+        >
+          <span>🏠 BERANDA</span>
+        </Link>
+        <Link
+          href="/terminal"
+          onClick={() => tradeSimAudio.playClick()}
+          aria-current={pathname === '/terminal' ? 'page' : undefined}
           className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
-            pathname === '/'
+            pathname === '/terminal'
               ? 'bg-[#f97316] text-black font-black shadow-sm'
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
