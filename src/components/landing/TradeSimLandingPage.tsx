@@ -132,6 +132,14 @@ export default function TradeSimLandingPage() {
     setIsAuthModalOpen(true);
   };
 
+  const handleEnterTerminal = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    try {
+      sessionStorage.setItem('tradesim_session_entered_v1', 'true');
+    } catch {}
+    router.push('/terminal');
+  };
+
   return (
     <div className="min-h-screen bg-[#07090e] text-white selection:bg-amber-500 selection:text-black font-sans relative overflow-x-hidden">
       {/* ── Background Ambient Glow Effects ── */}
@@ -204,13 +212,14 @@ export default function TradeSimLandingPage() {
                 <span className="hidden sm:inline text-xs text-zinc-400 font-mono">
                   Halo, <strong className="text-white">{user.email?.split('@')[0]}</strong>
                 </span>
-                <Link
-                  href="/terminal"
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-xs font-mono flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                <button
+                  type="button"
+                  onClick={handleEnterTerminal}
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-xs font-mono flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
                 >
                   <Terminal className="w-3.5 h-3.5" />
                   <span>Buka Terminal Workstation &rarr;</span>
-                </Link>
+                </button>
               </div>
             ) : (
               <>
@@ -228,13 +237,14 @@ export default function TradeSimLandingPage() {
                 >
                   <span>Daftar Gratis</span>
                 </button>
-                <Link
-                  href="/terminal"
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-xs font-mono flex items-center gap-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all"
+                <button
+                  type="button"
+                  onClick={handleEnterTerminal}
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-extrabold text-xs font-mono flex items-center gap-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
                 >
                   <Zap className="w-3.5 h-3.5 fill-black" />
                   <span>Buka Terminal ⚡</span>
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -272,14 +282,15 @@ export default function TradeSimLandingPage() {
 
         {/* Action CTA Buttons */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/terminal"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 active:scale-95 transition-all group"
+          <button
+            type="button"
+            onClick={handleEnterTerminal}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 active:scale-95 transition-all group cursor-pointer"
           >
             <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
             <span>MULAI SIMULASI GRATIS SEKARANG</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -423,12 +434,13 @@ export default function TradeSimLandingPage() {
                         </div>
                       </div>
                     </div>
-                    <Link
-                      href="/terminal"
-                      className="mt-4 w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono text-center transition-all shadow-md active:scale-95"
+                    <button
+                      type="button"
+                      onClick={handleEnterTerminal}
+                      className="mt-4 w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono text-center transition-all shadow-md active:scale-95 cursor-pointer"
                     >
                       Coba Beli di Terminal &rarr;
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )}
@@ -633,12 +645,13 @@ export default function TradeSimLandingPage() {
           </div>
 
           <div className="mt-12 text-center">
-            <Link
-              href="/terminal"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-extrabold text-sm font-mono tracking-wide shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+            <button
+              type="button"
+              onClick={handleEnterTerminal}
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-extrabold text-sm font-mono tracking-wide shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
             >
               <span>Luncurkan Workstation Sekarang &rarr;</span>
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -693,13 +706,14 @@ export default function TradeSimLandingPage() {
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/terminal"
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-sm font-mono tracking-wide shadow-xl shadow-amber-500/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+              <button
+                type="button"
+                onClick={handleEnterTerminal}
+                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-sm font-mono tracking-wide shadow-xl shadow-amber-500/30 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Zap className="w-4 h-4 fill-black" />
                 <span>BUKA TERMINAL WORKSTATION ⚡</span>
-              </Link>
+              </button>
               <button
                 type="button"
                 onClick={() => handleOpenAuth('register')}
@@ -729,7 +743,7 @@ export default function TradeSimLandingPage() {
             </div>
 
             <div className="flex items-center gap-6 text-zinc-400 font-medium">
-              <Link href="/terminal" className="hover:text-amber-400 transition-colors">Terminal</Link>
+              <button type="button" onClick={handleEnterTerminal} className="hover:text-amber-400 transition-colors cursor-pointer">Terminal</button>
               <Link href="/markets" className="hover:text-amber-400 transition-colors">Markets</Link>
               <Link href="/crypto" className="hover:text-amber-400 transition-colors">Crypto</Link>
               <Link href="/portfolio" className="hover:text-amber-400 transition-colors">Portofolio</Link>
