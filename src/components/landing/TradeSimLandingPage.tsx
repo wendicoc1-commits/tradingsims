@@ -15,6 +15,7 @@ import BentoGrid from '@/components/landing/BentoGrid';
 import TerminalShowcase from '@/components/landing/TerminalShowcase';
 import { ComparisonMatrix } from '@/components/landing/ComparisonMatrix';
 import { Testimonials } from '@/components/landing/Testimonials';
+import FaqSection from '@/components/landing/FaqSection';
 import { Footer } from '@/components/landing/Footer';
 
 export default function TradeSimLandingPage() {
@@ -83,6 +84,9 @@ export default function TradeSimLandingPage() {
 
         {/* Verified Community & Trader Testimonials */}
         <Testimonials />
+
+        {/* High-Intent FAQ Accordion (Google SERP Rich Snippet Target) */}
+        <FaqSection onEnterTerminal={handleEnterTerminal} />
       </main>
 
       {/* ── 5. Bottom Call to Action & Institutional Footer ── */}

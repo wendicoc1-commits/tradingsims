@@ -18,6 +18,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isAdmin = pathname.startsWith('/admin');
   const isLanding = pathname === '/' || pathname === '/landing';
   const isTools = pathname.startsWith('/tools');
+  const isLearn = pathname.startsWith('/learn');
+  const isPublicDoc = isAdmin || isLanding || isTools || isLearn;
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -28,7 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Otomatis sinkronkan data member aktif ke Supabase Cloud saat login
   useEffect(() => {
-    if (isAdmin || isLanding || isTools) return;
+    if (isPublicDoc) return;
     const timer = setTimeout(() => {
       const authUser = useAuthStore.getState().user;
       if (authUser && authUser.email && authUser.provider !== 'guest') {
@@ -36,22 +38,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [isAdmin, isLanding, isTools]);
+  }, [isPublicDoc]);
 
   // Pastikan rute admin, tools, dan landing page bisa scroll penuh secara alami
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    if (isAdmin || isLanding || isTools) {
+    if (isPublicDoc) {
       document.body.classList.remove('overflow-hidden');
       document.body.classList.add('overflow-y-auto');
     } else {
       document.body.classList.remove('overflow-y-auto');
       document.body.classList.add('overflow-hidden');
     }
-  }, [isAdmin, isLanding, isTools]);
+  }, [isPublicDoc]);
 
   // Rute admin, landing page, dan tools memiliki layout scroll mandiri
-  if (isAdmin || isLanding || isTools) {
+  if (isPublicDoc) {
     return (
       <>
         <Toaster position="top-right" theme="dark" richColors closeButton />

@@ -216,8 +216,18 @@ export const Footer: React.FC<FooterProps> = ({ onLaunchTerminal, onOpenAuth, us
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-emerald-400 transition-colors">
-                  API Documentation
+                <a href="/tools/kalkulator-averaging-saham" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
+                  Kalkulator Average Down Saham
+                </a>
+              </li>
+              <li>
+                <a href="/learn/apa-itu-paper-trading" className="hover:text-emerald-400 transition-colors">
+                  Panduan: Apa itu Paper Trading?
+                </a>
+              </li>
+              <li>
+                <a href="/learn/cara-baca-orderbook-level-2" className="hover:text-emerald-400 transition-colors">
+                  Panduan: Cara Baca Orderbook Level 2
                 </a>
               </li>
               <li>

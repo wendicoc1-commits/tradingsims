@@ -22,6 +22,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.8 },
     { path: '/tools/kalkulator-fee-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-lot', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/tools/kalkulator-averaging-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/learn/apa-itu-paper-trading', changeFrequency: 'monthly' as const, priority: 0.85 },
+    { path: '/learn/cara-baca-orderbook-level-2', changeFrequency: 'monthly' as const, priority: 0.85 },
   ];
 
   // Static list of popular IDX tickers (murni server-side safe tanpa import 'use client')
