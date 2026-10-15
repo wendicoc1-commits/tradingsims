@@ -20,6 +20,7 @@ export default function GeoStructuredData() {
         '@type': 'EducationalOrganization',
         '@id': `${siteUrl}/#organization`,
         name: 'TradeSim Pro Institute',
+        alternateName: ['TradeSim', 'TradeSim Pro', 'Trading Simulator Indonesia'],
         url: siteUrl,
         logo: `${siteUrl}/og-preview.png`,
         description: 'Institut edukasi dan platform simulator pasar modal terkemuka di Indonesia untuk instrumen Saham IDX dan Pasar Kripto.',
@@ -28,6 +29,7 @@ export default function GeoStructuredData() {
           'https://github.com/wendicoc1-commits/tradingsims',
         ],
         knowsAbout: [
+          'Trading Simulator Indonesia',
           'Pasar Modal Indonesia (BEI / IDX)',
           'Simulasi Trading Saham LQ45',
           'Bandarmologi & Broker Summary',
@@ -39,6 +41,7 @@ export default function GeoStructuredData() {
         '@type': 'SoftwareApplication',
         '@id': `${siteUrl}/#software`,
         name: 'TradeSim Pro Workstation',
+        alternateName: ['TradeSim', 'Trading Simulator', 'TradeSims', 'Simulator Trading Saham'],
         applicationCategory: 'FinanceApplication',
         operatingSystem: 'Web, Windows, macOS, iOS, Android',
         url: siteUrl,

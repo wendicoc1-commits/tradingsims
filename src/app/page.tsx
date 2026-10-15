@@ -9,7 +9,7 @@ export default function HomePage() {
 
       {/* ── Semantic SEO & Structured Crawlable Content for Search Engines & LLMs ── */}
       <section className="sr-only" aria-label="TradeSim Pro Platform Overview">
-        <h1>TradeSim Pro - Platform Simulator Trading Saham IDX &amp; Crypto Indonesia</h1>
+        <h2>TradeSim Pro: Platform Trading Simulator Saham IDX &amp; Crypto Indonesia</h2>
         <p>
           TradeSim Pro adalah platform institusional paper trading dan simulator investasi saham Indonesia (BEI / IDX), US Tech Stocks (NASDAQ), dan crypto spot 24/7 dengan data pasar real-time,
           analisis teknikal candlestick, radar bandarmologi broker summary, orderbook Level 2, serta ekosistem AI autonomous portfolio agent terdepan di Indonesia. Dapatkan modal virtual gratis Rp 50.000.000 atau $100.000 USD untuk latihan tanpa risiko finansial nyata.

@@ -39,21 +39,24 @@ export default function Hero({ onOpenAuth, onEnterTerminal, user }: HeroProps) {
 
       {/* ── Main Headline with Masked Line Reveal & Refined Aesthetics ── */}
       <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light tracking-tight leading-[1.08] max-w-5xl mx-auto uppercase font-sans text-zinc-100">
+        <span className="block text-xs sm:text-sm font-mono tracking-widest text-emerald-400 font-bold mb-3 uppercase">
+          TRADESIM PRO • #1 TRADING SIMULATOR INDONESIA
+        </span>
         <span className="block overflow-hidden pb-1">
           <span className="inline-block transition-transform duration-1000 ease-out transform translate-y-0">
-            Master the Markets <span className="font-extralight text-zinc-400">Without Risk.</span>
+            Trading Simulator <span className="font-extralight text-zinc-400">Tanpa Risiko.</span>
           </span>
         </span>
         <span className="block overflow-hidden pt-1">
           <span className="inline-block bg-gradient-to-r from-[#e2c58e] via-[#ebd9b8] to-[#10b981] bg-clip-text text-transparent font-medium drop-shadow-[0_0_35px_rgba(226,197,142,0.2)]">
-            Trade Smarter, Faster, Real-Time.
+            Saham BEI &amp; Crypto Real-Time
           </span>
         </span>
       </h1>
 
       {/* ── Subheadline with subtle breathing typography ── */}
       <p className="mt-6 text-base sm:text-lg md:text-xl text-[#9c978b] max-w-3xl mx-auto font-normal leading-relaxed">
-        An institutional-grade trading terminal and simulation ecosystem. Test automated strategies, analyze deep orderbooks, and simulate live stock &amp; crypto execution with zero capital on the line.
+        <strong className="text-zinc-200">TradeSim Pro</strong> adalah platform trading simulator institusional terlengkap di Indonesia. Latihan simulasi trading saham BEI (IDX) dan crypto spot 24/7 dengan data pasar real-time, modal virtual Rp 50.000.000 gratis, dan teknologi AI hedge fund workstation.
       </p>
 
       {/* ── CTA Button Group ── */}
