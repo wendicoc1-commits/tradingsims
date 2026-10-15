@@ -165,6 +165,43 @@ export default function RootLayout({
           },
         ],
       },
+      {
+        '@type': 'HowTo',
+        '@id': `${SITE_URL}/#howto`,
+        name: 'Cara Memulai Trading Simulator Saham & Kripto di TradeSim Pro',
+        description: 'Panduan langkah demi langkah memulai paper trading saham Indonesia (BEI / IDX) dan crypto 24/7 tanpa risiko dengan modal virtual Rp 50.000.000.',
+        totalTime: 'PT3M',
+        step: [
+          {
+            '@type': 'HowToStep',
+            position: 1,
+            name: 'Buka Platform TradeSim Pro',
+            text: 'Kunjungi website resmi TradeSim Pro di https://www.tradingsims.my.id dan klik tombol Buka Terminal atau Mulai Simulasi.',
+            url: `${SITE_URL}/terminal`,
+          },
+          {
+            '@type': 'HowToStep',
+            position: 2,
+            name: 'Klaim Saldo Virtual Gratis Rp 50.000.000',
+            text: 'Daftar akun gratis dalam 10 detik dan saldo modal virtual Rp 50.000.000 langsung aktif di portofolio simulasi RDN Anda.',
+            url: `${SITE_URL}/portfolio`,
+          },
+          {
+            '@type': 'HowToStep',
+            position: 3,
+            name: 'Pilih Saham atau Kripto Favorit',
+            text: 'Cari emiten saham pilihan (seperti BBCA, BBRI, GOTO) atau aset kripto (BTC, ETH) dan pantau chart candlestick real-time serta orderbook level 2.',
+            url: `${SITE_URL}/markets`,
+          },
+          {
+            '@type': 'HowToStep',
+            position: 4,
+            name: 'Pasang Order Beli & Pantau Keuntungan Portofolio',
+            text: 'Masukkan jumlah lot yang diinginkan, pilih tipe order (Market / Limit Order), dan klik Beli. Pantau laba rugi (P&L) portofolio Anda secara real-time.',
+            url: `${SITE_URL}/terminal`,
+          },
+        ],
+      },
     ],
   };
 

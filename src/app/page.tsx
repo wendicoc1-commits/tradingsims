@@ -37,12 +37,14 @@ export default function HomePage() {
             <li><a href="/tools/kalkulator-fee-saham">Kalkulator Fee Beli &amp; Jual Saham BEI</a></li>
             <li><a href="/tools/kalkulator-lot">Kalkulator Lot Saham ke Lembar &amp; Rupiah</a></li>
             <li><a href="/tools/kalkulator-averaging-saham">Kalkulator Averaging Down Saham</a></li>
+            <li><a href="/tools/kalkulator-dividen">Kalkulator Dividen Saham &amp; Dividend Yield</a></li>
           </ul>
         </nav>
 
         <h3>Panduan &amp; Edukasi Trading Pemula</h3>
         <nav aria-label="Edukasi Trading">
           <ul>
+            <li><a href="/learn/istilah-saham">Kamus Istilah Saham Indonesia (A-Z)</a></li>
             <li><a href="/learn/apa-itu-paper-trading">Apa itu Paper Trading? Panduan Belajar Trading Saham Tanpa Risiko</a></li>
             <li><a href="/learn/cara-baca-orderbook-level-2">Cara Membaca Orderbook Level 2: Bid, Offer, dan Antrean Saham</a></li>
           </ul>

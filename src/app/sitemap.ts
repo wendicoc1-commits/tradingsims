@@ -23,6 +23,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/tools/kalkulator-fee-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-lot', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-averaging-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/tools/kalkulator-dividen', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/learn/istilah-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/learn/apa-itu-paper-trading', changeFrequency: 'monthly' as const, priority: 0.85 },
     { path: '/learn/cara-baca-orderbook-level-2', changeFrequency: 'monthly' as const, priority: 0.85 },
   ];
