@@ -12,9 +12,6 @@ import {
   Coins,
   CheckCircle2,
   AlertTriangle,
-  Gift,
-  Landmark,
-  TrendingUp,
   RotateCcw,
   Sparkles,
   Calendar,
@@ -22,21 +19,26 @@ import {
   ShieldAlert,
   Download,
   Newspaper,
-  GitBranch,
+  Target,
+  Shield,
+  Check,
+  X,
+  RefreshCw,
+  Printer,
 } from 'lucide-react';
 import { usePortfolioStore, KNOWN_DIVIDENDS } from '@/store';
+import { useCryptoPriceStore } from '@/store/useCryptoPriceStore';
 import { calculateShares, isValidIDXTick } from '@/lib/stockRules';
 import { exportToCsv } from '@/lib/exportCsv';
 import DividendCalendar from '@/components/dividend/DividendCalendar';
 import PortfolioAnalytics from '@/components/portfolio/PortfolioAnalytics';
 import PortfolioNewsFeed from '@/components/portfolio/PortfolioNewsFeed';
 import PortfolioStressTestModal from '@/components/portfolio/PortfolioStressTestModal';
-import InstitutionalPortfolioDesk from '@/components/portfolio/InstitutionalPortfolioDesk';
-import GitOrderBlotter from '@/components/portfolio/GitOrderBlotter';
 import FinceptAIPortfolioAgentBar from '@/components/portfolio/FinceptAIPortfolioAgentBar';
 import TradingJournalCalendar from '@/components/portfolio/TradingJournalCalendar';
 import TelegramAlertSettingsModal from '@/components/portfolio/TelegramAlertSettingsModal';
 import CopyTradingModal from '@/components/portfolio/CopyTradingModal';
+import TopUpModal from '@/components/portfolio/TopUpModal';
 import AuthModal from '@/components/auth/AuthModal';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import EmptyState from '@/components/common/EmptyState';
@@ -47,16 +49,19 @@ import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { exportPortfolioToExcel, exportElementToPDF } from '@/lib/exportUtils';
-
 import { useOrderCalculation } from '@/hooks/useOrderCalculation';
 
 function formatPrice(price: number) {
   return price.toLocaleString('id-ID');
 }
 
+const KNOWN_US_SYMS = [
+  'NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META',
+  'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR', 'AVGO', 'LLY', 'JPM', 'WMT', 'COST', 'BABA', 'TSM', 'ASML'
+];
+
 /* ─── Order Form (Paper Trading Engine - Saham IDX, Saham US, & Crypto Spot) ─── */
 function OrderForm() {
-  // Granular Zustand selectors: Mencegah re-render form saat holding price / lastUpdated bergerak
   const cash = usePortfolioStore((state) => state.cash);
   const placeBuyOrder = usePortfolioStore((state) => state.placeBuyOrder);
   const placeSellOrder = usePortfolioStore((state) => state.placeSellOrder);
@@ -70,12 +75,10 @@ function OrderForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Ekstraksi domain math order calculation ke hook terpisah
   const {
     priceNum,
     lotsNum,
     rawSym,
-    cleanSym,
     isCrypto,
     isUS,
     isForeign,
@@ -83,7 +86,6 @@ function OrderForm() {
     tradeValue,
     brokerFee,
     taxFee,
-    totalFee,
     grandTotal,
     shareInfo,
     tickValidation,
@@ -105,7 +107,7 @@ function OrderForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return; // Mencegah double-click / multi-submit race condition
+    if (isSubmitting) return;
 
     if (!rawSym || priceNum <= 0 || lotsNum <= 0) {
       setNotification({ type: 'error', message: 'Silakan isi kode aset, harga, dan jumlah dengan benar.' });
@@ -125,10 +127,10 @@ function OrderForm() {
       if (orderType === 'BUY') {
         const cleanSym = rawSym.replace(/USDT$/i, '');
         const liveMarketPrice = tickerMap[cleanSym]?.price ?? tickerMap[`${cleanSym}USDT`]?.price;
-        // Gunakan harga live pasar jika harga form terpaut > 5% dari live Binance atau jika harga default
-        const finalPrice = (isCrypto && liveMarketPrice && liveMarketPrice > 0 && Math.abs(priceNum - liveMarketPrice) / liveMarketPrice > 0.05)
-          ? liveMarketPrice
-          : priceNum;
+        const finalPrice =
+          isCrypto && liveMarketPrice && liveMarketPrice > 0 && Math.abs(priceNum - liveMarketPrice) / liveMarketPrice > 0.05
+            ? liveMarketPrice
+            : priceNum;
 
         const res = placeBuyOrder({
           symbol: isCrypto ? `${cleanSym}USDT` : rawSym,
@@ -147,7 +149,7 @@ function OrderForm() {
             : isUS
             ? `⚡ BERHASIL BELI: ${lotsNum} shares ${cleanSym} @ $${priceNum.toLocaleString()} USD (Total: Rp ${Math.round(grandTotal).toLocaleString('id-ID')})!`
             : `Order BUY ${lotsNum} lot ${rawSym} berhasil dieksekusi!`;
-          
+
           setNotification({
             type: 'success',
             message: successMsg,
@@ -176,7 +178,10 @@ function OrderForm() {
           orderType: isForeign ? 'MARKET' : 'LIMIT',
         });
         if (res.order) {
-          const plText = (res.order.realizedPL || 0) >= 0 ? `+Rp ${formatPrice(res.order.realizedPL || 0)}` : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
+          const plText =
+            (res.order.realizedPL || 0) >= 0
+              ? `+Rp ${formatPrice(res.order.realizedPL || 0)}`
+              : `-Rp ${formatPrice(Math.abs(res.order.realizedPL || 0))}`;
           const unitLabel = isCrypto ? 'koin' : shareInfo.isUS ? 'lembar' : 'lot';
           const sellMsg = `Order SELL ${lotsNum} ${unitLabel} ${cleanSym} berhasil diproses! Realized P/L: ${plText}`;
           setNotification({
@@ -198,22 +203,22 @@ function OrderForm() {
         }
       }
     } finally {
-      setTimeout(() => setIsSubmitting(false), 500); // 500ms safety mutex guard
+      setTimeout(() => setIsSubmitting(false), 500);
       setTimeout(() => setNotification(null), 5000);
     }
   };
 
   return (
-    <div id="order-execution-desk" className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-      <div className="flex items-center justify-between mb-3">
+    <div id="order-execution-desk" className="rounded-xl border p-4 bg-[#09090b] border-[#27272a] shadow-sm">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#27272a]">
         <div className="flex items-center gap-2">
-          <ShoppingCart className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <ShoppingCart className="w-4 h-4 text-[#f59e0b]" />
+          <span className="text-xs font-bold uppercase tracking-wider text-white">
             Order Execution Desk
           </span>
         </div>
         <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-          ● INSTANT 24/7 PAPER TRADING
+          ● 24/7 PAPER TRADING
         </span>
       </div>
 
@@ -231,7 +236,7 @@ function OrderForm() {
         </div>
       )}
 
-      {/* Asset Class Selector: Saham IDX vs Saham US vs Crypto Spot */}
+      {/* Asset Class Selector */}
       <div className="grid grid-cols-3 gap-1 mb-2.5 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-bold font-mono">
         <button
           type="button"
@@ -242,13 +247,11 @@ function OrderForm() {
             setLots('');
           }}
           className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'EQUITY'
-              ? 'bg-[#f59e0b] text-black shadow-sm'
-              : 'text-zinc-400 hover:text-white'
+            assetClass === 'EQUITY' ? 'bg-[#f59e0b] text-black shadow-sm' : 'text-zinc-400 hover:text-white'
           }`}
         >
           <span>🇮🇩</span>
-          <span>SAHAM IDX</span>
+          <span>IDX</span>
         </button>
         <button
           type="button"
@@ -259,13 +262,11 @@ function OrderForm() {
             setLots('1');
           }}
           className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'US'
-              ? 'bg-blue-500 text-white shadow-sm'
-              : 'text-blue-400 hover:text-white'
+            assetClass === 'US' ? 'bg-blue-500 text-white shadow-sm' : 'text-blue-400 hover:text-white'
           }`}
         >
           <span>🇺🇸</span>
-          <span>SAHAM US (USD)</span>
+          <span>US STOCK</span>
         </button>
         <button
           type="button"
@@ -276,13 +277,11 @@ function OrderForm() {
             setLots('0.05');
           }}
           className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'CRYPTO'
-              ? 'bg-cyan-500 text-black shadow-sm'
-              : 'text-cyan-400 hover:text-white'
+            assetClass === 'CRYPTO' ? 'bg-cyan-500 text-black shadow-sm' : 'text-cyan-400 hover:text-white'
           }`}
         >
           <span>⚡</span>
-          <span>CRYPTO (24/7)</span>
+          <span>CRYPTO</span>
         </button>
       </div>
 
@@ -290,8 +289,8 @@ function OrderForm() {
       {assetClass === 'US' && (
         <div className="mb-3 p-2 rounded-lg bg-blue-950/20 border border-blue-500/25">
           <div className="text-[10px] text-blue-300 font-bold mb-1.5 flex items-center justify-between">
-            <span>PILIH CEPAT SAHAM GLOBAL / US:</span>
-            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000 (1 lot = 1 share)</span>
+            <span>PILIH CEPAT SAHAM US:</span>
+            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000</span>
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {[
@@ -303,27 +302,13 @@ function OrderForm() {
               { ticker: 'META', price: 589.40 },
               { ticker: 'TSLA', price: 218.80 },
               { ticker: 'PLTR', price: 44.20 },
-              { ticker: 'AMD', price: 156.40 },
-              { ticker: 'AVGO', price: 182.40 },
-              { ticker: 'COIN', price: 215.40 },
-              { ticker: 'LLY', price: 924.50 },
-              { ticker: 'JPM', price: 224.50 },
-              { ticker: 'WMT', price: 82.50 },
-              { ticker: 'COST', price: 912.40 },
-              { ticker: 'SPY', price: 578.40 },
-              { ticker: 'QQQ', price: 494.20 },
-              { ticker: 'TSM', price: 198.50 },
-              { ticker: 'BABA', price: 101.20 },
-              { ticker: 'ASML', price: 712.40 },
             ].map((st) => (
               <button
                 key={st.ticker}
                 type="button"
                 onClick={() => handleSelectQuickUS(st.ticker, st.price)}
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                  symbol === st.ticker
-                    ? 'bg-blue-400 text-black'
-                    : 'bg-zinc-800 text-blue-300 hover:bg-zinc-700'
+                  symbol === st.ticker ? 'bg-blue-400 text-black' : 'bg-zinc-800 text-blue-300 hover:bg-zinc-700'
                 }`}
               >
                 {st.ticker} (${st.price})
@@ -348,33 +333,16 @@ function OrderForm() {
               { coin: 'BNB', price: 585 },
               { coin: 'XRP', price: 1.42 },
               { coin: 'DOGE', price: 0.154 },
-              { coin: 'SUI', price: 1.85 },
-              { coin: 'NEAR', price: 2.45 },
-              { coin: 'PEPE', price: 0.00000378 },
-              { coin: 'SHIB', price: 0.000018 },
-              { coin: 'RENDER', price: 1.828 },
-              { coin: 'ARB', price: 0.1672 },
-              { coin: 'APT', price: 0.7161 },
-              { coin: 'TON', price: 2.85 },
-              { coin: 'KAS', price: 0.138 },
-              { coin: 'TAO', price: 540 },
-              { coin: 'FET', price: 0.62 },
-              { coin: 'LINK', price: 11.50 },
-              { coin: 'AAVE', price: 154.20 },
-              { coin: 'ONDO', price: 0.765 },
-              { coin: 'WIF', price: 1.45 },
             ].map((c) => {
               const live = tickerMap[c.coin]?.price ?? tickerMap[`${c.coin}USDT`]?.price ?? c.price;
-              const displayVal = live < 0.01 ? live.toFixed(8) : live < 1 ? live.toFixed(4) : live.toLocaleString();
+              const displayVal = live < 0.01 ? live.toFixed(6) : live < 1 ? live.toFixed(4) : live.toLocaleString();
               return (
                 <button
                   key={c.coin}
                   type="button"
                   onClick={() => handleSelectQuickCrypto(c.coin, live)}
                   className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                    symbol === c.coin
-                      ? 'bg-cyan-400 text-black'
-                      : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
+                    symbol === c.coin ? 'bg-cyan-400 text-black' : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
                   }`}
                 >
                   {c.coin} (${displayVal})
@@ -386,7 +354,7 @@ function OrderForm() {
       )}
 
       {/* Buy/Sell toggle */}
-      <div className="flex gap-1 mb-3.5 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="flex gap-1 mb-3.5 p-1 rounded-lg bg-[#18181b]">
         <button
           type="button"
           onClick={() => setOrderType('BUY')}
@@ -414,11 +382,11 @@ function OrderForm() {
       {/* Form fields */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
+          <label className="text-[11px] block mb-1 text-zinc-400">
             {assetClass === 'CRYPTO'
               ? 'Kode Kripto (contoh: BTC, ETH, SOL, DOGE)'
               : assetClass === 'US'
-              ? 'Kode Saham US (contoh: GOOGL, AAPL, NVDA, MSFT, TSLA)'
+              ? 'Kode Saham US (contoh: GOOGL, AAPL, NVDA, TSLA)'
               : 'Kode Saham IDX (contoh: BBCA, BBRI, BMRI, TLKM)'}
           </label>
           <input
@@ -427,20 +395,19 @@ function OrderForm() {
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
             placeholder={
               assetClass === 'CRYPTO'
-                ? 'e.g. BTC, ETH, SOL, DOGE'
+                ? 'e.g. BTC, ETH, SOL'
                 : assetClass === 'US'
-                ? 'e.g. GOOGL, AAPL, NVDA, TSLA'
-                : 'e.g. BBCA, BBRI, BMRI, TLKM'
+                ? 'e.g. GOOGL, AAPL, NVDA'
+                : 'e.g. BBCA, BBRI, BMRI'
             }
-            className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-transparent outline-none uppercase"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none uppercase"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              <label className="text-[11px] text-zinc-400">
                 {isCrypto ? 'Harga ($ USDT)' : isUS ? 'Harga ($ USD)' : 'Harga (Rp)'}
               </label>
               {!isForeign && priceNum > 0 && (
@@ -451,76 +418,56 @@ function OrderForm() {
             </div>
             <input
               type="number"
-              step="any"
+              step={isCrypto ? 'any' : isUS ? '0.01' : '1'}
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder={assetClass === 'CRYPTO' ? '82500' : assetClass === 'US' ? '168.20' : '9850'}
-              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
-              style={{
-                borderColor: !tickValidation.valid ? 'var(--negative)' : 'var(--border)',
-                color: 'var(--text-primary)',
-              }}
+              placeholder="0"
+              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
             />
-            {!isForeign && !tickValidation.valid && (
-              <span className="text-[10px] block mt-0.5 text-red-400">
-                Gunakan Rp {tickValidation.nearest}
-              </span>
-            )}
-            {isForeign && priceNum > 0 && (
-              <span className="text-[9px] block mt-0.5 text-zinc-400 font-mono">
-                ≈ Rp {(priceNum * rate).toLocaleString('id-ID')}
-              </span>
-            )}
           </div>
 
           <div>
-            <label className="text-[11px] block mb-1" style={{ color: 'var(--text-muted)' }}>
-              {isCrypto ? 'Jumlah Koin (Unit)' : isUS ? 'Jumlah Shares (Lembar)' : 'Jumlah Lot'}
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[11px] text-zinc-400">
+                {isCrypto ? 'Jumlah (Koin)' : isUS ? 'Jumlah (Shares)' : 'Jumlah (Lot)'}
+              </label>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {isCrypto ? '1 unit = 1 koin' : isUS ? '1 lot = 1 lbr' : '1 lot = 100 lbr'}
+              </span>
+            </div>
             <input
               type="number"
-              step="any"
+              step={isCrypto ? 'any' : '1'}
+              min={isCrypto ? '0.000001' : '1'}
               value={lots}
               onChange={(e) => setLots(e.target.value)}
-              placeholder={isCrypto ? '0.05' : isUS ? '1' : '10'}
-              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono-num bg-transparent outline-none"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              placeholder="0"
+              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
             />
-            {!isCrypto && lotsNum > 0 && (
-              <span className="text-[10px] block mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                = {isUS ? `${lotsNum.toLocaleString()} lembar` : `${(lotsNum * 100).toLocaleString()} lembar`}
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Breakdown Transaksi Realistis */}
-        <div className="space-y-1.5 pt-2 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
+        {/* Calculation Summary */}
+        <div className="p-2.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-1.5 text-[11px] font-mono">
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'Nilai Transaksi (IDR)' : 'Nilai Bruto Saham'}</span>
-            <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
-              Rp {formatPrice(tradeValue)}
-            </span>
+            <span className="text-zinc-400">{isCrypto ? 'Nilai Transaksi (IDR)' : 'Nilai Bruto Saham'}</span>
+            <span className="font-mono text-white">Rp {formatPrice(tradeValue)}</span>
           </div>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'Spot Fee (0.10%)' : 'Fee Broker & Bursa (0.15%)'}</span>
-            <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
-              Rp {formatPrice(brokerFee)}
-            </span>
+            <span className="text-zinc-400">{isCrypto ? 'Spot Fee (0.10%)' : 'Fee Broker & Bursa (0.15%)'}</span>
+            <span className="font-mono text-white">Rp {formatPrice(brokerFee)}</span>
           </div>
           {orderType === 'SELL' && (
             <div className="flex justify-between">
-              <span style={{ color: 'var(--text-muted)' }}>{isCrypto ? 'PPh Final Kripto (0.10%)' : 'PPh Final Penjualan (0.10%)'}</span>
-              <span className="font-mono-num" style={{ color: 'var(--text-primary)' }}>
-                Rp {formatPrice(taxFee)}
-              </span>
+              <span className="text-zinc-400">{isCrypto ? 'PPh Final Kripto (0.10%)' : 'PPh Final Penjualan (0.10%)'}</span>
+              <span className="font-mono text-white">Rp {formatPrice(taxFee)}</span>
             </div>
           )}
-          <div className="flex justify-between font-bold pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
-            <span style={{ color: 'var(--text-primary)' }}>
+          <div className="flex justify-between font-bold pt-1 border-t border-zinc-800">
+            <span className="text-white">
               {orderType === 'BUY' ? 'Total Debit Kas' : 'Total Kredit Bersih ke Kas'}
             </span>
-            <span className="font-mono-num" style={{ color: 'var(--accent)' }}>
+            <span className="font-mono text-[#f59e0b]">
               Rp {formatPrice(Math.round(grandTotal))}
             </span>
           </div>
@@ -538,23 +485,23 @@ function OrderForm() {
           {isSubmitting
             ? 'Memproses Order...'
             : orderType === 'BUY'
-            ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`
-            : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : 'Saham'} Sekarang`}
+            ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : isUS ? 'Saham US' : 'Saham IDX'}`
+            : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : isUS ? 'Saham US' : 'Saham IDX'}`}
         </button>
 
         <div className="pt-2 border-t border-zinc-800">
           <Link
             href="/crypto"
-            className="flex items-center justify-between p-2.5 rounded-lg bg-gradient-to-r from-cyan-950/40 to-blue-950/20 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400 transition-all text-xs font-mono group"
+            className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-cyan-950/40 to-blue-950/20 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400 transition-all text-xs font-mono group"
           >
             <div className="flex items-center gap-2">
               <span className="text-base">⚡</span>
               <div>
                 <span className="font-bold block text-white group-hover:text-cyan-300 transition-colors">
-                  Trading Crypto Spot (Jesse AI)
+                  Jesse AI Quant Desk
                 </span>
                 <span className="text-[10px] text-zinc-400">
-                  BTC, ETH, SOL, DOGE · Eksekusi 24/7
+                  BTC, ETH, SOL, DOGE · 24/7 Live
                 </span>
               </div>
             </div>
@@ -566,7 +513,7 @@ function OrderForm() {
   );
 }
 
-/* ─── Portfolio Page ─── */
+/* ─── Main Unified Portfolio Page ─── */
 export default function PortfolioPage() {
   const {
     cash,
@@ -582,51 +529,63 @@ export default function PortfolioPage() {
     resetPortfolio,
     resetToDefaultDemo,
     updateHoldingPrices,
+    setHoldingRiskTargets,
   } = usePortfolioStore();
-  const { user, isConfigured, syncPortfolioToDatabase, loadPortfolioFromDatabase, resetPortfolioInDatabase, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'holdings' | 'dividends' | 'calendar' | 'journal' | 'analytics' | 'orders' | 'gitblotter' | 'news'>('holdings');
-  const [portfolioView, setPortfolioView] = useState<'institutional' | 'classic'>('institutional');
+
+  const {
+    user,
+    isConfigured,
+    syncPortfolioToDatabase,
+    loadPortfolioFromDatabase,
+    resetPortfolioInDatabase,
+    logout,
+  } = useAuthStore();
+
+  const [activeTab, setActiveTab] = useState<'holdings' | 'orders' | 'dividends' | 'analytics' | 'journal' | 'news'>('holdings');
+  const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'CRYPTO' | 'US'>('ALL');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
-  const [useDRIP, setUseDRIP] = useState(false);
   const [isStressTestOpen, setIsStressTestOpen] = useState(false);
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
   const [isCopyTradingModalOpen, setIsCopyTradingModalOpen] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { tickerMap } = useBinanceLivePrices();
 
-  // Sync to database if user is logged in
-  const handleCloudSync = async () => {
-    if (!user || user.provider === 'guest') {
-      setIsAuthOpen(true);
-      return;
-    }
-    setSyncStatus('Menyinkronkan dengan Akun Cloud...');
-    try {
-      await loadPortfolioFromDatabase();
-      await syncPortfolioToDatabase();
-      setSyncStatus('✓ Saldo & Portofolio Berhasil Tersinkronkan dengan Akun Anda!');
-      setTimeout(() => setSyncStatus(null), 3000);
-    } catch {
-      setSyncStatus('Gagal menyinkronkan data.');
-      setTimeout(() => setSyncStatus(null), 3000);
-    }
-  };
+  // State Modal Pengaturan TP & SL Manual Pengguna
+  const [editingRiskHolding, setEditingRiskHolding] = useState<any | null>(null);
+  const [tpPercentInput, setTpPercentInput] = useState<string>('15');
+  const [slPercentInput, setSlPercentInput] = useState<string>('6');
+  const [tpPriceInput, setTpPriceInput] = useState<string>('');
+  const [slPriceInput, setSlPriceInput] = useState<string>('');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Ambil portofolio dari cloud segera saat user login atau akun berubah
   useEffect(() => {
     if (user && user.provider !== 'guest') {
       loadPortfolioFromDatabase();
     }
   }, [user?.id, user?.email, loadPortfolioFromDatabase]);
 
+  // Helper resolusi harga pasar terkini
+  const getLivePrice = (h: any) => {
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto =
+      h.assetClass === 'CRYPTO' ||
+      h.symbol.endsWith('USDT') ||
+      h.currency === 'USDT' ||
+      isCryptoSymbol(cleanSym);
+    if (!isCrypto) return h.currentPrice;
+    const liveTicker = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
+    return liveTicker?.price && liveTicker.price > 0 ? liveTicker.price : h.currentPrice;
+  };
+
+  // Auto-sync holding prices with backend live prices
   useEffect(() => {
-    // Auto-sync holding prices with backend live prices (with offline fallback)
     const syncPrices = async () => {
       if (holdings.length === 0) return;
       try {
@@ -650,9 +609,10 @@ export default function PortfolioPage() {
           if (q?.price > 0) {
             const clean = (q.displaySymbol || q.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
             const wsCrypto = liveWsCryptoMap[clean] || liveWsCryptoMap[`${clean}USDT`];
-            const effectivePrice = (isCryptoSymbol(clean) || q.symbol?.endsWith('USDT')) && wsCrypto?.price > 0
-              ? wsCrypto.price
-              : q.price;
+            const effectivePrice =
+              (isCryptoSymbol(clean) || q.symbol?.endsWith('USDT')) && wsCrypto?.price > 0
+                ? wsCrypto.price
+                : q.price;
             map[q.symbol] = effectivePrice;
             map[q.displaySymbol] = effectivePrice;
             map[clean] = effectivePrice;
@@ -663,46 +623,6 @@ export default function PortfolioPage() {
           }
         });
 
-        // Fallback: Hanya isi benchmark untuk holding yang belum memiliki harga pasar (> 0)
-        // JANGAN PERNAH menimpa harga posisi aktif yang sudah berjalan dengan angka benchmark statis!
-        if (Object.keys(map).length === 0) {
-          const { ALL_ID_HEATMAP_UNIVERSE } = await import('@/data/heatmap_stocks_universe');
-          const { getVerifiedBenchmarkPrice } = await import('@/data/idx_benchmark_prices');
-          holdings.forEach((h) => {
-            if (!h.currentPrice || h.currentPrice <= 0) {
-              const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').toUpperCase();
-              const isCrypto =
-                h.assetClass === 'CRYPTO' ||
-                h.currency === 'USDT' ||
-                h.symbol.endsWith('USDT') ||
-                isCryptoSymbol(cleanSym);
-
-              if (isCrypto) {
-                const bench = getVerifiedBenchmarkPrice(`${cleanSym.replace(/USDT$/i, '')}USDT`);
-                if (bench && bench.price > 0) {
-                  map[h.symbol] = bench.price;
-                  map[h.displaySymbol] = bench.price;
-                }
-                return;
-              }
-
-              const found = ALL_ID_HEATMAP_UNIVERSE.find(
-                (s) => s.displaySymbol === cleanSym || s.symbol.toUpperCase() === `${cleanSym}.JK`
-              );
-              if (found && found.price > 0) {
-                map[h.symbol] = found.price;
-                map[h.displaySymbol] = found.price;
-              } else {
-                const bench = getVerifiedBenchmarkPrice(cleanSym);
-                if (bench && bench.price > 0) {
-                  map[h.symbol] = bench.price;
-                  map[h.displaySymbol] = bench.price;
-                }
-              }
-            }
-          });
-        }
-
         if (Object.keys(map).length > 0) {
           updateHoldingPrices(map);
         }
@@ -712,7 +632,7 @@ export default function PortfolioPage() {
     };
 
     syncPrices();
-    const interval = setInterval(syncPrices, 8000); // Sinkronisasi otomatis tiap 8 detik agar pergerakan tick saham terasa live
+    const interval = setInterval(syncPrices, 8000);
     return () => clearInterval(interval);
   }, [holdings.length, updateHoldingPrices]);
 
@@ -748,87 +668,117 @@ export default function PortfolioPage() {
     }
   }, [tickerMap, holdings.length, updateHoldingPrices]);
 
+  // Computations for NAV, P&L, Asset Allocation
   const totalHoldingsValue = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
-    const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean));
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const curPrice = getLivePrice(h);
     if (isCrypto || isUS) {
-      return sum + Math.round(h.currentPrice * units * rate);
+      return sum + Math.round(curPrice * units * rate);
     }
-    return sum + (h.currentPrice * (h.shares || h.lots * 100));
+    return sum + (curPrice * units);
   }, 0);
+
   const totalPortfolioValue = totalHoldingsValue + cash;
-  const totalUnrealizedPL = holdings.reduce((sum, h) => sum + (h.unrealizedPL || 0), 0);
+
+  const totalUnrealizedPL = holdings.reduce((sum, h) => {
+    const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+    const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+    const rate = h.exchangeRate || 16000;
+    const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const curPrice = getLivePrice(h);
+
+    let effectiveAvgPrice = h.avgPrice;
+    if (isCrypto && curPrice > 0) {
+      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+      if (effectiveAvgPrice > curPrice * 100) {
+        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
+      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
+        effectiveAvgPrice = curPrice;
+      }
+    }
+
+    if (isCrypto || isUS) {
+      return sum + Math.round((curPrice - effectiveAvgPrice) * units * rate);
+    }
+    return sum + Math.round((curPrice - effectiveAvgPrice) * units);
+  }, 0);
+
+  const totalReturnPct = totalPortfolioValue > 0 ? (totalUnrealizedPL / (totalPortfolioValue - totalUnrealizedPL || 1)) * 100 : 0;
   const totalDividendsReceived = dividends.reduce((sum, d) => sum + d.netAmount, 0);
-  const totalPassiveIncome = totalDividendsReceived;
 
-  const handleClaimSingle = (sym: string, dps: number) => {
-    const res = claimDividend(sym, dps);
-    setDividendMsg(res.message);
-    setTimeout(() => setDividendMsg(null), 5000);
-  };
+  // Untung Bersih Riil vs Modal Awal / Total Deposit
+  const totalDeposited = (orders || [])
+    .filter((o) => o.symbol === 'DEPOSIT-QRIS' || o.id?.startsWith('topup-') || o.displaySymbol === 'QRIS TOPUP')
+    .reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const handleClaimSingleDRIP = (sym: string, dps: number) => {
-    const res = claimDividendWithDRIP(sym, dps);
-    setDividendMsg(res.message);
-    setTimeout(() => setDividendMsg(null), 6000);
-  };
+  const estimatedBaseCapital = totalDeposited > 0
+    ? totalDeposited
+    : (totalPortfolioValue >= 40_000_000 && Math.abs(totalPortfolioValue - 50_000_000) <= 25_000_000 ? 50_000_000 : 0);
 
-  const handleClaimAll = () => {
-    if (useDRIP) {
-      const res = distributeAllEligibleDividendsWithDRIP();
-      if (res.count > 0) {
-        setDividendMsg(
-          `✨ Auto-DRIP Berhasil! Total dividen Rp ${res.totalDividendValue.toLocaleString(
-            'id-ID'
-          )} telah di-reinvestasi menjadi +${res.totalLotsAdded} Lot tambahan saham (${res.symbols.join(
-            ', '
-          )}). Sisa kembalian kas: Rp ${res.leftoverCashAdded.toLocaleString('id-ID')} masuk ke RDN!`
-        );
-      } else {
-        setDividendMsg('Tidak ada dividen yang memenuhi syarat untuk program reinvestasi DRIP.');
-      }
-    } else {
-      const res = distributeAllEligibleDividends();
-      if (res.total > 0) {
-        setDividendMsg(
-          `Berhasil mencairkan total dividen sebesar Rp ${res.total.toLocaleString(
-            'id-ID'
-          )} dari ${res.count} saham (${res.symbols.join(', ')}) langsung ke saldo kas RDN!`
-        );
-      } else {
-        setDividendMsg(
-          'Tidak ada dividen yang dapat dicairkan. Pastikan portofolio Anda memiliki saham yang membagikan dividen (seperti BBCA, BBRI, ITMG, PTBA, UNTR, PGAS).'
-        );
-      }
+  const netRealProfit = estimatedBaseCapital > 0
+    ? (totalPortfolioValue - estimatedBaseCapital)
+    : ((realizedPL || 0) + totalUnrealizedPL);
+
+  const netRealProfitPct = estimatedBaseCapital > 0
+    ? (netRealProfit / estimatedBaseCapital) * 100
+    : (totalPortfolioValue > 0 ? (netRealProfit / (totalPortfolioValue - netRealProfit || 1)) * 100 : 0);
+
+  // Asset allocation weights
+  const cryptoHoldingsVal = holdings
+    .filter((h) => {
+      const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      return h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
+    })
+    .reduce((acc, h) => {
+      const rate = h.exchangeRate || 16000;
+      const units = h.cryptoUnits ?? h.lots;
+      const curPrice = getLivePrice(h);
+      return acc + (curPrice * units * rate);
+    }, 0);
+
+  const usHoldingsVal = holdings
+    .filter((h) => {
+      const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
+      return !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+    })
+    .reduce((acc, h) => {
+      const rate = h.exchangeRate || 16000;
+      const units = h.shares || h.lots;
+      const curPrice = getLivePrice(h);
+      return acc + (curPrice * units * rate);
+    }, 0);
+
+  const equityHoldingsVal = Math.max(0, totalHoldingsValue - cryptoHoldingsVal - usHoldingsVal);
+  const equityPct = totalPortfolioValue > 0 ? Math.round((equityHoldingsVal / totalPortfolioValue) * 100) : 0;
+  const cryptoPct = totalPortfolioValue > 0 ? Math.round((cryptoHoldingsVal / totalPortfolioValue) * 100) : 0;
+  const usPct = totalPortfolioValue > 0 ? Math.round((usHoldingsVal / totalPortfolioValue) * 100) : 0;
+  const cashPct = totalPortfolioValue > 0 ? Math.max(0, 100 - equityPct - cryptoPct - usPct) : 100;
+
+  // Cloud sync handler
+  const handleCloudSync = async () => {
+    if (!user || user.provider === 'guest') {
+      setIsAuthOpen(true);
+      return;
     }
-    setTimeout(() => setDividendMsg(null), 6000);
-  };
-
-  const handleResetCashOnly = async (nominal?: number) => {
-    let targetNominal = typeof nominal === 'number' ? nominal : 100000000;
-    if (typeof nominal !== 'number') {
-      const promptVal = window.prompt(
-        'Atur Nominal Kas Portofolio Anda (IDR):\nContoh:\n- 10000000 (10 Juta)\n- 25000000 (25 Juta)\n- 50000000 (50 Juta)\n- 100000000 (100 Juta)',
-        String(cash || 100000000)
-      );
-      if (!promptVal) return;
-      const parsed = parseFloat(promptVal.replace(/[^0-9]/g, ''));
-      if (isNaN(parsed) || parsed < 0) {
-        alert('Nominal tidak valid.');
-        return;
-      }
-      targetNominal = parsed;
-    }
-
-    resetCashOnly(targetNominal);
-    if (user && isConfigured) {
+    setIsSyncingCloud(true);
+    setSyncStatus('Menyinkronkan dengan Akun Cloud...');
+    try {
+      await loadPortfolioFromDatabase();
       await syncPortfolioToDatabase();
+      setSyncStatus('✓ Saldo & Portofolio Berhasil Tersinkronkan!');
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch {
+      setSyncStatus('Gagal menyinkronkan data.');
+      setTimeout(() => setSyncStatus(null), 3000);
+    } finally {
+      setIsSyncingCloud(false);
     }
-    setDividendMsg(`⚡ Saldo Kas RDN berhasil disetel menjadi Rp ${targetNominal.toLocaleString('id-ID')} tanpa mengubah kepemilikan saham Anda!`);
-    setTimeout(() => setDividendMsg(null), 5000);
   };
 
   const handleResetTotal = async () => {
@@ -869,8 +819,8 @@ export default function PortfolioPage() {
         { header: 'Harga Beli Rata-Rata (IDR)', key: (h) => h.avgPrice },
         { header: 'Lot', key: (h) => h.lots },
         { header: 'Jumlah Lembar', key: (h) => h.shares || h.lots * 100 },
-        { header: 'Harga Pasar Terkini (IDR)', key: (h) => h.currentPrice },
-        { header: 'Total Nilai Pasar (IDR)', key: (h) => Math.round(h.currentPrice * (h.shares || h.lots * 100)) },
+        { header: 'Harga Pasar Terkini (IDR)', key: (h) => getLivePrice(h) },
+        { header: 'Total Nilai Pasar (IDR)', key: (h) => Math.round(getLivePrice(h) * (h.shares || h.lots * 100)) },
         { header: 'Floating Gain Loss (IDR)', key: (h) => Math.round(h.unrealizedPL || 0) },
         { header: 'Floating Gain Loss (%)', key: (h) => h.unrealizedPLPercent || 0 },
       ],
@@ -890,7 +840,7 @@ export default function PortfolioPage() {
         displaySymbol: h.displaySymbol,
         name: h.name,
         avgPrice: h.avgPrice,
-        currentPrice: h.currentPrice,
+        currentPrice: getLivePrice(h),
         lots: h.lots,
         unrealizedPL: h.unrealizedPL || 0,
         unrealizedPLPercent: h.unrealizedPLPercent || 0,
@@ -934,19 +884,95 @@ export default function PortfolioPage() {
         { header: 'Tipe Order', key: (o) => o.orderType },
         { header: 'Harga Eksekusi (IDR)', key: (o) => o.price },
         { header: 'Lot', key: (o) => o.lots },
-        { header: 'Jumlah Lembar', key: (o) => (o.lots * 100) },
+        { header: 'Jumlah Lembar', key: (o) => o.lots * 100 },
         { header: 'Total Nilai (IDR)', key: (o) => Math.round(o.total) },
         { header: 'Fee & Pajak (IDR)', key: (o) => Math.round(o.fee) },
-        { header: 'Realized Gain Loss (IDR)', key: (o) => o.realizedPL !== undefined ? Math.round(o.realizedPL) : 0 },
+        { header: 'Realized Gain Loss (IDR)', key: (o) => (o.realizedPL !== undefined ? Math.round(o.realizedPL) : 0) },
         { header: 'Status', key: (o) => o.status },
       ],
       'Riwayat_Transaksi_Order'
     );
   };
 
+  // TP & SL Modal Handlers
+  const handleOpenRiskModal = (h: any) => {
+    setEditingRiskHolding(h);
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT');
+
+    if (h.takeProfitPrice && h.takeProfitPrice > 0) {
+      const pct = Number((((h.takeProfitPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(1));
+      setTpPercentInput(String(pct));
+      setTpPriceInput(String(h.takeProfitPrice));
+    } else {
+      const defaultTp = isCrypto ? 15 : 10;
+      setTpPercentInput(String(defaultTp));
+      const targetP = isCrypto
+        ? Number((h.avgPrice * (1 + defaultTp / 100)).toFixed(h.avgPrice < 1 ? 8 : 4))
+        : Math.round(h.avgPrice * (1 + defaultTp / 100));
+      setTpPriceInput(String(targetP));
+    }
+
+    if (h.stopLossPrice && h.stopLossPrice > 0) {
+      const pct = Number((((h.avgPrice - h.stopLossPrice) / h.avgPrice) * 100).toFixed(1));
+      setSlPercentInput(String(pct));
+      setSlPriceInput(String(h.stopLossPrice));
+    } else {
+      const defaultSl = isCrypto ? 6 : 5;
+      setSlPercentInput(String(defaultSl));
+      const cutP = isCrypto
+        ? Number((h.avgPrice * (1 - defaultSl / 100)).toFixed(h.avgPrice < 1 ? 8 : 4))
+        : Math.round(h.avgPrice * (1 - defaultSl / 100));
+      setSlPriceInput(String(cutP));
+    }
+  };
+
+  const handleTpPercentChange = (newPctStr: string) => {
+    setTpPercentInput(newPctStr);
+    if (!editingRiskHolding) return;
+    const isCrypto = editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT');
+    const pct = parseFloat(newPctStr) || 0;
+    const targetP = isCrypto
+      ? Number((editingRiskHolding.avgPrice * (1 + pct / 100)).toFixed(editingRiskHolding.avgPrice < 1 ? 8 : 4))
+      : Math.round(editingRiskHolding.avgPrice * (1 + pct / 100));
+    setTpPriceInput(String(targetP));
+  };
+
+  const handleSlPercentChange = (newPctStr: string) => {
+    setSlPercentInput(newPctStr);
+    if (!editingRiskHolding) return;
+    const isCrypto = editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT');
+    const pct = parseFloat(newPctStr) || 0;
+    const cutP = isCrypto
+      ? Number((editingRiskHolding.avgPrice * (1 - pct / 100)).toFixed(editingRiskHolding.avgPrice < 1 ? 8 : 4))
+      : Math.round(editingRiskHolding.avgPrice * (1 - pct / 100));
+    setSlPriceInput(String(cutP));
+  };
+
+  const handleSaveRiskTargets = () => {
+    if (!editingRiskHolding) return;
+    const tp = parseFloat(tpPriceInput) || undefined;
+    const sl = parseFloat(slPriceInput) || undefined;
+    setHoldingRiskTargets(editingRiskHolding.symbol, {
+      takeProfitPrice: tp,
+      stopLossPrice: sl,
+    });
+    toast.success(`Target TP/SL untuk ${editingRiskHolding.displaySymbol || editingRiskHolding.symbol} berhasil disimpan!`);
+    setEditingRiskHolding(null);
+  };
+
+  const handleClearRiskTargets = () => {
+    if (!editingRiskHolding) return;
+    setHoldingRiskTargets(editingRiskHolding.symbol, {
+      takeProfitPrice: undefined,
+      stopLossPrice: undefined,
+    });
+    toast.info(`Target TP/SL untuk ${editingRiskHolding.displaySymbol || editingRiskHolding.symbol} telah dihapus.`);
+    setEditingRiskHolding(null);
+  };
+
   if (!mounted) {
     return (
-      <div className="space-y-6 animate-pulse">
+      <div className="space-y-6 animate-pulse font-mono">
         <div className="h-10 bg-white/5 rounded-lg w-1/3" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {[...Array(5)].map((_, i) => (
@@ -963,52 +989,73 @@ export default function PortfolioPage() {
       {/* ── Fincept AI Autonomous Portfolio Agent Desk ── */}
       <FinceptAIPortfolioAgentBar />
 
-      {/* View Switcher: Institutional Desk vs Classic View */}
-      <div className="flex items-center justify-between bg-[#09090b] border border-[#27272a] p-1.5 rounded-sm">
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setPortfolioView('institutional')}
-            className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
-              portfolioView === 'institutional'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'bg-[#18181b] text-[#a1a1aa] hover:text-white border border-[#27272a]'
-            }`}
-          >
-            🏛️ INSTITUTIONAL DESK & CORRELATION
-          </button>
-          <button
-            onClick={() => setPortfolioView('classic')}
-            className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
-              portfolioView === 'classic'
-                ? 'bg-[#f59e0b] text-black shadow-sm'
-                : 'bg-[#18181b] text-[#a1a1aa] hover:text-white border border-[#27272a]'
-            }`}
-          >
-            📑 CLASSIC DETAILED DESK
-          </button>
-          <button
-            onClick={() => setIsTelegramModalOpen(true)}
-            className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-sky-950/60 text-sky-400 hover:text-sky-300 border border-sky-600/40 flex items-center gap-1.5 shadow-sm"
-            title="Buka Pengaturan Notifikasi Telegram 24/7"
-          >
-            <span>📱</span>
-            <span className="hidden sm:inline">TELEGRAM ALERTS</span>
-          </button>
-          <button
-            onClick={() => setIsCopyTradingModalOpen(true)}
-            className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-purple-950/60 text-purple-300 hover:text-purple-200 border border-purple-600/40 flex items-center gap-1.5 shadow-sm"
-            title="1-Click Copy Trading AI Hedge Fund"
-          >
-            <span>👥</span>
-            <span className="hidden sm:inline">COPY TRADING AI</span>
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          {syncStatus && (
-            <span className="text-[10px] text-emerald-400 font-mono animate-pulse hidden md:inline">
-              {syncStatus}
+      {/* ── Unified Action & Institutional Toolbar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-lg text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-white font-bold">
+            <Briefcase className="w-4 h-4 text-[#f59e0b]" />
+            <span className="text-sm">INSTITUTIONAL PORTFOLIO WORKSTATION</span>
+            <span className="text-[#3f3f46]">|</span>
+            <span className="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+              ● REALTIME 24/7
             </span>
-          )}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setIsTelegramModalOpen(true)}
+              className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-sky-950/60 text-sky-400 hover:text-sky-300 border border-sky-600/40 flex items-center gap-1.5 shadow-sm"
+              title="Buka Pengaturan Notifikasi Telegram 24/7"
+            >
+              <span>📱</span>
+              <span className="hidden sm:inline">TELEGRAM ALERTS</span>
+            </button>
+            <button
+              onClick={() => setIsCopyTradingModalOpen(true)}
+              className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-purple-950/60 text-purple-300 hover:text-purple-200 border border-purple-600/40 flex items-center gap-1.5 shadow-sm"
+              title="1-Click Copy Trading AI Hedge Fund"
+            >
+              <span>👥</span>
+              <span className="hidden sm:inline">COPY TRADING AI</span>
+            </button>
+            <button
+              onClick={() => setIsStressTestOpen(true)}
+              className="px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer bg-rose-950/60 text-rose-300 hover:text-rose-200 border border-rose-600/40 flex items-center gap-1.5 shadow-sm"
+              title="Stress Test & Monte Carlo Simulation"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">STRESS TEST</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Toolbar Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportExcelAll}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-emerald-400 border border-emerald-500/30 rounded text-xs font-bold transition cursor-pointer"
+            title="Ekspor seluruh data portofolio & riwayat order ke Excel (.xlsx)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">EXCEL</span>
+          </button>
+          <button
+            onClick={handleExportPdfReport}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-blue-400 border border-blue-500/30 rounded text-xs font-bold transition cursor-pointer"
+            title="Unduh ringkasan portofolio ke format PDF"
+          >
+            <Printer className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden md:inline">PDF</span>
+          </button>
+          <button
+            onClick={handleResetTotal}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-rose-400 border border-rose-500/30 rounded text-xs font-bold transition cursor-pointer"
+            title="Reset seluruh portofolio ke kondisi awal demo"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">RESET</span>
+          </button>
+
           {user && user.provider !== 'guest' ? (
             <div className="flex items-center gap-1.5">
               <button
@@ -1016,105 +1063,27 @@ export default function PortfolioPage() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
                 title="Klik untuk menyinkronkan saldo kas & portofolio ke Cloud Database Supabase"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>Cloud: {user.fullName || user.email}</span>
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                <span className="hidden lg:inline">{user.fullName || user.email}</span>
                 <span className="text-[10px] opacity-75">💾 Sync</span>
               </button>
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="px-2 py-1 rounded text-[11px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors cursor-pointer"
-                title="Ganti akun atau login akun lain"
+                className="px-2 py-1 rounded text-[11px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition cursor-pointer"
               >
-                Ganti Akun
-              </button>
-              <button
-                onClick={async () => {
-                  await logout();
-                  setIsAuthOpen(true);
-                }}
-                className="px-2 py-1 rounded text-[11px] font-semibold text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Logout dari akun ini"
-              >
-                Keluar
+                Akun
               </button>
             </div>
           ) : (
             <button
               onClick={() => setIsAuthOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b]/15 border border-[#f59e0b]/50 text-[#f59e0b] hover:bg-[#f59e0b]/25 transition-colors cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold bg-[#f59e0b]/15 border border-[#f59e0b]/50 text-[#f59e0b] hover:bg-[#f59e0b]/25 transition cursor-pointer shadow-sm"
               title="Masuk / Daftar Akun Member untuk menyimpan portofolio Anda secara permanen"
             >
               <span>👤</span>
               <span>Login Member (Simpan Porto)</span>
             </button>
           )}
-          <span className="text-[10px] text-[#71717a] hidden sm:inline">
-            {portfolioView === 'institutional' ? 'BLOOMBERG PORTFOLIO ATTRIBUTION' : 'DETAILED HOLDINGS & ORDERS'}
-          </span>
-        </div>
-      </div>
-
-      {portfolioView === 'institutional' ? (
-        <div className="space-y-4">
-          <InstitutionalPortfolioDesk />
-          <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-sm">
-            <h2 className="text-xs font-bold text-[#f59e0b] mb-2 uppercase">
-              QUICK ORDER EXECUTION DESK
-            </h2>
-            <OrderForm />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Portofolio Saham, Dividen & SBN Ritel
-              </h1>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Real-time Portfolio Tracking &bull; Realized / Unrealized Gain &bull; Dividen & SBN
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setIsStressTestOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-rose-400 border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20"
-            title="Uji ketahanan portofolio terhadap skenario krisis historis & simulasi Monte Carlo"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Stress Test & Monte Carlo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportExcelAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
-            title="Ekspor seluruh data portofolio & riwayat order ke Excel (.xlsx)"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Excel (.xlsx)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportPdfReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-blue-400 border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20"
-            title="Unduh ringkasan portofolio ke format PDF"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Unduh PDF</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleResetTotal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-red-400 border-red-500/40 bg-red-500/10 hover:bg-red-500/20"
-            title="Reset seluruh portofolio & transaksi ke kondisi awal demo"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Portofolio Demo
-          </button>
         </div>
       </div>
 
@@ -1128,375 +1097,651 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div id="portfolio-summary-card" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Total Nilai Aset</div>
-          <div className="text-lg font-bold font-mono-num" style={{ color: 'var(--text-primary)' }}>
-            Rp {formatPrice(Math.round(totalPortfolioValue))}
+      {/* ── Executive Telemetry Cards (Unified Best-of-Breed) ── */}
+      <div id="portfolio-summary-card" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Card 1: Total Portfolio NAV */}
+        <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Total Portfolio NAV</div>
+            <div className="text-base sm:text-lg font-bold text-white font-mono-num">
+              Rp {formatPrice(Math.round(totalPortfolioValue))}
+            </div>
+          </div>
+          <div className="mt-1 flex items-center gap-1 text-[11px] font-mono flex-wrap">
+            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Net Gain:</span>
+            <span
+              className={`font-bold flex items-center gap-0.5 ${
+                netRealProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {netRealProfit >= 0 ? <ArrowUpRight className="w-3 h-3 inline shrink-0" /> : <ArrowDownRight className="w-3 h-3 inline shrink-0" />}
+              <span>{netRealProfit >= 0 ? '+' : ''}Rp {formatPrice(Math.round(netRealProfit))}</span>
+              <span className="text-[10px] ml-0.5">({netRealProfitPct >= 0 ? '+' : ''}{netRealProfitPct.toFixed(2)}%)</span>
+            </span>
           </div>
         </div>
 
-        <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>
-            <span>Kas Tersedia (RDN)</span>
+        {/* Card 2: Cash Reserves (RDN) + Quick Top Up */}
+        <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase font-mono tracking-wider">
+              <span>Kas Tersedia (RDN)</span>
+              <span className="text-[#f59e0b] font-bold">{cashPct}%</span>
+            </div>
+            <div className="text-base sm:text-lg font-bold text-[#f59e0b] font-mono-num">
+              Rp {formatPrice(Math.round(cash))}
+            </div>
           </div>
-          <div className="text-lg font-bold font-mono-num" style={{ color: 'var(--accent)' }}>
-            Rp {formatPrice(Math.round(cash))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Unrealized Gain / Loss</div>
-          <div
-            className="text-lg font-bold font-mono-num flex items-center gap-1"
-            style={{ color: totalUnrealizedPL >= 0 ? 'var(--positive)' : 'var(--negative)' }}
+          <button
+            type="button"
+            onClick={() => setIsTopUpOpen(true)}
+            className="mt-1.5 w-full py-1 px-2 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
+            title="Top Up Saldo Kas RDN via QRIS Instan"
           >
-            {totalUnrealizedPL >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            Rp {formatPrice(Math.round(Math.abs(totalUnrealizedPL)))}
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>+ Top Up Kas RDN</span>
+          </button>
+        </div>
+
+        {/* Card 3: Floating Unrealized P&L */}
+        <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Unrealized Floating P&L</div>
+            <div
+              className={`text-base sm:text-lg font-bold font-mono-num flex items-center gap-1 ${
+                totalUnrealizedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {totalUnrealizedPL >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+              {totalUnrealizedPL >= 0 ? '+' : '-'}Rp {formatPrice(Math.round(Math.abs(totalUnrealizedPL)))}
+            </div>
+          </div>
+          <div className="text-[10px] text-zinc-400 font-mono">
+            ROI: <span className={totalReturnPct >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{totalReturnPct >= 0 ? '+' : ''}{totalReturnPct.toFixed(2)}%</span>
           </div>
         </div>
 
-        <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Realized Profit / Loss</div>
-          <div
-            className="text-lg font-bold font-mono-num flex items-center gap-1"
-            style={{ color: (realizedPL || 0) >= 0 ? 'var(--positive)' : 'var(--negative)' }}
-          >
-            {(realizedPL || 0) >= 0 ? '+' : '-'}Rp {formatPrice(Math.round(Math.abs(realizedPL || 0)))}
+        {/* Card 4: Realized P&L & Dividen */}
+        <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Realized P&L & Passive</div>
+            <div
+              className={`text-base sm:text-lg font-bold font-mono-num ${
+                (realizedPL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {(realizedPL || 0) >= 0 ? '+' : '-'}Rp {formatPrice(Math.round(Math.abs(realizedPL || 0)))}
+            </div>
+          </div>
+          <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+            <Coins className="w-3 h-3" />
+            <span>Dividen: Rp {formatPrice(Math.round(totalDividendsReceived))}</span>
           </div>
         </div>
 
-        <div className="rounded-xl border p-4" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Passive Income</div>
-          <div className="text-lg font-bold font-mono-num flex items-center gap-1" style={{ color: 'var(--positive)' }}>
-            <Coins className="w-4 h-4" />
-            Rp {formatPrice(Math.round(totalPassiveIncome))}
+        {/* Card 5: Multi-Asset Allocation Bar */}
+        <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase font-mono tracking-wider mb-1">
+              <span>Alokasi Multi-Aset</span>
+              <span className="text-zinc-500">{holdings.length} Posisi</span>
+            </div>
+            {/* Visual Bar */}
+            <div className="h-2.5 w-full rounded overflow-hidden flex bg-zinc-900 border border-zinc-800">
+              <div style={{ width: `${equityPct}%` }} className="bg-blue-500" title={`IDX Equities ${equityPct}%`} />
+              <div style={{ width: `${usPct}%` }} className="bg-indigo-500" title={`US Stock ${usPct}%`} />
+              <div style={{ width: `${cryptoPct}%` }} className="bg-cyan-500" title={`Crypto ${cryptoPct}%`} />
+              <div style={{ width: `${cashPct}%` }} className="bg-amber-500" title={`Cash ${cashPct}%`} />
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[10px] font-mono">
+            <span className="text-blue-400 font-bold">IDX {equityPct}%</span>
+            {usPct > 0 && <span className="text-indigo-400 font-bold">US {usPct}%</span>}
+            <span className="text-cyan-400 font-bold">Crypto {cryptoPct}%</span>
+            <span className="text-amber-400 font-bold">Kas {cashPct}%</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Tabs Area */}
-        <div className="lg:col-span-2 space-y-4 min-w-0">
-          <div className="flex gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
+      {/* ── Main Workstation 2-Column Grid (Tabs + Order Desk) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Workstation Tabs (Col 8) */}
+        <div className="lg:col-span-8 space-y-3 min-w-0">
+          {/* Workstation Tab Headers */}
+          <div className="flex gap-1 border-b border-[#27272a] overflow-x-auto scrollbar-none bg-[#09090b] px-2 pt-1 rounded-t-lg">
             <button
               onClick={() => setActiveTab('holdings')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'holdings' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'holdings' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'holdings'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
             >
-              <PieChart className="w-4 h-4" /> Saham Dimiliki ({holdings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('dividends')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'dividends' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'dividends' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
-            >
-              <Coins className="w-4 h-4" /> Riwayat Dividen ({dividends.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('calendar')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'calendar' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'calendar' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
-            >
-              <Calendar className="w-4 h-4 text-amber-400" /> Kalender Dividen
-            </button>
-            <button
-              onClick={() => setActiveTab('journal')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'journal' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'journal' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
-            >
-              <Calendar className="w-4 h-4 text-emerald-400" /> Jurnal PnL Kalender
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'analytics' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'analytics' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
-            >
-              <BarChart3 className="w-4 h-4 text-emerald-400" /> Analisis & Alokasi
+              <PieChart className="w-3.5 h-3.5" />
+              <span>Posisi Portofolio ({holdings.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'orders' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'orders' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'orders'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
             >
-              <History className="w-4 h-4" /> Riwayat Order & Realized P/L ({orders.length})
+              <History className="w-3.5 h-3.5" />
+              <span>Riwayat Order ({orders.length})</span>
             </button>
             <button
-              onClick={() => setActiveTab('gitblotter')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'gitblotter' ? '#f59e0b' : 'var(--text-muted)',
-                borderBottom: activeTab === 'gitblotter' ? '2px solid #f59e0b' : '2px solid transparent',
-              }}
+              onClick={() => setActiveTab('dividends')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'dividends'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
             >
-              <GitBranch className="w-4 h-4 text-[#f59e0b]" />
-              <span>Git Log Blotter (ACID)</span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40">
-                v2.1
-              </span>
+              <Coins className="w-3.5 h-3.5" />
+              <span>Dividen & Kalender</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'analytics'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Alokasi & Analisis</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('journal')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'journal'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <span>Jurnal Trading PnL</span>
             </button>
             <button
               onClick={() => setActiveTab('news')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
-              style={{
-                color: activeTab === 'news' ? 'var(--accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'news' ? '2px solid var(--accent)' : '2px solid transparent',
-              }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors cursor-pointer shrink-0 border-b-2 ${
+                activeTab === 'news'
+                  ? 'border-[#f59e0b] text-[#f59e0b]'
+                  : 'border-transparent text-zinc-400 hover:text-white'
+              }`}
             >
-              <Newspaper className="w-4 h-4 text-[#f59e0b]" /> Berita Saham Saya
+              <Newspaper className="w-3.5 h-3.5 text-[#f59e0b]" />
+              <span>Berita Saham</span>
             </button>
           </div>
 
-          {/* TAB 1: HOLDINGS SAHAM */}
+          {/* TAB 1: POSISI PORTOFOLIO (HOLDINGS BLOTTER) */}
           {activeTab === 'holdings' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs text-zinc-400">
-                  Total {holdings.length} posisi saham aktif dalam portofolio
-                </span>
+            <div className="space-y-2.5">
+              {/* Asset Class Filter Bar & CSV Export */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#09090b] border border-[#27272a] rounded-lg">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setSelectedAssetView('ALL')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+                      selectedAssetView === 'ALL'
+                        ? 'bg-amber-500 text-black shadow-sm'
+                        : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    SEMUA ({holdings.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedAssetView('EQUITY')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+                      selectedAssetView === 'EQUITY'
+                        ? 'bg-amber-500 text-black shadow-sm'
+                        : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    SAHAM IDX ({holdings.filter((h) => {
+                      const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      return h.assetClass !== 'CRYPTO' && !h.symbol.endsWith('USDT') && !isCryptoSymbol(cleanSym) && !isUSSymbol(cleanSym) && !KNOWN_US_SYMS.includes(cleanSym);
+                    }).length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedAssetView('CRYPTO')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+                      selectedAssetView === 'CRYPTO'
+                        ? 'bg-cyan-500 text-black shadow-sm'
+                        : 'bg-zinc-800 text-cyan-400 hover:text-white'
+                    }`}
+                  >
+                    ⚡ CRYPTO ({holdings.filter((h) => {
+                      const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      return h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
+                    }).length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedAssetView('US')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
+                      selectedAssetView === 'US'
+                        ? 'bg-blue-500 text-white shadow-sm'
+                        : 'bg-zinc-800 text-blue-400 hover:text-white'
+                    }`}
+                  >
+                    🇺🇸 US ({holdings.filter((h) => {
+                      const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                      const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
+                      return !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+                    }).length})
+                  </button>
+                </div>
+
                 {holdings.length > 0 && (
                   <button
                     onClick={handleExportHoldingsCsv}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-mono font-semibold transition-colors cursor-pointer"
-                    title="Ekspor seluruh posisi saham ke format CSV (kompatibel Excel & Google Sheets)"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-bold transition cursor-pointer"
+                    title="Unduh seluruh posisi ke format CSV"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Unduh Portofolio CSV</span>
+                    <span>Unduh CSV</span>
                   </button>
                 )}
               </div>
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-              {holdings.length === 0 ? (
-                <EmptyState
-                  icon={Briefcase}
-                  title="Portofolio Saham Masih Kosong"
-                  description="Belum ada posisi aktif. Beli saham IDX, kripto, atau saham US melalui form Order di samping untuk mulai membangun portofolio dan mengumpulkan dividen."
-                  cta={{
-                    label: '🛒 Mulai Beli Saham Pertama',
-                    onClick: () => {
-                      const orderEl = document.getElementById('order-execution-desk');
-                      orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    },
-                  }}
-                  secondaryCta={{
-                    label: 'Lihat Screener Saham',
-                    href: '/screener',
-                  }}
-                />
-              ) : (
-                <div className="overflow-x-auto scrollbar-thin">
-                  <table className="data-table min-w-[760px] w-full">
-                    <thead>
-                      <tr>
-                        <th>Ticker</th>
-                        <th className="text-right">Avg Buy (Fee Inkl.)</th>
-                        <th className="text-right">Lot (Lembar)</th>
-                        <th className="text-right">Harga Live</th>
-                        <th className="text-right">Total Nilai</th>
-                        <th className="text-right">Floating Gain/Loss</th>
-                        <th className="text-center">Info Dividen (DPS)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holdings
-                        .filter((h) => {
-                          const isC = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
-                          const u = isC ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0));
-                          return u > 0.000001;
-                        })
-                        .map((h) => {
-                          const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol);
-                          const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                          const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'PLTR', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN'].includes(cleanSym));
-                          const rate = h.exchangeRate || 16000;
-                          const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
-                          let effectiveAvg = h.avgPrice;
-                          if (isCrypto && h.currentPrice > 0) {
-                            const prec = h.currentPrice < 0.00001 ? 8 : h.currentPrice < 0.01 ? 6 : h.currentPrice < 1 ? 4 : 2;
-                            if (effectiveAvg > h.currentPrice * 100) {
-                              effectiveAvg = effectiveAvg / 16000 >= h.currentPrice * 0.2 ? Number((effectiveAvg / 16000).toFixed(prec)) : h.currentPrice;
-                            } else if (effectiveAvg <= 0.0000000001 || h.currentPrice > effectiveAvg * 50) {
-                              effectiveAvg = h.currentPrice;
-                            }
-                          }
-                          const val = (isCrypto || isUS) ? h.currentPrice * units * rate : h.currentPrice * units;
-                          const pl = (isCrypto || isUS) ? Math.round((h.currentPrice - effectiveAvg) * units * rate) : Math.round((h.currentPrice - effectiveAvg) * units);
-                          const isPositive = (pl || 0) >= 0;
-                          let plPct = effectiveAvg > 0 ? ((h.currentPrice - effectiveAvg) / effectiveAvg) * 100 : (h.unrealizedPLPercent || 0);
-                          if (plPct > 500) plPct = 500;
-                          if (plPct < -98) plPct = -98;
-                        const divInfo = KNOWN_DIVIDENDS[cleanSym];
-                        const totalDividend = divInfo && divInfo.dps > 0 ? divInfo.dps * units : 0;
-                        return (
-                          <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : isUS ? 'bg-blue-950/10' : ''}>
-                            <td>
-                              <div className="flex items-center gap-2">
-                                {isCrypto ? (
-                                  <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-black shrink-0">
-                                    ⚡
-                                  </div>
-                                ) : isUS ? (
-                                  <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
-                                    🇺🇸
-                                  </div>
-                                ) : (
-                                  <CompanyLogo symbol={h.displaySymbol} name={h.name} size={24} rounded="md" />
-                                )}
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Link
-                                      href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
-                                      className="font-bold text-xs font-mono hover:underline"
-                                      style={{ color: isCrypto ? '#06b6d4' : isUS ? '#60a5fa' : 'var(--accent)' }}
-                                    >
-                                      {cleanSym}
-                                    </Link>
-                                    {isCrypto ? (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                                        CRYPTO
-                                      </span>
-                                    ) : isUS ? (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                        US STOCK
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{h.name}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="text-right font-mono-num text-xs font-semibold">
-                              {isCrypto ? (
-                                <div>
-                                  <span>{formatCryptoPrice(h.avgPrice)} USDT</span>
-                                  <span className="text-[10px] block text-zinc-500">
-                                    (≈ {formatIDREquivalent(h.avgPrice * rate)})
-                                  </span>
-                                </div>
-                              ) : isUS ? (
-                                <div>
-                                  <span className="text-white">${h.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
-                                  <span className="text-[10px] block text-zinc-400">
-                                    (≈ Rp {Math.round(h.avgPrice * rate).toLocaleString('id-ID')})
-                                  </span>
-                                </div>
-                              ) : (
-                                `Rp ${formatPrice(h.avgPrice)}`
-                              )}
-                            </td>
-                            <td className="text-right font-mono-num text-xs">
-                              {isCrypto ? (
-                                <span className="font-semibold text-cyan-300">
-                                  {units >= 100
-                                    ? units.toLocaleString('en-US', { maximumFractionDigits: 2 })
-                                    : units.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} koin
-                                </span>
-                              ) : isUS ? (
-                                <>
-                                  <span className="font-semibold text-blue-300">{h.lots} shares</span>
-                                  <span className="text-[10px] block text-gray-400">({units.toLocaleString()} lbr)</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="font-semibold">{h.lots} lot</span>
-                                  <span className="text-[10px] block text-gray-400">({units.toLocaleString()} lbr)</span>
-                                </>
-                              )}
-                            </td>
-                            <td className="text-right font-mono-num text-xs font-semibold">
-                              {isCrypto ? (
-                                <span className="text-white font-bold">{formatCryptoPrice(h.currentPrice)} USDT</span>
-                              ) : isUS ? (
-                                <span className="text-white font-bold">${h.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
-                              ) : (
-                                `Rp ${formatPrice(h.currentPrice)}`
-                              )}
-                            </td>
-                            <td className="text-right font-mono-num text-xs font-bold">
-                              Rp {formatPrice(Math.round(val))}
-                            </td>
-                            <td
-                              className="text-right font-mono-num text-xs font-semibold"
-                              style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}
-                            >
-                              {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({plPct.toFixed(2)}%)
-                            </td>
-                            <td className="text-center">
-                              {isCrypto ? (
-                                <Link
-                                  href="/crypto"
-                                  className="px-2.5 py-1 rounded text-[11px] font-bold transition-all inline-flex items-center gap-1 font-mono text-cyan-300 border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 shadow-sm"
-                                  title="Buka Jesse AI Quant Desk untuk trading koin ini"
-                                >
-                                  <Coins className="w-3 h-3 text-cyan-400" />
-                                  <span>Jesse Desk</span>
-                                </Link>
-                              ) : divInfo && divInfo.dps > 0 ? (
-                                <span
-                                  className="text-[11px] px-2.5 py-1 rounded font-mono font-semibold inline-flex items-center gap-1"
-                                  style={{ backgroundColor: 'var(--positive-bg)', color: 'var(--positive)', border: '1px solid var(--positive)' }}
-                                  title={`Dividen resmi: Rp ${formatPrice(divInfo.dps)}/lembar (Estimasi total: Rp ${formatPrice(totalDividend)})`}
-                                >
-                                  <Coins className="w-3 h-3" />
-                                  <span>Rp {formatPrice(divInfo.dps)}/lbr</span>
-                                </span>
-                              ) : (
-                                <span
-                                  className="text-[10px] px-2 py-0.5 rounded font-mono"
-                                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-                                  title="Emiten berstatus Non-Dividen (fokus ekspansi/rugi bersih)"
-                                >
-                                  Non-Dividen
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
-          {/* TAB 2: DIVIDEND TRACKER */}
+              {/* Positions Table */}
+              <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
+                {holdings.length === 0 ? (
+                  <EmptyState
+                    icon={Briefcase}
+                    title="Portofolio Masih Kosong"
+                    description="Belum ada posisi terbuka. Gunakan Order Execution Desk di samping untuk melakukan paper trading saham IDX, saham US, atau kripto spot."
+                    cta={{
+                      label: '🛒 Eksekusi Beli Sekarang',
+                      onClick: () => {
+                        const orderEl = document.getElementById('order-execution-desk');
+                        orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      },
+                    }}
+                    secondaryCta={{
+                      label: 'Lihat Screener Saham',
+                      href: '/screener',
+                    }}
+                  />
+                ) : (
+                  <div className="overflow-x-auto scrollbar-thin">
+                    <table className="data-table min-w-[760px] w-full text-left">
+                      <thead>
+                        <tr>
+                          <th>Symbol / Aset</th>
+                          <th className="text-right">Unit / Lot</th>
+                          <th className="text-right">Avg Buy</th>
+                          <th className="text-right">Harga Live</th>
+                          <th className="text-right">Total Nilai</th>
+                          <th className="text-right">Floating P&L</th>
+                          <th className="text-center">Target TP / SL</th>
+                          <th className="text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {holdings
+                          .filter((h) => {
+                            const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                            const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+                            const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+                            const units = isCrypto ? (h.cryptoUnits || h.lots || 0) : (h.shares || (h.lots ? h.lots * 100 : 0));
+                            if (units <= 0.000001) return false;
+                            if (selectedAssetView === 'EQUITY') return !isCrypto && !isUS;
+                            if (selectedAssetView === 'CRYPTO') return isCrypto;
+                            if (selectedAssetView === 'US') return isUS;
+                            return true;
+                          })
+                          .map((h) => {
+                            const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                            const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
+                            const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
+                            const rate = h.exchangeRate || 16000;
+                            const units = isCrypto ? (h.cryptoUnits || h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+                            const curPrice = getLivePrice(h);
+
+                            let effectiveAvgPrice = h.avgPrice;
+                            if (isCrypto && curPrice > 0) {
+                              const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+                              if (effectiveAvgPrice > curPrice * 100) {
+                                effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
+                              } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
+                                effectiveAvgPrice = curPrice;
+                              }
+                            }
+
+                            let effectiveTP = h.takeProfitPrice;
+                            let effectiveSL = h.stopLossPrice;
+                            if (isCrypto && curPrice > 0) {
+                              const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+                              if (effectiveTP && (effectiveTP > effectiveAvgPrice * 2.5 || (effectiveAvgPrice < 100 && effectiveTP >= 500))) {
+                                effectiveTP = Number((effectiveAvgPrice * 1.15).toFixed(prec));
+                              }
+                              if (effectiveSL && ((effectiveAvgPrice < 100 && effectiveSL >= 500) || effectiveSL <= 0)) {
+                                effectiveSL = Number((effectiveAvgPrice * 0.94).toFixed(prec));
+                              }
+                            }
+
+                            const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
+                            const pl = (isCrypto || isUS)
+                              ? Math.round((curPrice - effectiveAvgPrice) * units * rate)
+                              : Math.round((curPrice - effectiveAvgPrice) * units);
+                            let plPct = effectiveAvgPrice > 0
+                              ? Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
+                              : 0;
+                            if (plPct > 500) plPct = 500;
+                            if (plPct < -98) plPct = -98;
+
+                            const isPositive = pl >= 0;
+                            const tpPct = effectiveTP && effectiveAvgPrice > 0
+                              ? (((effectiveTP - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(1)
+                              : null;
+                            const slPct = effectiveSL && effectiveAvgPrice > 0
+                              ? (((effectiveAvgPrice - effectiveSL) / effectiveAvgPrice) * 100).toFixed(1)
+                              : null;
+
+                            return (
+                              <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : isUS ? 'bg-blue-950/10' : ''}>
+                                <td>
+                                  <div className="flex items-center gap-2">
+                                    {isCrypto ? (
+                                      <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-black shrink-0">
+                                        ⚡
+                                      </div>
+                                    ) : isUS ? (
+                                      <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                        🇺🇸
+                                      </div>
+                                    ) : (
+                                      <CompanyLogo symbol={h.displaySymbol} name={h.name} size={24} rounded="md" />
+                                    )}
+                                    <div>
+                                      <div className="flex items-center gap-1.5">
+                                        <Link
+                                          href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
+                                          className="font-bold text-xs font-mono hover:underline"
+                                          style={{ color: isCrypto ? '#06b6d4' : isUS ? '#60a5fa' : 'var(--accent)' }}
+                                        >
+                                          {cleanSym}
+                                        </Link>
+                                        {isCrypto ? (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                            CRYPTO
+                                          </span>
+                                        ) : isUS ? (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                            US
+                                          </span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-zinc-800 text-zinc-400">
+                                            IDX
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-zinc-400 truncate max-w-[140px]">{h.name}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="text-right font-mono-num text-xs">
+                                  {isCrypto ? (
+                                    <span className="font-semibold text-cyan-300">
+                                      {units.toFixed(4)} koin
+                                    </span>
+                                  ) : isUS ? (
+                                    <>
+                                      <span className="font-semibold text-blue-300">{h.lots} shares</span>
+                                      <span className="text-[10px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="font-semibold text-white">{h.lots} lot</span>
+                                      <span className="text-[10px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
+                                    </>
+                                  )}
+                                </td>
+                                <td className="text-right font-mono-num text-xs">
+                                  {isCrypto ? (
+                                    <div>
+                                      <span className="text-white">{formatCryptoPrice(effectiveAvgPrice)} USDT</span>
+                                      <span className="text-[10px] block text-zinc-500">
+                                        (≈ {formatIDREquivalent(effectiveAvgPrice * rate)})
+                                      </span>
+                                    </div>
+                                  ) : isUS ? (
+                                    <div>
+                                      <span className="text-white">${effectiveAvgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      <span className="text-[10px] block text-zinc-500">
+                                        (≈ Rp {Math.round(effectiveAvgPrice * rate).toLocaleString('id-ID')})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    `Rp ${formatPrice(effectiveAvgPrice)}`
+                                  )}
+                                </td>
+                                <td className="text-right font-mono-num text-xs font-semibold">
+                                  {isCrypto ? (
+                                    <div className="flex items-center justify-end gap-1">
+                                      <span className="text-white font-bold">{formatCryptoPrice(curPrice)} USDT</span>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live Binance Streaming Tick" />
+                                    </div>
+                                  ) : isUS ? (
+                                    <span className="text-white font-bold">${curPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  ) : (
+                                    `Rp ${formatPrice(curPrice)}`
+                                  )}
+                                </td>
+                                <td className="text-right font-mono-num text-xs font-bold text-[#f59e0b]">
+                                  Rp {formatPrice(Math.round(val))}
+                                </td>
+                                <td
+                                  className="text-right font-mono-num text-xs font-semibold"
+                                  style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}
+                                >
+                                  {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({plPct >= 0 ? '+' : ''}{plPct.toFixed(2)}%)
+                                </td>
+                                <td className="text-center font-mono">
+                                  {effectiveTP || effectiveSL ? (
+                                    <div className="space-y-0.5 inline-block text-left">
+                                      {effectiveTP && (
+                                        <div className="flex items-center gap-1 text-[10px] text-emerald-400">
+                                          <Target className="w-3 h-3 text-emerald-400 shrink-0" />
+                                          <span>TP: +{tpPct}%</span>
+                                        </div>
+                                      )}
+                                      {effectiveSL && (
+                                        <div className="flex items-center gap-1 text-[10px] text-rose-400">
+                                          <Shield className="w-3 h-3 text-rose-400 shrink-0" />
+                                          <span>SL: -{slPct}%</span>
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={() => handleOpenRiskModal(h)}
+                                        className="text-[10px] text-cyan-400 hover:text-cyan-300 underline block cursor-pointer"
+                                      >
+                                        Edit
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleOpenRiskModal(h)}
+                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 inline-flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Target className="w-3 h-3 text-amber-400" />
+                                      <span>Set TP/SL</span>
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="text-center">
+                                  <Link
+                                    href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
+                                    className={`px-2 py-1 rounded text-[10px] font-bold transition inline-block ${
+                                      isCrypto
+                                        ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
+                                        : 'bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40'
+                                    }`}
+                                  >
+                                    Trade
+                                  </Link>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: RIWAYAT ORDER (TRANSACTION LEDGER) */}
+          {activeTab === 'orders' && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between p-2 bg-[#09090b] border border-[#27272a] rounded-lg">
+                <span className="text-xs text-zinc-400 font-mono">
+                  Audit ledger transaksi order ({orders.length} order)
+                </span>
+                {orders.length > 0 && (
+                  <button
+                    onClick={handleExportOrdersCsv}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-bold transition cursor-pointer"
+                    title="Ekspor seluruh riwayat order ke format CSV"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Unduh CSV</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
+                {orders.length === 0 ? (
+                  <EmptyState
+                    icon={History}
+                    title="Belum Ada Riwayat Transaksi"
+                    description="Semua transaksi order BUY dan SELL akan tercatat di sini lengkap dengan Realized P/L dan fee."
+                  />
+                ) : (
+                  <div className="overflow-x-auto scrollbar-thin">
+                    <table className="data-table min-w-[760px] w-full text-left">
+                      <thead>
+                        <tr>
+                          <th>Waktu</th>
+                          <th>Ticker</th>
+                          <th className="text-center">Tipe</th>
+                          <th className="text-right">Harga</th>
+                          <th className="text-right">Jumlah</th>
+                          <th className="text-right">Fee & Pajak</th>
+                          <th className="text-right">Total</th>
+                          <th className="text-right">Realized P/L</th>
+                          <th className="text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orders.map((o) => {
+                          const hasRealized = o.type === 'SELL' && o.realizedPL !== undefined;
+                          const isGain = (o.realizedPL || 0) >= 0;
+                          const cleanSym = (o.displaySymbol || o.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+                          const isCrypto =
+                            o.assetClass === 'CRYPTO' ||
+                            o.currency === 'USDT' ||
+                            o.symbol.endsWith('USDT') ||
+                            isCryptoSymbol(cleanSym);
+                          return (
+                            <tr key={o.id}>
+                              <td className="text-xs font-mono-num text-zinc-400">
+                                {new Date(o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </td>
+                              <td className="font-bold text-xs font-mono" style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}>
+                                <div className="flex items-center gap-1.5">
+                                  {isCrypto ? (
+                                    <span className="w-4 h-4 rounded bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">⚡</span>
+                                  ) : (
+                                    <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
+                                  )}
+                                  <span>{o.displaySymbol}</span>
+                                </div>
+                              </td>
+                              <td className="text-center">
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded font-mono"
+                                  style={{
+                                    backgroundColor: o.type === 'BUY' ? 'var(--positive-bg)' : 'var(--negative-bg)',
+                                    color: o.type === 'BUY' ? 'var(--positive)' : 'var(--negative)',
+                                  }}
+                                >
+                                  {o.type}
+                                </span>
+                              </td>
+                              <td className="text-right font-mono-num text-xs">
+                                {isCrypto
+                                  ? `$${o.price.toLocaleString('en-US', { minimumFractionDigits: o.price < 1 ? 4 : 2, maximumFractionDigits: 6 })}`
+                                  : `Rp ${formatPrice(o.price)}`}
+                              </td>
+                              <td className="text-right font-mono-num text-xs">
+                                {isCrypto ? (
+                                  <span className="font-semibold text-cyan-300">{o.lots} unit</span>
+                                ) : (
+                                  <span>{o.lots} lot</span>
+                                )}
+                              </td>
+                              <td className="text-right font-mono-num text-xs text-zinc-400">
+                                Rp {formatPrice(o.fee)}
+                              </td>
+                              <td className="text-right font-mono-num text-xs font-semibold text-white">
+                                Rp {formatPrice(Math.round(o.total))}
+                              </td>
+                              <td className="text-right font-mono-num text-xs">
+                                {hasRealized ? (
+                                  <span
+                                    className="font-bold px-1.5 py-0.5 rounded"
+                                    style={{
+                                      backgroundColor: isGain ? 'var(--positive-bg)' : 'var(--negative-bg)',
+                                      color: isGain ? 'var(--positive)' : 'var(--negative)',
+                                    }}
+                                  >
+                                    {isGain ? '+' : ''}Rp {formatPrice(Math.round(o.realizedPL!))}
+                                  </span>
+                                ) : (
+                                  <span className="text-zinc-500">—</span>
+                                )}
+                              </td>
+                              <td className="text-center">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/20 text-blue-400">
+                                  {o.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: DIVIDEN & KALENDER */}
           {activeTab === 'dividends' && (
             <div className="space-y-4">
-              <div className="rounded-xl border p-4 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+              <div className="rounded-xl border border-[#27272a] p-3.5 bg-[#09090b] flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                    Dividen Yield & Rekapitulasi Pembagian Kas
+                  <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <Coins className="w-4 h-4 text-[#f59e0b]" />
+                    <span>Dividen Yield & Rekapitulasi Pembagian Kas</span>
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Dividen otomatis masuk ke Kas RDN (0% PPh Final jika diinvestasikan kembali sesuai UU HPP).
+                  <div className="text-xs text-zinc-400 mt-0.5">
+                    Dividen otomatis masuk ke Kas RDN (0% PPh Final sesuai UU HPP jika diinvestasikan kembali).
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              {/* Dividends History Table */}
+              <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
                 <div className="overflow-x-auto scrollbar-thin">
-                  <table className="data-table min-w-[700px] w-full">
+                  <table className="data-table min-w-[700px] w-full text-left">
                     <thead>
                       <tr>
                         <th>ID Pembayaran</th>
@@ -1509,244 +1754,249 @@ export default function PortfolioPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {dividends.map((d) => (
-                        <tr key={d.id}>
-                          <td className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{d.id}</td>
-                          <td className="font-bold text-xs font-mono" style={{ color: 'var(--accent)' }}>
-                            <div className="flex items-center gap-1.5">
-                              <CompanyLogo symbol={d.displaySymbol} size={18} rounded="sm" border={false} />
-                              <span>{d.displaySymbol}</span>
-                            </div>
-                          </td>
-                          <td className="text-right font-mono-num text-xs">Rp {formatPrice(d.dividendPerShare)}</td>
-                          <td className="text-right font-mono-num text-xs">{d.shares.toLocaleString()} lbr</td>
-                          <td className="text-right font-mono-num text-xs font-bold" style={{ color: 'var(--positive)' }}>
-                            Rp {formatPrice(d.netAmount)}
-                          </td>
-                          <td className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>{d.paymentDate}</td>
-                          <td className="text-center">
-                            <span
-                              className="text-[10px] font-bold px-2 py-0.5 rounded font-mono"
-                              style={{ backgroundColor: 'var(--positive-bg)', color: 'var(--positive)' }}
-                            >
-                              DITERIMA
-                            </span>
+                      {dividends.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-6 text-zinc-500 text-xs">
+                            Belum ada dividen yang dicairkan. Pastikan memiliki saham dividen (BBCA, BBRI, ITMG, PTBA, UNTR, dll.).
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: KALENDER DIVIDEN & COUNTDOWN */}
-          {activeTab === 'calendar' && (
-            <DividendCalendar />
-          )}
-
-          {/* TAB 4: RIWAYAT ORDER & REALIZED P/L */}
-          {activeTab === 'orders' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs text-zinc-400">
-                  Log audit transaksi order & eksekusi bursa ({orders.length} order)
-                </span>
-                {orders.length > 0 && (
-                  <button
-                    onClick={handleExportOrdersCsv}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-mono font-semibold transition-colors cursor-pointer"
-                    title="Ekspor seluruh riwayat order & realized P/L ke format CSV"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Unduh Riwayat Order CSV</span>
-                  </button>
-                )}
-              </div>
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-              {orders.length === 0 ? (
-                <EmptyState
-                  icon={History}
-                  title="Belum Ada Riwayat Transaksi"
-                  description="Semua eksekusi order BUY dan SELL akan tercatat di sini lengkap dengan Realized P/L, fee broker, dan status order."
-                  cta={{
-                    label: '📈 Eksekusi Order Pertama',
-                    onClick: () => {
-                      const orderEl = document.getElementById('order-execution-desk');
-                      orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    },
-                  }}
-                />
-              ) : (
-                <div className="overflow-x-auto scrollbar-thin">
-                  <table className="data-table min-w-[760px] w-full">
-                    <thead>
-                      <tr>
-                        <th>Waktu</th>
-                        <th>Ticker</th>
-                        <th className="text-center">Tipe</th>
-                        <th className="text-right">Harga</th>
-                        <th className="text-right">Lot (Lembar)</th>
-                        <th className="text-right">Fee & Pajak</th>
-                        <th className="text-right">Total Transaksi</th>
-                        <th className="text-right">Realized Gain/Loss</th>
-                        <th className="text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((o) => {
-                        const hasRealized = o.type === 'SELL' && o.realizedPL !== undefined;
-                        const isGain = (o.realizedPL || 0) >= 0;
-                        const cleanSym = (o.displaySymbol || o.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
-                        const isCrypto =
-                          o.assetClass === 'CRYPTO' ||
-                          o.currency === 'USDT' ||
-                          o.symbol.endsWith('USDT') ||
-                          ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'NEAR', 'LINK', 'PEPE', 'SHIB', 'DOT', 'TRX', 'RENDER', 'TAO', 'FET'].includes(cleanSym);
-                        return (
-                          <tr key={o.id}>
-                            <td className="text-xs font-mono-num" style={{ color: 'var(--text-muted)' }}>
-                              {new Date(o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </td>
-                            <td className="font-bold text-xs font-mono" style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}>
+                      ) : (
+                        dividends.map((d) => (
+                          <tr key={d.id}>
+                            <td className="text-xs font-mono text-zinc-500">{d.id}</td>
+                            <td className="font-bold text-xs font-mono text-[#f59e0b]">
                               <div className="flex items-center gap-1.5">
-                                {isCrypto ? (
-                                  <span className="w-4 h-4 rounded bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">⚡</span>
-                                ) : (
-                                  <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
-                                )}
-                                <span>{o.displaySymbol}</span>
-                                {isCrypto && (
-                                  <span className="text-[8px] bg-cyan-500/20 text-cyan-300 px-1 rounded border border-cyan-500/30 font-bold">CRYPTO</span>
-                                )}
+                                <CompanyLogo symbol={d.displaySymbol} size={18} rounded="sm" border={false} />
+                                <span>{d.displaySymbol}</span>
                               </div>
                             </td>
+                            <td className="text-right font-mono-num text-xs">Rp {formatPrice(d.dividendPerShare)}</td>
+                            <td className="text-right font-mono-num text-xs">{d.shares.toLocaleString()} lbr</td>
+                            <td className="text-right font-mono-num text-xs font-bold text-emerald-400">
+                              Rp {formatPrice(d.netAmount)}
+                            </td>
+                            <td className="text-xs font-mono text-zinc-400">{d.paymentDate}</td>
                             <td className="text-center">
-                              <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded font-mono"
-                                style={{
-                                  backgroundColor: o.type === 'BUY' ? 'var(--positive-bg)' : 'var(--negative-bg)',
-                                  color: o.type === 'BUY' ? 'var(--positive)' : 'var(--negative)',
-                                }}
-                              >
-                                {o.type}
-                              </span>
-                            </td>
-                            <td className="text-right font-mono-num text-xs">
-                              {isCrypto
-                                ? `$${o.price.toLocaleString('en-US', { minimumFractionDigits: o.price < 1 ? 4 : 2, maximumFractionDigits: 6 })}`
-                                : `Rp ${formatPrice(o.price)}`}
-                            </td>
-                            <td className="text-right font-mono-num text-xs">
-                              {isCrypto ? (
-                                <span className="font-semibold text-cyan-300">{o.lots} unit</span>
-                              ) : (
-                                <>
-                                  {o.lots} lot <span className="text-[10px] text-gray-400">({o.shares || o.lots * 100} lbr)</span>
-                                </>
-                              )}
-                            </td>
-                            <td className="text-right font-mono-num text-xs" style={{ color: 'var(--text-muted)' }}>
-                              Rp {formatPrice(o.fee)}
-                            </td>
-                            <td className="text-right font-mono-num text-xs font-semibold">
-                              Rp {formatPrice(Math.round(o.total))}
-                              {isCrypto && (
-                                <span className="text-[10px] block text-zinc-500 font-normal">
-                                  (≈ ${(o.price * o.lots).toLocaleString('en-US', { maximumFractionDigits: 2 })})
-                                </span>
-                              )}
-                            </td>
-                            <td className="text-right font-mono-num text-xs">
-                              {hasRealized ? (
-                                <span
-                                  className="font-bold px-1.5 py-0.5 rounded"
-                                  style={{
-                                    backgroundColor: isGain ? 'var(--positive-bg)' : 'var(--negative-bg)',
-                                    color: isGain ? 'var(--positive)' : 'var(--negative)',
-                                  }}
-                                >
-                                  {isGain ? '+' : ''}Rp {formatPrice(Math.round(o.realizedPL!))} ({o.realizedPLPercent}%)
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>—</span>
-                              )}
-                            </td>
-                            <td className="text-center">
-                              <span
-                                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                                style={{
-                                  backgroundColor: 'var(--blue-bg)',
-                                  color: 'var(--blue)',
-                                }}
-                              >
-                                {o.status}
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-400">
+                                DITERIMA
                               </span>
                             </td>
                           </tr>
-                        );
-                      })}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
-              )}
+              </div>
+
+              {/* Embedded Dividend Calendar */}
+              <div className="pt-2">
+                <DividendCalendar />
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* TAB: GIT COMMIT LOG ORDER BLOTTER (ACID) */}
-        {activeTab === 'gitblotter' && (
-          <GitOrderBlotter />
-        )}
-
-          {/* TAB: TRADING JOURNAL CALENDAR HEATMAP */}
-          {activeTab === 'journal' && (
-            <TradingJournalCalendar />
           )}
 
-          {/* TAB: ANALYTICS & ALLOCATION */}
-          {activeTab === 'analytics' && (
-            <PortfolioAnalytics />
-          )}
+          {/* TAB 4: ALOKASI & ANALISIS */}
+          {activeTab === 'analytics' && <PortfolioAnalytics />}
 
-          {/* TAB: BERITA & ARSIP SEBELUMNYA SAHAM SAYA */}
-          {activeTab === 'news' && (
-            <PortfolioNewsFeed />
-          )}
+          {/* TAB 5: JURNAL TRADING PNL */}
+          {activeTab === 'journal' && <TradingJournalCalendar />}
+
+          {/* TAB 6: BERITA SAHAM PORTFOLIO */}
+          {activeTab === 'news' && <PortfolioNewsFeed />}
         </div>
 
-        {/* Order Execution Widget */}
-        <div>
-          <OrderForm />
+        {/* Right Column: Order Execution Desk (Col 4) */}
+        <div className="lg:col-span-4">
+          <div className="sticky top-20">
+            <OrderForm />
+          </div>
         </div>
       </div>
-    </div>
-  )}
+
+      {/* ── Interactive Modal: TP & SL Manual Target ── */}
+      {editingRiskHolding && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#12161f] border border-cyan-500/40 rounded-xl max-w-md w-full p-5 shadow-2xl shadow-cyan-950/50 text-white animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm tracking-wide text-white">
+                    Target TP & SL Manual: {editingRiskHolding.displaySymbol || editingRiskHolding.symbol}
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Avg Buy:{' '}
+                    <span className="font-mono text-cyan-300 font-bold">
+                      {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                        ? `${formatCryptoPrice(editingRiskHolding.avgPrice)} USDT`
+                        : `Rp ${editingRiskHolding.avgPrice.toLocaleString('id-ID')}`}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingRiskHolding(null)}
+                className="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-xs">
+              {/* Take Profit Section */}
+              <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5" />
+                    Take Profit (TP) %
+                  </label>
+                  <span className="text-[10px] text-zinc-400">
+                    Target Harga:{' '}
+                    <span className="font-mono text-emerald-300 font-bold">
+                      {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                        ? `${tpPriceInput} USDT`
+                        : `Rp ${Number(tpPriceInput || 0).toLocaleString('id-ID')}`}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      max="500"
+                      value={tpPercentInput}
+                      onChange={(e) => handleTpPercentChange(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-right font-mono text-white text-sm focus:border-emerald-500 focus:outline-none"
+                    />
+                    <span className="absolute left-2.5 top-1.5 text-zinc-500 font-bold text-xs">%</span>
+                  </div>
+                </div>
+
+                {/* Quick TP Chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['+5', '+8', '+10', '+15', '+20', '+25', '+50'].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleTpPercentChange(val.replace('+', ''))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                        tpPercentInput === val.replace('+', '')
+                          ? 'bg-emerald-500 text-black'
+                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                      }`}
+                    >
+                      {val}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stop Loss Section */}
+              <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-rose-400 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5" />
+                    Stop Loss (SL) %
+                  </label>
+                  <span className="text-[10px] text-zinc-400">
+                    Cut-loss Harga:{' '}
+                    <span className="font-mono text-rose-300 font-bold">
+                      {editingRiskHolding.assetClass === 'CRYPTO' || editingRiskHolding.symbol.endsWith('USDT')
+                        ? `${slPriceInput} USDT`
+                        : `Rp ${Number(slPriceInput || 0).toLocaleString('id-ID')}`}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      max="90"
+                      value={slPercentInput}
+                      onChange={(e) => handleSlPercentChange(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-right font-mono text-white text-sm focus:border-rose-500 focus:outline-none"
+                    />
+                    <span className="absolute left-2.5 top-1.5 text-zinc-500 font-bold text-xs">%</span>
+                  </div>
+                </div>
+
+                {/* Quick SL Chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['-2', '-3', '-5', '-6', '-8', '-10', '-15'].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleSlPercentChange(val.replace('-', ''))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                        slPercentInput === val.replace('-', '')
+                          ? 'bg-rose-500 text-white'
+                          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                      }`}
+                    >
+                      {val}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-zinc-400 italic">
+                💡 Target TP dan SL tersimpan ke status portofolio Anda untuk memandu disiplin eksekusi trading.
+              </p>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleClearRiskTargets}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition cursor-pointer"
+              >
+                Hapus TP / SL
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingRiskHolding(null)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRiskTargets}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-cyan-400 hover:bg-cyan-300 transition shadow-lg shadow-cyan-500/20 cursor-pointer flex items-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Simpan Target
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Top Up Kas RDN (QRIS Instan) */}
+      <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
 
       {/* Portfolio Stress Testing & Monte Carlo Modal */}
-      <PortfolioStressTestModal
-        isOpen={isStressTestOpen}
-        onClose={() => setIsStressTestOpen(false)}
-      />
+      <PortfolioStressTestModal isOpen={isStressTestOpen} onClose={() => setIsStressTestOpen(false)} />
 
       {/* Telegram 24/7 Alerts Settings Modal */}
-      <TelegramAlertSettingsModal
-        isOpen={isTelegramModalOpen}
-        onClose={() => setIsTelegramModalOpen(false)}
-      />
+      <TelegramAlertSettingsModal isOpen={isTelegramModalOpen} onClose={() => setIsTelegramModalOpen(false)} />
 
       {/* 1-Click Copy Trading AI Hedge Fund Modal */}
-      <CopyTradingModal
-        isOpen={isCopyTradingModalOpen}
-        onClose={() => setIsCopyTradingModalOpen(false)}
-      />
+      <CopyTradingModal isOpen={isCopyTradingModalOpen} onClose={() => setIsCopyTradingModalOpen(false)} />
 
-      {/* Member Authentication Modal (Email, Apple, Facebook, Google) */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-      />
+      {/* Member Authentication Modal */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 }
