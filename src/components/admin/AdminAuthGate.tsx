@@ -46,7 +46,7 @@ export function AdminLogoutButton({ className }: { className?: string }) {
 }
 
 export default function AdminAuthGate({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,18 +54,17 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // Selalu paksa autentikasi password setiap kali membuka panel admin
     try {
       if (typeof window !== 'undefined') {
-        const savedAuth = sessionStorage.getItem('tradesim_admin_auth');
-        if (savedAuth === 'true') {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
+        sessionStorage.removeItem('tradesim_admin_auth');
+        localStorage.removeItem('tradesim_admin_auth');
+        document.cookie = 'tradesim_admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'tradesim_admin_auth=; path=/admin; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       }
-    } catch {
-      setIsAuthenticated(false);
-    }
+    } catch {}
+    setIsAuthenticated(false);
+    setPassword('');
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -78,10 +77,6 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
 
     // Kredensial khusus administrator: admin | Aa240200
     if ((cleanUser === 'admin' || cleanUser === 'admin@tradesim.id') && cleanPass === 'Aa240200') {
-      try {
-        sessionStorage.setItem('tradesim_admin_auth', 'true');
-        document.cookie = 'tradesim_admin_auth=true; path=/admin; max-age=86400';
-      } catch {}
       setIsAuthenticated(true);
       setErrorMsg(null);
     } else {
@@ -107,18 +102,6 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
       window.location.href = '/';
     }
   };
-
-  // State awal saat membaca session
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center font-mono text-xs text-neutral-500">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>Memverifikasi Sesi Administrator...</span>
-        </div>
-      </div>
-    );
-  }
 
   // Jika belum login, tampilkan Login Gate
   if (!isAuthenticated) {

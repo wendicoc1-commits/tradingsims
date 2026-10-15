@@ -107,7 +107,7 @@ export default function DividendAnalysisPage() {
               className="px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center"
               style={{ backgroundColor: 'var(--accent)', color: '#000' }}
             >
-              Klaim Dividen di Portofolio &rarr;
+              Lihat Portofolio Saham &rarr;
             </Link>
           </div>
         </div>
