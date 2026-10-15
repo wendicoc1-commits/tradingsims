@@ -367,6 +367,7 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
         return
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", 8002), QuantBridgeHandler)
-    logger.info("🚀 Quant Bridge ONLINE di port 8002 (KVM Cloud 24/7 Full Autonomous)")
+    bind_host = os.environ.get("QUANT_BRIDGE_HOST", "127.0.0.1")
+    server = HTTPServer((bind_host, 8002), QuantBridgeHandler)
+    logger.info(f"🚀 Quant Bridge ONLINE di {bind_host}:8002 (Internal Daemon)")
     server.serve_forever()

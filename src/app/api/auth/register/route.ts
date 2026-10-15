@@ -58,7 +58,10 @@ export async function POST(req: NextRequest) {
 
     const portfolio = await getUserPortfolioAsync({ userId: user.id, email: normEmail });
 
-    return NextResponse.json({
+    const { attachMemberSessionCookie, createMemberSessionToken } = await import('@/lib/server/userAuth');
+    const memberToken = createMemberSessionToken(user.id, normEmail);
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -68,8 +71,12 @@ export async function POST(req: NextRequest) {
         provider: 'email',
         createdAt: user.createdAt,
       },
+      token: memberToken,
       portfolio,
     });
+
+    attachMemberSessionCookie(response, user.id, normEmail);
+    return response;
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || 'Gagal mendaftar' }, { status: 500 });
   }

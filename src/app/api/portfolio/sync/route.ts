@@ -32,6 +32,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Format email tidak valid' }, { status: 400 });
     }
 
+    // 🛡️ VERIFIKASI KEAMANAN: Cegah IDOR pembacaan portofolio akun lain tanpa izin
+    const { getAuthenticatedMember } = await import('@/lib/server/userAuth');
+    const authMember = getAuthenticatedMember(req);
+    const isAdmin = await verifyAdminSession(req);
+
+    if (!isAdmin) {
+      if (!authMember) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Sesi login diperlukan untuk mengakses portofolio.' }, { status: 401 });
+      }
+      const matchesEmail = email && authMember.email === email;
+      const matchesUserId = userId && authMember.userId === userId;
+      if (!matchesEmail && !matchesUserId) {
+        return NextResponse.json({ success: false, error: 'Forbidden: Akses ditolak ke portofolio akun lain.' }, { status: 403 });
+      }
+    }
+
     const [portfolio, existingUser] = await Promise.all([
       getUserPortfolioAsync({ email, userId }),
       email ? getUserByEmailAsync(email) : Promise.resolve(null),
@@ -78,6 +94,22 @@ export async function POST(req: NextRequest) {
 
     if (email && !email.includes('@')) {
       email = `${email}@tradingsims.my.id`;
+    }
+
+    // 🛡️ VERIFIKASI KEAMANAN: Cegah pemalsuan/penimpaan portofolio pengguna lain
+    const { getAuthenticatedMember: getAuthMemberPost } = await import('@/lib/server/userAuth');
+    const authMemberPost = getAuthMemberPost(req);
+    const isAdminPost = await verifyAdminSession(req);
+
+    if (!isAdminPost) {
+      if (!authMemberPost) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Anda harus login untuk menyinkronkan portofolio ke cloud.' }, { status: 401 });
+      }
+      const matchesEmail = email && authMemberPost.email === email;
+      const matchesUserId = userId && authMemberPost.userId === userId;
+      if (!matchesEmail && !matchesUserId) {
+        return NextResponse.json({ success: false, error: 'Forbidden: Dilarang memodifikasi portofolio milik akun lain.' }, { status: 403 });
+      }
     }
 
     // Ambil data portofolio eksisting untuk mempertahankan saldo & posisi jika payload tidak lengkap
@@ -247,6 +279,22 @@ export async function DELETE(req: NextRequest) {
 
     if (email && !EMAIL_REGEX.test(email)) {
       return NextResponse.json({ success: false, error: 'Format email tidak valid' }, { status: 400 });
+    }
+
+    // 🛡️ VERIFIKASI KEAMANAN: Cegah reset portofolio akun lain tanpa hak akses
+    const { getAuthenticatedMember: getAuthMemberDel } = await import('@/lib/server/userAuth');
+    const authMemberDel = getAuthMemberDel(req);
+    const isAdminDel = await verifyAdminSession(req);
+
+    if (!isAdminDel) {
+      if (!authMemberDel) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Sesi login diperlukan untuk mereset akun.' }, { status: 401 });
+      }
+      const matchesEmail = email && authMemberDel.email === email;
+      const matchesUserId = userId && authMemberDel.userId === userId;
+      if (!matchesEmail && !matchesUserId) {
+        return NextResponse.json({ success: false, error: 'Forbidden: Tidak dapat mereset portofolio akun lain.' }, { status: 403 });
+      }
     }
 
     const reset = resetUserPortfolio({ email, userId }, nominal);

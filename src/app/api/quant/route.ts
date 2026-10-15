@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const QUANT_BRIDGE_URL = process.env.QUANT_BRIDGE_URL || 'http://38.9.46.160:8002';
+const QUANT_BRIDGE_URL = process.env.QUANT_BRIDGE_URL || 'http://127.0.0.1:8002';
 const QUANT_BRIDGE_SECRET = process.env.QUANT_BRIDGE_SECRET || 'tradesim_quant_sec_7f9e1d82ab';
 
 export async function GET(req: NextRequest) {

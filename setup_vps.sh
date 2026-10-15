@@ -386,8 +386,9 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
         return
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", 8002), QuantBridgeHandler)
-    logger.info("🚀 Quant Bridge ONLINE di port 8002 (KVM Cloud 24/7 Full Autonomous WAL Mode)")
+    # Keamanan: Bind ke 127.0.0.1 (Localhost internal) agar tidak dapat diakses langsung oleh internet luar
+    server = HTTPServer(("127.0.0.1", 8002), QuantBridgeHandler)
+    logger.info("🚀 Quant Bridge ONLINE di 127.0.0.1:8002 (Internal Daemon)")
     server.serve_forever()
 EOF
 
@@ -405,6 +406,7 @@ ExecStart=$PYTHON_BIN /root/quant_engine/bridge.py
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
+Environment=QUANT_BRIDGE_HOST=127.0.0.1
 Environment=QUANT_BRIDGE_SECRET=tradesim_quant_sec_7f9e1d82ab
 Environment=QUANT_DB_FILE=/root/quant_engine/ai_memory.db
 
@@ -417,14 +419,16 @@ systemctl daemon-reload
 systemctl enable quant-bridge
 systemctl restart quant-bridge
 
-echo "🛡️ [5/5] Mengonfigurasi firewall port 8002 & port 80..."
+echo "🛡️ [5/5] Mengonfigurasi firewall port 80 & 443 (Tutup port 8002 dari internet luar)..."
 if command -v ufw >/dev/null 2>&1; then
-    ufw allow 8002/tcp || true
+    ufw delete allow 8002/tcp 2>/dev/null || true
     ufw allow 80/tcp || true
+    ufw allow 443/tcp || true
 fi
 if command -v firewall-cmd >/dev/null 2>&1; then
-    firewall-cmd --zone=public --add-port=8002/tcp --permanent || true
+    firewall-cmd --zone=public --remove-port=8002/tcp --permanent 2>/dev/null || true
     firewall-cmd --zone=public --add-port=80/tcp --permanent || true
+    firewall-cmd --zone=public --add-port=443/tcp --permanent || true
     firewall-cmd --reload || true
 fi
 

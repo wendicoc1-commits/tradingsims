@@ -2935,7 +2935,7 @@ export default function VirtualAgentOfficeView() {
               {/* Badge Sinkronisasi VPS Quant 24/7 */}
               <div
                 className="px-2.5 py-1.5 bg-[#0a101d] border border-cyan-500/30 rounded-lg flex items-center gap-1.5 text-xs font-mono shadow-sm shadow-cyan-500/10"
-                title="Status koneksi real-time ke VPS Background Quant Daemon di 38.9.46.160:8002"
+                title="Status koneksi real-time ke VPS Background Quant Daemon (Secure Cluster)"
               >
                 <span className={`w-2 h-2 rounded-full ${vpsBridgeStatus.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                 <span className="text-cyan-400 font-bold text-[11px]">

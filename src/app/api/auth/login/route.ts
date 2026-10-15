@@ -120,7 +120,10 @@ export async function POST(req: NextRequest) {
     // Ambil portofolio tersimpan di cloud Supabase atau server
     const portfolio = await getUserPortfolioAsync({ userId: authUser?.id, email: normEmail });
 
-    return NextResponse.json({
+    const { attachMemberSessionCookie, createMemberSessionToken } = await import('@/lib/server/userAuth');
+    const memberToken = createMemberSessionToken(authUser?.id || normEmail, normEmail);
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: authUser?.id,
@@ -130,8 +133,12 @@ export async function POST(req: NextRequest) {
         provider: 'email',
         createdAt: authUser?.createdAt,
       },
+      token: memberToken,
       portfolio,
     });
+
+    attachMemberSessionCookie(response, authUser?.id || normEmail, normEmail);
+    return response;
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || 'Terjadi kesalahan login' }, { status: 500 });
   }

@@ -449,7 +449,7 @@ export default function QuantDeskJessePanel({
 
         {activeTab === 'VPS_LOGS' && (
           <div className="p-2.5 bg-black/80 rounded-xl border border-slate-800 text-[10px] font-mono leading-relaxed space-y-1 text-emerald-300/90 max-h-72 overflow-y-auto">
-            <div className="text-slate-500">[QUANT_VPS_DAEMON] Host: 38.9.46.160:8002 · Freqtrade v2024.9</div>
+            <div className="text-slate-500">[QUANT_VPS_DAEMON] Host: Secure Internal Cluster · Freqtrade v2024.9</div>
             <div className="text-slate-500">[JESSE_RUNTIME] WebSocket: wss://stream.binance.com:9443 (!miniTicker@arr)</div>
             <div>&gt; [TICK] {activePair}USDT: ${tickerState.price.toLocaleString()} ({tickerState.change24h}%)</div>
             <div>&gt; [STRATEGY] Evaluasi indikator EMA/RSI {activePair} &rarr; Sinyal {jesseSignal.signal} (Conf: {jesseSignal.confidence}%)</div>

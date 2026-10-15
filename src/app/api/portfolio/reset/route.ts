@@ -44,6 +44,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 🛡️ VERIFIKASI KEAMANAN: Mencegah siapapun mereset portofolio akun lain tanpa izin
+    const { getAuthenticatedMember } = await import('@/lib/server/userAuth');
+    const authMember = getAuthenticatedMember(req);
+    const isAdmin = await verifyAdminSession(req);
+
+    if (!isAdmin) {
+      if (!authMember) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Anda harus login untuk mereset portofolio akun.' },
+          { status: 401 }
+        );
+      }
+      const matchesEmail = email && authMember.email === email;
+      const matchesUserId = userId && authMember.userId === userId;
+      if (!matchesEmail && !matchesUserId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Ditolak. Anda tidak berhak mereset portofolio milik pengguna lain.' },
+          { status: 403 }
+        );
+      }
+    }
+
     // 1. Reset di memori & server storage khusus untuk akun ini
     resetUserPortfolio({ email, userId }, resetNominal);
 
