@@ -6,22 +6,22 @@ import { getCompanyLogoCandidates } from '@/lib/stockLogos';
 interface CompanyLogoProps {
   symbol: string;
   name?: string;
-  size?: number;
+  size?: number | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  rounded?: 'full' | 'sm' | 'md' | 'lg' | string;
+  rounded?: 'full' | 'sm' | 'md' | 'lg' | 'xl' | 'none' | string;
   border?: boolean;
 }
 
-// Deterministic aesthetic color generator based on ticker hash
+// Subtle border & text color accents for fallback typography badge (100% transparent bg)
 const BADGE_COLOR_PALETTES = [
-  { bg: 'from-blue-600 to-indigo-800', text: 'text-white', border: 'border-blue-500/30' },
-  { bg: 'from-emerald-600 to-teal-800', text: 'text-white', border: 'border-emerald-500/30' },
-  { bg: 'from-purple-600 to-indigo-900', text: 'text-white', border: 'border-purple-500/30' },
-  { bg: 'from-amber-500 to-orange-700', text: 'text-white', border: 'border-amber-500/30' },
-  { bg: 'from-rose-600 to-pink-800', text: 'text-white', border: 'border-rose-500/30' },
-  { bg: 'from-cyan-600 to-blue-800', text: 'text-white', border: 'border-cyan-500/30' },
-  { bg: 'from-violet-600 to-purple-800', text: 'text-white', border: 'border-violet-500/30' },
-  { bg: 'from-teal-600 to-emerald-900', text: 'text-white', border: 'border-teal-500/30' },
+  { text: 'text-blue-400', border: 'border-blue-500/40' },
+  { text: 'text-emerald-400', border: 'border-emerald-500/40' },
+  { text: 'text-purple-400', border: 'border-purple-500/40' },
+  { text: 'text-amber-400', border: 'border-amber-500/40' },
+  { text: 'text-rose-400', border: 'border-rose-500/40' },
+  { text: 'text-cyan-400', border: 'border-cyan-500/40' },
+  { text: 'text-violet-400', border: 'border-violet-500/40' },
+  { text: 'text-teal-400', border: 'border-teal-500/40' },
 ];
 
 function getTickerColor(ticker: string) {
@@ -38,10 +38,31 @@ export default function CompanyLogo({
   name,
   size = 24,
   className = '',
+  rounded = 'sm',
   border = false,
 }: CompanyLogoProps) {
+  const numericSize = useMemo(() => {
+    if (typeof size === 'number') return size;
+    if (size === 'sm') return 18;
+    if (size === 'md') return 24;
+    if (size === 'lg') return 36;
+    if (size === 'xl') return 48;
+    const parsed = parseInt(String(size), 10);
+    return isNaN(parsed) ? 24 : parsed;
+  }, [size]);
+
+  const roundedClass = useMemo(() => {
+    if (rounded === 'full') return 'rounded-full';
+    if (rounded === 'sm') return 'rounded-sm';
+    if (rounded === 'md') return 'rounded-md';
+    if (rounded === 'lg') return 'rounded-lg';
+    if (rounded === 'xl') return 'rounded-xl';
+    if (rounded === 'none') return 'rounded-none';
+    return 'rounded';
+  }, [rounded]);
+
   const cleanSymbol = (symbol || '').replace('.JK', '').replace(/USDT$/i, '').trim().toUpperCase();
-  const candidates = useMemo(() => getCompanyLogoCandidates(cleanSymbol), [cleanSymbol]);
+  const candidates = useMemo(() => getCompanyLogoCandidates(symbol || ''), [symbol]);
   const [candidateIndex, setCandidateIndex] = useState(0);
   const [hasExhausted, setHasExhausted] = useState(false);
 
@@ -49,7 +70,7 @@ export default function CompanyLogo({
   useEffect(() => {
     setCandidateIndex(0);
     setHasExhausted(false);
-  }, [cleanSymbol]);
+  }, [symbol]);
 
   const handleImgError = () => {
     if (candidateIndex + 1 < candidates.length) {
@@ -63,19 +84,19 @@ export default function CompanyLogo({
   const palette = useMemo(() => getTickerColor(cleanSymbol || 'IDX'), [cleanSymbol]);
   const initials = cleanSymbol.slice(0, 2) || 'TR';
 
-  // If image not found or exhausted, render dynamic crisp typography badge
+  // If image not found or all candidates exhausted, render clean transparent typography badge
   if (hasExhausted || !currentUrl || !cleanSymbol) {
     return (
       <div
-        className={`shrink-0 flex items-center justify-center font-bold font-mono select-none rounded bg-gradient-to-br ${palette.bg} ${palette.text} ${
-          border ? `border ${palette.border}` : ''
-        } shadow-inner ${className}`}
+        className={`shrink-0 flex items-center justify-center font-bold font-mono select-none bg-transparent ${roundedClass} border ${
+          palette.border
+        } ${palette.text} ${className}`}
         style={{
-          width: `${size}px`,
-          height: `${size}px`,
-          minWidth: `${size}px`,
-          minHeight: `${size}px`,
-          fontSize: `${Math.max(9, Math.floor(size * 0.42))}px`,
+          width: `${numericSize}px`,
+          height: `${numericSize}px`,
+          minWidth: `${numericSize}px`,
+          minHeight: `${numericSize}px`,
+          fontSize: `${Math.max(9, Math.floor(numericSize * 0.42))}px`,
           letterSpacing: '-0.05em',
         }}
         title={name || cleanSymbol}
@@ -87,25 +108,25 @@ export default function CompanyLogo({
 
   return (
     <div
-      className={`shrink-0 flex items-center justify-center select-none overflow-hidden rounded ${
+      className={`shrink-0 flex items-center justify-center select-none bg-transparent ${roundedClass} ${
         border ? 'border border-zinc-800/80' : ''
       } ${className}`}
       style={{
-        width: `${size}px`,
-        height: `${size}px`,
-        minWidth: `${size}px`,
-        minHeight: `${size}px`,
+        width: `${numericSize}px`,
+        height: `${numericSize}px`,
+        minWidth: `${numericSize}px`,
+        minHeight: `${numericSize}px`,
       }}
       title={name || cleanSymbol}
     >
       <img
         src={currentUrl}
         alt={`${cleanSymbol} logo`}
-        width={size}
-        height={size}
+        width={numericSize}
+        height={numericSize}
         loading="lazy"
         onError={handleImgError}
-        className="w-full h-full object-contain transition-opacity duration-150"
+        className="w-full h-full object-contain bg-transparent transition-opacity duration-150"
       />
     </div>
   );

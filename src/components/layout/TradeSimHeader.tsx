@@ -315,9 +315,14 @@ export default function TradeSimHeader() {
                 <div
                   key={item.cmd}
                   onClick={() => executeCommand(item.cmd)}
-                  className="px-3 py-1.5 hover:bg-white/5 cursor-pointer flex justify-between items-center transition-colors"
+                  className="px-3 py-1.5 hover:bg-white/5 cursor-pointer flex justify-between items-center transition-colors gap-2"
                 >
-                  <span className="text-emerald-400 font-bold font-mono">{item.cmd}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {(item.cat === 'saham' || item.cmd === 'BTC' || item.cmd === 'ETH') && (
+                      <CompanyLogo symbol={item.cmd} size={16} rounded="sm" />
+                    )}
+                    <span className="text-emerald-400 font-bold font-mono">{item.cmd}</span>
+                  </div>
                   <span className="text-zinc-400 text-[10px] truncate">{item.desc}</span>
                 </div>
               ))}

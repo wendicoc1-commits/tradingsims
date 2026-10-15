@@ -1,11 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <defs>
-    <linearGradient id="bbri_grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00529b"/>
-      <stop offset="100%" stop-color="#002b52"/>
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" rx="20" fill="url(#bbri_grad)"/>
-  <text x="50" y="58" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-1">BRI</text>
-  <circle cx="50" cy="74" r="3" fill="#f97316"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none">
+  <path d="M15 28h18c9 0 14.5 4.5 14.5 11 0 4.5-2.5 8-6.5 9.5 5.5 1.5 9 5.5 9 11 0 8-6.5 12.5-17 12.5H15V28zm9 17h7c4 0 6.5-1.8 6.5-4.5s-2.5-4.5-6.5-4.5h-7v9zm0 19h8c4.5 0 7-2 7-5s-2.5-5-7-5h-8v10z" fill="#00529C"/>
+  <path d="M51 28h17c9 0 15 5 15 13 0 5.5-3 9.5-7.5 11.5l9.5 17.5h-10l-8.5-16h-6.5v16H51V28zm9 18h7c4 0 6.5-2 6.5-5s-2.5-5-6.5-5h-7v10z" fill="#00529C"/>
+  <path d="M89 28h9v42h-9z" fill="#F37021"/>
 </svg>

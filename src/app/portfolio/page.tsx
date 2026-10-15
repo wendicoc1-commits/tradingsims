@@ -1432,17 +1432,7 @@ export default function PortfolioPage() {
                               <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : isUS ? 'bg-blue-950/10' : ''}>
                                 <td className="px-2.5 py-1.5">
                                   <div className="flex items-center gap-1.5">
-                                    {isCrypto ? (
-                                      <div className="w-5 h-5 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black shrink-0">
-                                        ⚡
-                                      </div>
-                                    ) : isUS ? (
-                                      <div className="w-5 h-5 rounded bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                                        🇺🇸
-                                      </div>
-                                    ) : (
-                                      <CompanyLogo symbol={h.displaySymbol} name={h.name} size={20} rounded="sm" />
-                                    )}
+                                    <CompanyLogo symbol={h.displaySymbol} name={h.name} size={20} rounded="sm" />
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1">
                                         <Link
@@ -1642,11 +1632,7 @@ export default function PortfolioPage() {
                               </td>
                               <td className="font-bold text-xs font-mono" style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}>
                                 <div className="flex items-center gap-1.5">
-                                  {isCrypto ? (
-                                    <span className="w-4 h-4 rounded bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-bold">⚡</span>
-                                  ) : (
-                                    <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
-                                  )}
+                                  <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
                                   <span>{o.displaySymbol}</span>
                                 </div>
                               </td>

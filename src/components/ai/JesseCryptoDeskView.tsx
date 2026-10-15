@@ -53,6 +53,7 @@ import TopUpModal from '@/components/portfolio/TopUpModal';
 import { formatCryptoPrice } from '@/lib/utils';
 import { CRYPTO_BENCHMARK_PRICES } from '@/data/idx_benchmark_prices';
 import { isCryptoSymbol, mapToTradingViewSymbol } from '@/lib/universe/masterAssetUniverse';
+import CompanyLogo from '@/components/common/CompanyLogo';
 
 export default function JesseCryptoDeskView() {
   const { cash, holdings, orders, placeBuyOrder, placeSellOrder } = usePortfolioStore();
@@ -544,14 +545,7 @@ export default function JesseCryptoDeskView() {
                     : 'bg-[#0a0e17] border-zinc-800 hover:border-zinc-700 text-zinc-300'
                 }`}
               >
-                <img
-                  src={item.logo}
-                  alt={item.baseAsset}
-                  className="w-5 h-5 rounded-full object-contain shrink-0"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+                <CompanyLogo symbol={item.baseAsset} size={20} rounded="full" className="shrink-0" />
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-xs">{item.baseAsset}</span>
@@ -584,11 +578,7 @@ export default function JesseCryptoDeskView() {
           {/* Main Pair Header */}
           <div className="p-4 rounded-xl bg-[#0b0f19] border border-zinc-800 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <img
-                src={currentAsset.logo}
-                alt={currentAsset.name}
-                className="w-8 h-8 rounded-full object-contain"
-              />
+              <CompanyLogo symbol={currentAsset.baseAsset} size={32} rounded="full" className="shrink-0" />
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold text-white">

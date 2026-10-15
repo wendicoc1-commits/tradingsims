@@ -171,23 +171,199 @@ export const GLOBAL_STOCK_BRANDS: Record<string, StockBrandMeta> = {
   BMO: { ticker: 'BMO', name: 'Bank of Montreal', domain: 'bmo.com', simpleIconSlug: 'bmo' },
   ENB: { ticker: 'ENB', name: 'Enbridge Inc.', domain: 'enbridge.com', simpleIconSlug: 'enbridge' },
   TRP: { ticker: 'TRP', name: 'TC Energy Corporation', domain: 'tcenergy.com' },
+  NFLX: { ticker: 'NFLX', name: 'Netflix Inc.', domain: 'netflix.com', simpleIconSlug: 'netflix' },
+  BABA: { ticker: 'BABA', name: 'Alibaba Group', domain: 'alibabagroup.com', simpleIconSlug: 'alibaba' },
+  UBER: { ticker: 'UBER', name: 'Uber Technologies', domain: 'uber.com', simpleIconSlug: 'uber' },
+  ABNB: { ticker: 'ABNB', name: 'Airbnb Inc.', domain: 'airbnb.com', simpleIconSlug: 'airbnb' },
+  SPOT: { ticker: 'SPOT', name: 'Spotify Technology', domain: 'spotify.com', simpleIconSlug: 'spotify' },
+  PYPL: { ticker: 'PYPL', name: 'PayPal Holdings', domain: 'paypal.com', simpleIconSlug: 'paypal' },
+  DIS: { ticker: 'DIS', name: 'The Walt Disney Company', domain: 'thewaltdisneycompany.com', simpleIconSlug: 'disney' },
+  NKE: { ticker: 'NKE', name: 'NIKE Inc.', domain: 'nike.com', simpleIconSlug: 'nike' },
 };
 
 /**
- * TradeSim Pro Clean Legal Stock Logo Registry
- * Prioritizes self-hosted assets under /logos/[ticker].svg and dynamic typography badges.
- * 100% Free from proprietary third-party CDNs and hotlinks.
+ * Top Indonesian Listed Companies (IDX) Official Domains for Favicon / Brand Logos
+ */
+export const IDX_BRAND_DOMAINS: Record<string, string> = {
+  BBCA: 'bca.co.id',
+  BBRI: 'bri.co.id',
+  BMRI: 'bankmandiri.co.id',
+  BBNI: 'bni.co.id',
+  TLKM: 'telkom.co.id',
+  ASII: 'astra.co.id',
+  GOTO: 'gotocompany.com',
+  ADRO: 'adaro.com',
+  ANTM: 'antam.com',
+  AMMN: 'amman.co.id',
+  BREN: 'baritoenergy.com',
+  BRPT: 'barito-pacific.com',
+  UNVR: 'unilever.co.id',
+  ICBP: 'indofoodcbp.com',
+  INDF: 'indofood.com',
+  KLBF: 'kalbe.co.id',
+  BRIS: 'bankbsi.co.id',
+  PTBA: 'bukitasam.co.id',
+  ITMG: 'itmg.co.id',
+  PGAS: 'pgn.co.id',
+  MEDC: 'medcoenergi.com',
+  CPIN: 'cpin.co.id',
+  MDKA: 'merdekacoppergold.com',
+  SMGR: 'sig.id',
+  INKP: 'app.co.id',
+  TKIM: 'app.co.id',
+  TBIG: 'tower-bersama.com',
+  TOWR: 'sarana-menara.com',
+  EXCL: 'xl.co.id',
+  ISAT: 'ioh.co.id',
+  ARTO: 'jago.com',
+  ACES: 'aspirasidagang.co.id',
+  ERAA: 'erajaya.com',
+  MAPI: 'map.co.id',
+  MAPA: 'mapactive.id',
+  MIKA: 'mitrakeluarga.com',
+  HEAL: 'herminahospitals.com',
+  SILO: 'siloamhospitals.com',
+  AKRA: 'akr.co.id',
+  UNTR: 'unitedtractors.com',
+  ESSA: 'essaindonesia.com',
+  PGEO: 'pertaminageothermal.com',
+  MBMA: 'merdekabattery.com',
+  NCKL: 'triminikeltbk.com',
+  INCO: 'vale.com',
+  HRUM: 'harumenergy.com',
+  TPIA: 'chandra-asri.com',
+  BFIN: 'bfi.co.id',
+  BDMN: 'danamon.co.id',
+  BNGA: 'cimbniaga.co.id',
+  BBTN: 'btn.co.id',
+  MEGA: 'bankmega.com',
+  BJTM: 'bankjatim.co.id',
+  BJBR: 'bankbjb.co.id',
+  MYOR: 'mayora.com',
+  CMRY: 'cisarua.com',
+  SIDO: 'sidomuncul.co.id',
+  TUGU: 'tugu.com',
+  AMRT: 'alfamart.co.id',
+  MIDI: 'midimart.co.id',
+  CTRA: 'ciputra.com',
+  BSDE: 'sinarmasland.com',
+  SMRA: 'summarecon.com',
+  PWON: 'pakuwonjati.com',
+  ASRI: 'alam-sutera.com',
+  JSMR: 'jasamarga.com',
+  GIAA: 'garuda-indonesia.com',
+  BIRD: 'bluebirdgroup.com',
+  ASSA: 'assa.id',
+  AGII: 'samatorgas.com',
+  MNCN: 'mncgroup.com',
+  SCMA: 'scm.co.id',
+  EMTK: 'emtek.co.id',
+};
+
+/**
+ * Top Cryptocurrencies Metadata and Vector Icon Slugs
+ */
+export const CRYPTO_BRAND_META: Record<string, { name: string; slug: string }> = {
+  BTC: { name: 'Bitcoin', slug: 'bitcoin' },
+  ETH: { name: 'Ethereum', slug: 'ethereum' },
+  SOL: { name: 'Solana', slug: 'solana' },
+  BNB: { name: 'BNB', slug: 'binance' },
+  XRP: { name: 'XRP', slug: 'xrp' },
+  ADA: { name: 'Cardano', slug: 'cardano' },
+  DOGE: { name: 'Dogecoin', slug: 'dogecoin' },
+  AVAX: { name: 'Avalanche', slug: 'avalanche' },
+  DOT: { name: 'Polkadot', slug: 'polkadot' },
+  LINK: { name: 'Chainlink', slug: 'chainlink' },
+  MATIC: { name: 'Polygon', slug: 'polygon' },
+  POL: { name: 'Polygon', slug: 'polygon' },
+  NEAR: { name: 'NEAR Protocol', slug: 'near' },
+  TRX: { name: 'TRON', slug: 'tron' },
+  SUI: { name: 'Sui', slug: 'sui' },
+  PEPE: { name: 'Pepe', slug: 'pepe' },
+  SHIB: { name: 'Shiba Inu', slug: 'shiba-inu' },
+  UNI: { name: 'Uniswap', slug: 'uniswap' },
+  LTC: { name: 'Litecoin', slug: 'litecoin' },
+  BCH: { name: 'Bitcoin Cash', slug: 'bitcoincash' },
+  TIA: { name: 'Celestia', slug: 'celestia' },
+  ATOM: { name: 'Cosmos', slug: 'cosmos' },
+  XLM: { name: 'Stellar', slug: 'stellar' },
+  XMR: { name: 'Monero', slug: 'monero' },
+  FIL: { name: 'Filecoin', slug: 'filecoin' },
+  AAVE: { name: 'Aave', slug: 'aave' },
+  MKR: { name: 'Maker', slug: 'maker' },
+  CRV: { name: 'Curve DAO', slug: 'curve' },
+  ALGO: { name: 'Algorand', slug: 'algorand' },
+  FTM: { name: 'Fantom', slug: 'fantom' },
+  SAND: { name: 'The Sandbox', slug: 'thesandbox' },
+  MANA: { name: 'Decentraland', slug: 'decentraland' },
+  AXS: { name: 'Axie Infinity', slug: 'axieinfinity' },
+  APT: { name: 'Aptos', slug: 'aptos' },
+  ARB: { name: 'Arbitrum', slug: 'arbitrum' },
+  OP: { name: 'Optimism', slug: 'optimism' },
+  RENDER: { name: 'Render', slug: 'render' },
+  INJ: { name: 'Injective', slug: 'injective' },
+  FET: { name: 'Artificial Superintelligence Alliance', slug: 'fetchai' },
+  KAS: { name: 'Kaspa', slug: 'kaspa' },
+  ICP: { name: 'Internet Computer', slug: 'internetcomputer' },
+};
+
+/**
+ * Multi-Tier 100% Transparent Vector & PNG Logo Candidates Resolver
+ * Priority hierarchy:
+ * 1. Local transparent vector SVG (/logos/[ticker].svg)
+ * 2. Dedicated transparent vector CDN (SimpleIcons / jsDelivr cryptocurrency-icons)
+ * 3. Transparent stock / asset CDN (Parqet / CoinCap)
+ * 4. Transparent domain favicon (Google Favicon V2 & DuckDuckGo)
  */
 export function getCompanyLogoCandidates(rawSymbol: string): string[] {
   if (!rawSymbol) return [];
 
   const sym = rawSymbol.trim().toUpperCase();
-  const cleanSym = sym.replace('.JK', '').replace(/USDT$/i, '').toLowerCase();
+  const isCrypto = sym.endsWith('USDT') || CRYPTO_BRAND_META[sym] !== undefined;
+  const cleanSym = sym.replace('.JK', '').replace(/USDT$/i, '').trim().toUpperCase();
+  const lowerSym = cleanSym.toLowerCase();
 
-  const candidates: string[] = [
-    `/logos/${cleanSym}.svg`,
-    `/logos/${cleanSym}.png`,
-  ];
+  const candidates: string[] = [];
+
+  // Tier 1: Local High-Performance Transparent Vector SVGs & PNGs
+  candidates.push(`/logos/${lowerSym}.svg`);
+  candidates.push(`/logos/${lowerSym}.png`);
+
+  if (isCrypto) {
+    const meta = CRYPTO_BRAND_META[cleanSym];
+    // Cryptocurrency Icons (jsDelivr transparent SVG)
+    candidates.push(`https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${lowerSym}.svg`);
+    // CoinCap 2x Transparent PNG
+    candidates.push(`https://assets.coincap.io/assets/icons/${lowerSym}@2x.png`);
+    // SimpleIcons vector
+    if (meta?.slug) {
+      candidates.push(`https://cdn.simpleicons.org/${meta.slug}`);
+    }
+  } else {
+    // Check if symbol is in Global Stocks
+    const globalBrand = GLOBAL_STOCK_BRANDS[cleanSym] || GLOBAL_STOCK_BRANDS[sym];
+    if (globalBrand) {
+      if (globalBrand.simpleIconSlug) {
+        const colorParam = globalBrand.color ? `/${globalBrand.color}` : '';
+        candidates.push(`https://cdn.simpleicons.org/${globalBrand.simpleIconSlug}${colorParam}`);
+      }
+      // Parqet Global Stock Transparent Logo
+      candidates.push(`https://assets.parqet.com/logos/symbol/${cleanSym}`);
+      // Google Favicon V2 (128px high-res)
+      candidates.push(`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${globalBrand.domain}&size=128`);
+      candidates.push(`https://icons.duckduckgo.com/ip3/${globalBrand.domain}.ico`);
+    }
+
+    // Check if symbol is Indonesian Stock (IDX)
+    const idxDomain = IDX_BRAND_DOMAINS[cleanSym];
+    if (idxDomain) {
+      candidates.push(`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${idxDomain}&size=128`);
+      candidates.push(`https://icons.duckduckgo.com/ip3/${idxDomain}.ico`);
+    }
+
+    // Parqet IDX ticker candidate (transparent PNG)
+    candidates.push(`https://assets.parqet.com/logos/symbol/${cleanSym}.JK`);
+  }
 
   return candidates;
 }
