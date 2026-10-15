@@ -209,35 +209,35 @@ function OrderForm() {
   };
 
   return (
-    <div id="order-execution-desk" className="rounded-xl border p-4 bg-[#09090b] border-[#27272a] shadow-sm">
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#27272a]">
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="w-4 h-4 text-[#f59e0b]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-white">
-            Order Execution Desk
+    <div id="order-execution-desk" className="rounded-xl border p-3 bg-[#09090b] border-[#27272a] shadow-sm text-xs">
+      <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-[#27272a]">
+        <div className="flex items-center gap-1.5">
+          <ShoppingCart className="w-3.5 h-3.5 text-[#f59e0b]" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+            Order Desk
           </span>
         </div>
-        <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-          ● 24/7 PAPER TRADING
+        <span className="text-[9px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+          ● 24/7 PAPER
         </span>
       </div>
 
       {notification && (
         <div
-          className="mb-3 p-2.5 rounded-lg text-xs flex items-center gap-2"
+          className="mb-2.5 p-2 rounded-lg text-[11px] flex items-center gap-1.5"
           style={{
             backgroundColor: notification.type === 'success' ? 'var(--positive-bg)' : 'var(--negative-bg)',
             color: notification.type === 'success' ? 'var(--positive)' : 'var(--negative)',
             border: `1px solid ${notification.type === 'success' ? 'var(--positive)' : 'var(--negative)'}`,
           }}
         >
-          {notification.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+          {notification.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
           <span>{notification.message}</span>
         </div>
       )}
 
       {/* Asset Class Selector */}
-      <div className="grid grid-cols-3 gap-1 mb-2.5 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-bold font-mono">
+      <div className="grid grid-cols-3 gap-1 mb-2 p-0.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-[10px] font-bold font-mono">
         <button
           type="button"
           onClick={() => {
@@ -246,8 +246,8 @@ function OrderForm() {
             setPrice('');
             setLots('');
           }}
-          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'EQUITY' ? 'bg-[#f59e0b] text-black shadow-sm' : 'text-zinc-400 hover:text-white'
+          className={`py-1 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
+            assetClass === 'EQUITY' ? 'bg-[#f59e0b] text-black shadow-sm font-black' : 'text-zinc-400 hover:text-white'
           }`}
         >
           <span>🇮🇩</span>
@@ -261,12 +261,12 @@ function OrderForm() {
             setPrice('168.20');
             setLots('1');
           }}
-          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'US' ? 'bg-blue-500 text-white shadow-sm' : 'text-blue-400 hover:text-white'
+          className={`py-1 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
+            assetClass === 'US' ? 'bg-blue-500 text-white shadow-sm font-black' : 'text-blue-400 hover:text-white'
           }`}
         >
           <span>🇺🇸</span>
-          <span>US STOCK</span>
+          <span>US</span>
         </button>
         <button
           type="button"
@@ -276,8 +276,8 @@ function OrderForm() {
             setPrice('82500');
             setLots('0.05');
           }}
-          className={`py-1.5 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
-            assetClass === 'CRYPTO' ? 'bg-cyan-500 text-black shadow-sm' : 'text-cyan-400 hover:text-white'
+          className={`py-1 rounded transition cursor-pointer flex items-center justify-center gap-1 ${
+            assetClass === 'CRYPTO' ? 'bg-cyan-500 text-black shadow-sm font-black' : 'text-cyan-400 hover:text-white'
           }`}
         >
           <span>⚡</span>
@@ -287,31 +287,29 @@ function OrderForm() {
 
       {/* Quick US Tickers */}
       {assetClass === 'US' && (
-        <div className="mb-3 p-2 rounded-lg bg-blue-950/20 border border-blue-500/25">
-          <div className="text-[10px] text-blue-300 font-bold mb-1.5 flex items-center justify-between">
-            <span>PILIH CEPAT SAHAM US:</span>
-            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000</span>
+        <div className="mb-2 p-1.5 rounded-lg bg-blue-950/20 border border-blue-500/25">
+          <div className="text-[9px] text-blue-300 font-bold mb-1 flex items-center justify-between">
+            <span>PILIH CEPAT US:</span>
+            <span className="text-[8px] text-zinc-400 font-mono">$1 = Rp 16rb</span>
           </div>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1 flex-wrap">
             {[
               { ticker: 'NVDA', price: 141.54 },
               { ticker: 'AAPL', price: 232.15 },
               { ticker: 'MSFT', price: 428.50 },
               { ticker: 'AMZN', price: 187.80 },
               { ticker: 'GOOGL', price: 168.20 },
-              { ticker: 'META', price: 589.40 },
               { ticker: 'TSLA', price: 218.80 },
-              { ticker: 'PLTR', price: 44.20 },
             ].map((st) => (
               <button
                 key={st.ticker}
                 type="button"
                 onClick={() => handleSelectQuickUS(st.ticker, st.price)}
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition cursor-pointer ${
                   symbol === st.ticker ? 'bg-blue-400 text-black' : 'bg-zinc-800 text-blue-300 hover:bg-zinc-700'
                 }`}
               >
-                {st.ticker} (${st.price})
+                {st.ticker}
               </button>
             ))}
           </div>
@@ -320,12 +318,12 @@ function OrderForm() {
 
       {/* Quick Crypto Tickers */}
       {assetClass === 'CRYPTO' && (
-        <div className="mb-3 p-2 rounded-lg bg-cyan-950/20 border border-cyan-500/25">
-          <div className="text-[10px] text-cyan-300 font-bold mb-1.5 flex items-center justify-between">
-            <span>PILIH CEPAT KRIPTO SPOT:</span>
-            <span className="text-[9px] text-zinc-400 font-mono">Kurs $1 = Rp 16.000</span>
+        <div className="mb-2 p-1.5 rounded-lg bg-cyan-950/20 border border-cyan-500/25">
+          <div className="text-[9px] text-cyan-300 font-bold mb-1 flex items-center justify-between">
+            <span>PILIH CEPAT KRIPTO:</span>
+            <span className="text-[8px] text-zinc-400 font-mono">$1 = Rp 16rb</span>
           </div>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1 flex-wrap">
             {[
               { coin: 'BTC', price: 81118 },
               { coin: 'ETH', price: 2450 },
@@ -333,32 +331,28 @@ function OrderForm() {
               { coin: 'BNB', price: 585 },
               { coin: 'XRP', price: 1.42 },
               { coin: 'DOGE', price: 0.154 },
-            ].map((c) => {
-              const live = tickerMap[c.coin]?.price ?? tickerMap[`${c.coin}USDT`]?.price ?? c.price;
-              const displayVal = live < 0.01 ? live.toFixed(6) : live < 1 ? live.toFixed(4) : live.toLocaleString();
-              return (
-                <button
-                  key={c.coin}
-                  type="button"
-                  onClick={() => handleSelectQuickCrypto(c.coin, live)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                    symbol === c.coin ? 'bg-cyan-400 text-black' : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
-                  }`}
-                >
-                  {c.coin} (${displayVal})
-                </button>
-              );
-            })}
+            ].map((c) => (
+              <button
+                key={c.coin}
+                type="button"
+                onClick={() => handleSelectQuickCrypto(c.coin, c.price)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition cursor-pointer ${
+                  symbol === c.coin ? 'bg-cyan-400 text-black' : 'bg-zinc-800 text-cyan-300 hover:bg-zinc-700'
+                }`}
+              >
+                {c.coin}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
       {/* Buy/Sell toggle */}
-      <div className="flex gap-1 mb-3.5 p-1 rounded-lg bg-[#18181b]">
+      <div className="flex gap-1 mb-2.5 p-0.5 rounded-lg bg-[#18181b]">
         <button
           type="button"
           onClick={() => setOrderType('BUY')}
-          className="flex-1 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer"
+          className="flex-1 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer"
           style={{
             backgroundColor: orderType === 'BUY' ? 'var(--positive)' : 'transparent',
             color: orderType === 'BUY' ? '#000' : 'var(--text-muted)',
@@ -369,7 +363,7 @@ function OrderForm() {
         <button
           type="button"
           onClick={() => setOrderType('SELL')}
-          className="flex-1 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer"
+          className="flex-1 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer"
           style={{
             backgroundColor: orderType === 'SELL' ? 'var(--negative)' : 'transparent',
             color: orderType === 'SELL' ? '#fff' : 'var(--text-muted)',
@@ -380,14 +374,14 @@ function OrderForm() {
       </div>
 
       {/* Form fields */}
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-2">
         <div>
-          <label className="text-[11px] block mb-1 text-zinc-400">
+          <label className="text-[10px] block mb-0.5 text-zinc-400">
             {assetClass === 'CRYPTO'
-              ? 'Kode Kripto (contoh: BTC, ETH, SOL, DOGE)'
+              ? 'Kode Kripto (BTC, ETH, SOL)'
               : assetClass === 'US'
-              ? 'Kode Saham US (contoh: GOOGL, AAPL, NVDA, TSLA)'
-              : 'Kode Saham IDX (contoh: BBCA, BBRI, BMRI, TLKM)'}
+              ? 'Kode US (GOOGL, NVDA, TSLA)'
+              : 'Kode Saham IDX (BBCA, BBRI)'}
           </label>
           <input
             type="text"
@@ -395,23 +389,23 @@ function OrderForm() {
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
             placeholder={
               assetClass === 'CRYPTO'
-                ? 'e.g. BTC, ETH, SOL'
+                ? 'e.g. BTC, ETH'
                 : assetClass === 'US'
-                ? 'e.g. GOOGL, AAPL, NVDA'
-                : 'e.g. BBCA, BBRI, BMRI'
+                ? 'e.g. NVDA, TSLA'
+                : 'e.g. BBCA, BBRI'
             }
-            className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none uppercase"
+            className="w-full px-2.5 py-1 rounded-md border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none uppercase"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-[11px] text-zinc-400">
-                {isCrypto ? 'Harga ($ USDT)' : isUS ? 'Harga ($ USD)' : 'Harga (Rp)'}
+            <div className="flex justify-between items-center mb-0.5">
+              <label className="text-[10px] text-zinc-400">
+                {isCrypto ? 'Harga ($)' : isUS ? 'Harga ($)' : 'Harga (Rp)'}
               </label>
               {!isForeign && priceNum > 0 && (
-                <span className="text-[10px] font-mono" style={{ color: tickValidation.valid ? 'var(--positive)' : 'var(--negative)' }}>
+                <span className="text-[9px] font-mono" style={{ color: tickValidation.valid ? 'var(--positive)' : 'var(--negative)' }}>
                   Tick: {tickValidation.tick}
                 </span>
               )}
@@ -422,18 +416,15 @@ function OrderForm() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
-              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
+              className="w-full px-2 py-1 rounded-md border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
             />
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-[11px] text-zinc-400">
-                {isCrypto ? 'Jumlah (Koin)' : isUS ? 'Jumlah (Shares)' : 'Jumlah (Lot)'}
+            <div className="flex justify-between items-center mb-0.5">
+              <label className="text-[10px] text-zinc-400">
+                {isCrypto ? 'Jml (Koin)' : isUS ? 'Jml (Shares)' : 'Jml (Lot)'}
               </label>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                {isCrypto ? '1 unit = 1 koin' : isUS ? '1 lot = 1 lbr' : '1 lot = 100 lbr'}
-              </span>
             </div>
             <input
               type="number"
@@ -442,32 +433,32 @@ function OrderForm() {
               value={lots}
               onChange={(e) => setLots(e.target.value)}
               placeholder="0"
-              className="w-full px-3 py-1.5 rounded-lg border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
+              className="w-full px-2 py-1 rounded-md border text-xs font-mono bg-zinc-900 border-zinc-700 text-white outline-none"
             />
           </div>
         </div>
 
         {/* Calculation Summary */}
-        <div className="p-2.5 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-1.5 text-[11px] font-mono">
+        <div className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 space-y-1 text-[10px] font-mono">
           <div className="flex justify-between">
-            <span className="text-zinc-400">{isCrypto ? 'Nilai Transaksi (IDR)' : 'Nilai Bruto Saham'}</span>
-            <span className="font-mono text-white">Rp {formatPrice(tradeValue)}</span>
+            <span className="text-zinc-400">Nilai Order</span>
+            <span className="text-white">Rp {formatPrice(tradeValue)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-zinc-400">{isCrypto ? 'Spot Fee (0.10%)' : 'Fee Broker & Bursa (0.15%)'}</span>
-            <span className="font-mono text-white">Rp {formatPrice(brokerFee)}</span>
+            <span className="text-zinc-400">Fee Broker</span>
+            <span className="text-white">Rp {formatPrice(brokerFee)}</span>
           </div>
           {orderType === 'SELL' && (
             <div className="flex justify-between">
-              <span className="text-zinc-400">{isCrypto ? 'PPh Final Kripto (0.10%)' : 'PPh Final Penjualan (0.10%)'}</span>
-              <span className="font-mono text-white">Rp {formatPrice(taxFee)}</span>
+              <span className="text-zinc-400">PPh Final</span>
+              <span className="text-white">Rp {formatPrice(taxFee)}</span>
             </div>
           )}
           <div className="flex justify-between font-bold pt-1 border-t border-zinc-800">
             <span className="text-white">
-              {orderType === 'BUY' ? 'Total Debit Kas' : 'Total Kredit Bersih ke Kas'}
+              {orderType === 'BUY' ? 'Total Debit' : 'Total Kredit'}
             </span>
-            <span className="font-mono text-[#f59e0b]">
+            <span className="text-[#f59e0b]">
               Rp {formatPrice(Math.round(grandTotal))}
             </span>
           </div>
@@ -476,36 +467,31 @@ function OrderForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+          className="w-full py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           style={{
             backgroundColor: orderType === 'BUY' ? (isCrypto ? '#06b6d4' : 'var(--positive)') : 'var(--negative)',
             color: orderType === 'BUY' ? '#000' : '#fff',
           }}
         >
           {isSubmitting
-            ? 'Memproses Order...'
+            ? 'Memproses...'
             : orderType === 'BUY'
-            ? `Eksekusi Beli ${isCrypto ? 'Crypto Spot' : isUS ? 'Saham US' : 'Saham IDX'}`
-            : `Eksekusi Jual ${isCrypto ? 'Crypto Spot' : isUS ? 'Saham US' : 'Saham IDX'}`}
+            ? `Beli Sekarang`
+            : `Jual Sekarang`}
         </button>
 
-        <div className="pt-2 border-t border-zinc-800">
+        <div className="pt-1.5 border-t border-zinc-800">
           <Link
             href="/crypto"
-            className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-cyan-950/40 to-blue-950/20 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400 transition-all text-xs font-mono group"
+            className="flex items-center justify-between p-1.5 rounded-md bg-gradient-to-r from-cyan-950/40 to-blue-950/20 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400 transition-all text-[11px] font-mono group"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-base">⚡</span>
-              <div>
-                <span className="font-bold block text-white group-hover:text-cyan-300 transition-colors">
-                  Jesse AI Quant Desk
-                </span>
-                <span className="text-[10px] text-zinc-400">
-                  BTC, ETH, SOL, DOGE · 24/7 Live
-                </span>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <span>⚡</span>
+              <span className="font-bold text-white group-hover:text-cyan-300 transition-colors">
+                Jesse AI Quant
+              </span>
             </div>
-            <ArrowUpRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <ArrowUpRight className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </Link>
         </div>
       </form>
@@ -1204,9 +1190,9 @@ export default function PortfolioPage() {
       </div>
 
       {/* ── Main Workstation 2-Column Grid (Tabs + Order Desk) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Workstation Tabs (Col 8) */}
-        <div className="lg:col-span-8 space-y-3 min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        {/* Left Column: Workstation Tabs (Col 9 = 75% width) */}
+        <div className="lg:col-span-9 space-y-3 min-w-0">
           {/* Workstation Tab Headers */}
           <div className="flex gap-1 border-b border-[#27272a] overflow-x-auto scrollbar-none bg-[#09090b] px-2 pt-1 rounded-t-lg">
             <button
@@ -1368,17 +1354,17 @@ export default function PortfolioPage() {
                   />
                 ) : (
                   <div className="overflow-x-auto scrollbar-thin">
-                    <table className="data-table min-w-[760px] w-full text-left">
+                    <table className="data-table w-full text-left">
                       <thead>
                         <tr>
-                          <th>Symbol / Aset</th>
-                          <th className="text-right">Unit / Lot</th>
-                          <th className="text-right">Avg Buy</th>
-                          <th className="text-right">Harga Live</th>
-                          <th className="text-right">Total Nilai</th>
-                          <th className="text-right">Floating P&L</th>
-                          <th className="text-center">Target TP / SL</th>
-                          <th className="text-center">Aksi</th>
+                          <th className="px-2.5 py-2">Symbol / Aset</th>
+                          <th className="px-2 py-2 text-right">Unit / Lot</th>
+                          <th className="px-2 py-2 text-right">Avg Buy</th>
+                          <th className="px-2 py-2 text-right">Harga Live</th>
+                          <th className="px-2 py-2 text-right">Total Nilai</th>
+                          <th className="px-2 py-2 text-right">Floating P&L</th>
+                          <th className="px-2 py-2 text-center">Target TP / SL</th>
+                          <th className="px-2 py-2 text-center">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1444,21 +1430,21 @@ export default function PortfolioPage() {
 
                             return (
                               <tr key={h.symbol} className={isCrypto ? 'bg-cyan-950/10' : isUS ? 'bg-blue-950/10' : ''}>
-                                <td>
-                                  <div className="flex items-center gap-2">
+                                <td className="px-2.5 py-1.5">
+                                  <div className="flex items-center gap-1.5">
                                     {isCrypto ? (
-                                      <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-black shrink-0">
+                                      <div className="w-5 h-5 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black shrink-0">
                                         ⚡
                                       </div>
                                     ) : isUS ? (
-                                      <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                      <div className="w-5 h-5 rounded bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                                         🇺🇸
                                       </div>
                                     ) : (
-                                      <CompanyLogo symbol={h.displaySymbol} name={h.name} size={24} rounded="md" />
+                                      <CompanyLogo symbol={h.displaySymbol} name={h.name} size={20} rounded="sm" />
                                     )}
-                                    <div>
-                                      <div className="flex items-center gap-1.5">
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1">
                                         <Link
                                           href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
                                           className="font-bold text-xs font-mono hover:underline"
@@ -1467,52 +1453,52 @@ export default function PortfolioPage() {
                                           {cleanSym}
                                         </Link>
                                         {isCrypto ? (
-                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                          <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                                             CRYPTO
                                           </span>
                                         ) : isUS ? (
-                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                          <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
                                             US
                                           </span>
                                         ) : (
-                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-zinc-800 text-zinc-400">
+                                          <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-zinc-800 text-zinc-400">
                                             IDX
                                           </span>
                                         )}
                                       </div>
-                                      <div className="text-[10px] text-zinc-400 truncate max-w-[140px]">{h.name}</div>
+                                      <div className="text-[9px] text-zinc-400 truncate max-w-[90px] xl:max-w-[130px]">{h.name}</div>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="text-right font-mono-num text-xs">
+                                <td className="px-2 py-1.5 text-right font-mono-num text-xs whitespace-nowrap">
                                   {isCrypto ? (
                                     <span className="font-semibold text-cyan-300">
-                                      {units.toFixed(4)} koin
+                                      {units.toFixed(4)}
                                     </span>
                                   ) : isUS ? (
                                     <>
-                                      <span className="font-semibold text-blue-300">{h.lots} shares</span>
-                                      <span className="text-[10px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
+                                      <span className="font-semibold text-blue-300">{h.lots} sh</span>
+                                      <span className="text-[9px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
                                     </>
                                   ) : (
                                     <>
                                       <span className="font-semibold text-white">{h.lots} lot</span>
-                                      <span className="text-[10px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
+                                      <span className="text-[9px] block text-zinc-500">({units.toLocaleString()} lbr)</span>
                                     </>
                                   )}
                                 </td>
-                                <td className="text-right font-mono-num text-xs">
+                                <td className="px-2 py-1.5 text-right font-mono-num text-xs whitespace-nowrap">
                                   {isCrypto ? (
                                     <div>
-                                      <span className="text-white">{formatCryptoPrice(effectiveAvgPrice)} USDT</span>
-                                      <span className="text-[10px] block text-zinc-500">
+                                      <span className="text-white">{formatCryptoPrice(effectiveAvgPrice)}</span>
+                                      <span className="text-[9px] block text-zinc-500">
                                         (≈ {formatIDREquivalent(effectiveAvgPrice * rate)})
                                       </span>
                                     </div>
                                   ) : isUS ? (
                                     <div>
                                       <span className="text-white">${effectiveAvgPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                      <span className="text-[10px] block text-zinc-500">
+                                      <span className="text-[9px] block text-zinc-500">
                                         (≈ Rp {Math.round(effectiveAvgPrice * rate).toLocaleString('id-ID')})
                                       </span>
                                     </div>
@@ -1520,10 +1506,10 @@ export default function PortfolioPage() {
                                     `Rp ${formatPrice(effectiveAvgPrice)}`
                                   )}
                                 </td>
-                                <td className="text-right font-mono-num text-xs font-semibold">
+                                <td className="px-2 py-1.5 text-right font-mono-num text-xs font-semibold whitespace-nowrap">
                                   {isCrypto ? (
                                     <div className="flex items-center justify-end gap-1">
-                                      <span className="text-white font-bold">{formatCryptoPrice(curPrice)} USDT</span>
+                                      <span className="text-white font-bold">{formatCryptoPrice(curPrice)}</span>
                                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live Binance Streaming Tick" />
                                     </div>
                                   ) : isUS ? (
@@ -1532,33 +1518,34 @@ export default function PortfolioPage() {
                                     `Rp ${formatPrice(curPrice)}`
                                   )}
                                 </td>
-                                <td className="text-right font-mono-num text-xs font-bold text-[#f59e0b]">
+                                <td className="px-2 py-1.5 text-right font-mono-num text-xs font-bold text-[#f59e0b] whitespace-nowrap">
                                   Rp {formatPrice(Math.round(val))}
                                 </td>
                                 <td
-                                  className="text-right font-mono-num text-xs font-semibold"
+                                  className="px-2 py-1.5 text-right font-mono-num text-xs font-semibold whitespace-nowrap"
                                   style={{ color: isPositive ? 'var(--positive)' : 'var(--negative)' }}
                                 >
-                                  {isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))} ({plPct >= 0 ? '+' : ''}{plPct.toFixed(2)}%)
+                                  <div>{isPositive ? '+' : ''}Rp {formatPrice(Math.round(pl))}</div>
+                                  <div className="text-[10px]">({plPct >= 0 ? '+' : ''}{plPct.toFixed(2)}%)</div>
                                 </td>
-                                <td className="text-center font-mono">
+                                <td className="px-2 py-1.5 text-center font-mono">
                                   {effectiveTP || effectiveSL ? (
-                                    <div className="space-y-0.5 inline-block text-left">
+                                    <div className="space-y-0.5 inline-block text-left whitespace-nowrap">
                                       {effectiveTP && (
-                                        <div className="flex items-center gap-1 text-[10px] text-emerald-400">
-                                          <Target className="w-3 h-3 text-emerald-400 shrink-0" />
+                                        <div className="flex items-center gap-1 text-[9px] text-emerald-400">
+                                          <Target className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
                                           <span>TP: +{tpPct}%</span>
                                         </div>
                                       )}
                                       {effectiveSL && (
-                                        <div className="flex items-center gap-1 text-[10px] text-rose-400">
-                                          <Shield className="w-3 h-3 text-rose-400 shrink-0" />
+                                        <div className="flex items-center gap-1 text-[9px] text-rose-400">
+                                          <Shield className="w-2.5 h-2.5 text-rose-400 shrink-0" />
                                           <span>SL: -{slPct}%</span>
                                         </div>
                                       )}
                                       <button
                                         onClick={() => handleOpenRiskModal(h)}
-                                        className="text-[10px] text-cyan-400 hover:text-cyan-300 underline block cursor-pointer"
+                                        className="text-[9px] text-cyan-400 hover:text-cyan-300 underline block cursor-pointer"
                                       >
                                         Edit
                                       </button>
@@ -1566,17 +1553,17 @@ export default function PortfolioPage() {
                                   ) : (
                                     <button
                                       onClick={() => handleOpenRiskModal(h)}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 inline-flex items-center gap-1 cursor-pointer"
+                                      className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                                     >
-                                      <Target className="w-3 h-3 text-amber-400" />
+                                      <Target className="w-2.5 h-2.5 text-amber-400" />
                                       <span>Set TP/SL</span>
                                     </button>
                                   )}
                                 </td>
-                                <td className="text-center">
+                                <td className="px-2 py-1.5 text-center">
                                   <Link
                                     href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
-                                    className={`px-2 py-1 rounded text-[10px] font-bold transition inline-block ${
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition inline-block ${
                                       isCrypto
                                         ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
                                         : 'bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40'
@@ -1624,7 +1611,7 @@ export default function PortfolioPage() {
                   />
                 ) : (
                   <div className="overflow-x-auto scrollbar-thin">
-                    <table className="data-table min-w-[760px] w-full text-left">
+                    <table className="data-table w-full text-left">
                       <thead>
                         <tr>
                           <th>Waktu</th>
@@ -1741,7 +1728,7 @@ export default function PortfolioPage() {
               {/* Dividends History Table */}
               <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
                 <div className="overflow-x-auto scrollbar-thin">
-                  <table className="data-table min-w-[700px] w-full text-left">
+                  <table className="data-table w-full text-left">
                     <thead>
                       <tr>
                         <th>ID Pembayaran</th>
@@ -1806,9 +1793,9 @@ export default function PortfolioPage() {
           {activeTab === 'news' && <PortfolioNewsFeed />}
         </div>
 
-        {/* Right Column: Order Execution Desk (Col 4) */}
-        <div className="lg:col-span-4">
-          <div className="sticky top-20">
+        {/* Right Column: Order Execution Desk (Col 3 = 25% width) */}
+        <div className="lg:col-span-3 min-w-0">
+          <div className="sticky top-16">
             <OrderForm />
           </div>
         </div>
