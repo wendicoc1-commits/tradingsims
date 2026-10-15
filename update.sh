@@ -39,6 +39,12 @@ pm2 save
 # Pastikan izin folder dapat diakses Nginx
 chmod -R 755 "$APP_DIR/.next" 2>/dev/null || true
 
+# 🔒 Pastikan port 8002 tertutup di firewall publik VPS
+if command -v ufw >/dev/null 2>&1; then
+    ufw delete allow 8002/tcp 2>/dev/null || true
+fi
+systemctl restart quant-bridge 2>/dev/null || true
+
 # Update konfigurasi Nginx jika diperlukan
 if [ -f "$APP_DIR/deploy_web_vps.sh" ]; then
     bash "$APP_DIR/deploy_web_vps.sh" || true
