@@ -39,6 +39,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
 
   const [mode, setMode] = useState<'login' | 'register' | 'change_password'>(defaultMode);
   const [email, setEmail] = useState(initialEmail);
+  const [oldPassword, setOldPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -54,6 +55,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
       if (initialEmail) setEmail(initialEmail);
       setSuccessMsg(null);
       setLocalError(null);
+      setOldPassword('');
       setPassword('');
       setConfirmPassword('');
     }
@@ -81,6 +83,10 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
         setLocalError(res.error || 'Login gagal, periksa email dan password Anda.');
       }
     } else if (mode === 'change_password') {
+      if (!oldPassword) {
+        setLocalError('Password saat ini (lama) wajib diisi untuk verifikasi.');
+        return;
+      }
       if (password !== confirmPassword) {
         setLocalError('Konfirmasi password tidak cocok dengan password baru.');
         return;
@@ -89,12 +95,13 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
         setLocalError('Password baru minimal 4 karakter.');
         return;
       }
-      const res = await changePassword(email, password, confirmPassword);
+      const res = await changePassword(email, password, confirmPassword, oldPassword);
       if (res.success) {
         setSuccessMsg(res.message || 'Password berhasil diperbarui! Silakan masuk dengan password baru Anda.');
         setTimeout(() => {
           setMode('login');
           setSuccessMsg(null);
+          setOldPassword('');
         }, 1500);
       } else {
         setLocalError(res.error || 'Gagal mengubah password. Silakan coba lagi.');
@@ -314,6 +321,23 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login', init
                 />
               </div>
             </div>
+
+            {mode === 'change_password' && (
+              <div>
+                <label className="text-zinc-400 block mb-1">Kata Sandi Saat Ini (Lama)</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Masukkan password saat ini"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1">

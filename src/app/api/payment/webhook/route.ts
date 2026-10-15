@@ -32,7 +32,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid signature key' }, { status: 403 });
     }
 
-    // 2. Evaluasi status transaksi
+    // 2. Evaluasi status transaksi dan pastikan tiket order sah
+    const existing = getTransaction(order_id);
+    if (!existing) {
+      console.warn(`[MIDTRANS WEBHOOK REJECTED] Order ${order_id} tidak ditemukan.`);
+      return NextResponse.json({ error: 'Order tidak ditemukan' }, { status: 404 });
+    }
+
+    const receivedAmount = Math.round(parseFloat(gross_amount) || 0);
+    const expectedAmount = Math.round(existing.grossAmount || 0);
+    if (receivedAmount < expectedAmount) {
+      console.warn(`[MIDTRANS WEBHOOK REJECTED] Gross amount mismatch: tagihan ${expectedAmount}, diterima ${receivedAmount}`);
+      return NextResponse.json({ error: 'Nominal pembayaran tidak sesuai' }, { status: 400 });
+    }
+
     // Transaksi sukses di Midtrans jika transaction_status === 'settlement' atau ('capture' && fraud_status === 'accept')
     const isPaid =
       transaction_status === 'settlement' ||
@@ -42,8 +55,7 @@ export async function POST(req: Request) {
       const updated = markTransactionPaid(order_id, payload);
       console.log(`[MIDTRANS WEBHOOK SUCCESS] Order ${order_id} marked as PAID. Saldo: +Rp ${updated?.virtualCashAmount}`);
     } else if (transaction_status === 'expire' || transaction_status === 'cancel') {
-      const existing = getTransaction(order_id);
-      if (existing) existing.status = 'EXPIRED';
+      existing.status = 'EXPIRED';
     }
 
     return NextResponse.json({

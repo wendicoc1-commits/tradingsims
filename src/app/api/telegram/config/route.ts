@@ -2,10 +2,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 
 const CONFIG_PATH = path.join(process.cwd(), '../quant_engine/telegram_config.json');
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Hanya administrator yang berhak melihat konfigurasi token bot Telegram
+  const isAdmin = await verifyAdminSession(req);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized: Akses ditolak. Kredensial administrator diperlukan.' },
+      { status: 401 }
+    );
+  }
+
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
@@ -27,6 +37,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Hanya administrator yang berhak mengubah konfigurasi bot Telegram
+  const isAdmin = await verifyAdminSession(req);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized: Akses ditolak. Kredensial administrator diperlukan.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json();
     const { botToken = '', chatId = '', enabled = true } = body;

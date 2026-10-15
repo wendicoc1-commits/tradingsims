@@ -67,32 +67,44 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
     setPassword('');
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setIsSubmitting(true);
 
-    const cleanUser = username.trim();
-    const cleanPass = password;
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
+      });
 
-    // Kredensial khusus administrator: admin | Aa240200
-    if ((cleanUser === 'admin' || cleanUser === 'admin@tradesim.id') && cleanPass === 'Aa240200') {
-      setIsAuthenticated(true);
-      setErrorMsg(null);
-    } else {
-      setErrorMsg('Kredensial tidak valid: Username atau password salah!');
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
+        setErrorMsg(null);
+      } else {
+        setErrorMsg(data.error || 'Kredensial tidak valid: Username atau password salah!');
+      }
+    } catch {
+      setErrorMsg('Gagal terhubung ke server autentikasi. Silakan periksa koneksi Anda.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
+      await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('tradesim_admin_auth');
         localStorage.removeItem('tradesim_admin_auth');
+        document.cookie = 'tradesim_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         document.cookie = 'tradesim_admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'tradesim_admin_auth=; path=/admin; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       }
     } catch {}
     setIsAuthenticated(false);

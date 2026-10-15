@@ -139,12 +139,26 @@ export function verifyMidtransSignature(payload: {
   signature_key: string;
 }): boolean {
   const config = getMidtransConfig();
-  if (!config.serverKey) return true; // Simulator mode
+  if (!config.serverKey) {
+    console.error('[Midtrans Security Alert] MIDTRANS_SERVER_KEY tidak ditemukan. Menolak verifikasi signature webhook.');
+    return false;
+  }
+
+  if (!payload.order_id || !payload.status_code || !payload.gross_amount || !payload.signature_key) {
+    return false;
+  }
 
   const rawStr = `${payload.order_id}${payload.status_code}${payload.gross_amount}${config.serverKey}`;
   const calculatedSig = crypto.createHash('sha512').update(rawStr).digest('hex');
 
-  return calculatedSig === payload.signature_key;
+  const sigBuf = Buffer.from(calculatedSig);
+  const payloadBuf = Buffer.from(payload.signature_key);
+
+  if (sigBuf.length !== payloadBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(sigBuf, payloadBuf);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resetUserPortfolio, wipeAllAccountsAndPortfolios, getUserByEmailAsync } from '@/lib/server/portfolioStorage';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,14 +12,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Format JSON tidak valid' }, { status: 400 });
     }
 
-    // Dukungan Operasi Wipe All Global jika diminta
+    // Dukungan Operasi Wipe All Global: MUTLAK MEMERLUKAN SESI ADMINISTRATOR
     if (body.wipeAll === true || body.resetAll === true) {
+      const isAdmin = await verifyAdminSession(req);
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Operasi wipeAll membutuhkan hak akses administrator.' },
+          { status: 401 }
+        );
+      }
+
       const stats = await wipeAllAccountsAndPortfolios();
       return NextResponse.json({
         success: true,
         wipeAll: true,
         stats,
-        message: 'Seluruh akun dan portofolio database berhasil di-wipe dan dibersihkan.',
+        message: 'Seluruh akun dan portofolio database berhasil di-wipe dan dibersihkan oleh Administrator.',
         timestamp: new Date().toISOString(),
       });
     }

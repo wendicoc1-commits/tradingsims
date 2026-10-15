@@ -46,7 +46,7 @@ interface AuthState {
   // Actions
   loginWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   registerWithEmail: (email: string, pass: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
-  changePassword: (email: string, newPassword: string, confirmPassword?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  changePassword: (email: string, newPassword: string, confirmPassword?: string, oldPassword?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   loginWithOAuth: (provider: 'apple' | 'facebook' | 'google') => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: (guestName?: string) => void;
   enterGuestMode: (guestName?: string) => void;
@@ -241,14 +241,14 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      changePassword: async (email: string, newPassword: string, confirmPassword?: string) => {
+      changePassword: async (email: string, newPassword: string, confirmPassword?: string, oldPassword?: string) => {
         set({ isLoading: true, authError: null });
 
         try {
           const apiRes = await fetch('/api/auth/change-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), newPassword, confirmPassword }),
+            body: JSON.stringify({ email: email.trim(), oldPassword, newPassword, confirmPassword }),
           });
           const apiData = await apiRes.json();
 

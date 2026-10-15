@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 import { 
   resetUserPortfolio, 
   deleteUserAccountLocal,
@@ -72,6 +73,11 @@ export interface MemberPortfolioItem {
  */
 export async function approveDeposit(depositId: string, adminId: string = 'admin-system') {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return { success: false, error: 'Unauthorized: Sesi admin tidak sah atau telah berakhir.' };
+    }
+
     if (!depositId) {
       return { success: false, error: 'Deposit ID tidak valid' };
     }
@@ -286,6 +292,11 @@ export async function rejectDeposit(
   adminId: string = 'admin-system'
 ) {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return { success: false, error: 'Unauthorized: Sesi admin tidak sah atau telah berakhir.' };
+    }
+
     if (!depositId) {
       return { success: false, error: 'Deposit ID tidak valid' };
     }
@@ -359,6 +370,11 @@ export async function rejectDeposit(
  */
 export async function resetMemberPassword(userId: string, newPassword: string) {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return { success: false, error: 'Unauthorized: Sesi admin tidak sah.' };
+    }
+
     if (!userId || !newPassword) {
       return { success: false, error: 'User ID dan Password baru wajib diisi' };
     }
@@ -407,6 +423,11 @@ export async function resetMemberPassword(userId: string, newPassword: string) {
  */
 export async function getPendingDeposits(): Promise<DepositRecord[]> {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return [];
+    }
+
     const supabaseAdmin = getSupabaseAdminClient();
     const combinedMap = new Map<string, any>();
 
@@ -541,6 +562,11 @@ export async function getPendingDeposits(): Promise<DepositRecord[]> {
  */
 export async function getMembersWithPortfolios(searchQuery: string = ''): Promise<MemberPortfolioItem[]> {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return [];
+    }
+
     const supabaseAdmin = getSupabaseAdminClient();
 
     // 1. Ambil data user_portfolios (sumber data portofolio aktif di Supabase Cloud)
@@ -741,10 +767,12 @@ export async function submitDepositTicket({
     }
 
     const payNum = Number(nominalPay) || 0;
+    if (payNum < 10000) {
+      return { success: false, error: 'Nominal transfer minimum adalah Rp 10.000' };
+    }
     // 🛡️ KALKULASI SERVER-SIDE OTENTIK (1:100):
     // Setiap Rp 10.000 bayar = Rp 1.000.000 saldo kas virtual
-    const calculatedCash = Math.floor(payNum / 10000) * 1000000;
-    const finalVirtualCash = calculatedCash > 0 ? calculatedCash : Number(virtualCashAmount);
+    const finalVirtualCash = Math.floor(payNum / 10000) * 1000000;
 
     // Jika ada permohonan pending serupa dalam 20 detik terakhir untuk user ini, gunakan tiket tersebut
     const nowMs = Date.now();
@@ -891,6 +919,11 @@ export async function submitDepositTicket({
  */
 export async function resetMemberAccountToZero(userId: string) {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return { success: false, error: 'Unauthorized: Sesi admin tidak sah.' };
+    }
+
     if (!userId) {
       return { success: false, error: 'User ID tidak valid' };
     }
@@ -982,6 +1015,11 @@ export async function resetMemberAccountToZero(userId: string) {
  */
 export async function deleteMemberAccount(userId: string) {
   try {
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+      return { success: false, error: 'Unauthorized: Sesi admin tidak sah.' };
+    }
+
     if (!userId) {
       return { success: false, error: 'User ID tidak valid' };
     }

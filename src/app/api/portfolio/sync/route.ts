@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 import {
   saveUserPortfolio,
   getUserPortfolioAsync,
@@ -82,6 +83,24 @@ export async function POST(req: NextRequest) {
     // Ambil data portofolio eksisting untuk mempertahankan saldo & posisi jika payload tidak lengkap
     const currentPortfolio = await getUserPortfolioAsync({ email, userId });
 
+    const sanitizedRealizedPL = typeof realizedPL === 'number' && Number.isFinite(realizedPL)
+      ? realizedPL
+      : (typeof currentPortfolio?.realizedPL === 'number' ? currentPortfolio.realizedPL : 0);
+
+    // Batasi ukuran array untuk mencegah serangan Denial of Service (Payload Bloat)
+    const sanitizedHoldings = Array.isArray(holdings)
+      ? holdings.slice(0, 300)
+      : (Array.isArray(currentPortfolio?.holdings) ? currentPortfolio.holdings : []);
+    const sanitizedOrders = Array.isArray(orders)
+      ? orders.slice(0, 500)
+      : (Array.isArray(currentPortfolio?.orders) ? currentPortfolio.orders : []);
+    const sanitizedConditional = Array.isArray(conditionalOrders)
+      ? conditionalOrders.slice(0, 100)
+      : (Array.isArray(currentPortfolio?.conditionalOrders) ? currentPortfolio.conditionalOrders : []);
+    const sanitizedDividends = Array.isArray(dividends)
+      ? dividends.slice(0, 200)
+      : (Array.isArray(currentPortfolio?.dividends) ? currentPortfolio.dividends : []);
+
     // Validasi & Sanitasi Batas Finansial:
     let sanitizedCash = typeof cash === 'number' && Number.isFinite(cash)
       ? Math.max(0, Math.min(cash, MAX_ALLOWED_CASH))
@@ -104,24 +123,6 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-
-    const sanitizedRealizedPL = typeof realizedPL === 'number' && Number.isFinite(realizedPL)
-      ? realizedPL
-      : (typeof currentPortfolio?.realizedPL === 'number' ? currentPortfolio.realizedPL : 0);
-
-    // Batasi ukuran array untuk mencegah serangan Denial of Service (Payload Bloat)
-    const sanitizedHoldings = Array.isArray(holdings)
-      ? holdings.slice(0, 300)
-      : (Array.isArray(currentPortfolio?.holdings) ? currentPortfolio.holdings : []);
-    const sanitizedOrders = Array.isArray(orders)
-      ? orders.slice(0, 500)
-      : (Array.isArray(currentPortfolio?.orders) ? currentPortfolio.orders : []);
-    const sanitizedConditional = Array.isArray(conditionalOrders)
-      ? conditionalOrders.slice(0, 100)
-      : (Array.isArray(currentPortfolio?.conditionalOrders) ? currentPortfolio.conditionalOrders : []);
-    const sanitizedDividends = Array.isArray(dividends)
-      ? dividends.slice(0, 200)
-      : (Array.isArray(currentPortfolio?.dividends) ? currentPortfolio.dividends : []);
 
     let existingUser = email ? await getUserByEmailAsync(email) : null;
     if (email && !existingUser) {
@@ -211,6 +212,14 @@ export async function DELETE(req: NextRequest) {
     const wipeAll = searchParams.get('wipeAll') === 'true';
 
     if (wipeAll) {
+      const isAdmin = await verifyAdminSession(req);
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Operasi wipeAll membutuhkan hak akses administrator.' },
+          { status: 401 }
+        );
+      }
+
       const { wipeAllAccountsAndPortfolios } = await import('@/lib/server/portfolioStorage');
       const result = await wipeAllAccountsAndPortfolios();
       return NextResponse.json({

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { submitDepositTicket, getPendingDeposits } from '@/app/admin/actions';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const isAdmin = await verifyAdminSession(req);
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Sesi administrator diperlukan.' }, { status: 401 });
+    }
+
     const deposits = await getPendingDeposits();
     return NextResponse.json({ success: true, deposits });
   } catch (err: any) {

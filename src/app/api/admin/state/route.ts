@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminSession } from '@/lib/server/adminAuth';
 import { getTradingAdminState } from '@/lib/server/steyerAdminState';
 import {
   approveDeposit,
@@ -11,8 +12,16 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const isAdmin = await verifyAdminSession(req);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Akses ditolak. Sesi administrator diperlukan untuk melihat data ini.' },
+        { status: 401 }
+      );
+    }
+
     const state = await getTradingAdminState();
     return NextResponse.json(state);
   } catch (err: any) {
@@ -25,6 +34,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const isAdmin = await verifyAdminSession(req);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Akses ditolak. Sesi administrator diperlukan untuk mengeksekusi aksi ini.' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { action } = body;
 
