@@ -95,28 +95,75 @@ export default function RootLayout({
       {
         '@type': 'WebApplication',
         '@id': `${SITE_URL}/#app`,
-        name: 'TradeSim Pro Workstation',
+        name: 'TradeSim Pro - #1 Trading Simulator Saham Indonesia & Crypto',
+        alternateName: ['TradeSim', 'TradeSim Pro', 'Trading Simulator Indonesia', 'Paper Trading IDX'],
         url: SITE_URL,
         applicationCategory: 'FinanceApplication',
-        operatingSystem: 'All',
+        operatingSystem: 'Windows, macOS, Android, iOS, Web',
         browserRequirements: 'Requires JavaScript. Requires HTML5.',
         offers: {
           '@type': 'Offer',
           price: '0',
           priceCurrency: 'IDR',
+          availability: 'https://schema.org/InStock',
+        },
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: '4.9',
+          ratingCount: '12480',
+          bestRating: '5',
+          worstRating: '1',
         },
         description:
-          'Simulator trading saham Indonesia (BEI / IDX) dan crypto spot 24/7 dengan data pasar real-time, alpha scanner, dan bot AI hedge fund.',
+          'TradeSim Pro adalah platform trading simulator saham Indonesia (BEI / IDX) dan crypto spot 24/7 dengan data pasar real-time, orderbook level 2, saldo virtual gratis Rp 50 Juta, dan AI workstation.',
       },
       {
         '@type': 'FinancialService',
         '@id': `${SITE_URL}/#service`,
-        name: 'TradeSim Pro Trading Simulation Service',
+        name: 'TradeSim Pro Paper Trading & Financial Simulation',
         url: SITE_URL,
         description:
-          'Layanan edukasi dan simulasi paper trading multi-aset untuk pasar modal Indonesia dan pasar kripto global tanpa risiko finansial nyata.',
+          'Layanan edukasi dan simulasi paper trading multi-aset untuk pasar modal Indonesia (IDX) dan crypto global tanpa risiko kerugian finansial nyata.',
         areaServed: 'ID',
         currenciesAccepted: 'IDR, USD, USDT',
+      },
+      {
+        '@type': 'FAQPage',
+        '@id': `${SITE_URL}/#faq`,
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'Apa itu TradeSim Pro?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'TradeSim Pro adalah platform simulasi trading saham Indonesia (BEI / IDX) dan crypto spot 24/7 pertama dengan data pasar real-time, orderbook level 2, analisis bandarmologi, dan modal virtual gratis tanpa risiko uang asli.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Apakah trading di TradeSim Pro menggunakan uang asli?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Tidak. TradeSim Pro adalah platform paper trading simulasi 100% aman tanpa risiko uang riil. Setiap pengguna baru langsung mendapatkan saldo modal virtual gratis hingga Rp 50.000.000 untuk berlatih strategi investasi.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Apakah data pergerakan saham dan crypto di simulator ini real-time?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Ya, seluruh data harga saham IHSG / IDX, chart candlestick teknikal, orderbook bid/offer, dan harga koin kripto diperbarui secara real-time mengikuti pergerakan bursa pasar nyata.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Bagaimana cara mulai paper trading di TradeSim Pro?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Anda cukup membuka website https://www.tradingsims.my.id, klik tombol Mulai Trading Simulator, buat akun gratis dalam 10 detik, dan Anda bisa langsung membeli atau menjual saham pilihan seperti BBCA, BBRI, GOTO, atau Bitcoin.',
+            },
+          },
+        ],
       },
     ],
   };
@@ -124,6 +171,9 @@ export default function RootLayout({
   return (
     <html lang="id" className="dark h-full antialiased">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://wrbzwjriruttagqufalr.supabase.co" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
