@@ -86,13 +86,19 @@ else
 fi
 
 echo "🔑 [3/6] Memeriksa file konfigurasi (.env.local)..."
-if [ ! -f "$APP_DIR/.env.local" ] || grep -q "your-project" "$APP_DIR/.env.local"; then
-    cat << 'ENVEOF' > "$APP_DIR/.env.local"
-NEXT_PUBLIC_SUPABASE_URL=https://wrbzwjriruttagqufalr.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyYnp3anJpcnV0dGFncXVmYWxyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODA3MTksImV4cCI6MjEwNjk1NjcxOX0.WLXn-Er7cOwydeMBZsgKuWpt2dhqR0mZICaTG5Zf2-8
+if [ ! -f "$APP_DIR/.env.local" ]; then
+    if [ -f "$APP_DIR/.env.example" ]; then
+        cp "$APP_DIR/.env.example" "$APP_DIR/.env.local"
+        echo "⚠️ .env.local dibuat dari template .env.example."
+        echo "⚠️ Silakan isi nilai kunci produksi Anda di $APP_DIR/.env.local!"
+    else
+        cat << 'ENVEOF' > "$APP_DIR/.env.local"
 NEXT_PUBLIC_SITE_URL=https://tradingsims.my.id
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ENVEOF
-    echo "✅ .env.local telah dikonfigurasi dengan koneksi Supabase Cloud aktif!"
+        echo "⚠️ .env.local baru dibuat. Silakan perbarui kredensial Anda!"
+    fi
 fi
 
 echo "📦 [4/6] Menginstall package dan melakukan build Next.js..."

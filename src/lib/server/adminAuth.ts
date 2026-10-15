@@ -5,14 +5,24 @@ import type { NextRequest } from 'next/server';
 export const ADMIN_COOKIE_NAME = 'tradesim_admin_session';
 const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60; // 12 jam
 
-// Secret internal untuk HMAC signature
-const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || 'tradesim_adm_sec_9f83ac0172bf4e5d6';
+// Secret internal untuk HMAC signature: Gunakan environment variable.
+// Jika tidak dikonfigurasi, gunakan ephemeral secret acak (mencegah attacker memalsukan token via known secret).
+const EPHEMERAL_SECRET = crypto.randomBytes(32).toString('hex');
+const ADMIN_SECRET = process.env.ADMIN_SESSION_SECRET || EPHEMERAL_SECRET;
 
 // Kredensial Admin Server-Side
 export function getAdminCredentials() {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+
+  if (!configuredPassword) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY ERROR] ADMIN_PASSWORD belum disetel di server environment variables!');
+    }
+  }
+
   return {
     username: (process.env.ADMIN_USER || 'admin').trim(),
-    password: process.env.ADMIN_PASSWORD || 'Aa240200',
+    password: configuredPassword || '',
   };
 }
 
@@ -22,6 +32,12 @@ export function getAdminCredentials() {
 export function verifyAdminCredentials(user: string, pass: string): boolean {
   if (!user || !pass) return false;
   const creds = getAdminCredentials();
+
+  // Wajib memiliki password konfigurasi yang valid (minimal 6 karakter)
+  if (!creds.password || creds.password.length < 6) {
+    console.error('[SECURITY REJECT] Login admin ditolak: ADMIN_PASSWORD belum disetel dengan aman di environment variables.');
+    return false;
+  }
 
   const cleanUser = user.trim().toLowerCase();
   const validUser = creds.username.toLowerCase();
@@ -34,7 +50,7 @@ export function verifyAdminCredentials(user: string, pass: string): boolean {
   const targetBuffer = Buffer.from(creds.password);
 
   if (passBuffer.length !== targetBuffer.length) {
-    // Tetap lakukan komparasi dummy agar durasi eksekusi konstan
+    // Tetap lakukan komparasi dummy agar durasi eksekusi konstan (mencegah timing attack)
     crypto.timingSafeEqual(passBuffer, passBuffer);
     return false;
   }

@@ -41,8 +41,8 @@ export function hashPassword(password: string): string {
 export function verifyPasswordHash(password: string, storedHash: string): boolean {
   if (!password || !storedHash) return false;
   const computed = hashPassword(password);
-  if (computed === storedHash) return true;
-  return password === storedHash;
+  if (computed.length !== storedHash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(storedHash));
 }
 
 // CLOUD-FIRST ARCHITECTURE:
