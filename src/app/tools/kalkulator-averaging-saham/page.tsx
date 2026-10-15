@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import EeatComplianceBadge from '@/components/seo/EeatComplianceBadge';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 interface BuyTier {
   id: string;
@@ -204,6 +205,7 @@ export default function AveragingCalculatorPage() {
             >
               Kalkulator Lot
             </Link>
+            <ShareWebsiteButton variant="tool" />
             <Link
               href="/terminal"
               className="px-3.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-semibold hover:bg-emerald-500/25 transition-all flex items-center gap-1.5"

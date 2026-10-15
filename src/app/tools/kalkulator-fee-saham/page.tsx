@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Calculator, ArrowRight, CheckCircle2, Shield, TrendingUp, HelpCircle, RefreshCw, Zap, DollarSign } from 'lucide-react';
 import EeatComplianceBadge from '@/components/seo/EeatComplianceBadge';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 export default function FeeCalculatorPage() {
   const [stockSymbol, setStockSymbol] = useState('BBCA');
@@ -72,6 +73,7 @@ export default function FeeCalculatorPage() {
             >
               Kalkulator Lot &amp; Money Management &rarr;
             </Link>
+            <ShareWebsiteButton variant="tool" />
             <Link
               href="/"
               className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase"

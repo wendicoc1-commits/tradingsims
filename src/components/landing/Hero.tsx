@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { ArrowRight, Play, Sparkles, Zap, Shield, TrendingUp } from 'lucide-react';
+import { ArrowRight, Play, Sparkles, Zap, Shield, TrendingUp, Share2 } from 'lucide-react';
 import TerminalMockup from './TerminalMockup';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 interface HeroProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
@@ -62,15 +63,18 @@ export default function Hero({ onOpenAuth, onEnterTerminal, user }: HeroProps) {
       {/* ── CTA Button Group ── */}
       <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-4">
         {user ? (
-          <button
-            type="button"
-            onClick={onEnterTerminal}
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 transition-all group cursor-pointer"
-          >
-            <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
-            <span>BUKA WORKSTATION TERMINAL</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onEnterTerminal}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-sm font-mono tracking-wide flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 active:scale-95 transition-all group cursor-pointer"
+            >
+              <Zap className="w-4 h-4 fill-black group-hover:scale-110 transition-transform" />
+              <span>BUKA WORKSTATION TERMINAL</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <ShareWebsiteButton variant="hero" />
+          </>
         ) : (
           <>
             <button
@@ -91,6 +95,8 @@ export default function Hero({ onOpenAuth, onEnterTerminal, user }: HeroProps) {
               <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
               <span>Daftar Akun Gratis (Modal Rp 100 Jt)</span>
             </button>
+
+            <ShareWebsiteButton variant="hero" />
           </>
         )}
       </div>

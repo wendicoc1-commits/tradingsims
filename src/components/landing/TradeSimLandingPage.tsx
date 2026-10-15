@@ -17,6 +17,7 @@ import { ComparisonMatrix } from '@/components/landing/ComparisonMatrix';
 import { Testimonials } from '@/components/landing/Testimonials';
 import FaqSection from '@/components/landing/FaqSection';
 import { Footer } from '@/components/landing/Footer';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 export default function TradeSimLandingPage() {
   const router = useRouter();
@@ -102,6 +103,9 @@ export default function TradeSimLandingPage() {
         onClose={() => setIsAuthModalOpen(false)}
         initialMode={authModalMode}
       />
+
+      {/* ── 7. Floating Quick Share Button ── */}
+      <ShareWebsiteButton variant="floating" />
     </div>
   );
 }

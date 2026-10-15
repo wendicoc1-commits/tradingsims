@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Terminal, Zap, Menu, X, ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { Terminal, Zap, Menu, X, ArrowUpRight, ShieldCheck, Share2 } from 'lucide-react';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 interface NavbarProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
@@ -63,6 +64,7 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
 
         {/* Right CTA Actions */}
         <div className="hidden sm:flex items-center gap-3">
+          <ShareWebsiteButton variant="navbar" />
           {user ? (
             <div className="flex items-center gap-3">
               <span className="text-xs text-zinc-400 font-mono">
@@ -146,6 +148,9 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
             Community Traders
           </a>
           <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
+            <div className="pt-2">
+              <ShareWebsiteButton variant="navbar" className="w-full justify-center py-2" />
+            </div>
             {user ? (
               <button
                 type="button"

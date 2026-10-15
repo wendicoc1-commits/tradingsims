@@ -50,6 +50,7 @@ import TopUpModal from '@/components/portfolio/TopUpModal';
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAIAgentStore } from '@/store/aiAgentStore';
+import ShareWebsiteButton from '@/components/common/ShareWebsiteButton';
 
 interface CliSuggestion {
   cmd: string;
@@ -369,6 +370,9 @@ export default function TradeSimHeader() {
               <Sparkles className="w-3.5 h-3.5 text-black shrink-0" />
               <span>+ Top Up</span>
             </button>
+
+            {/* Quick Share Link Button */}
+            <ShareWebsiteButton variant="tool" />
 
             {/* AI Auto-Pilot Global Toggle */}
             <button
