@@ -1,60 +1,87 @@
 import { MetadataRoute } from 'next';
-import { MASTER_GLOBAL_CRYPTO } from '@/data/global_markets_universe';
+import idxDividendJson from '@/data/idx_dividend_all.json';
+import { MASTER_GLOBAL_CRYPTO, MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.tradingsims.my.id';
   const now = new Date();
 
+  // Core Static & High-Intent Educational Routes
   const staticRoutes = [
     { path: '', changeFrequency: 'always' as const, priority: 1.0 },
-    { path: '/terminal', changeFrequency: 'always' as const, priority: 0.95 },
-    { path: '/markets', changeFrequency: 'hourly' as const, priority: 0.9 },
+    { path: '/terminal', changeFrequency: 'always' as const, priority: 0.98 },
+    { path: '/markets', changeFrequency: 'hourly' as const, priority: 0.95 },
     { path: '/crypto', changeFrequency: 'always' as const, priority: 0.95 },
     { path: '/hedge-fund', changeFrequency: 'hourly' as const, priority: 0.9 },
     { path: '/portfolio', changeFrequency: 'always' as const, priority: 0.85 },
-    { path: '/screener', changeFrequency: 'daily' as const, priority: 0.8 },
-    { path: '/compare', changeFrequency: 'daily' as const, priority: 0.75 },
-    { path: '/heatmap', changeFrequency: 'hourly' as const, priority: 0.8 },
-    { path: '/macro', changeFrequency: 'daily' as const, priority: 0.7 },
-    { path: '/dividend', changeFrequency: 'weekly' as const, priority: 0.7 },
-    { path: '/ipo', changeFrequency: 'weekly' as const, priority: 0.7 },
+    { path: '/screener', changeFrequency: 'daily' as const, priority: 0.85 },
     { path: '/bandar', changeFrequency: 'hourly' as const, priority: 0.85 },
-    { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.8 },
+    { path: '/heatmap', changeFrequency: 'hourly' as const, priority: 0.8 },
+    { path: '/compare', changeFrequency: 'daily' as const, priority: 0.8 },
+    { path: '/dividend', changeFrequency: 'weekly' as const, priority: 0.75 },
+    { path: '/ipo', changeFrequency: 'weekly' as const, priority: 0.75 },
+    { path: '/macro', changeFrequency: 'daily' as const, priority: 0.75 },
+    { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.75 },
+
+    // Financial Tools / Calculators (High Inbound Volume)
     { path: '/tools/kalkulator-fee-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-lot', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-averaging-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-dividen', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/tools/kalkulator-cagr-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
+
+    // Educational Guides & Knowledge Articles
+    { path: '/learn/cara-main-saham-pemula', changeFrequency: 'monthly' as const, priority: 0.95 },
+    { path: '/learn/jam-bursa-saham-idx', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/learn/istilah-bandarmologi-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/learn/istilah-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/learn/apa-itu-paper-trading', changeFrequency: 'monthly' as const, priority: 0.85 },
     { path: '/learn/cara-baca-orderbook-level-2', changeFrequency: 'monthly' as const, priority: 0.85 },
   ];
 
-  // Static list of popular IDX tickers (murni server-side safe tanpa import 'use client')
-  const popularIdxTickers = [
-    'BBCA', 'BBRI', 'BMRI', 'ADRO', 'ASII', 'TLKM', 'BBNI', 'ICBP', 'UNTR',
-    'GOTO', 'AMMN', 'ANTM', 'PTBA', 'BRPT', 'PGAS', 'INDF', 'KLBF', 'CPIN',
-    'SMGR', 'INKP', 'MEDC', 'MDKA', 'TPIA', 'BUKA', 'ARTO', 'ESSA', 'AKRA',
-    'ACES', 'MYOR', 'INCO', 'HRUM', 'ITMG', 'PGEO', 'MAPA', 'MAPI', 'CTRA',
-    'BSDE', 'PWON', 'SMRA', 'BUMI', 'DEWA', 'BRMS', 'ENRG', 'ERAA', 'EXCL',
-    'ISAT', 'GGRM', 'HMSP', 'BTPS', 'BBTN', 'TOWR', 'TBIG', 'SCMA', 'MNCN',
-    'AVIA', 'HEAL', 'MIKA', 'SILO', 'SIDO', 'CMRY', 'NISP', 'BDMN', 'AUTO'
-  ];
+  const POPULAR_IDX = new Set([
+    'BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM',
+    'ADRO', 'PTBA', 'PGAS', 'AMMN', 'ANTM', 'BREN',
+    'ICBP', 'UNVR', 'MYOR', 'GOTO', 'BUKA', 'EMTK',
+    'BRIS', 'MEDC', 'INKP', 'MDKA', 'CPIN', 'BRMS',
+    'CUAN', 'BUMI', 'DEWA', 'ENRG', 'ERAA', 'EXCL',
+    'ISAT', 'GGRM', 'HMSP', 'TOWR', 'TBIG', 'SMGR',
+    'KLBF', 'ACES', 'TPIA', 'AKRA', 'ESSA', 'ARTO',
+    'HEAL', 'MIKA', 'SILO', 'SIDO', 'CMRY', 'NISP',
+  ]);
 
-  const stockRoutes = popularIdxTickers.map((ticker) => ({
-    url: `${baseUrl}/stock/${ticker}`,
-    lastModified: now,
-    changeFrequency: 'hourly' as const,
-    priority: 0.8,
-  }));
+  // Comprehensive 951+ IDX Stocks
+  const idxRoutes = (idxDividendJson as any[])
+    .map((item) => (item.code || '').toUpperCase().trim())
+    .filter((code) => code.length >= 4 && code.length <= 6)
+    .map((ticker) => {
+      const isPopular = POPULAR_IDX.has(ticker);
+      return {
+        url: `${baseUrl}/stock/${ticker}`,
+        lastModified: now,
+        changeFrequency: (isPopular ? 'hourly' : 'daily') as MetadataRoute.Sitemap[number]['changeFrequency'],
+        priority: isPopular ? 0.85 : 0.75,
+      };
+    });
 
-  // Top Crypto routes (BTC, ETH, SOL, etc.)
-  const cryptoRoutes = MASTER_GLOBAL_CRYPTO.slice(0, 25).map((coin) => {
+  // Top Liquid Crypto Pairs (BTC, ETH, SOL, etc.)
+  const cryptoRoutes = MASTER_GLOBAL_CRYPTO.map((coin) => {
     const clean = coin.symbol.replace(/USDT$/, '');
     return {
       url: `${baseUrl}/stock/${clean}`,
       lastModified: now,
       changeFrequency: 'always' as const,
       priority: 0.85,
+    };
+  });
+
+  // Global US & International Stocks (AAPL, NVDA, TSLA, MSFT, etc.)
+  const globalRoutes = MASTER_GLOBAL_STOCKS.slice(0, 80).map((stock) => {
+    return {
+      url: `${baseUrl}/stock/${stock.ticker}`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
     };
   });
 
@@ -65,6 +92,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: r.priority,
   }));
 
-  return [...allStaticMapped, ...stockRoutes, ...cryptoRoutes];
-}
+  // Combine and deduplicate URLs by exact URL string
+  const urlMap = new Map<string, MetadataRoute.Sitemap[number]>();
+  for (const entry of [...allStaticMapped, ...idxRoutes, ...cryptoRoutes, ...globalRoutes]) {
+    if (!urlMap.has(entry.url)) {
+      urlMap.set(entry.url, entry);
+    }
+  }
 
+  return Array.from(urlMap.values());
+}

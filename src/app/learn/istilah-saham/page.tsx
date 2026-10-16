@@ -275,6 +275,64 @@ export default function IstilahSahamPage() {
             </div>
           </div>
         </div>
+
+        {/* Related Educational Guides & Calculators (Internal SEO Hub) */}
+        <div className="pt-6 border-t border-slate-800 space-y-4 text-left">
+          <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-emerald-400" />
+            <span>Panduan Saham &amp; Kalkulator Terkait:</span>
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <Link
+              href="/learn/cara-main-saham-pemula"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase block mb-1">Panduan Pemula</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-emerald-300">Cara Main Saham dari Nol</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Langkah awal, modal minimal, dan tips memilih saham pertama.</p>
+            </Link>
+            <Link
+              href="/learn/jam-bursa-saham-idx"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-blue-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-blue-400 font-bold uppercase block mb-1">Operasional Bursa</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-blue-300">Jam Bursa Saham BEI Terbaru</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Jadwal resmi Sesi 1, Sesi 2, dan Pre-Opening Senin - Jumat.</p>
+            </Link>
+            <Link
+              href="/learn/istilah-bandarmologi-saham"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-amber-400 font-bold uppercase block mb-1">Smart Money</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-amber-300">Kamus Lengkap Bandarmologi</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Akumulasi, distribusi, dan cara baca broker summary.</p>
+            </Link>
+            <Link
+              href="/tools/kalkulator-cagr-saham"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-purple-400 font-bold uppercase block mb-1">Kalkulator Finansial</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-purple-300">Kalkulator CAGR Investasi</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Hitung pertumbuhan majemuk bunga tahunan portofolio.</p>
+            </Link>
+            <Link
+              href="/tools/kalkulator-fee-saham"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase block mb-1">Kalkulator Broker</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-emerald-300">Kalkulator Fee &amp; Breakeven</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Hitung fee beli, fee jual, dan pajak PPh bursa saham.</p>
+            </Link>
+            <Link
+              href="/tools/kalkulator-lot"
+              className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-colors group block"
+            >
+              <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase block mb-1">Konversi Lot</span>
+              <h4 className="text-xs font-bold text-white group-hover:text-cyan-300">Kalkulator Lot &amp; Lembar Saham</h4>
+              <p className="text-[11px] text-slate-400 mt-1">Konversi instan lot ke rupiah dan estimasi modal beli.</p>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
