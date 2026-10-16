@@ -279,7 +279,7 @@ server {
     }
 
     location @proxy_nextjs_sitemap {
-        proxy_pass http://127.0.0.1:3000/sitemap.xml;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
