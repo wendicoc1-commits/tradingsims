@@ -69,6 +69,19 @@ const DEFAULT_URLS = [
   `https://${HOST}/analisis/BBRI`,
   `https://${HOST}/analisis/TLKM`,
   `https://${HOST}/crypto/fear-and-greed`,
+  `https://${HOST}/vs/bbca-vs-bbri`,
+  `https://${HOST}/vs/adro-vs-ptba`,
+  `https://${HOST}/vs/tlkm-vs-isat`,
+  `https://${HOST}/vs/bmri-vs-bbni`,
+  `https://${HOST}/indeks/ihsg`,
+  `https://${HOST}/indeks/lq45`,
+  `https://${HOST}/indeks/idx30`,
+  `https://${HOST}/indeks/idx-hidiv20`,
+  `https://${HOST}/indeks/jii`,
+  `https://${HOST}/broker/yp`,
+  `https://${HOST}/broker/cc`,
+  `https://${HOST}/broker/pd`,
+  `https://${HOST}/broker/bk`,
 ];
 
 export async function POST(req: NextRequest) {

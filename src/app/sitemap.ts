@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next';
 import idxDividendJson from '@/data/idx_dividend_all.json';
 import { MASTER_GLOBAL_CRYPTO, MASTER_GLOBAL_STOCKS } from '@/data/global_markets_universe';
 import { KAMUS_TERMS } from '@/data/kamus_finansial_data';
+import { STOCK_DUELS, IDX_INDICES, BROKER_DIRECTORY } from '@/data/seo_programmatic_universe';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.tradingsims.my.id';
@@ -138,6 +139,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.88,
   }));
 
+  // Programmatic Stock Duel Routes (/vs/[pair])
+  const duelRoutes = STOCK_DUELS.map((d) => ({
+    url: `${baseUrl}/vs/${d.slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.89,
+  }));
+
+  // Programmatic IDX Indices Routes (/indeks/[slug])
+  const idxIndicesRoutes = IDX_INDICES.map((idx) => ({
+    url: `${baseUrl}/indeks/${idx.slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.9,
+  }));
+
+  // Programmatic Broker Directory Routes (/broker/[kode])
+  const brokerRoutes = BROKER_DIRECTORY.map((b) => ({
+    url: `${baseUrl}/broker/${b.code.toLowerCase()}`,
+    lastModified: now,
+    changeFrequency: 'monthly' as const,
+    priority: 0.85,
+  }));
+
   // Comprehensive 951+ IDX Stocks
   const idxRoutes = (idxDividendJson as any[])
     .map((item) => (item.code || '').toUpperCase().trim())
@@ -190,6 +215,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...pasarRoutes,
     ...stockDividendRoutes,
     ...stockAnalisisRoutes,
+    ...duelRoutes,
+    ...idxIndicesRoutes,
+    ...brokerRoutes,
     ...idxRoutes,
     ...cryptoRoutes,
     ...globalRoutes,
