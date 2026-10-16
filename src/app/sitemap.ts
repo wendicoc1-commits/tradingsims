@@ -136,7 +136,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   });
 
   const allStaticMapped = staticRoutes.map((r) => ({
-    url: `${baseUrl}${r.path}`,
+    url: r.path === '' ? `${baseUrl}/` : `${baseUrl}${r.path}`,
     lastModified: now,
     changeFrequency: r.changeFrequency,
     priority: r.priority,
