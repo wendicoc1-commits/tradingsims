@@ -55,6 +55,20 @@ const DEFAULT_URLS = [
   `https://${HOST}/kamus/pbv-price-to-book-value`,
   `https://${HOST}/kamus/ipo-initial-public-offering`,
   `https://${HOST}/kamus/lot-saham`,
+  `https://${HOST}/kalender-dividen`,
+  `https://${HOST}/stock/BBCA/dividen`,
+  `https://${HOST}/stock/PTBA/dividen`,
+  `https://${HOST}/stock/ITMG/dividen`,
+  `https://${HOST}/ipo`,
+  `https://${HOST}/pasar/top-gainers`,
+  `https://${HOST}/pasar/top-losers`,
+  `https://${HOST}/pasar/foreign-flow`,
+  `https://${HOST}/pasar/lq45-terbaik`,
+  `https://${HOST}/pasar/saham-dividen-tertinggi`,
+  `https://${HOST}/analisis/BBCA`,
+  `https://${HOST}/analisis/BBRI`,
+  `https://${HOST}/analisis/TLKM`,
+  `https://${HOST}/crypto/fear-and-greed`,
 ];
 
 export async function POST(req: NextRequest) {

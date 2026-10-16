@@ -41,6 +41,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     // Kamus Pasar Modal Hub
     { path: '/kamus', changeFrequency: 'weekly' as const, priority: 0.9 },
+
+    // Kalender Dividen & IPO Hubs
+    { path: '/kalender-dividen', changeFrequency: 'daily' as const, priority: 0.95 },
+    { path: '/kalender-ipo', changeFrequency: 'daily' as const, priority: 0.92 },
+
+    // Crypto Sentiment Hub
+    { path: '/crypto/fear-and-greed', changeFrequency: 'hourly' as const, priority: 0.9 },
   ];
 
   // Sector Landing Routes
@@ -89,6 +96,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.85,
   }));
 
+  // Programmatic Market Wrap Routes
+  const pasarSlugs = [
+    'top-gainers',
+    'top-losers',
+    'foreign-flow',
+    'lq45-terbaik',
+    'saham-dividen-tertinggi',
+  ];
+  const pasarRoutes = pasarSlugs.map((slug) => ({
+    url: `${baseUrl}/pasar/${slug}`,
+    lastModified: now,
+    changeFrequency: 'hourly' as const,
+    priority: 0.92,
+  }));
+
   const POPULAR_IDX = new Set([
     'BBCA', 'BBRI', 'BMRI', 'BBNI', 'ASII', 'TLKM',
     'ADRO', 'PTBA', 'PGAS', 'AMMN', 'ANTM', 'BREN',
@@ -99,6 +121,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     'KLBF', 'ACES', 'TPIA', 'AKRA', 'ESSA', 'ARTO',
     'HEAL', 'MIKA', 'SILO', 'SIDO', 'CMRY', 'NISP',
   ]);
+
+  // Programmatic Dividend Detail Routes for Popular Dividend Payers
+  const stockDividendRoutes = Array.from(POPULAR_IDX).map((ticker) => ({
+    url: `${baseUrl}/stock/${ticker}/dividen`,
+    lastModified: now,
+    changeFrequency: 'daily' as const,
+    priority: 0.88,
+  }));
+
+  // Programmatic Fundamental Analysis Scorecard Routes
+  const stockAnalisisRoutes = Array.from(POPULAR_IDX).map((ticker) => ({
+    url: `${baseUrl}/analisis/${ticker}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.88,
+  }));
 
   // Comprehensive 951+ IDX Stocks
   const idxRoutes = (idxDividendJson as any[])
@@ -149,6 +187,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...sectorRoutes,
     ...compareRoutes,
     ...kamusRoutes,
+    ...pasarRoutes,
+    ...stockDividendRoutes,
+    ...stockAnalisisRoutes,
     ...idxRoutes,
     ...cryptoRoutes,
     ...globalRoutes,

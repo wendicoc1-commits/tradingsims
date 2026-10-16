@@ -61,6 +61,7 @@ import AIChartPilotHUD from '@/components/stock/AIChartPilotHUD';
 import PineScriptStudioModal from '@/components/stock/PineScriptStudioModal';
 import MultiTimeframeRadar from '@/components/stock/MultiTimeframeRadar';
 import EeatComplianceBadge from '@/components/seo/EeatComplianceBadge';
+import StockDetailFAQ from '@/components/seo/StockDetailFAQ';
 import type { ChartAnnotationOverlay, PineScriptResult } from '@/lib/charting/aiChartPilotEngine';
 
 function formatPrice(price: number, currency: string) {
@@ -1442,6 +1443,9 @@ export default function StockDetailPage() {
           setAppliedPineScript(script);
         }}
       />
+
+      {/* ── People Also Ask & Rich FAQ Section for Google SERP ── */}
+      <StockDetailFAQ quote={quote} />
 
       {/* ── E-E-A-T & YMYL Financial Regulatory Compliance Verification ── */}
       <EeatComplianceBadge />
