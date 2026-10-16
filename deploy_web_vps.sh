@@ -273,7 +273,8 @@ server {
     location = /sitemap.xml {
         root /var/www/tradingsims/public;
         try_files /sitemap.xml @proxy_nextjs_sitemap;
-        add_header Content-Type "application/xml; charset=utf-8" always;
+        types { }
+        default_type "application/xml; charset=utf-8";
         add_header Cache-Control "public, max-age=3600" always;
         add_header Access-Control-Allow-Origin "*" always;
     }
