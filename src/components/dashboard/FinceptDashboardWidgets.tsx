@@ -61,6 +61,7 @@ import AIChartPilotHUD from '@/components/stock/AIChartPilotHUD';
 import PineScriptStudioModal from '@/components/stock/PineScriptStudioModal';
 import MultiTimeframeRadar from '@/components/stock/MultiTimeframeRadar';
 import { isUSSymbol, isCryptoSymbol, getAssetBySymbol } from '@/lib/universe/masterAssetUniverse';
+import { useCryptoPriceStore } from '@/store/useCryptoPriceStore';
 
 // ── Web Audio Sound Generator (Synthesizer Chimes) ──
 export const playAudioChime = (type: 'ALERT' | 'ORDER_FILL' | 'CLICK') => {
@@ -2670,22 +2671,25 @@ export function PortfolioHoldingsWidget({
   onSelectStock?: (symbol: string) => void;
 }) {
   const { cash, holdings } = usePortfolioStore();
+  const tickerMap = useCryptoPriceStore((s) => s.tickerMap);
 
   const KNOWN_US_SYMS = ['NVDA', 'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'GOOG', 'GOOGLE', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC', 'SPY', 'QQQ', 'COIN', 'PLTR'];
   const totalHoldingsValue = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol || h.symbol);
     const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
     const rate = h.exchangeRate || 16000;
     const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+    const liveCrypto = isCrypto ? (tickerMap[clean]?.price || tickerMap[`${clean}USDT`]?.price) : null;
+    const curPrice = (liveCrypto && liveCrypto > 0) ? liveCrypto : (h.currentPrice || h.avgPrice);
     if (isCrypto || isUS) {
-      return sum + Math.round((h.currentPrice || h.avgPrice) * units * rate);
+      return sum + Math.round(curPrice * units * rate);
     }
-    return sum + (units * (h.currentPrice || h.avgPrice));
+    return sum + (units * curPrice);
   }, 0);
 
   const totalCost = holdings.reduce((sum, h) => {
-    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT';
+    const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(h.displaySymbol || h.symbol);
     const clean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(clean));
     const rate = h.exchangeRate || 16000;
@@ -2776,10 +2780,16 @@ export function PortfolioHoldingsWidget({
             const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || KNOWN_US_SYMS.includes(cleanTicker.toUpperCase()));
             const rate = h.exchangeRate || 16000;
             const units = isCrypto ? (h.cryptoUnits ?? h.lots) : (h.shares || (isUS ? h.lots : h.lots * 100));
+            const liveCrypto = isCrypto ? (tickerMap[cleanTicker.toUpperCase()]?.price || tickerMap[`${cleanTicker.toUpperCase()}USDT`]?.price) : null;
+            const curPrice = (liveCrypto && liveCrypto > 0) ? liveCrypto : (h.currentPrice || h.avgPrice);
             const holdingValue = (isCrypto || isUS)
-              ? Math.round((h.currentPrice || h.avgPrice) * units * rate)
-              : Math.round(units * (h.currentPrice || h.avgPrice));
-            const isProfit = (h.unrealizedPL || 0) >= 0;
+              ? Math.round(curPrice * units * rate)
+              : Math.round(units * curPrice);
+            const livePL = (isCrypto || isUS)
+              ? Math.round((curPrice - h.avgPrice) * units * rate)
+              : Math.round((curPrice - h.avgPrice) * units);
+            const livePLPct = h.avgPrice > 0 ? Number((((curPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(2)) : 0;
+            const isProfit = livePL >= 0;
 
             return (
               <div
@@ -2812,7 +2822,7 @@ export function PortfolioHoldingsWidget({
                     </span>
                     <span>•</span>
                     <span>
-                      Now: {isUS ? `$${(h.currentPrice || h.avgPrice).toFixed(2)}` : isCrypto ? `$${(h.currentPrice || h.avgPrice) < 0.0001 ? (h.currentPrice || h.avgPrice).toFixed(8) : (h.currentPrice || h.avgPrice) < 0.01 ? (h.currentPrice || h.avgPrice).toFixed(6) : (h.currentPrice || h.avgPrice) < 1 ? (h.currentPrice || h.avgPrice).toFixed(4) : (h.currentPrice || h.avgPrice).toFixed(2)}` : `Rp ${(h.currentPrice || h.avgPrice).toLocaleString('id-ID')}`}
+                      Now: {isUS ? `$${curPrice.toFixed(2)}` : isCrypto ? `$${curPrice < 0.0001 ? curPrice.toFixed(8) : curPrice < 0.01 ? curPrice.toFixed(6) : curPrice < 1 ? curPrice.toFixed(4) : curPrice.toFixed(2)}` : `Rp ${curPrice.toLocaleString('id-ID')}`}
                     </span>
                   </div>
                 </div>
@@ -2825,7 +2835,7 @@ export function PortfolioHoldingsWidget({
                   <div className={`font-bold text-[11px] font-mono flex items-center justify-end gap-1 ${
                     isProfit ? 'text-[#22c55e]' : 'text-[#ef4444]'
                   }`}>
-                    <span>{isProfit ? '+' : ''}{(h.unrealizedPLPercent || 0).toFixed(2)}%</span>
+                    <span>{isProfit ? '+' : ''}{livePLPct.toFixed(2)}%</span>
                   </div>
 
                   {/* 1-Click Fast Actions (Exit / Sell or Buy More) */}

@@ -1514,12 +1514,8 @@ export const usePortfolioStore = create<PortfolioState>()(
               // Kasus 2: avgPrice terpotong/0 sehingga memicu cuan ratusan ribu %
               effectiveAvgPrice = Number(newPrice.toFixed(prec))
               wasHealed = true
-            } else if (
-              isTruncatedMicroCoin ||
-              isStaleBenchmarkEntry ||
-              (isRecentAIBuy && effectiveAvgPrice > newPrice * 1.02)
-            ) {
-              // Kasus 3: avgPrice terpotong pembulatan .toFixed(4)/.toFixed(6) atau tereksekusi di harga benchmark statis sebelum harga WebSocket masuk
+            } else if (isTruncatedMicroCoin) {
+              // Kasus 3: avgPrice terpotong presisi desimal ekstrem (misal micro-coin seperti MEW/PEPE)
               effectiveAvgPrice = Number(newPrice.toFixed(prec))
               effectiveTakeProfit = Number((effectiveAvgPrice * 1.15).toFixed(prec))
               effectiveStopLoss = Number((effectiveAvgPrice * 0.94).toFixed(prec))
