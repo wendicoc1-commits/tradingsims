@@ -73,9 +73,13 @@ async function fetchInternalCryptoFallback() {
 let globalFuturesWs: WebSocket | null = null;
 let reconnectFuturesTimer: NodeJS.Timeout | null = null;
 
-async function fetchInitialRestSnapshot() {
-  if (hasFetchedInitial) return;
+let lastRestSnapshotTime = 0;
+
+async function fetchInitialRestSnapshot(force = false) {
+  const nowMs = Date.now();
+  if (!force && hasFetchedInitial && (nowMs - lastRestSnapshotTime < 4500)) return;
   hasFetchedInitial = true;
+  lastRestSnapshotTime = nowMs;
   try {
     const newMap: Record<string, BinanceTickerData> = {};
     const now = Date.now();
@@ -416,7 +420,15 @@ export function useBinanceLivePrices() {
     fetchInitialRestSnapshot();
     initSingletonWebSocket();
 
+    // ── Polling Interval Cadangan (Dual-Stream Failover) ──
+    // Menjamin jika WebSocket terputus, di-throttle browser di background tab,
+    // atau terhalang firewall ISP/VPN di Indonesia, harga tetap bergerak dinamis!
+    const pollInterval = setInterval(() => {
+      fetchInitialRestSnapshot();
+    }, 5000);
+
     return () => {
+      clearInterval(pollInterval);
       globalSubscriberCount = Math.max(0, globalSubscriberCount - 1);
       if (globalSubscriberCount === 0) {
         // If all components unmounted, close sockets to prevent background idle leak
