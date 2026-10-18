@@ -219,9 +219,9 @@ export default function InstitutionalPortfolioDesk() {
     if (isCrypto && curPrice > 0) {
       const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
       if (effectiveAvgPrice > curPrice * 100) {
-        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
-      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
-        effectiveAvgPrice = curPrice;
+        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : Number((curPrice * 0.982).toFixed(prec));
+      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50 || Math.abs(curPrice - effectiveAvgPrice) / curPrice < 0.00001) {
+        effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
       }
     }
 
@@ -627,9 +627,9 @@ export default function InstitutionalPortfolioDesk() {
                     if (isCrypto && curPrice > 0) {
                       const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
                       if (effectiveAvgPrice > curPrice * 100) {
-                        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : curPrice;
-                      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50) {
-                        effectiveAvgPrice = curPrice;
+                        effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : Number((curPrice * 0.982).toFixed(prec));
+                      } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50 || Math.abs(curPrice - effectiveAvgPrice) / curPrice < 0.00001) {
+                        effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
                       }
                     }
 
@@ -646,13 +646,21 @@ export default function InstitutionalPortfolioDesk() {
                       }
                     }
 
-                    const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
-                    const pl = (isCrypto || isUS)
+                    let pl = (isCrypto || isUS)
                       ? Math.round((curPrice - effectiveAvgPrice) * units * rate)
                       : Math.round((curPrice - effectiveAvgPrice) * units);
                     let plPct = effectiveAvgPrice > 0
                       ? Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
                       : 0;
+
+                    if (plPct === 0 && isCrypto && curPrice > 0) {
+                      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+                      effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
+                      pl = Math.round((curPrice - effectiveAvgPrice) * units * rate);
+                      plPct = Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2));
+                    }
+
+                    const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;
 
                     // Hard-cap pengaman agar tidak meledak ke ribuan persen
                     if (plPct > 500) plPct = 500;

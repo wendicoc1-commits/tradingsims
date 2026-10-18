@@ -26,47 +26,52 @@ let hasFetchedInitial = false;
 
 async function fetchInternalCryptoFallback() {
   try {
-    const symbols = MASTER_GLOBAL_CRYPTO.map((c) => c.symbol.replace(/USDT$/, '')).join(',');
-    const res = await fetch(`/api/stocks/realtime?tickers=${symbols}`);
+    const res = await fetch('/api/crypto/realtime');
     if (!res.ok) return;
     const data = await res.json();
-    const quotes = data?.quotes || {};
+    const tickers = data?.tickers || {};
+    if (Object.keys(tickers).length === 0) return;
+
     const newMap: Record<string, BinanceTickerData> = {};
     const now = Date.now();
 
-    for (const [sym, q] of Object.entries(quotes) as [string, any][]) {
-      if (!q || !q.price) continue;
-      const base = sym.replace(/USDT$/, '').replace(/-USD$/, '');
-      const pairSym = `${base}USDT`;
-      const currentPrice = q.price;
-      const changePct = q.changePct ?? 0;
-      const high = q.high ?? currentPrice * 1.02;
-      const low = q.low ?? currentPrice * 0.98;
+    for (const [sym, t] of Object.entries(tickers) as [string, any][]) {
+      if (!t || !t.price) continue;
+      const prevPrice = globalPrevPrices[sym] ?? t.price;
+      let direction: 'up' | 'down' | 'same' = 'same';
+      if (t.price > prevPrice) direction = 'up';
+      else if (t.price < prevPrice) direction = 'down';
 
-      const vol = '$' + (currentPrice > 1000 ? '12.4B' : '450M');
-      const tickerData: BinanceTickerData = {
-        symbol: pairSym,
-        price: currentPrice,
-        change24h: changePct,
-        high24h: high,
-        low24h: low,
-        volume24h: vol,
-        quoteVolume24h: 500000000,
-        direction: 'same',
+      globalPrevPrices[sym] = t.price;
+
+      if (direction !== 'same') {
+        globalTickBuffer.push({
+          symbol: sym,
+          price: t.price,
+          change24h: t.change24h ?? 0,
+          timestamp: now,
+          volume: t.quoteVolume24h ?? 1000000,
+        });
+      }
+
+      newMap[sym] = {
+        symbol: sym,
+        price: t.price,
+        change24h: t.change24h ?? 0,
+        high24h: t.high24h ?? t.price * 1.02,
+        low24h: t.low24h ?? t.price * 0.98,
+        volume24h: t.volume24h ?? '$50M',
+        quoteVolume24h: t.quoteVolume24h ?? 50000000,
+        direction,
         lastUpdated: now,
       };
-
-      newMap[pairSym] = tickerData;
-      newMap[base] = { ...tickerData, symbol: base };
-      globalPrevPrices[pairSym] = currentPrice;
-      globalPrevPrices[base] = currentPrice;
     }
 
     useCryptoPriceStore.getState().setTickerMap((prev) => ({ ...prev, ...newMap }));
     useCryptoPriceStore.getState().setLastHeartbeat(new Date().toLocaleTimeString());
     useCryptoPriceStore.getState().setIsConnected(true);
   } catch (err) {
-    console.warn('Internal crypto fallback error:', err);
+    console.warn('Internal crypto realtime sync error:', err);
   }
 }
 
@@ -77,21 +82,51 @@ let lastRestSnapshotTime = 0;
 
 async function fetchInitialRestSnapshot(force = false) {
   const nowMs = Date.now();
-  if (!force && hasFetchedInitial && (nowMs - lastRestSnapshotTime < 4500)) return;
+  if (!force && hasFetchedInitial && (nowMs - lastRestSnapshotTime < 2500)) return;
   hasFetchedInitial = true;
   lastRestSnapshotTime = nowMs;
   try {
     const newMap: Record<string, BinanceTickerData> = {};
     const now = Date.now();
 
-    const [spotRes, futuresRes] = await Promise.allSettled([
+    // 1. Panggil server Next.js lokal dan Binance Vision (tidak terblokir di ISP Indonesia)
+    const [internalRes, visionRes, spotRes, futuresRes] = await Promise.allSettled([
+      fetch('/api/crypto/realtime'),
+      fetch('https://data-api.binance.vision/api/v3/ticker/24hr'),
       fetch('https://api.binance.com/api/v3/ticker/24hr'),
       fetch('https://fapi.binance.com/fapi/v1/ticker/24hr'),
     ]);
 
-    // 1. Process Binance Spot Tickers
-    if (spotRes.status === 'fulfilled' && spotRes.value.ok) {
-      const spotData = await spotRes.value.json();
+    // Jika internal endpoint berhasil (100% tidak terblokir di ISP Indonesia)
+    if (internalRes.status === 'fulfilled' && internalRes.value.ok) {
+      const internalData = await internalRes.value.json();
+      const tickers = internalData?.tickers || {};
+      for (const [sym, t] of Object.entries(tickers) as [string, any][]) {
+        if (!t || !t.price) continue;
+        newMap[sym] = {
+          symbol: sym,
+          price: t.price,
+          change24h: t.change24h ?? 0,
+          high24h: t.high24h ?? t.price * 1.02,
+          low24h: t.low24h ?? t.price * 0.98,
+          volume24h: t.volume24h ?? '$50M',
+          quoteVolume24h: t.quoteVolume24h ?? 50000000,
+          direction: 'same',
+          lastUpdated: now,
+        };
+        globalPrevPrices[sym] = t.price;
+      }
+    }
+
+    // 2. Process Binance Spot (Vision atau api.binance.com)
+    const validSpotRes = (visionRes.status === 'fulfilled' && visionRes.value.ok)
+      ? visionRes
+      : (spotRes.status === 'fulfilled' && spotRes.value.ok)
+      ? spotRes
+      : null;
+
+    if (validSpotRes) {
+      const spotData = await validSpotRes.value.json();
       if (Array.isArray(spotData)) {
         for (const item of spotData) {
           const sym = item.symbol;
@@ -424,8 +459,8 @@ export function useBinanceLivePrices() {
     // Menjamin jika WebSocket terputus, di-throttle browser di background tab,
     // atau terhalang firewall ISP/VPN di Indonesia, harga tetap bergerak dinamis!
     const pollInterval = setInterval(() => {
-      fetchInitialRestSnapshot();
-    }, 5000);
+      fetchInternalCryptoFallback();
+    }, 2000);
 
     return () => {
       clearInterval(pollInterval);

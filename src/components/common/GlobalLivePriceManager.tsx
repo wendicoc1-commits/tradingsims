@@ -46,7 +46,7 @@ export default function GlobalLivePriceManager() {
           priceMap[clean] = item.price;
           priceMap[`${clean}USDT`] = item.price;
 
-          if (Math.abs(item.price - (h.currentPrice || 0)) > 0.000000001) {
+          if (Math.abs(item.price - (h.currentPrice || 0)) > 0.000000001 || (h.unrealizedPLPercent ?? 0) === 0) {
             hasPriceChange = true;
           }
         }

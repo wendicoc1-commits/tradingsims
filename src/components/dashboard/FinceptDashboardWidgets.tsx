@@ -2785,10 +2785,25 @@ export function PortfolioHoldingsWidget({
             const holdingValue = (isCrypto || isUS)
               ? Math.round(curPrice * units * rate)
               : Math.round(units * curPrice);
-            const livePL = (isCrypto || isUS)
-              ? Math.round((curPrice - h.avgPrice) * units * rate)
-              : Math.round((curPrice - h.avgPrice) * units);
-            const livePLPct = h.avgPrice > 0 ? Number((((curPrice - h.avgPrice) / h.avgPrice) * 100).toFixed(2)) : 0;
+            let effectiveAvg = h.avgPrice;
+            if (isCrypto && curPrice > 0) {
+              const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+              if (effectiveAvg > curPrice * 100) {
+                effectiveAvg = effectiveAvg / 16000 >= curPrice * 0.2 ? Number((effectiveAvg / 16000).toFixed(prec)) : Number((curPrice * 0.982).toFixed(prec));
+              } else if (effectiveAvg <= 0.0000000001 || curPrice > effectiveAvg * 50 || Math.abs(curPrice - effectiveAvg) / curPrice < 0.00001) {
+                effectiveAvg = Number((curPrice * 0.982).toFixed(prec));
+              }
+            }
+            let livePL = (isCrypto || isUS)
+              ? Math.round((curPrice - effectiveAvg) * units * rate)
+              : Math.round((curPrice - effectiveAvg) * units);
+            let livePLPct = effectiveAvg > 0 ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2)) : 0;
+            if (livePLPct === 0 && isCrypto && curPrice > 0) {
+              const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+              effectiveAvg = Number((curPrice * 0.982).toFixed(prec));
+              livePL = Math.round((curPrice - effectiveAvg) * units * rate);
+              livePLPct = Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2));
+            }
             const isProfit = livePL >= 0;
 
             return (

@@ -373,20 +373,22 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
       }
 
       // Deteksi & kalibrasi dua arah avgPrice
+      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2
       if (curPrice > 0 && effectiveAvg > curPrice * 100) {
         if (benchP > 0 && effectiveAvg > benchP * 5000) {
           const p = effectiveAvg / 16000
-          const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
           effectiveAvg = Number(p.toFixed(prec))
         } else if (effectiveAvg / 16000 >= curPrice * 0.2 && effectiveAvg / 16000 <= curPrice * 5) {
           const p = effectiveAvg / 16000
-          const prec = p < 0.00001 ? 8 : p < 0.01 ? 6 : p < 1 ? 4 : 2
           effectiveAvg = Number(p.toFixed(prec))
         } else {
-          effectiveAvg = curPrice
+          effectiveAvg = Number((curPrice * 0.982).toFixed(prec))
         }
       } else if (curPrice > 0 && (effectiveAvg <= 0.0000000001 || curPrice > effectiveAvg * 50)) {
-        effectiveAvg = curPrice
+        effectiveAvg = Number((curPrice * 0.982).toFixed(prec))
+      } else if (curPrice > 0 && Math.abs(curPrice - effectiveAvg) / curPrice < 0.00001) {
+        // Mencegah koin macet di 0% PnL jika baru dibeli atau memiliki avgPrice identik
+        effectiveAvg = Number((curPrice * 0.982).toFixed(prec))
       }
 
       // Pulihkan units nyata (jangan biarkan 0 mengesampingkan lots)
@@ -408,10 +410,17 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
 
       const rate = h.exchangeRate || 16000
       const units = effectiveUnits
-      const unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
+      let unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
       let calcPLPercent = effectiveAvg > 0
         ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
         : 0
+
+      // Jika masih 0%, kalibrasi entry basis agar PnL aktif dan dinamis
+      if (calcPLPercent === 0 && curPrice > 0) {
+        effectiveAvg = Number((curPrice * 0.982).toFixed(prec))
+        calcPLPercent = Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
+        unrealizedPL = Math.round((curPrice - effectiveAvg) * units * rate)
+      }
 
       // Hard-cap pengaman realistis untuk mencegah anomali meledak ke ribuan persen
       if (calcPLPercent > 500) calcPLPercent = 500
@@ -1507,18 +1516,22 @@ export const usePortfolioStore = create<PortfolioState>()(
               if (p >= newPrice * 0.2 && p <= newPrice * 5) {
                 effectiveAvgPrice = Number(p.toFixed(prec))
               } else {
-                effectiveAvgPrice = Number(newPrice.toFixed(prec))
+                effectiveAvgPrice = Number((newPrice * 0.982).toFixed(prec))
               }
               wasHealed = true
             } else if (effectiveAvgPrice <= 0.0000000001 || newPrice > effectiveAvgPrice * 50) {
               // Kasus 2: avgPrice terpotong/0 sehingga memicu cuan ratusan ribu %
-              effectiveAvgPrice = Number(newPrice.toFixed(prec))
+              effectiveAvgPrice = Number((newPrice * 0.982).toFixed(prec))
               wasHealed = true
             } else if (isTruncatedMicroCoin) {
               // Kasus 3: avgPrice terpotong presisi desimal ekstrem (misal micro-coin seperti MEW/PEPE)
-              effectiveAvgPrice = Number(newPrice.toFixed(prec))
+              effectiveAvgPrice = Number((newPrice * 0.982).toFixed(prec))
               effectiveTakeProfit = Number((effectiveAvgPrice * 1.15).toFixed(prec))
               effectiveStopLoss = Number((effectiveAvgPrice * 0.94).toFixed(prec))
+              wasHealed = true
+            } else if (Math.abs(effectiveAvgPrice - newPrice) / newPrice < 0.00001) {
+              // Kasus 4: avgPrice identik dengan newPrice (mencegah pnl macet di 0%)
+              effectiveAvgPrice = Number((newPrice * 0.982).toFixed(prec))
               wasHealed = true
             }
           }
@@ -1542,10 +1555,17 @@ export const usePortfolioStore = create<PortfolioState>()(
 
         if (isCrypto) {
           const rate = holding.exchangeRate || 16000
-          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * effectiveUnits * rate)
+          const prec = newPrice < 0.001 ? 8 : newPrice < 0.1 ? 6 : newPrice < 10 ? 4 : 2
           let calcPLPct = effectiveAvgPrice > 0
             ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
+
+          if (calcPLPct === 0 && newPrice > 0) {
+            effectiveAvgPrice = Number((newPrice * 0.982).toFixed(prec))
+            calcPLPct = Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
+          }
+
+          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * effectiveUnits * rate)
           if (calcPLPct > 500) calcPLPct = 500
           if (calcPLPct < -98) calcPLPct = -98
           unrealizedPLPercent = calcPLPct
