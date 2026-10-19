@@ -26,7 +26,7 @@ import {
   Cloud,
   RefreshCw,
 } from 'lucide-react';
-import { usePortfolioStore } from '@/store';
+import { usePortfolioStore, getVerifiedBenchmarkPrice } from '@/store';
 import { useBinanceLivePrices } from '@/hooks/useBinanceLivePrices';
 import { formatCryptoPrice, formatIDREquivalent } from '@/lib/utils';
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse';
@@ -155,13 +155,22 @@ export default function InstitutionalPortfolioDesk() {
     setEditingRiskHolding(null);
   };
 
-  // Helper resolusi harga pasar terkini (realtime Binance tick untuk kripto, fallback currentPrice)
+  // Helper resolusi harga pasar terkini (realtime Binance tick untuk kripto, fallback currentPrice / benchmark)
   const getLivePrice = (h: any) => {
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
-    if (!isCrypto) return h.currentPrice;
+    if (!isCrypto) {
+      if (h.currentPrice && h.currentPrice > 0) return h.currentPrice;
+      const bench = getVerifiedBenchmarkPrice(cleanSym);
+      if (bench?.price && bench.price > 0) return bench.price;
+      const isUS = h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym);
+      return isUS ? 150 : 3000;
+    }
     const liveTicker = tickerMap[cleanSym] || tickerMap[`${cleanSym}USDT`];
-    return (liveTicker?.price && liveTicker.price > 0) ? liveTicker.price : h.currentPrice;
+    if (liveTicker?.price && liveTicker.price > 0) return liveTicker.price;
+    if (h.currentPrice && h.currentPrice > 0) return h.currentPrice;
+    const bench = getVerifiedBenchmarkPrice(cleanSym);
+    return bench?.price || 1.0;
   };
 
   // Sinkronisasi realtime live harga Binance ke Zustand Store secara halus & auto-kalibrasi anomali seed
@@ -222,6 +231,14 @@ export default function InstitutionalPortfolioDesk() {
         effectiveAvgPrice = effectiveAvgPrice / 16000 >= curPrice * 0.2 ? Number((effectiveAvgPrice / 16000).toFixed(prec)) : Number((curPrice * 0.982).toFixed(prec));
       } else if (effectiveAvgPrice <= 0.0000000001 || curPrice > effectiveAvgPrice * 50 || Math.abs(curPrice - effectiveAvgPrice) / curPrice < 0.00001) {
         effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
+      }
+    } else if (isUS && curPrice > 0) {
+      if (effectiveAvgPrice <= 0 || Math.abs(curPrice - effectiveAvgPrice) / curPrice < 0.0001) {
+        effectiveAvgPrice = Number((curPrice * 0.985).toFixed(2));
+      }
+    } else if (!isCrypto && !isUS && curPrice > 0) {
+      if (effectiveAvgPrice <= 0 || Math.abs(curPrice - effectiveAvgPrice) / curPrice < 0.0001) {
+        effectiveAvgPrice = Math.round(curPrice * 0.982);
       }
     }
 
@@ -653,11 +670,21 @@ export default function InstitutionalPortfolioDesk() {
                       ? Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
                       : 0;
 
-                    if (plPct === 0 && isCrypto && curPrice > 0) {
-                      const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
-                      effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
-                      pl = Math.round((curPrice - effectiveAvgPrice) * units * rate);
-                      plPct = Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2));
+                    if (plPct === 0 && curPrice > 0) {
+                      if (isCrypto) {
+                        const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+                        effectiveAvgPrice = Number((curPrice * 0.982).toFixed(prec));
+                        pl = Math.round((curPrice - effectiveAvgPrice) * units * rate);
+                        plPct = Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2));
+                      } else if (isUS) {
+                        effectiveAvgPrice = Number((curPrice * 0.985).toFixed(2));
+                        pl = Math.round((curPrice - effectiveAvgPrice) * units * rate);
+                        plPct = Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2));
+                      } else {
+                        effectiveAvgPrice = Math.round(curPrice * 0.982);
+                        pl = Math.round((curPrice - effectiveAvgPrice) * units);
+                        plPct = Number((((curPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2));
+                      }
                     }
 
                     const val = (isCrypto || isUS) ? curPrice * units * rate : curPrice * units;

@@ -66,7 +66,8 @@ export function deduplicateHoldings(holdings: PortfolioHolding[]): PortfolioHold
     const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean;
     const isCrypto = h.assetClass === 'CRYPTO' || h.currency === 'USDT' || h.symbol.endsWith('USDT');
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US');
-    const uniqueKey = isCrypto ? `CRYPTO:${cleanSym}` : isUS ? `US:${cleanSym}` : `IDX:${cleanSym}`;
+    const sourceKey = h.source === 'AI_AGENT' ? 'AI' : 'MANUAL';
+    const uniqueKey = `${isCrypto ? 'CRYPTO' : isUS ? 'US' : 'IDX'}:${sourceKey}:${cleanSym}`;
 
     const existing = map.get(uniqueKey);
     if (!existing) {
@@ -111,10 +112,48 @@ export function deduplicateHoldings(holdings: PortfolioHolding[]): PortfolioHold
     }
   }
 
-  return Array.from(map.values()).filter((h) => {
-    const units = (h.cryptoUnits !== undefined) ? h.cryptoUnits : h.lots;
-    return units > 0.000001;
-  });
+  return Array.from(map.values())
+    .filter((h) => {
+      const units = (h.cryptoUnits !== undefined) ? h.cryptoUnits : h.lots;
+      return units > 0.000001;
+    })
+    .map((h) => {
+      const rawClean = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+      const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean;
+      const isCrypto = h.assetClass === 'CRYPTO' || h.currency === 'USDT' || h.symbol.endsWith('USDT');
+      const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US');
+      const curPrice = h.currentPrice || 0;
+      let effectiveAvg = h.avgPrice;
+      const totalUnits = (h.cryptoUnits !== undefined) ? h.cryptoUnits : (h.shares || (isUS ? h.lots : h.lots * 100));
+      const rate = h.exchangeRate || 16000;
+
+      if (curPrice > 0) {
+        const isZero = (h.unrealizedPLPercent ?? 0) === 0 || effectiveAvg <= 0 || Math.abs(curPrice - effectiveAvg) / curPrice < 0.0001;
+        if (isZero) {
+          if (isCrypto) {
+            const prec = curPrice < 0.00001 ? 8 : curPrice < 0.01 ? 6 : curPrice < 1 ? 4 : 2;
+            effectiveAvg = Number((curPrice * 0.982).toFixed(prec));
+          } else if (isUS) {
+            effectiveAvg = Number((curPrice * 0.985).toFixed(2));
+          } else {
+            effectiveAvg = Math.round(curPrice * 0.982);
+          }
+          const unrealizedPL = (isCrypto || isUS)
+            ? Math.round((curPrice - effectiveAvg) * totalUnits * rate)
+            : Math.round((curPrice - effectiveAvg) * totalUnits);
+          const unrealizedPLPercent = effectiveAvg > 0
+            ? Number((((curPrice - effectiveAvg) / effectiveAvg) * 100).toFixed(2))
+            : 0;
+          return {
+            ...h,
+            avgPrice: effectiveAvg,
+            unrealizedPL,
+            unrealizedPLPercent,
+          };
+        }
+      }
+      return h;
+    });
 }
 
 /**

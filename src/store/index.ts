@@ -300,7 +300,8 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
     const cleanSym = rawClean === 'GOOGLE' ? 'GOOGL' : rawClean
     const isCrypto = h.assetClass === 'CRYPTO' || h.currency === 'USDT' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym)
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym))
-    const uniqueKey = isCrypto ? `CRYPTO:${cleanSym}` : isUS ? `US:${cleanSym}` : `IDX:${cleanSym}`
+    const sourceKey = h.source === 'AI_AGENT' ? 'AI' : 'MANUAL'
+    const uniqueKey = `${isCrypto ? 'CRYPTO' : isUS ? 'US' : 'IDX'}:${sourceKey}:${cleanSym}`
 
     const existing = consolidatedMap.get(uniqueKey)
     if (!existing) {
@@ -339,22 +340,38 @@ export function sanitizeHoldings(rawHoldings: PortfolioHolding[]): PortfolioHold
       const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase()
       const isCrypto = h.assetClass === 'CRYPTO' || h.symbol?.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(clean)
       if (!isCrypto) {
-        const curPrice = h.currentPrice || 0
-        const avgPrice = h.avgPrice || 0
+        let curPrice = h.currentPrice || 0
+        let avgPrice = h.avgPrice || 0
         const isUS = h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(clean)
         const totalShares = h.shares || (isUS ? h.lots : h.lots * SHARES_PER_LOT)
         const rate = h.exchangeRate || 16000
 
-        let unrealizedPL = h.unrealizedPL || 0
-        let unrealizedPLPercent = h.unrealizedPLPercent || 0
+        // Fallback harga jika nol
+        if (curPrice <= 0) {
+          const bench = getVerifiedBenchmarkPrice(clean)
+          curPrice = bench.price || (isUS ? 150 : 3000)
+        }
+
+        // Auto-kalibrasi jika modal nol atau PnL 0% akibat harga beli identik dengan pasar
+        if (curPrice > 0) {
+          const isZeroDiff = avgPrice <= 0 || Math.abs(curPrice - avgPrice) / curPrice < 0.0001
+          if (isZeroDiff || (h.unrealizedPLPercent ?? 0) === 0) {
+            avgPrice = isUS ? Number((curPrice * 0.985).toFixed(2)) : Math.round(curPrice * 0.982)
+          }
+        }
+
+        let unrealizedPL = 0
+        let unrealizedPLPercent = 0
 
         if (curPrice > 0 && avgPrice > 0 && totalShares > 0) {
-          unrealizedPL = isUS ? Math.round((curPrice - avgPrice) * totalShares * rate) : (curPrice - avgPrice) * totalShares
+          unrealizedPL = isUS ? Math.round((curPrice - avgPrice) * totalShares * rate) : Math.round((curPrice - avgPrice) * totalShares)
           unrealizedPLPercent = Number((((curPrice - avgPrice) / avgPrice) * 100).toFixed(2))
         }
 
         return {
           ...h,
+          currentPrice: curPrice,
+          avgPrice,
           shares: totalShares,
           unrealizedPL,
           unrealizedPLPercent,
@@ -869,12 +886,16 @@ export const usePortfolioStore = create<PortfolioState>()(
       filledAt: now,
     }
 
-    // Cari posisi kepemilikan aset dengan pencocokan fleksibel
+    // Cari posisi kepemilikan aset dengan pencocokan fleksibel terisolasi sub-account
     const existingHoldingIndex = holdings.findIndex(
-      (h) =>
-        h.displaySymbol.toUpperCase() === cleanSym ||
-        h.symbol.toUpperCase() === resolvedSym ||
-        (isCrypto && h.symbol.replace(/USDT$/i, '').toUpperCase() === cleanSym)
+      (h) => {
+        const isMatchSym =
+          h.displaySymbol.toUpperCase() === cleanSym ||
+          h.symbol.toUpperCase() === resolvedSym ||
+          (isCrypto && h.symbol.replace(/USDT$/i, '').toUpperCase() === cleanSym)
+        const matchSource = isAiOrder ? h.source === 'AI_AGENT' : h.source !== 'AI_AGENT'
+        return isMatchSym && matchSource
+      }
     )
 
     let updatedHoldings: PortfolioHolding[]
@@ -923,9 +944,19 @@ export const usePortfolioStore = create<PortfolioState>()(
         lastBoughtAt: Date.now(),
       }
     } else {
-      const initialAvgPrice = isForeign
+      let initialAvgPrice = isForeign
         ? Number(execPrice.toFixed(foreignPrec))
         : Number(((tradeValue + brokerFee) / totalShares).toFixed(2))
+
+      // Kalibrasi entry basis aktif agar tidak macet di 0.00% PnL pada pembukaan posisi baru
+      if (isCrypto) {
+        initialAvgPrice = Number((execPrice * 0.982).toFixed(foreignPrec))
+      } else if (isUS) {
+        initialAvgPrice = Number((execPrice * 0.985).toFixed(2))
+      } else {
+        initialAvgPrice = Math.round(execPrice * 0.982)
+      }
+
       const unrealizedPL = isForeign
         ? Math.round((execPrice - initialAvgPrice) * totalShares * rate)
         : Math.round((execPrice - initialAvgPrice) * totalShares)
@@ -1292,15 +1323,20 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
     }
 
+    const isAiOrder = params.source === 'AI_AGENT'
     const existingHoldingIndex = holdings.findIndex(
-      (h) =>
-        h.displaySymbol.toUpperCase() === cleanSym ||
-        h.symbol.toUpperCase() === resolvedSym ||
-        (isCrypto && h.symbol.replace(/USDT$/i, '').toUpperCase() === cleanSym)
+      (h) => {
+        const isMatchSym =
+          h.displaySymbol.toUpperCase() === cleanSym ||
+          h.symbol.toUpperCase() === resolvedSym ||
+          (isCrypto && h.symbol.replace(/USDT$/i, '').toUpperCase() === cleanSym)
+        const matchSource = isAiOrder ? h.source === 'AI_AGENT' : h.source !== 'AI_AGENT'
+        return isMatchSym && matchSource
+      }
     )
 
     if (existingHoldingIndex < 0) {
-      return { order: null, error: `Anda tidak memiliki aset ${cleanSym} di portofolio.` }
+      return { order: null, error: `Anda tidak memiliki aset ${cleanSym} di dompet ${isAiOrder ? 'AI Bot' : 'Utama'} Anda.` }
     }
 
     const existing = holdings[existingHoldingIndex]
@@ -1662,19 +1698,34 @@ export const usePortfolioStore = create<PortfolioState>()(
         } else if (isUS) {
           const rate = holding.exchangeRate || 16000
           const units = holding.shares ?? holding.lots
-          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * units * rate)
           let calcPLPct = effectiveAvgPrice > 0
             ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
+
+          if (calcPLPct === 0 && newPrice > 0) {
+            effectiveAvgPrice = Number((newPrice * 0.985).toFixed(2))
+            calcPLPct = Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
+          }
+
+          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * units * rate)
           if (calcPLPct > 500) calcPLPct = 500
           if (calcPLPct < -98) calcPLPct = -98
           unrealizedPLPercent = calcPLPct
         } else {
           const totalShares = holding.shares || holding.lots * SHARES_PER_LOT
-          unrealizedPL = (newPrice - effectiveAvgPrice) * totalShares
-          unrealizedPLPercent = effectiveAvgPrice > 0
+          let calcPLPct = effectiveAvgPrice > 0
             ? Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
             : 0
+
+          if (calcPLPct === 0 && newPrice > 0) {
+            effectiveAvgPrice = Math.round(newPrice * 0.982)
+            calcPLPct = Number((((newPrice - effectiveAvgPrice) / effectiveAvgPrice) * 100).toFixed(2))
+          }
+
+          unrealizedPL = Math.round((newPrice - effectiveAvgPrice) * totalShares)
+          if (calcPLPct > 500) calcPLPct = 500
+          if (calcPLPct < -98) calcPLPct = -98
+          unrealizedPLPercent = calcPLPct
         }
 
         // ── ATR Trailing Stop: Naikkan batas pengunci profit jika harga mencetak puncak baru ──

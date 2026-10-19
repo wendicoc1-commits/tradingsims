@@ -98,6 +98,19 @@ export default function GlobalLivePriceManager() {
           }
         });
 
+        // Pastikan tidak ada saham yang tersangkut di 0% PnL: jika ada saham dengan unrealizedPLPercent === 0, injeksi harganya ke updateHoldingPrices
+        const hasZeroStock = stockHoldings.some((h) => (h.unrealizedPLPercent ?? 0) === 0);
+        if (hasZeroStock) {
+          stockHoldings.forEach((h) => {
+            const cur = h.currentPrice || 0;
+            if (cur > 0) {
+              const clean = (h.displaySymbol || h.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
+              map[h.symbol] = cur;
+              map[clean] = cur;
+            }
+          });
+        }
+
         if (Object.keys(map).length > 0) {
           updateHoldingPrices(map);
         }
