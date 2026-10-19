@@ -25,6 +25,10 @@ import {
   X,
   RefreshCw,
   Printer,
+  Wallet,
+  Bot,
+  ArrowRightLeft,
+  ShieldCheck,
 } from 'lucide-react';
 import { usePortfolioStore, KNOWN_DIVIDENDS } from '@/store';
 import { useCryptoPriceStore } from '@/store/useCryptoPriceStore';
@@ -39,6 +43,7 @@ import TradingJournalCalendar from '@/components/portfolio/TradingJournalCalenda
 import TelegramAlertSettingsModal from '@/components/portfolio/TelegramAlertSettingsModal';
 import CopyTradingModal from '@/components/portfolio/CopyTradingModal';
 import TopUpModal from '@/components/portfolio/TopUpModal';
+import WalletTransferModal from '@/components/portfolio/WalletTransferModal';
 import AuthModal from '@/components/auth/AuthModal';
 import CompanyLogo from '@/components/common/CompanyLogo';
 import EmptyState from '@/components/common/EmptyState';
@@ -504,6 +509,8 @@ export default function PortfolioPage() {
   const {
     cash,
     realizedPL,
+    aiCash = 0,
+    aiRealizedPL = 0,
     holdings,
     orders,
     dividends,
@@ -527,6 +534,8 @@ export default function PortfolioPage() {
     logout,
   } = useAuthStore();
 
+  const [activeWalletTab, setActiveWalletTab] = useState<'ALL' | 'MANUAL' | 'AI_BOT'>('ALL');
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'holdings' | 'orders' | 'dividends' | 'analytics' | 'journal' | 'news'>('holdings');
   const [selectedAssetView, setSelectedAssetView] = useState<'ALL' | 'EQUITY' | 'CRYPTO' | 'US'>('ALL');
   const [dividendMsg, setDividendMsg] = useState<string | null>(null);
@@ -654,8 +663,33 @@ export default function PortfolioPage() {
     }
   }, [tickerMap, holdings.length, updateHoldingPrices]);
 
+  // Sub-Account Awareness (Manual Portfolio vs AI Bot Trading Portfolio)
+  const displayedHoldings = holdings.filter((h) => {
+    if (activeWalletTab === 'MANUAL') return h.source !== 'AI_AGENT';
+    if (activeWalletTab === 'AI_BOT') return h.source === 'AI_AGENT';
+    return true; // 'ALL'
+  });
+
+  const displayedOrders = orders.filter((o) => {
+    if (activeWalletTab === 'MANUAL') return o.source !== 'AI_AGENT';
+    if (activeWalletTab === 'AI_BOT') return o.source === 'AI_AGENT';
+    return true; // 'ALL'
+  });
+
+  const effectiveCash = activeWalletTab === 'MANUAL'
+    ? cash
+    : activeWalletTab === 'AI_BOT'
+    ? (aiCash || 0)
+    : (cash + (aiCash || 0));
+
+  const effectiveRealizedPL = activeWalletTab === 'MANUAL'
+    ? (realizedPL || 0)
+    : activeWalletTab === 'AI_BOT'
+    ? (aiRealizedPL || 0)
+    : ((realizedPL || 0) + (aiRealizedPL || 0));
+
   // Computations for NAV, P&L, Asset Allocation
-  const totalHoldingsValue = holdings.reduce((sum, h) => {
+  const totalHoldingsValue = displayedHoldings.reduce((sum, h) => {
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
@@ -668,9 +702,9 @@ export default function PortfolioPage() {
     return sum + (curPrice * units);
   }, 0);
 
-  const totalPortfolioValue = totalHoldingsValue + cash;
+  const totalPortfolioValue = totalHoldingsValue + effectiveCash;
 
-  const totalUnrealizedPL = holdings.reduce((sum, h) => {
+  const totalUnrealizedPL = displayedHoldings.reduce((sum, h) => {
     const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
     const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
     const isUS = !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
@@ -695,27 +729,27 @@ export default function PortfolioPage() {
   }, 0);
 
   const totalReturnPct = totalPortfolioValue > 0 ? (totalUnrealizedPL / (totalPortfolioValue - totalUnrealizedPL || 1)) * 100 : 0;
-  const totalDividendsReceived = dividends.reduce((sum, d) => sum + d.netAmount, 0);
+  const totalDividendsReceived = activeWalletTab === 'AI_BOT' ? 0 : dividends.reduce((sum, d) => sum + d.netAmount, 0);
 
   // Untung Bersih Riil vs Modal Awal / Total Deposit
   const totalDeposited = (orders || [])
     .filter((o) => o.symbol === 'DEPOSIT-QRIS' || o.id?.startsWith('topup-') || o.displaySymbol === 'QRIS TOPUP')
     .reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const estimatedBaseCapital = totalDeposited > 0
-    ? totalDeposited
-    : (totalPortfolioValue >= 40_000_000 && Math.abs(totalPortfolioValue - 50_000_000) <= 25_000_000 ? 50_000_000 : 0);
+  const estimatedBaseCapital = activeWalletTab === 'ALL'
+    ? (totalDeposited > 0 ? totalDeposited : (totalPortfolioValue >= 40_000_000 && Math.abs(totalPortfolioValue - 50_000_000) <= 25_000_000 ? 50_000_000 : 0))
+    : 0;
 
   const netRealProfit = estimatedBaseCapital > 0
     ? (totalPortfolioValue - estimatedBaseCapital)
-    : ((realizedPL || 0) + totalUnrealizedPL);
+    : (effectiveRealizedPL + totalUnrealizedPL);
 
   const netRealProfitPct = estimatedBaseCapital > 0
     ? (netRealProfit / estimatedBaseCapital) * 100
     : (totalPortfolioValue > 0 ? (netRealProfit / (totalPortfolioValue - netRealProfit || 1)) * 100 : 0);
 
   // Asset allocation weights
-  const cryptoHoldingsVal = holdings
+  const cryptoHoldingsVal = displayedHoldings
     .filter((h) => {
       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
       return h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
@@ -727,7 +761,7 @@ export default function PortfolioPage() {
       return acc + (curPrice * units * rate);
     }, 0);
 
-  const usHoldingsVal = holdings
+  const usHoldingsVal = displayedHoldings
     .filter((h) => {
       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
       const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
@@ -796,12 +830,13 @@ export default function PortfolioPage() {
   };
 
   const handleExportHoldingsCsv = () => {
-    if (holdings.length === 0) return;
+    if (displayedHoldings.length === 0) return;
     exportToCsv(
-      holdings,
+      displayedHoldings,
       [
         { header: 'Ticker', key: (h) => h.displaySymbol || h.symbol },
         { header: 'Nama Perusahaan', key: (h) => h.name },
+        { header: 'Tipe Dompet', key: (h) => h.source === 'AI_AGENT' ? 'BOT AI' : 'MANUAL' },
         { header: 'Harga Beli Rata-Rata (IDR)', key: (h) => h.avgPrice },
         { header: 'Lot', key: (h) => h.lots },
         { header: 'Jumlah Lembar', key: (h) => h.shares || h.lots * 100 },
@@ -810,18 +845,18 @@ export default function PortfolioPage() {
         { header: 'Floating Gain Loss (IDR)', key: (h) => Math.round(h.unrealizedPL || 0) },
         { header: 'Floating Gain Loss (%)', key: (h) => h.unrealizedPLPercent || 0 },
       ],
-      'Portofolio_Holdings'
+      `Portofolio_${activeWalletTab === 'MANUAL' ? 'Manual' : activeWalletTab === 'AI_BOT' ? 'BotAI' : 'Konsolidasi'}`
     );
     toast.success('File CSV Portofolio berhasil diunduh!');
   };
 
   const handleExportExcelAll = () => {
-    if (holdings.length === 0 && orders.length === 0) {
+    if (displayedHoldings.length === 0 && displayedOrders.length === 0) {
       toast.error('Portofolio masih kosong, belum ada data untuk diekspor.');
       return;
     }
     exportPortfolioToExcel(
-      holdings.map((h) => ({
+      displayedHoldings.map((h) => ({
         symbol: h.symbol,
         displaySymbol: h.displaySymbol,
         name: h.name,
@@ -831,7 +866,7 @@ export default function PortfolioPage() {
         unrealizedPL: h.unrealizedPL || 0,
         unrealizedPLPercent: h.unrealizedPLPercent || 0,
       })),
-      orders.map((o) => ({
+      displayedOrders.map((o) => ({
         id: o.id,
         symbol: o.symbol,
         type: o.type,
@@ -842,7 +877,7 @@ export default function PortfolioPage() {
         status: o.status,
         createdAt: o.createdAt,
       })),
-      cash,
+      effectiveCash,
       user?.fullName || user?.email || 'Fincept Trader'
     );
     toast.success('📊 Laporan Excel (.xlsx) resmi Fincept Capital berhasil diunduh!');
@@ -859,12 +894,13 @@ export default function PortfolioPage() {
   };
 
   const handleExportOrdersCsv = () => {
-    if (orders.length === 0) return;
+    if (displayedOrders.length === 0) return;
     exportToCsv(
-      orders,
+      displayedOrders,
       [
         { header: 'ID Transaksi', key: (o) => o.id },
         { header: 'Waktu Eksekusi', key: (o) => o.createdAt },
+        { header: 'Sumber', key: (o) => o.source === 'AI_AGENT' ? 'BOT AI' : 'MANUAL' },
         { header: 'Ticker', key: (o) => o.displaySymbol || o.symbol },
         { header: 'Aksi', key: (o) => o.type },
         { header: 'Tipe Order', key: (o) => o.orderType },
@@ -876,7 +912,7 @@ export default function PortfolioPage() {
         { header: 'Realized Gain Loss (IDR)', key: (o) => (o.realizedPL !== undefined ? Math.round(o.realizedPL) : 0) },
         { header: 'Status', key: (o) => o.status },
       ],
-      'Riwayat_Transaksi_Order'
+      `Riwayat_Transaksi_${activeWalletTab === 'MANUAL' ? 'Manual' : activeWalletTab === 'AI_BOT' ? 'BotAI' : 'Konsolidasi'}`
     );
   };
 
@@ -1083,12 +1119,91 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {/* ── Sub-Account Wallet Switcher & Capital Allocation Desk ── */}
+      <div className="bg-[#0c0c0e] border border-[#27272a] rounded-xl p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-lg">
+        {/* Left: Sub-account selector tabs */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mr-1 hidden sm:flex items-center gap-1">
+            <Wallet className="w-3.5 h-3.5 text-amber-400" /> Dompet:
+          </span>
+          
+          {/* Tab 1: ALL */}
+          <button
+            type="button"
+            onClick={() => setActiveWalletTab('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeWalletTab === 'ALL'
+                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Semua Portofolio</span>
+            <span className="text-[10px] opacity-75 font-mono">({holdings.length})</span>
+          </button>
+
+          {/* Tab 2: MANUAL */}
+          <button
+            type="button"
+            onClick={() => setActiveWalletTab('MANUAL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeWalletTab === 'MANUAL'
+                ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+            }`}
+          >
+            <Wallet className="w-3.5 h-3.5" />
+            <span>Dompet Manual Saya</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/30 font-mono font-semibold">
+              Rp {formatPrice(Math.round(cash))}
+            </span>
+          </button>
+
+          {/* Tab 3: AI_BOT */}
+          <button
+            type="button"
+            onClick={() => setActiveWalletTab('AI_BOT')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeWalletTab === 'AI_BOT'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                : 'bg-zinc-900 text-purple-300 hover:text-white border border-purple-900/40'
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5 text-purple-200" />
+            <span>Dompet AI Bot Trading</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 font-mono font-semibold text-purple-200 border border-purple-400/30">
+              Rp {formatPrice(Math.round(aiCash || 0))}
+            </span>
+          </button>
+        </div>
+
+        {/* Right: Transfer Button & Risk Guarantee */}
+        <div className="flex items-center gap-2 justify-end flex-wrap">
+          <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-zinc-400 px-2 py-1 rounded bg-zinc-900/80 border border-zinc-800">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Modal Manual Terlindungi 100% dari Bot</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsTransferModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-purple-600/30 active:scale-95 cursor-pointer"
+            title="Pindahkan dana antara Dompet Manual dan Dompet AI Bot"
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5 text-purple-200" />
+            <span>Transfer Antar Dompet</span>
+          </button>
+        </div>
+      </div>
+
       {/* ── Executive Telemetry Cards (Unified Best-of-Breed) ── */}
       <div id="portfolio-summary-card" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Card 1: Total Portfolio NAV */}
         <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
           <div>
-            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Total Portfolio NAV</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">
+              {activeWalletTab === 'MANUAL' ? 'NAV Dompet Manual' : activeWalletTab === 'AI_BOT' ? 'NAV Dompet Bot AI' : 'Total Portfolio NAV'}
+            </div>
             <div className="text-base sm:text-lg font-bold text-white font-mono-num">
               Rp {formatPrice(Math.round(totalPortfolioValue))}
             </div>
@@ -1107,32 +1222,46 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Card 2: Cash Reserves (RDN) + Quick Top Up */}
+        {/* Card 2: Cash Reserves (RDN) + Quick Top Up / Transfer */}
         <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase font-mono tracking-wider">
-              <span>Kas Tersedia (RDN)</span>
-              <span className="text-[#f59e0b] font-bold">{cashPct}%</span>
+              <span>{activeWalletTab === 'MANUAL' ? 'Kas Manual Tersedia (RDN)' : activeWalletTab === 'AI_BOT' ? 'Kas Dompet Bot AI' : 'Total Kas Tersedia (RDN)'}</span>
+              <span className={activeWalletTab === 'AI_BOT' ? 'text-purple-400 font-bold' : 'text-[#f59e0b] font-bold'}>{cashPct}%</span>
             </div>
-            <div className="text-base sm:text-lg font-bold text-[#f59e0b] font-mono-num">
-              Rp {formatPrice(Math.round(cash))}
+            <div className={`text-base sm:text-lg font-bold font-mono-num ${activeWalletTab === 'AI_BOT' ? 'text-purple-400' : 'text-[#f59e0b]'}`}>
+              Rp {formatPrice(Math.round(effectiveCash))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsTopUpOpen(true)}
-            className="mt-1.5 w-full py-1 px-2 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
-            title="Top Up Saldo Kas RDN via QRIS Instan"
-          >
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>+ Top Up Kas RDN</span>
-          </button>
+          {activeWalletTab === 'AI_BOT' ? (
+            <button
+              type="button"
+              onClick={() => setIsTransferModalOpen(true)}
+              className="mt-1.5 w-full py-1 px-2 rounded bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
+              title="Alokasikan Kas dari Dompet Manual ke Bot AI"
+            >
+              <ArrowRightLeft className="w-3 h-3 text-purple-400" />
+              <span>+ Alokasi Modal ke Bot</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsTopUpOpen(true)}
+              className="mt-1.5 w-full py-1 px-2 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[10px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-95 shadow-sm"
+              title="Top Up Saldo Kas RDN via QRIS Instan"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>+ Top Up Kas RDN</span>
+            </button>
+          )}
         </div>
 
         {/* Card 3: Floating Unrealized P&L */}
         <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
           <div>
-            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Unrealized Floating P&L</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">
+              {activeWalletTab === 'MANUAL' ? 'Floating P&L Manual' : activeWalletTab === 'AI_BOT' ? 'Floating P&L Bot AI' : 'Unrealized Floating P&L'}
+            </div>
             <div
               className={`text-base sm:text-lg font-bold font-mono-num flex items-center gap-1 ${
                 totalUnrealizedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -1150,19 +1279,28 @@ export default function PortfolioPage() {
         {/* Card 4: Realized P&L & Dividen */}
         <div className="bg-[#09090b] border border-[#27272a] p-3 rounded-lg flex flex-col justify-between shadow-sm">
           <div>
-            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">Realized P&L & Passive</div>
+            <div className="text-[10px] text-zinc-400 uppercase font-mono tracking-wider">
+              {activeWalletTab === 'MANUAL' ? 'Realized P&L Manual' : activeWalletTab === 'AI_BOT' ? 'Realized P&L Bot AI' : 'Realized P&L & Passive'}
+            </div>
             <div
               className={`text-base sm:text-lg font-bold font-mono-num ${
-                (realizedPL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                (effectiveRealizedPL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
-              {(realizedPL || 0) >= 0 ? '+' : '-'}Rp {formatPrice(Math.round(Math.abs(realizedPL || 0)))}
+              {(effectiveRealizedPL || 0) >= 0 ? '+' : '-'}Rp {formatPrice(Math.round(Math.abs(effectiveRealizedPL || 0)))}
             </div>
           </div>
-          <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-            <Coins className="w-3 h-3" />
-            <span>Dividen: Rp {formatPrice(Math.round(totalDividendsReceived))}</span>
-          </div>
+          {activeWalletTab === 'AI_BOT' ? (
+            <div className="text-[10px] text-purple-400 font-mono flex items-center gap-1">
+              <Bot className="w-3 h-3 text-purple-300" />
+              <span>Fincept Quant Bot 24/7</span>
+            </div>
+          ) : (
+            <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+              <Coins className="w-3 h-3" />
+              <span>Dividen: Rp {formatPrice(Math.round(totalDividendsReceived))}</span>
+            </div>
+          )}
         </div>
 
         {/* Card 5: Multi-Asset Allocation Bar */}
@@ -1170,21 +1308,21 @@ export default function PortfolioPage() {
           <div>
             <div className="flex items-center justify-between text-[10px] text-zinc-400 uppercase font-mono tracking-wider mb-1">
               <span>Alokasi Multi-Aset</span>
-              <span className="text-zinc-500">{holdings.length} Posisi</span>
+              <span className="text-zinc-500">{displayedHoldings.length} Posisi</span>
             </div>
             {/* Visual Bar */}
             <div className="h-2.5 w-full rounded overflow-hidden flex bg-zinc-900 border border-zinc-800">
               <div style={{ width: `${equityPct}%` }} className="bg-blue-500" title={`IDX Equities ${equityPct}%`} />
               <div style={{ width: `${usPct}%` }} className="bg-indigo-500" title={`US Stock ${usPct}%`} />
               <div style={{ width: `${cryptoPct}%` }} className="bg-cyan-500" title={`Crypto ${cryptoPct}%`} />
-              <div style={{ width: `${cashPct}%` }} className="bg-amber-500" title={`Cash ${cashPct}%`} />
+              <div style={{ width: `${cashPct}%` }} className={activeWalletTab === 'AI_BOT' ? 'bg-purple-500' : 'bg-amber-500'} title={`Cash ${cashPct}%`} />
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between text-[10px] font-mono">
             <span className="text-blue-400 font-bold">IDX {equityPct}%</span>
             {usPct > 0 && <span className="text-indigo-400 font-bold">US {usPct}%</span>}
             <span className="text-cyan-400 font-bold">Crypto {cryptoPct}%</span>
-            <span className="text-amber-400 font-bold">Kas {cashPct}%</span>
+            <span className={`${activeWalletTab === 'AI_BOT' ? 'text-purple-400' : 'text-amber-400'} font-bold`}>Kas {cashPct}%</span>
           </div>
         </div>
       </div>
@@ -1268,7 +1406,7 @@ export default function PortfolioPage() {
             <div className="space-y-2.5">
               {/* Asset Class Filter Bar & CSV Export */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#09090b] border border-[#27272a] rounded-lg">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => setSelectedAssetView('ALL')}
                     className={`px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer ${
@@ -1277,7 +1415,7 @@ export default function PortfolioPage() {
                         : 'bg-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    SEMUA ({holdings.length})
+                    SEMUA ({displayedHoldings.length})
                   </button>
                   <button
                     onClick={() => setSelectedAssetView('EQUITY')}
@@ -1287,7 +1425,7 @@ export default function PortfolioPage() {
                         : 'bg-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    SAHAM IDX ({holdings.filter((h) => {
+                    SAHAM IDX ({displayedHoldings.filter((h) => {
                       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
                       return h.assetClass !== 'CRYPTO' && !h.symbol.endsWith('USDT') && !isCryptoSymbol(cleanSym) && !isUSSymbol(cleanSym) && !KNOWN_US_SYMS.includes(cleanSym);
                     }).length})
@@ -1300,7 +1438,7 @@ export default function PortfolioPage() {
                         : 'bg-zinc-800 text-cyan-400 hover:text-white'
                     }`}
                   >
-                    ⚡ CRYPTO ({holdings.filter((h) => {
+                    ⚡ CRYPTO ({displayedHoldings.filter((h) => {
                       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
                       return h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
                     }).length})
@@ -1313,7 +1451,7 @@ export default function PortfolioPage() {
                         : 'bg-zinc-800 text-blue-400 hover:text-white'
                     }`}
                   >
-                    🇺🇸 US ({holdings.filter((h) => {
+                    🇺🇸 US ({displayedHoldings.filter((h) => {
                       const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
                       const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || isCryptoSymbol(cleanSym);
                       return !isCrypto && (h.currency === 'USD' || h.assetClass === 'US' || isUSSymbol(cleanSym) || KNOWN_US_SYMS.includes(cleanSym));
@@ -1321,7 +1459,7 @@ export default function PortfolioPage() {
                   </button>
                 </div>
 
-                {holdings.length > 0 && (
+                {displayedHoldings.length > 0 && (
                   <button
                     onClick={handleExportHoldingsCsv}
                     className="flex items-center gap-1 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-bold transition cursor-pointer"
@@ -1335,23 +1473,56 @@ export default function PortfolioPage() {
 
               {/* Positions Table */}
               <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
-                {holdings.length === 0 ? (
-                  <EmptyState
-                    icon={Briefcase}
-                    title="Portofolio Masih Kosong"
-                    description="Belum ada posisi terbuka. Gunakan Order Execution Desk di samping untuk melakukan paper trading saham IDX, saham US, atau kripto spot."
-                    cta={{
-                      label: '🛒 Eksekusi Beli Sekarang',
-                      onClick: () => {
-                        const orderEl = document.getElementById('order-execution-desk');
-                        orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      },
-                    }}
-                    secondaryCta={{
-                      label: 'Lihat Screener Saham',
-                      href: '/screener',
-                    }}
-                  />
+                {displayedHoldings.length === 0 ? (
+                  activeWalletTab === 'AI_BOT' ? (
+                    <EmptyState
+                      icon={Bot}
+                      title="Dompet AI Bot Belum Memiliki Posisi Terbuka"
+                      description={`Saldo kas bot saat ini: Rp ${formatPrice(Math.round(aiCash || 0))}. Bot kuantitatif trading 24/7 hanya menggunakan modal dari dompet ini. Anda dapat mengalokasikan modal dari dompet manual kapan saja.`}
+                      cta={{
+                        label: '🔄 Transfer Modal ke Bot AI',
+                        onClick: () => setIsTransferModalOpen(true),
+                      }}
+                      secondaryCta={{
+                        label: 'Pantau Dashboard Kripto Live',
+                        href: '/crypto',
+                      }}
+                    />
+                  ) : activeWalletTab === 'MANUAL' ? (
+                    <EmptyState
+                      icon={Wallet}
+                      title="Dompet Manual Belum Memiliki Posisi Terbuka"
+                      description="Gunakan Order Execution Desk di samping untuk melakukan trading saham IDX, saham US, atau kripto secara mandiri."
+                      cta={{
+                        label: '🛒 Eksekusi Beli Sekarang',
+                        onClick: () => {
+                          const orderEl = document.getElementById('order-execution-desk');
+                          orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        },
+                      }}
+                      secondaryCta={{
+                        label: 'Lihat Screener Saham',
+                        href: '/screener',
+                      }}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={Briefcase}
+                      title="Portofolio Masih Kosong"
+                      description="Belum ada posisi terbuka baik di Dompet Manual maupun Dompet AI Bot."
+                      cta={{
+                        label: '🛒 Eksekusi Beli Sekarang',
+                        onClick: () => {
+                          const orderEl = document.getElementById('order-execution-desk');
+                          orderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        },
+                      }}
+                      secondaryCta={{
+                        label: 'Lihat Screener Saham',
+                        href: '/screener',
+                      }}
+                    />
+                  )
                 ) : (
                   <div className="overflow-x-auto scrollbar-thin">
                     <table className="data-table w-full text-left">
@@ -1368,7 +1539,7 @@ export default function PortfolioPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {holdings
+                        {displayedHoldings
                           .filter((h) => {
                             const cleanSym = (h.displaySymbol || h.symbol).replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
                             const isCrypto = h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT') || h.currency === 'USDT' || isCryptoSymbol(cleanSym);
@@ -1442,7 +1613,7 @@ export default function PortfolioPage() {
                                   <div className="flex items-center gap-1.5">
                                     <CompanyLogo symbol={h.displaySymbol} name={h.name} size={20} rounded="sm" />
                                     <div className="min-w-0">
-                                      <div className="flex items-center gap-1">
+                                      <div className="flex items-center gap-1 flex-wrap">
                                         <Link
                                           href={isCrypto ? '/crypto' : `/stock/${h.displaySymbol}`}
                                           className="font-bold text-xs font-mono hover:underline"
@@ -1463,6 +1634,17 @@ export default function PortfolioPage() {
                                             IDX
                                           </span>
                                         )}
+                                        {h.source === 'AI_AGENT' ? (
+                                          <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-0.5">
+                                            <Bot className="w-2.5 h-2.5" />
+                                            <span>BOT AI</span>
+                                          </span>
+                                        ) : activeWalletTab === 'ALL' ? (
+                                          <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
+                                            <Wallet className="w-2.5 h-2.5" />
+                                            <span>MANUAL</span>
+                                          </span>
+                                        ) : null}
                                       </div>
                                       <div className="text-[9px] text-zinc-400 truncate max-w-[90px] xl:max-w-[130px]">{h.name}</div>
                                     </div>
@@ -1586,9 +1768,9 @@ export default function PortfolioPage() {
             <div className="space-y-2.5">
               <div className="flex items-center justify-between p-2 bg-[#09090b] border border-[#27272a] rounded-lg">
                 <span className="text-xs text-zinc-400 font-mono">
-                  Audit ledger transaksi order ({orders.length} order)
+                  Audit ledger transaksi order ({displayedOrders.length} order)
                 </span>
-                {orders.length > 0 && (
+                {displayedOrders.length > 0 && (
                   <button
                     onClick={handleExportOrdersCsv}
                     className="flex items-center gap-1 px-2.5 py-1 bg-[#18181b] hover:bg-[#27272a] text-[#f59e0b] border border-[#f59e0b]/40 rounded text-xs font-bold transition cursor-pointer"
@@ -1601,11 +1783,15 @@ export default function PortfolioPage() {
               </div>
 
               <div className="rounded-xl border border-[#27272a] overflow-hidden bg-[#09090b]">
-                {orders.length === 0 ? (
+                {displayedOrders.length === 0 ? (
                   <EmptyState
                     icon={History}
-                    title="Belum Ada Riwayat Transaksi"
-                    description="Semua transaksi order BUY dan SELL akan tercatat di sini lengkap dengan Realized P/L dan fee."
+                    title={activeWalletTab === 'AI_BOT' ? 'Belum Ada Transaksi Bot AI' : activeWalletTab === 'MANUAL' ? 'Belum Ada Transaksi Manual' : 'Belum Ada Riwayat Transaksi'}
+                    description={
+                      activeWalletTab === 'AI_BOT'
+                        ? 'Bot AI kuantitatif belum mengeksekusi order. Pastikan Dompet AI Bot memiliki alokasi modal.'
+                        : 'Semua transaksi order BUY dan SELL akan tercatat di sini lengkap dengan Realized P/L dan fee.'
+                    }
                   />
                 ) : (
                   <div className="overflow-x-auto scrollbar-thin">
@@ -1624,7 +1810,7 @@ export default function PortfolioPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {orders.map((o) => {
+                        {displayedOrders.map((o) => {
                           const hasRealized = o.type === 'SELL' && o.realizedPL !== undefined;
                           const isGain = (o.realizedPL || 0) >= 0;
                           const cleanSym = (o.displaySymbol || o.symbol || '').replace('.JK', '').replace(/USDT$/i, '').toUpperCase();
@@ -1639,9 +1825,20 @@ export default function PortfolioPage() {
                                 {new Date(o.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               </td>
                               <td className="font-bold text-xs font-mono" style={{ color: isCrypto ? '#06b6d4' : 'var(--accent)' }}>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <CompanyLogo symbol={o.displaySymbol} size={18} rounded="sm" border={false} />
                                   <span>{o.displaySymbol}</span>
+                                  {o.source === 'AI_AGENT' ? (
+                                    <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-0.5">
+                                      <Bot className="w-2.5 h-2.5" />
+                                      <span>BOT AI</span>
+                                    </span>
+                                  ) : activeWalletTab === 'ALL' ? (
+                                    <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
+                                      <Wallet className="w-2.5 h-2.5" />
+                                      <span>MANUAL</span>
+                                    </span>
+                                  ) : null}
                                 </div>
                               </td>
                               <td className="text-center">
@@ -1966,6 +2163,9 @@ export default function PortfolioPage() {
 
       {/* Modal Top Up Kas RDN (QRIS Instan) */}
       <TopUpModal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} />
+
+      {/* Modal Alokasi / Transfer Kas Antar Dompet (Manual vs AI Bot) */}
+      <WalletTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} />
 
       {/* Portfolio Stress Testing & Monte Carlo Modal */}
       <PortfolioStressTestModal isOpen={isStressTestOpen} onClose={() => setIsStressTestOpen(false)} />

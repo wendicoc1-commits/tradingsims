@@ -690,19 +690,21 @@ export async function runAutonomousAgentCycle(
   // 4. EKSEKUSI TRADING OTOMATIS KE PORTOFOLIO (BUY TOP ALPHA PICK)
   // ─────────────────────────────────────────────────────────────────────────────
   if (aiStore.autoTradingEnabled && !tradeExecuted && topPick && !options?.skipEquityBuy) {
+    const botCash = portfolioStore.aiCash ?? 0;
+    const aiHoldings = portfolioStore.holdings.filter((h) => h.source === 'AI_AGENT');
     const snapshot: PortfolioSnapshot = {
-      cash: portfolioStore.cash,
-      realizedPL: portfolioStore.realizedPL,
-      holdings: portfolioStore.holdings,
+      cash: botCash,
+      realizedPL: portfolioStore.aiRealizedPL ?? 0,
+      holdings: aiHoldings,
       orders: portfolioStore.orders.map((o) => ({ status: String(o.status) })),
     };
     const totalNav = portfolioNav(snapshot);
-    const maxAllocationPerAsset = totalNav * 0.25; // Batas maksimal alokasi 25% NAV per saham (Risk Governance)
-    const maxAllocationPerSector = totalNav * 0.30; // 🛡️ SECTOR CONCENTRATION CEILING: Maksimal 30% NAV per sektor industri
+    const maxAllocationPerAsset = Math.max(500_000, totalNav * 0.35); // Batas maksimal alokasi 35% modal bot per saham
+    const maxAllocationPerSector = Math.max(1_000_000, totalNav * 0.45); // Maksimal 45% modal bot per sektor industri
 
     const findHolding = (sym: string) =>
       portfolioStore.holdings.find(
-        (h) => h.displaySymbol.toUpperCase() === sym || h.symbol.replace('.JK', '').toUpperCase() === sym
+        (h) => h.source === 'AI_AGENT' && (h.displaySymbol.toUpperCase() === sym || h.symbol.replace('.JK', '').toUpperCase() === sym)
       );
     const exposureOf = (sym: string) => {
       const h = findHolding(sym);
@@ -804,10 +806,11 @@ export async function runAutonomousAgentCycle(
       }
       // Bursa BEI tutup, eksekusi saham dilewati namun Crypto Desk 24/7 tetap berjalan
     } else if (!options?.skipEquityBuy && !isAlreadySufficientlyAllocated && target.score >= 75 && target.suggestedAction.action === 'BUY') {
-      const MIN_BOT_CASH_RESERVE = 1_000_000;
+      const MIN_BOT_CASH_RESERVE = 500_000;
 
-      // Proteksi Kas Minimum: Kas di bawah Rp 1.000.000 dilarang membeli saham baru
-      if (portfolioStore.cash < MIN_BOT_CASH_RESERVE) {
+      // Proteksi Kas Dompet AI Bot:
+      // Bot saham HANYA boleh bertransaksi menggunakan modal yang telah dipindahkan ke Dompet AI Bot (aiCash)!
+      if (botCash < MIN_BOT_CASH_RESERVE) {
         if (Math.random() < 0.2) {
           aiStore.logAction({
             type: 'RISK_GATE',
@@ -815,10 +818,10 @@ export async function runAutonomousAgentCycle(
             agentId: 'cro',
             agentName: 'Budi Santoso (Chief Risk Officer)',
             agentEmoji: '🛡️',
-            title: `Proteksi Likuiditas: Pembelian Saham Dibatalkan (Kas < Rp 1 Juta)`,
-            details: `Saldo kas saat ini (Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 1.000.000. Sesuai mandat perlindungan modal, bot dilarang membeli saham atau crypto lagi.`,
+            title: `Proteksi Likuiditas: Dompet AI Bot Belum Memiliki Saldo`,
+            details: `Saldo Dompet AI Bot saat ini (Rp ${Math.round(botCash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 500.000. Silakan transfer modal dari Dompet Utama ke Dompet AI Bot pada menu Portofolio untuk mengaktifkan trading saham otomatis.`,
             metadata: {
-              cash: portfolioStore.cash,
+              cash: botCash,
               minCashRequired: MIN_BOT_CASH_RESERVE,
             },
           });
@@ -925,9 +928,9 @@ export async function runAutonomousAgentCycle(
       if (
         sizing.ok &&
         sizing.lots > 0 &&
-        portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
-        (portfolioStore.cash - totalBuyCost >= MIN_BOT_CASH_RESERVE) &&
-        portfolioStore.cash >= totalBuyCost &&
+        botCash >= MIN_BOT_CASH_RESERVE &&
+        (botCash - totalBuyCost >= MIN_BOT_CASH_RESERVE) &&
+        botCash >= totalBuyCost &&
         (currentAssetExposure + totalBuyCost <= maxAllocationPerAsset)
       ) {
         // ── KONSULTASI DUE DILIGENCE DENGAN TRADEMIND-ALPHA (PYTHON FASTAPI GPT-4o + RAG) ──
@@ -1162,15 +1165,15 @@ export async function runAutonomousAgentCycle(
               details: `Validasi eksekusi gagal: ${res.error}`,
             });
           }
-        } else if (sizing.notional > 0 && portfolioStore.cash < totalBuyCost) {
+        } else if (sizing.notional > 0 && botCash < totalBuyCost) {
         aiStore.logAction({
           type: 'RISK_GATE',
           symbol: target.symbol,
           agentId: 'cro',
           agentName: 'Bambang Suroso (Chief Risk Officer)',
           agentEmoji: '🛡️',
-          title: `Plafon Kas Tidak Mencukupi: ${target.symbol}`,
-          details: `Dibutuhkan Rp ${totalBuyCost.toLocaleString('id-ID')}, namun kas tersedia hanya Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}. Eksekusi ditunda.`,
+          title: `Plafon Kas Dompet AI Tidak Mencukupi: ${target.symbol}`,
+          details: `Dibutuhkan Rp ${totalBuyCost.toLocaleString('id-ID')}, namun saldo Dompet AI hanya Rp ${Math.round(botCash).toLocaleString('id-ID')}. Eksekusi ditunda.`,
         });
       }
     }

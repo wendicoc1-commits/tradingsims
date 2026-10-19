@@ -236,13 +236,17 @@ export interface OrderParams {
 
 export interface PortfolioState {
   ownerEmail?: string | null
-  cash: number
-  realizedPL: number // Akumulasi total keuntungan/kerugian modal terealisasi
+  cash: number // Saldo kas Dompet Utama (Manual Trading)
+  realizedPL: number // Akumulasi total keuntungan/kerugian modal terealisasi manual
+  aiCash: number // Saldo kas khusus Dompet AI Bot Trading (Quant Vault)
+  aiRealizedPL: number // Akumulasi keuntungan/kerugian modal terealisasi AI Bot
   holdings: PortfolioHolding[]
   orders: Order[]
   conditionalOrders: ConditionalOrder[]
   dividends: DividendRecord[]
   lastUpdated: number
+  transferToAiWallet: (amount: number) => { success: boolean; error?: string }
+  transferFromAiWallet: (amount: number) => { success: boolean; error?: string }
   placeBuyOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
   placeSellOrder: (paramsOrSymbol: OrderParams | string, ...args: any[]) => { order: Order | null; error?: string }
   placeConditionalOrder: (params: Omit<ConditionalOrder, 'id' | 'createdAt' | 'status'>) => { order: ConditionalOrder | null; error?: string }
@@ -500,11 +504,97 @@ export const usePortfolioStore = create<PortfolioState>()(
       ownerEmail: null,
       cash: INITIAL_CASH,
       realizedPL: 0,
+      aiCash: 0,
+      aiRealizedPL: 0,
       holdings: JSON.parse(JSON.stringify(INITIAL_HOLDINGS)),
       orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
       conditionalOrders: [],
       dividends: JSON.parse(JSON.stringify(INITIAL_DIVIDENDS)),
       lastUpdated: 0,
+
+  transferToAiWallet: (amount: number) => {
+    const { cash } = get()
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      return { success: false, error: 'Nominal transfer harus lebih besar dari Rp 0.' }
+    }
+    if (cash < amount) {
+      return {
+        success: false,
+        error: `Saldo Dompet Utama tidak mencukupi (Tersedia: Rp ${Math.round(cash).toLocaleString('id-ID')}, Diminta: Rp ${Math.round(amount).toLocaleString('id-ID')}).`,
+      }
+    }
+    const now = Date.now()
+    const transferOrder: Order = {
+      id: `xfer-ai-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      symbol: 'XFER-AI-BOT',
+      displaySymbol: 'ALOKASI DANA BOT',
+      name: 'Transfer Kas Dompet Utama ➡️ Dompet AI Bot Trading',
+      type: 'SELL',
+      orderType: 'MARKET',
+      price: amount,
+      lots: 1,
+      shares: 1,
+      total: amount,
+      fee: 0,
+      status: 'FILLED',
+      createdAt: new Date().toISOString(),
+      filledAt: new Date().toISOString(),
+    }
+    set((state) => ({
+      cash: state.cash - amount,
+      aiCash: (state.aiCash || 0) + amount,
+      orders: [transferOrder, ...state.orders],
+      lastUpdated: now,
+    }))
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
+    return { success: true }
+  },
+
+  transferFromAiWallet: (amount: number) => {
+    const { aiCash = 0 } = get()
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      return { success: false, error: 'Nominal penarikan harus lebih besar dari Rp 0.' }
+    }
+    if (aiCash < amount) {
+      return {
+        success: false,
+        error: `Saldo Dompet AI Bot tidak mencukupi (Tersedia: Rp ${Math.round(aiCash).toLocaleString('id-ID')}, Diminta: Rp ${Math.round(amount).toLocaleString('id-ID')}).`,
+      }
+    }
+    const now = Date.now()
+    const transferOrder: Order = {
+      id: `xfer-main-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      symbol: 'XFER-MAIN',
+      displaySymbol: 'TARIK DANA BOT',
+      name: 'Tarik Kas Dompet AI Bot ➡️ Dompet Utama',
+      type: 'BUY',
+      orderType: 'MARKET',
+      price: amount,
+      lots: 1,
+      shares: 1,
+      total: amount,
+      fee: 0,
+      status: 'FILLED',
+      createdAt: new Date().toISOString(),
+      filledAt: new Date().toISOString(),
+    }
+    set((state) => ({
+      cash: state.cash + amount,
+      aiCash: Math.max(0, (state.aiCash || 0) - amount),
+      orders: [transferOrder, ...state.orders],
+      lastUpdated: now,
+    }))
+    if (typeof window !== 'undefined') {
+      import('@/store/useAuthStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().syncPortfolioToDatabase();
+      }).catch(() => {});
+    }
+    return { success: true }
+  },
 
   resetCashOnly: (amount = INITIAL_CASH) => {
     const now = Date.now()
@@ -561,7 +651,9 @@ export const usePortfolioStore = create<PortfolioState>()(
     const now = Date.now()
     set({
       cash: INITIAL_CASH,
+      aiCash: 0,
       realizedPL: 0,
+      aiRealizedPL: 0,
       holdings: [],
       orders: [],
       conditionalOrders: [],
@@ -579,7 +671,9 @@ export const usePortfolioStore = create<PortfolioState>()(
     const now = Date.now()
     set({
       cash: INITIAL_CASH,
+      aiCash: 0,
       realizedPL: 0,
+      aiRealizedPL: 0,
       holdings: JSON.parse(JSON.stringify(INITIAL_HOLDINGS)),
       orders: JSON.parse(JSON.stringify(INITIAL_ORDERS)),
       conditionalOrders: [],
@@ -728,30 +822,22 @@ export const usePortfolioStore = create<PortfolioState>()(
       totalCost = tradeValue + brokerFee
     }
 
-    // Proteksi Batas Cadangan Kas Minimum Bot AI (Rp 1.000.000):
-    // Sesuai aturan manajemen risiko modal, jika saldo kas saat ini di bawah Rp 1.000.000,
-    // atau jika order beli bot akan membuat sisa kas turun di bawah batas aman cadangan Rp 1.000.000,
-    // maka bot dilarang membeli saham atau crypto baru.
-    const MIN_BOT_CASH_RESERVE = 1_000_000
-    if (params.source === 'AI_AGENT') {
-      if (cash < MIN_BOT_CASH_RESERVE) {
-        return {
-          order: null,
-          error: `⛔ Proteksi Likuiditas Bot: Saldo kas (Rp ${Math.round(cash).toLocaleString('id-ID')}) di bawah batas minimum Rp 1.000.000. Bot dilarang membeli saham & crypto demi melindungi modal.`,
-        }
-      }
-      if (cash - totalCost < MIN_BOT_CASH_RESERVE) {
-        return {
-          order: null,
-          error: `⛔ Proteksi Cadangan Kas Bot: Pembelian ini (biaya Rp ${Math.round(totalCost).toLocaleString('id-ID')}) akan menyisakan kas Rp ${Math.round(cash - totalCost).toLocaleString('id-ID')}, di bawah batas aman Rp 1.000.000. Order beli bot ditolak.`,
-        }
-      }
-    }
+    const isAiOrder = params.source === 'AI_AGENT'
+    const availableCash = isAiOrder ? (get().aiCash || 0) : cash
 
-    if (cash < totalCost) {
-      return {
-        order: null,
-        error: `Saldo kas tidak mencukupi. Butuh Rp ${totalCost.toLocaleString('id-ID')}, tersedia Rp ${cash.toLocaleString('id-ID')}.`,
+    if (isAiOrder) {
+      if (availableCash < totalCost) {
+        return {
+          order: null,
+          error: `⛔ Saldo Dompet AI Bot tidak mencukupi (Tersedia: Rp ${Math.round(availableCash).toLocaleString('id-ID')}, Butuh: Rp ${Math.round(totalCost).toLocaleString('id-ID')}). Silakan alokasikan modal dari Dompet Utama Anda via menu Pindah Dana ke Bot.`,
+        }
+      }
+    } else {
+      if (cash < totalCost) {
+        return {
+          order: null,
+          error: `Saldo kas Dompet Utama tidak mencukupi. Butuh Rp ${totalCost.toLocaleString('id-ID')}, tersedia Rp ${cash.toLocaleString('id-ID')}.`,
+        }
       }
     }
 
@@ -883,12 +969,13 @@ export const usePortfolioStore = create<PortfolioState>()(
       updatedHoldings = [...holdings, newHolding]
     }
 
-    set({
-      cash: cash - totalCost,
+    set((state) => ({
+      cash: isAiOrder ? state.cash : state.cash - totalCost,
+      aiCash: isAiOrder ? Math.max(0, (state.aiCash || 0) - totalCost) : (state.aiCash || 0),
       holdings: updatedHoldings,
       orders: [newOrder, ...orders],
       lastUpdated: Date.now(),
-    })
+    }))
 
     if (typeof window !== 'undefined') {
       import('@/lib/tradeSimAudio').then(({ tradeSimAudio }) => tradeSimAudio.playOrderFilledChime()).catch(() => {});
@@ -1391,13 +1478,16 @@ export const usePortfolioStore = create<PortfolioState>()(
       }
     }
 
-    set({
-      cash: cash + netProceeds,
-      realizedPL: currentTotalRealizedPL + orderRealizedPL,
+    const isAiHolding = existing?.source === 'AI_AGENT' || params.source === 'AI_AGENT'
+    set((state) => ({
+      cash: isAiHolding ? state.cash : state.cash + netProceeds,
+      aiCash: isAiHolding ? (state.aiCash || 0) + netProceeds : (state.aiCash || 0),
+      realizedPL: isAiHolding ? state.realizedPL : currentTotalRealizedPL + orderRealizedPL,
+      aiRealizedPL: isAiHolding ? (state.aiRealizedPL || 0) + orderRealizedPL : (state.aiRealizedPL || 0),
       holdings: updatedHoldings,
       orders: [newOrder, ...orders],
       lastUpdated: Date.now(),
-    })
+    }))
 
     if (typeof window !== 'undefined') {
       import('@/lib/tradeSimAudio').then(({ tradeSimAudio }) => tradeSimAudio.playOrderFilledChime()).catch(() => {});
@@ -1996,6 +2086,8 @@ export const usePortfolioStore = create<PortfolioState>()(
           ownerEmail: typeof persistedState.ownerEmail === 'string' ? persistedState.ownerEmail : null,
           cash: typeof persistedState.cash === 'number' ? persistedState.cash : 0,
           realizedPL: typeof persistedState.realizedPL === 'number' ? persistedState.realizedPL : 0,
+          aiCash: typeof persistedState.aiCash === 'number' ? persistedState.aiCash : 0,
+          aiRealizedPL: typeof persistedState.aiRealizedPL === 'number' ? persistedState.aiRealizedPL : 0,
           holdings: Array.isArray(persistedState.holdings) ? sanitizeHoldings(persistedState.holdings) : [],
           orders: Array.isArray(persistedState.orders) ? persistedState.orders : [],
           conditionalOrders: Array.isArray(persistedState.conditionalOrders) ? persistedState.conditionalOrders : [],
@@ -2007,6 +2099,8 @@ export const usePortfolioStore = create<PortfolioState>()(
         ownerEmail: state.ownerEmail,
         cash: state.cash,
         realizedPL: state.realizedPL,
+        aiCash: state.aiCash ?? 0,
+        aiRealizedPL: state.aiRealizedPL ?? 0,
         holdings: state.holdings,
         orders: state.orders,
         conditionalOrders: state.conditionalOrders,

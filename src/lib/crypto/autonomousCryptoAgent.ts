@@ -396,44 +396,41 @@ export async function runAutonomousCryptoAgentCycle(
       return { tradeExecuted, actionTaken, scanResult };
     }
 
-    const MIN_BOT_CASH_RESERVE = 1_000_000;
+    const botCash = portfolioStore.aiCash ?? 0;
+    const MIN_BOT_CASH_REQUIRED = 250_000;
 
-    // Proteksi Kas Minimum: Bot crypto DILARANG membeli koin jika kas di bawah Rp 1.000.000
-    if (portfolioStore.cash < MIN_BOT_CASH_RESERVE) {
-      if (Math.random() < 0.2) {
+    // Proteksi Kas Dompet AI Bot:
+    // Bot crypto HANYA boleh bertransaksi menggunakan modal yang telah dipindahkan ke Dompet AI Bot (aiCash)!
+    if (botCash < MIN_BOT_CASH_REQUIRED) {
+      if (Math.random() < 0.15) {
         aiStore.logAction({
           type: 'RISK_GATE',
-          symbol: topPick?.asset.baseAsset || 'CRYPTO',
+          symbol: topPick?.asset.baseAsset || 'DOMPET_AI',
           agentId: 'trader_crypto',
           agentName: 'Kevin Zhang (Jesse Crypto Desk Lead)',
           agentEmoji: '⚡',
-          title: `Jesse AI Risk Gate: Pembelian Crypto Ditolak (Kas < Rp 1 Juta)`,
-          details: `Sisa saldo kas saat ini (Rp ${Math.round(portfolioStore.cash).toLocaleString('id-ID')}) berada di bawah batas minimum Rp 1.000.000. Sesuai aturan manajemen risiko modal, bot crypto menonaktifkan seluruh pembelian koin baru.`,
+          title: `Jesse AI Standby: Dompet AI Bot Belum Dialokasikan Saldo`,
+          details: `Saldo Dompet AI Bot saat ini Rp ${Math.round(botCash).toLocaleString('id-ID')}. Untuk mengizinkan bot trading crypto secara mandiri, silakan pindahkan modal dari Dompet Utama ke Dompet AI Bot pada menu Portofolio.`,
           metadata: {
-            cash: portfolioStore.cash,
-            minCashRequired: MIN_BOT_CASH_RESERVE,
+            cash: botCash,
+            minCashRequired: MIN_BOT_CASH_REQUIRED,
           },
         });
       }
       return { tradeExecuted, actionTaken, scanResult };
     }
 
-    // Hitung total nilai portofolio untuk alokasi risiko
-    const totalCryptoValueIDR = cryptoHoldings.reduce((sum, h) => {
+    // Hitung total NAV khusus Dompet AI Bot (aiCash + posisi crypto bot)
+    const aiHoldings = portfolioStore.holdings.filter((h) => h.source === 'AI_AGENT');
+    const totalAiHoldingsValueIDR = aiHoldings.reduce((sum, h) => {
       const liveP = tickerMap[h.symbol]?.price ?? h.currentPrice;
       const u = h.cryptoUnits ?? h.lots;
       return sum + u * liveP * (h.exchangeRate || exchangeRate);
     }, 0);
 
-    const totalEquityValueIDR = portfolioStore.holdings
-      .filter((h) => h.assetClass !== 'CRYPTO' && !h.symbol.endsWith('USDT'))
-      .reduce((sum, h) => sum + h.currentPrice * (h.shares || h.lots * 100), 0);
-
-    const totalNav = portfolioStore.cash + totalCryptoValueIDR + totalEquityValueIDR;
-    const maxCryptoBudgetTotal = totalNav * 0.40; // Maks 40% NAV total untuk aset crypto
-    const maxPerCoinBudget = totalNav * 0.20;     // Maks 20% NAV per koin
-
-    const availableCashAfterReserve = Math.max(0, portfolioStore.cash - MIN_BOT_CASH_RESERVE);
+    const totalBotNav = botCash + totalAiHoldingsValueIDR;
+    const maxPerCoinBudget = Math.max(500_000, totalBotNav * 0.35); // Maks 35% modal bot per koin
+    const availableCashAfterReserve = botCash;
 
     // Cari kandidat koin terbaik dengan rotasi multi-kategori dan pencegahan duplikasi (hindari PEPE/SUI berulang)
     const diversifiedPick = selectDiversifiedCryptoCandidate(scanResult.leaderboard, portfolioStore.holdings);
@@ -448,6 +445,7 @@ export async function runAutonomousCryptoAgentCycle(
       const cleanSym = candidate.asset.baseAsset;
       const existingHolding = portfolioStore.holdings.find(
         (h) =>
+          h.source === 'AI_AGENT' &&
           (h.assetClass === 'CRYPTO' || h.symbol.endsWith('USDT')) &&
           (h.displaySymbol.toUpperCase() === cleanSym || h.symbol.toUpperCase() === candidate.asset.symbol)
       );
@@ -456,19 +454,18 @@ export async function runAutonomousCryptoAgentCycle(
         ? (existingHolding.cryptoUnits ?? existingHolding.lots) * candidate.signal.currentPrice * exchangeRate
         : 0;
 
-      // Sizing alokasi beli per trade (disesuaikan kas yang aman setelah cadangan Rp 1 Juta)
+      // Sizing alokasi beli per trade (dari saldo kas bot yang tersedia)
       const targetTradeAmountIDR = Math.min(
-        Math.max(1_000_000, Math.floor(availableCashAfterReserve * 0.05)),
+        Math.max(250_000, Math.floor(availableCashAfterReserve * 0.25)),
         maxPerCoinBudget - currentCoinExposureIDR,
-        maxCryptoBudgetTotal - totalCryptoValueIDR,
         availableCashAfterReserve
       );
 
       const hasBudget =
-        portfolioStore.cash >= MIN_BOT_CASH_RESERVE &&
-        targetTradeAmountIDR >= 500_000 &&
-        (portfolioStore.cash - targetTradeAmountIDR * 1.001 >= MIN_BOT_CASH_RESERVE);
-      const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget && totalCryptoValueIDR < maxCryptoBudgetTotal;
+        botCash >= MIN_BOT_CASH_REQUIRED &&
+        targetTradeAmountIDR >= 200_000 &&
+        botCash >= targetTradeAmountIDR * 1.001;
+      const isUnderAllocated = currentCoinExposureIDR < maxPerCoinBudget;
 
       if (hasBudget && isUnderAllocated) {
         const budgetUSDT = targetTradeAmountIDR / exchangeRate;
