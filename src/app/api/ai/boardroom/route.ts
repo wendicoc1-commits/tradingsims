@@ -119,7 +119,7 @@ function generateDeterministicBoardroom(clean: string, name: string, price: numb
   const allocPct = action === 'STRONG BUY' ? 12 : action === 'ACCUMULATE' ? 7.5 : action === 'HOLD / WAIT' ? 3 : 0;
   const totalSimulatedCapital = currency === 'IDR' ? 100_000_000 : 10_000;
   const allocatedMoney = totalSimulatedCapital * (allocPct / 100);
-  const lots = currency === 'IDR' ? calculateShares(allocatedMoney, price) : Number((allocatedMoney / price).toFixed(4));
+  const lots = currency === 'IDR' ? Math.max(1, Math.floor(allocatedMoney / (price * 100))) : Number((allocatedMoney / price).toFixed(4));
 
   const executives: BoardroomExecutive[] = [
     {
