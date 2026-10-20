@@ -21,8 +21,6 @@ import {
   Rocket,
   Flame,
   Radio,
-  Trophy,
-  Compass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,11 +40,6 @@ const researchDesks = [
   { href: '/ai', label: 'TradeSim AI Hub', icon: Bot },
 ];
 
-const academyDesks = [
-  { href: '/championship', label: 'Liga Trading Cuan', icon: Trophy },
-  { href: '/roadmap', label: 'Roadmap Trader', icon: Compass },
-  { href: '/architecture', label: 'Graphify Arsitektur', icon: Layers },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -141,42 +134,6 @@ export default function Sidebar() {
                   title={collapsed ? item.label : undefined}
                 >
                   <item.icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Academy & Championship Desks Group */}
-        <div>
-          {!collapsed && (
-            <div className="px-2 pb-1 text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Trophy className="w-3 h-3 text-amber-400" />
-              <span>Akademi &amp; Liga</span>
-            </div>
-          )}
-          <div className="space-y-0.5" role="list">
-            {academyDesks.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={cn(
-                    'flex items-center gap-2.5 px-2.5 py-1.5 rounded text-xs transition-all',
-                    collapsed && 'justify-center px-0'
-                  )}
-                  style={{
-                    backgroundColor: isActive ? 'var(--accent-bg)' : 'transparent',
-                    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                    borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent',
-                    fontWeight: isActive ? '700' : '500',
-                  }}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <item.icon className="w-4 h-4 shrink-0 text-amber-400" aria-hidden="true" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               );

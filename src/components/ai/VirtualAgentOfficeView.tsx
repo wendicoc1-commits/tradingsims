@@ -24,8 +24,6 @@ import {
   ShieldCheck,
   Check,
   ChevronRight,
-  Volume2,
-  VolumeX,
   CloudSun,
   CloudRain,
   Moon,
@@ -35,7 +33,6 @@ import {
   Flame,
   Globe,
 } from 'lucide-react';
-import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
 import { toast } from 'sonner';
 import type { BandarmologiInsight, CryptoWhaleInsight } from '@/lib/hedgefund/bandarmologiEngine';
 import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
@@ -110,12 +107,10 @@ import {
   type UnifiedAsset,
 } from '@/lib/universe/masterAssetUniverse';
 import type {
-  CrisisEventPayload,
   PostMortemEntry,
   MeritocraticAllocation,
 } from '@/lib/hedgefund/autonomousEcosystemSchema';
 import { calculateDynamicAumRouting } from '@/lib/hedgefund/meritocraticSpatialEngine';
-import CrisisCommandConsole from './CrisisCommandConsole';
 import PostMortemVaultModal from './PostMortemVaultModal';
 import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
 import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
@@ -1259,7 +1254,6 @@ export default function VirtualAgentOfficeView() {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [assetsReady, setAssetsReady] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   // ── Auto-Pilot & Autonomous Stock Selection ──
   const { tickerMap } = useBinanceLivePrices();
@@ -1585,37 +1579,6 @@ export default function VirtualAgentOfficeView() {
       isSubscribed = false;
     };
   }, [inspectId, selectedStock]);
-
-  // ── MODUL 1: BLACK SWAN CRISIS INJECTOR ──
-  const [crisisConsoleOpen, setCrisisConsoleOpen] = useState(false);
-  const [activeCrisis, setActiveCrisis] = useState<CrisisEventPayload | null>(null);
-
-  const handleInjectCrisis = (crisis: CrisisEventPayload) => {
-    setActiveCrisis(crisis);
-    setCrisisConsoleOpen(false);
-    setAlarm(true);
-    // Visual flash and audio alert
-    if (voiceEnabled) {
-      executiveVoice.speak(`Peringatan darurat: Anomali Black Swan terdeteksi! Skenario ${crisis.type}. Pembekuan order non-hedged diaktifkan.`);
-    }
-    // 3D Holographic Shockwave & Glitch
-    globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#ef4444', 360);
-    globalAtmosphere.triggerGlitch(1.0);
-    ['pm_quant', 'risk_head', 'execution_algo'].forEach((agentId) => {
-      const a = simRef.current?.byId[agentId];
-      if (a) {
-        globalLaserNetwork.fireStream(WAR_ROOM.cx, WAR_ROOM.cy, a.x, a.y, 'RISK_VETO');
-      }
-    });
-  };
-
-  const handleResolveCrisis = () => {
-    setActiveCrisis(null);
-    setAlarm(false);
-    if (voiceEnabled) {
-      executiveVoice.speak('Skenario darurat selesai. Seluruh sistem kembali ke parameter operasional normal.');
-    }
-  };
 
   // ── MODUL 2: POST-MORTEM & MEMORY VAULT ──
   const [postMortemModalOpen, setPostMortemModalOpen] = useState(false);
@@ -2251,7 +2214,6 @@ export default function VirtualAgentOfficeView() {
   }, [ctxData, intel, portfolio, selectedStock, flyTo, scanResult]);
 
   const resetDebate = useCallback(() => {
-    executiveVoice.stop();
     lastDebateEndTimeRef.current = Date.now();
     useAIAgentStore.getState().setActiveDeliberatingTicker(null);
     setPhase('IDLE');
@@ -2264,7 +2226,6 @@ export default function VirtualAgentOfficeView() {
   // Hentikan suara vokal & reset ticker sidang jika sidang keluar dari fase RUNNING
   useEffect(() => {
     if (phase !== 'RUNNING') {
-      executiveVoice.stop();
       if (phase === 'IDLE') {
         useAIAgentStore.getState().setActiveDeliberatingTicker(null);
       }
@@ -2273,10 +2234,7 @@ export default function VirtualAgentOfficeView() {
 
   // Bersihkan suara vokal & ticker deliberasi saat unmount komponen
   useEffect(() => {
-    executiveVoice.setMuted(true);
-    executiveVoice.stop();
     return () => {
-      executiveVoice.stop();
       useAIAgentStore.getState().setActiveDeliberatingTicker(null);
     };
   }, []);
@@ -2361,12 +2319,9 @@ export default function VirtualAgentOfficeView() {
         // Pulse shockwave pada holographic market hub
         globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#38bdf8', 180);
       }
-      if (voiceEnabled) {
-        executiveVoice.speak(line.agentId, line.text);
-      }
     }
     sim.alarm = alarm;
-  }, [phase, step, snapshot, alarm, voiceEnabled]);
+  }, [phase, step, snapshot, alarm]);
 
   const approveOrder = useCallback(() => {
     if (!snapshot) return;
@@ -2734,26 +2689,6 @@ export default function VirtualAgentOfficeView() {
               Harga {quote?.live ? 'LIVE' : quote ? 'FALLBACK' : '…'}
             </div>
 
-            {/* Toggle Suara Vokal Eksekutif (Web Speech Synthesis TTS) */}
-            <button
-              onClick={() => {
-                setVoiceEnabled((prev) => {
-                  const next = !prev;
-                  executiveVoice.setMuted(!next);
-                  return next;
-                });
-              }}
-              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer ${
-                voiceEnabled
-                  ? 'border-cyan-500/50 text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25'
-                  : 'border-zinc-700 text-zinc-500 bg-zinc-800/60 hover:text-zinc-300'
-              }`}
-              title={voiceEnabled ? 'Suara Vokal Eksekutif Aktif (Web Speech API)' : 'Suara Vokal Eksekutif Dimatikan'}
-            >
-              {voiceEnabled ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
-              <span>{voiceEnabled ? 'VOICE ON' : 'VOICE MUTE'}</span>
-            </button>
-
             {/* Badge Cuaca Pasar Kantor Virtual (Dimensi 4: Market Weather) */}
             <div
               className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 ${
@@ -2890,20 +2825,6 @@ export default function VirtualAgentOfficeView() {
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 🏆 Leaderboard Alpha ({scanResult?.scannedCount ?? 60}+ Aset)
-              </button>
-
-              {/* Tombol Black Swan Crisis Injector */}
-              <button
-                onClick={() => setCrisisConsoleOpen(true)}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
-                  activeCrisis
-                    ? 'bg-rose-600 text-white border-rose-400 animate-pulse shadow-lg shadow-rose-600/40'
-                    : 'bg-[#181016] hover:bg-rose-950/60 border-rose-500/40 text-rose-300 hover:border-rose-400'
-                }`}
-                title="Buka Crisis Control Panel untuk injeksi skenario Black Swan"
-              >
-                <span>🚨</span>
-                <span>{activeCrisis ? 'KRISIS AKTIF' : 'Black Swan'}</span>
               </button>
 
               {/* Tombol Hall of Post-Mortems & Memory Vault */}
@@ -4668,15 +4589,6 @@ export default function VirtualAgentOfficeView() {
           </div>
         </div>
       )}
-      {/* ── MODUL 1: CRISIS COMMAND CONSOLE ── */}
-      <CrisisCommandConsole
-        isOpen={crisisConsoleOpen}
-        onClose={() => setCrisisConsoleOpen(false)}
-        onInjectCrisis={handleInjectCrisis}
-        isCrisisActive={Boolean(activeCrisis)}
-        activeCrisis={activeCrisis}
-        onResolveCrisis={handleResolveCrisis}
-      />
 
       {/* ── MODUL 2: POST-MORTEM VAULT MODAL ── */}
       <PostMortemVaultModal

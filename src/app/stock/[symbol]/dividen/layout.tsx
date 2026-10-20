@@ -59,7 +59,7 @@ export default async function StockDividendLayout({ params, children }: Props) {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Beranda', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Kalender Dividen', item: `${SITE_URL}/kalender-dividen` },
+          { '@type': 'ListItem', position: 2, name: 'Kalender Dividen', item: `${SITE_URL}/dividend` },
           { '@type': 'ListItem', position: 3, name: `Dividen ${symbol}`, item: pageUrl },
         ],
       },

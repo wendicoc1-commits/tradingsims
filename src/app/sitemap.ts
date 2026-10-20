@@ -23,7 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/dividend', changeFrequency: 'weekly' as const, priority: 0.75 },
     { path: '/ipo', changeFrequency: 'weekly' as const, priority: 0.75 },
     { path: '/macro', changeFrequency: 'daily' as const, priority: 0.75 },
-    { path: '/openstock', changeFrequency: 'hourly' as const, priority: 0.75 },
 
     // Financial Tools / Calculators (High Inbound Volume)
     { path: '/tools/kalkulator-fee-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
@@ -42,10 +41,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     // Kamus Pasar Modal Hub
     { path: '/kamus', changeFrequency: 'weekly' as const, priority: 0.9 },
-
-    // Kalender Dividen & IPO Hubs
-    { path: '/kalender-dividen', changeFrequency: 'daily' as const, priority: 0.95 },
-    { path: '/kalender-ipo', changeFrequency: 'daily' as const, priority: 0.92 },
 
     // Crypto Sentiment Hub
     { path: '/crypto/fear-and-greed', changeFrequency: 'hourly' as const, priority: 0.9 },

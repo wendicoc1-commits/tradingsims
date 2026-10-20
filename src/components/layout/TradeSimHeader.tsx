@@ -77,9 +77,6 @@ const CLI_COMMAND_SUGGESTIONS: CliSuggestion[] = [
   { cmd: 'CRYPTO', desc: 'AI Quant Cryptocurrency Trading Desk', cat: 'pasar' },
   { cmd: 'ADMIN', desc: 'Panel Administrator (Approval Deposit & Portofolio)', cat: 'alat' },
   { cmd: 'TOPUP', desc: 'Top Up Saldo Kas Virtual via QRIS', cat: 'alat' },
-  { cmd: 'LIGA', desc: 'Turnamen Liga Trading Berhadiah Tunai Rp 5 Jt', cat: 'alat' },
-  { cmd: 'ROADMAP', desc: 'Peta Jalan Belajar Trader & Quant FinTech', cat: 'alat' },
-  { cmd: 'ARCH', desc: 'Blueprint Arsitektur Sistem FinTech ACID', cat: 'alat' },
   { cmd: 'HELP', desc: 'Buka Panduan & Shortcuts TradeSim Pro', cat: 'alat' },
 ];
 
@@ -222,14 +219,10 @@ export default function TradeSimHeader() {
     else if (cmd === 'PORT' || cmd === 'PORTFOLIO') router.push('/portfolio');
     else if (cmd === 'TOPUP' || cmd === 'DEPOSIT') setIsTopUpOpen(true);
     else if (cmd === 'ADMIN' || cmd === 'APPROVAL') router.push('/admin/deposits');
-    else if (cmd === 'LIGA' || cmd === 'CHAMPIONSHIP' || cmd === 'TOURNAMENT') router.push('/championship');
-    else if (cmd === 'ROADMAP' || cmd === 'LEARN') router.push('/roadmap');
-    else if (cmd === 'ARCH' || cmd === 'ARCHITECTURE') router.push('/architecture');
     else if (cmd === 'LOGIN' || cmd === 'AUTH') setIsAuthModalOpen(true);
     else if (cmd === 'SOUND' || cmd === 'AUDIO') handleToggleSound();
     else if (cmd === 'NEWS' || cmd === 'STREAM') router.push('/stream');
     else if (cmd === 'CRYPTO' || cmd === 'BTC' || cmd === 'ETH') router.push('/crypto');
-    else if (cmd === 'NETWORK' || cmd === 'GRAPH') router.push('/network');
     else if (cmd === 'HEATMAP') router.push('/heatmap');
     else if (cmd === 'SCREENER') router.push('/screener');
     else if (cmd === 'DIVIDEND' || cmd === 'DIV') router.push('/dividend');
@@ -627,18 +620,6 @@ export default function TradeSimHeader() {
           AI CHAT
         </Link>
         <Link
-          href="/championship"
-          onClick={() => tradeSimAudio.playClick()}
-          aria-current={pathname.startsWith('/championship') ? 'page' : undefined}
-          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
-            pathname.startsWith('/championship')
-              ? 'bg-[#f97316] text-black font-black shadow-sm'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          BACKTEST
-        </Link>
-        <Link
           href="/macro"
           onClick={() => tradeSimAudio.playClick()}
           aria-current={pathname.startsWith('/macro') ? 'page' : undefined}
@@ -649,18 +630,6 @@ export default function TradeSimHeader() {
           }`}
         >
           ALGO
-        </Link>
-        <Link
-          href="/architecture"
-          onClick={() => tradeSimAudio.playClick()}
-          aria-current={pathname.startsWith('/architecture') ? 'page' : undefined}
-          className={`px-3 py-1 text-xs font-bold transition-all tracking-wider shrink-0 ${
-            pathname.startsWith('/architecture')
-              ? 'bg-[#f97316] text-black font-black shadow-sm'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          NODES
         </Link>
         <Link
           href="/dividend"
