@@ -113,6 +113,9 @@ import type {
 import { calculateDynamicAumRouting } from '@/lib/hedgefund/meritocraticSpatialEngine';
 import PostMortemVaultModal from './PostMortemVaultModal';
 import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
+import { evaluateMungerInversion, type MungerInversionResult } from '@/lib/hedgefund/mungerInversionEngine';
+import { calculateCfoRiskAudit, type CfoRiskAudit } from '@/lib/hedgefund/cfoRiskGuardian';
+import MungerInversionModal from './MungerInversionModal';
 import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
 import { globalAgentAtlas, type AgentVisualState } from '@/lib/office/SpriteSheetAtlasPool';
 import { globalLaserNetwork } from '@/lib/office/AgentLaserNetworkEngine';
@@ -2710,6 +2713,22 @@ export default function VirtualAgentOfficeView() {
                   ? '🌧️ HUJAN BEARISH'
                   : '🌙 MALAM AFTER-HOURS'}
               </span>
+            </div>
+
+            {/* CFO Risk & Drawdown Guardian (Autonomous-Company cfo-campbell) */}
+            <div
+              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 ${
+                cfoRiskAudit.status === 'OPTIMAL'
+                  ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
+                  : cfoRiskAudit.status === 'ELEVATED_RISK'
+                  ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+                  : 'border-rose-500/40 text-rose-300 bg-rose-500/10 animate-pulse'
+              }`}
+              title={cfoRiskAudit.cfoAssessment}
+            >
+              <span>⚖️ CFO:</span>
+              <span className="font-bold">{cfoRiskAudit.status}</span>
+              <span className="text-[10px] opacity-75">(-{cfoRiskAudit.drawdownPct}%)</span>
             </div>
 
             {/* Status Jam Bursa Efek Indonesia (IDX / BEI) */}

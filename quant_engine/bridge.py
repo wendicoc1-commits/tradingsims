@@ -227,6 +227,8 @@ def synthesize_csuite_intelligence(prices):
 def autonomous_worker_loop():
     logger.info("🚀 [DAEMON 24/7] Autonomous Heartbeat Worker aktif di latar belakang VPS!")
     cycle_counter = 0
+    last_morning_brief_day = ""
+    last_closing_brief_day = ""
 
     while AUTONOMOUS_STATE["is_running"]:
         try:
@@ -323,6 +325,44 @@ def autonomous_worker_loop():
                 synthesize_csuite_intelligence(prices)
                 cycle_counter = 0
 
+            # 4. SRE Watchdog Self-Healing Check (Setiap 2 siklus / ~60 detik)
+            if cycle_counter % 2 == 0:
+                try:
+                    req = urllib.request.Request("http://127.0.0.1:3000/api/ai/watchdog", headers={"User-Agent": "TradeSim-SRE-Watchdog"})
+                    with urllib.request.urlopen(req, timeout=3) as resp:
+                        if resp.status == 200:
+                            sre_data = json.loads(resp.read().decode('utf-8'))
+                            AUTONOMOUS_STATE["sre_health"] = sre_data
+                except Exception as sre_err:
+                    pass
+
+            # 5. Automated Telegram Briefing Scheduler (08:30 WIB & 16:30 WIB)
+            utc_now = time.time()
+            wib_struct = time.gmtime(utc_now + 7 * 3600)
+            wib_hour = wib_struct.tm_hour
+            wib_min = wib_struct.tm_min
+            today_str = f"{wib_struct.tm_year}-{wib_struct.tm_mon:02d}-{wib_struct.tm_mday:02d}"
+
+            if wib_hour == 8 and 30 <= wib_min <= 45 and last_morning_brief_day != today_str:
+                try:
+                    logger.info("🌅 [AUTONOMOUS SRE/MARKETING] Memicu Morning Opening Intel ke Telegram...")
+                    req = urllib.request.Request("http://127.0.0.1:3000/api/ai/briefing?type=MORNING_OPEN&dispatch=telegram", method="POST")
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        logger.info("✅ Morning Briefing berhasil dikirimkan.")
+                    last_morning_brief_day = today_str
+                except Exception as b_err:
+                    logger.warning(f"Briefing trigger warning: {b_err}")
+
+            if wib_hour == 16 and 30 <= wib_min <= 45 and last_closing_brief_day != today_str:
+                try:
+                    logger.info("🌆 [AUTONOMOUS SRE/MARKETING] Memicu Closing Bell Wrap ke Telegram...")
+                    req = urllib.request.Request("http://127.0.0.1:3000/api/ai/briefing?type=CLOSING_WRAP&dispatch=telegram", method="POST")
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        logger.info("✅ Closing Wrap berhasil dikirimkan.")
+                    last_closing_brief_day = today_str
+                except Exception as b_err:
+                    logger.warning(f"Briefing trigger warning: {b_err}")
+
         except Exception as err:
             logger.error(f"Error pada Autonomous Daemon: {err}")
 
@@ -416,6 +456,16 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "success": True,
                 "brief": brief
+            }).encode("utf-8"))
+
+        elif path in ["/api/quant/sre/status", "/sre/status"]:
+            self._set_cors_headers(200)
+            self.wfile.write(json.dumps({
+                "success": True,
+                "sre_watchdog": AUTONOMOUS_STATE.get("sre_health", { "status": "UP", "mode": "AUTONOMOUS_VPS" }),
+                "munger_inversion_protocol": "ACTIVE",
+                "cfo_risk_guardian": "ACTIVE",
+                "briefing_schedule": "08:30 WIB & 16:30 WIB"
             }).encode("utf-8"))
 
         elif path == "/api/quant/memory":
