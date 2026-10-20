@@ -65,21 +65,14 @@ export async function generateAutonomousBriefing(
 
   // Pindai Universe untuk Alpha Teratas
   const scan = scanUniverseForTopAlpha([], undefined, (p.holdings || []).map((h) => h.displaySymbol));
-  const topPicks = scan.rankedLeaderboard.slice(0, 3).map((item) => {
-    const candidate = scan.scannedEvaluations.find((e) => e.symbol === item.symbol) || {
-      symbol: item.symbol,
-      score: item.score,
-      keyDrivers: ['Momentum Alpha Kuat', 'Arus Kas Stabil'],
-      technicalAnalysis: { rsi: 54 },
-      sizing: { targetPrice: 10000, stopLoss: 9200 },
-    };
-    const mungerAudit = evaluateMungerInversion(candidate as any, null, p);
+  const topPicks = (scan.rankedLeaderboard || []).slice(0, 3).map((item) => {
+    const mungerAudit = evaluateMungerInversion(item, null, p);
     return {
       symbol: item.symbol,
       score: item.score,
       mungerVerdict: mungerAudit.verdict,
-      catalyst: item.drivers[0] || 'Pertumbuhan Volume & Alpha Kuantitatif',
-      targetPrice: candidate.sizing?.targetPrice || 0,
+      catalyst: item.keyDrivers?.[0] || 'Pertumbuhan Volume & Alpha Kuantitatif',
+      targetPrice: item.sizing?.targetPrice || 0,
     };
   });
 
@@ -91,8 +84,8 @@ export async function generateAutonomousBriefing(
     : `🌆 TradeSims Closing Wrap — Penutupan Sesi ${dateStr}`;
 
   const executiveSummary = isMorning
-    ? `Pasar bersiap membuka sesi dengan sentimen ${scan.dominantCategory}. Algoritma mengidentifikasi ${topPicks.length} peluang alpha dengan validasi Red-Team Munger.`
-    : `Sesi perdagangan ditutup dengan status portofolio ${cfo.status}. Total NAV $${cfo.currentNavUsd.toLocaleString()} USD dengan kontrol drawdown -${cfo.drawdownPct}%.`;
+    ? `Pasar bersiap membuka sesi perdagangan. Algoritma mengidentifikasi ${topPicks.length} peluang alpha terverifikasi oleh Red-Team Munger Inversion.`
+    : `Sesi perdagangan ditutup dengan status portofolio ${cfo.status}. Total NAV ${cfo.currentNavUsd.toLocaleString()} USD dengan kontrol drawdown -${cfo.drawdownPct}%.`;
 
   // Format pesan ramah Telegram HTML
   let telegramHtml = `<b>${headline}</b>\n`;
