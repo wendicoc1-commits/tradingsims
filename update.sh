@@ -45,12 +45,8 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 systemctl restart quant-bridge 2>/dev/null || true
 
-# Update konfigurasi Nginx jika diperlukan
-if [ -f "$APP_DIR/deploy_web_vps.sh" ]; then
-    bash "$APP_DIR/deploy_web_vps.sh" || true
-else
-    nginx -t && systemctl reload nginx 2>/dev/null || true
-fi
+# Reload Nginx jika konfigurasi valid
+nginx -t && systemctl reload nginx 2>/dev/null || true
 
 echo ""
 echo "=========================================================================="
