@@ -64,7 +64,7 @@ export async function generateAutonomousBriefing(
   };
 
   // Pindai Universe untuk Alpha Teratas
-  const scan = scanUniverseForTopAlpha(p);
+  const scan = scanUniverseForTopAlpha([], undefined, (p.holdings || []).map((h) => h.displaySymbol));
   const topPicks = scan.rankedLeaderboard.slice(0, 3).map((item) => {
     const candidate = scan.scannedEvaluations.find((e) => e.symbol === item.symbol) || {
       symbol: item.symbol,
