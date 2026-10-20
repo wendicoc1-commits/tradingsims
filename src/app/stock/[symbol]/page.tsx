@@ -48,6 +48,7 @@ import OptionsWarrantsDesk from '@/components/stock/OptionsWarrantsDesk';
 import FinancialStatementsTable from '@/components/stock/FinancialStatementsTable';
 import ForeignFlowMatrix from '@/components/stock/ForeignFlowMatrix';
 import CompanyLogo from '@/components/common/CompanyLogo';
+import DailyPivotPointsPanel from '@/components/stock/DailyPivotPointsPanel';
 import { ALL_ID_HEATMAP_UNIVERSE } from '@/data/heatmap_stocks_universe';
 import { getAssetBySymbol, isCryptoSymbol } from '@/lib/universe/masterAssetUniverse';
 import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices';
@@ -1442,6 +1443,13 @@ export default function StockDetailPage() {
         onApplyToChart={(script) => {
           setAppliedPineScript(script);
         }}
+      />
+
+      {/* ── Freshness Signal & Internal Silo Linking (SEO Pivot Levels) ── */}
+      <DailyPivotPointsPanel
+        symbol={cleanSymbol}
+        name={quote?.name || cleanSymbol}
+        quote={quote}
       />
 
       {/* ── People Also Ask & Rich FAQ Section for Google SERP ── */}

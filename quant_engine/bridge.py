@@ -229,6 +229,7 @@ def autonomous_worker_loop():
     cycle_counter = 0
     last_morning_brief_day = ""
     last_closing_brief_day = ""
+    last_indexnow_day = ""
 
     while AUTONOMOUS_STATE["is_running"]:
         try:
@@ -362,6 +363,41 @@ def autonomous_worker_loop():
                     last_closing_brief_day = today_str
                 except Exception as b_err:
                     logger.warning(f"Briefing trigger warning: {b_err}")
+
+            # 6. Automated IndexNow Search Engine Ping (08:45 WIB Setiap Hari Perdagangan)
+            if wib_hour == 8 and 45 <= wib_min <= 55 and last_indexnow_day != today_str:
+                try:
+                    logger.info("📡 [AUTONOMOUS SEO] Mem-ping IndexNow API untuk Bing & Yandex...")
+                    indexnow_payload = json.dumps({
+                        "host": "www.tradingsims.my.id",
+                        "key": "e4b8f2a17c9d0356",
+                        "keyLocation": "https://www.tradingsims.my.id/e4b8f2a17c9d0356.txt",
+                        "urlList": [
+                            "https://www.tradingsims.my.id/",
+                            "https://www.tradingsims.my.id/terminal",
+                            "https://www.tradingsims.my.id/markets",
+                            "https://www.tradingsims.my.id/crypto",
+                            "https://www.tradingsims.my.id/screener",
+                            "https://www.tradingsims.my.id/dividend",
+                            "https://www.tradingsims.my.id/tools/kalkulator-risk-reward",
+                            "https://www.tradingsims.my.id/tools/kalkulator-cut-loss-bep",
+                            "https://www.tradingsims.my.id/vs/bbri-vs-bmri",
+                            "https://www.tradingsims.my.id/vs/antm-vs-mdka",
+                            "https://www.tradingsims.my.id/vs/bumi-vs-dewa",
+                            "https://www.tradingsims.my.id/vs/btc-vs-eth"
+                        ]
+                    }).encode('utf-8')
+                    req = urllib.request.Request(
+                        "https://api.indexnow.org/indexnow",
+                        data=indexnow_payload,
+                        headers={"Content-Type": "application/json; charset=utf-8"},
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        logger.info(f"✅ [INDEXNOW PING] Status {resp.status}: URL sukses di-submit ke Bing & Yandex!")
+                    last_indexnow_day = today_str
+                except Exception as in_err:
+                    logger.warning(f"IndexNow ping warning: {in_err}")
 
         except Exception as err:
             logger.error(f"Error pada Autonomous Daemon: {err}")

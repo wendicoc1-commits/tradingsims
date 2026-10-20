@@ -252,8 +252,287 @@ export const STOCK_DUELS: StockPairDuel[] = [
       debtToEquity: 0.05,
     },
     summary: 'Dua pionir saham startup teknologi BEI. GOTO telah mencapai EBITDA yang disesuaikan positif dengan kemitraan strategis TikTok Shop, sedangkan BUKA memiliki saldo kas bersih (net cash) yang bahkan lebih tinggi dari total kapitalisasi pasarnya.',
-    winnerReason: 'GOTO memiliki skala ekosistem pengguna dan volume transaksi (GTV) terbesar di Indonesia, sementara BUKA adalah saham *deep value* dengan kas melimpah tanpa beban utang.',
+    winnerReason: 'GOTO memiliki skala ekosistem pengguna dan volume transaksi (GTV) terbesar di Indonesia, sementara BUKA adalah saham *deep value* dengan kas melimpah tanpa beban utang.',},
+{
+  "slug": "bbri-vs-bmri",
+  "title": "BBRI vs BMRI: Bank Rakyat Indonesia vs Bank Mandiri",
+  "stockA": {
+    "ticker": "BBRI",
+    "name": "Bank Rakyat Indonesia Tbk",
+    "sector": "Perbankan (Financials)",
+    "per": 11.2,
+    "pbv": 2.1,
+    "divYield": 6.8,
+    "marketCap": "Rp 820 T",
+    "roe": 19.8,
+    "debtToEquity": 0.85
   },
+  "stockB": {
+    "ticker": "BMRI",
+    "name": "Bank Mandiri Tbk",
+    "sector": "Perbankan (Financials)",
+    "per": 9.8,
+    "pbv": 2.1,
+    "divYield": 5.4,
+    "marketCap": "Rp 610 T",
+    "roe": 22.1,
+    "debtToEquity": 0.72
+  },
+  "summary": "Duel dua bank BUMN terbesar dengan profitabilitas rekor di BEI. BBRI merajai segmen kredit mikro dan ultra mikro melalui Kupedes, sedangkan BMRI memimpin segmen pembiayaan korporasi dan transaksi digital super app Livin.",
+  "winnerReason": "Pilih BBRI jika tujuan utama Anda adalah dividen yield tinggi di atas 6%, atau pilih BMRI jika Anda memprioritaskan pertumbuhan laba korporasi dengan rasio dana murah CASA terkuat."
+},
+{
+  "slug": "antm-vs-mdka",
+  "title": "ANTM vs MDKA: Aneka Tambang vs Merdeka Copper Gold",
+  "stockA": {
+    "ticker": "ANTM",
+    "name": "Aneka Tambang Tbk",
+    "sector": "Nikel, Emas & Bauksit",
+    "per": 15.6,
+    "pbv": 1.8,
+    "divYield": 4.1,
+    "marketCap": "Rp 78 T",
+    "roe": 12.3,
+    "debtToEquity": 0.35
+  },
+  "stockB": {
+    "ticker": "MDKA",
+    "name": "Merdeka Copper Gold Tbk",
+    "sector": "Tembaga, Emas & Nikel",
+    "per": 35,
+    "pbv": 3.2,
+    "divYield": 0,
+    "marketCap": "Rp 56 T",
+    "roe": 4.5,
+    "debtToEquity": 0.95
+  },
+  "summary": "Dua pemain tambang logam mulia dan logam transisi energi terpopuler. ANTM BUMN mencetak rekor dari lonjakan penjualan emas fisik batangan Logam Mulia, sedangkan MDKA memiliki cadangan tembaga Tujuh Bukit kelas dunia dan smelter HPAL nikel.",
+  "winnerReason": "ANTM memberikan dividen rutin dan perlindungan inflasi emas fisik, sementara MDKA menawarkan potensi pertumbuhan jangka panjang proyek tembaga bawah tanah."
+},
+{
+  "slug": "bumi-vs-dewa",
+  "title": "BUMI vs DEWA: Bumi Resources vs Darma Henwa",
+  "stockA": {
+    "ticker": "BUMI",
+    "name": "Bumi Resources Tbk",
+    "sector": "Pertambangan Batubara",
+    "per": 5.5,
+    "pbv": 0.95,
+    "divYield": 0,
+    "marketCap": "Rp 52 T",
+    "roe": 16.2,
+    "debtToEquity": 0.65
+  },
+  "stockB": {
+    "ticker": "DEWA",
+    "name": "Darma Henwa Tbk",
+    "sector": "Jasa Kontraktor Penambangan",
+    "per": 8.5,
+    "pbv": 0.75,
+    "divYield": 0,
+    "marketCap": "Rp 8.5 T",
+    "roe": 9.1,
+    "debtToEquity": 1.1
+  },
+  "summary": "Dua saham Grup Bakrie dan Salim yang memiliki volume transaksi harian paling aktif di bursa. BUMI produsen batubara terbesar Indonesia, DEWA kontraktor penambangan pendukung operasional tambang batubara.",
+  "winnerReason": "BUMI menawarkan likuiditas raksasa dan neraca yang telah bebas dari utang PKPU, sedangkan DEWA memiliki kapitalisasi pasar lebih kecil yang lincah digerakkan momentum sektor."
+},
+{
+  "slug": "pgas-vs-medc",
+  "title": "PGAS vs MEDC: Perusahaan Gas Negara vs Medco Energi",
+  "stockA": {
+    "ticker": "PGAS",
+    "name": "Perusahaan Gas Negara Tbk",
+    "sector": "Transmisi & Niaga Gas Bumi",
+    "per": 7.2,
+    "pbv": 0.82,
+    "divYield": 8.2,
+    "marketCap": "Rp 38 T",
+    "roe": 11.5,
+    "debtToEquity": 0.85
+  },
+  "stockB": {
+    "ticker": "MEDC",
+    "name": "Medco Energi Internasional Tbk",
+    "sector": "Eksplorasi Minyak, Gas & Tambang Tembaga",
+    "per": 6.1,
+    "pbv": 1.15,
+    "divYield": 5.5,
+    "marketCap": "Rp 33 T",
+    "roe": 18.2,
+    "debtToEquity": 1.65
+  },
+  "summary": "Pilihan utama sektor energi migas Indonesia. PGAS memonopoli 90%+ jaringan pipa transmisi gas bumi dengan dividen yield 8%+, sementara MEDC menawarkan keuntungan langsung dari harga minyak mentah Brent dan kepemilikan saham tambang emas tembaga Amman Mineral (AMMN).",
+  "winnerReason": "Pilih PGAS untuk arus kas defensif dengan yield dividen tinggi, atau MEDC untuk pengungkit pertumbuhan laba saat komoditas minyak dan tembaga melonjak."
+},
+{
+  "slug": "bris-vs-btps",
+  "title": "BRIS vs BTPS: Bank Syariah Indonesia vs BTPN Syariah",
+  "stockA": {
+    "ticker": "BRIS",
+    "name": "Bank Syariah Indonesia Tbk",
+    "sector": "Perbankan Syariah",
+    "per": 18.5,
+    "pbv": 2.8,
+    "divYield": 1.5,
+    "marketCap": "Rp 140 T",
+    "roe": 16.8,
+    "debtToEquity": 0.25
+  },
+  "stockB": {
+    "ticker": "BTPS",
+    "name": "BTPN Syariah Tbk",
+    "sector": "Pembiayaan Syariah Ultra Mikro",
+    "per": 8.8,
+    "pbv": 1.25,
+    "divYield": 6.2,
+    "marketCap": "Rp 9.8 T",
+    "roe": 14.5,
+    "debtToEquity": 0.35
+  },
+  "summary": "Duel perbankan syariah terdepan di Indonesia. BRIS mendominasi aset perbankan syariah nasional hasil merger 3 bank BUMN, sedangkan BTPS fokus melayani jutaan nasabah wanita prasejahtera dengan margin bunga bersih (NIM) tebal.",
+  "winnerReason": "BRIS unggul dalam skala aset, dana tabungan haji, dan inklusi syariah menyeluruh, sementara BTPS menawarkan diskon valuasi PBV murah dengan dividen yield tinggi di atas 6%."
+},
+{
+  "slug": "klbf-vs-sido",
+  "title": "KLBF vs SIDO: Kalbe Farma vs Industri Jamu Sido Muncul",
+  "stockA": {
+    "ticker": "KLBF",
+    "name": "Kalbe Farma Tbk",
+    "sector": "Farmasi & Layanan Kesehatan",
+    "per": 22,
+    "pbv": 3.4,
+    "divYield": 2.8,
+    "marketCap": "Rp 72 T",
+    "roe": 15.5,
+    "debtToEquity": 0.18
+  },
+  "stockB": {
+    "ticker": "SIDO",
+    "name": "Industri Jamu dan Farmasi Sido Muncul Tbk",
+    "sector": "Jamu Tradisional & Herbal",
+    "per": 17.5,
+    "pbv": 5.2,
+    "divYield": 5.8,
+    "marketCap": "Rp 18 T",
+    "roe": 31,
+    "debtToEquity": 0.1
+  },
+  "summary": "Dua raksasa produk kesehatan dan herbal Indonesia. KLBF memiliki lini produk obat resep dan nutrisi terlengkap, SIDO memiliki margin laba bersih tertinggi di IHSG (>30%) berkat merek legendaris Tolak Angin.",
+  "winnerReason": "KLBF untuk diversifikasi bisnis farmasi yang luas, SIDO untuk efisiensi bisnis tanpa utang dengan ROE 31% dan dividen yield konsisten."
+},
+{
+  "slug": "excl-vs-isat",
+  "title": "EXCL vs ISAT: XL Axiata vs Indosat Ooredoo Hutchison",
+  "stockA": {
+    "ticker": "EXCL",
+    "name": "XL Axiata Tbk",
+    "sector": "Telekomunikasi",
+    "per": 18.2,
+    "pbv": 1.2,
+    "divYield": 3.5,
+    "marketCap": "Rp 29 T",
+    "roe": 7.5,
+    "debtToEquity": 1.85
+  },
+  "stockB": {
+    "ticker": "ISAT",
+    "name": "Indosat Ooredoo Hutchison Tbk",
+    "sector": "Telekomunikasi",
+    "per": 16.5,
+    "pbv": 3.2,
+    "divYield": 3.1,
+    "marketCap": "Rp 180 T",
+    "roe": 18.2,
+    "debtToEquity": 1.45
+  },
+  "summary": "Persaingan operator nomor dua dan tiga di Indonesia. EXCL gencar memperluas konvergensi fixed-mobile pasca akuisisi First Media, sementara ISAT menikmati sinergi penghematan biaya operasional pasca-merger Tri.",
+  "winnerReason": "EXCL menarik bagi pemburu saham valuasi murah (PBV 1.2x), sedangkan ISAT menawarkan rekam jejak pertumbuhan laba bersih yang lebih agresif."
+},
+{
+  "slug": "btc-vs-eth",
+  "title": "BTC vs ETH: Bitcoin vs Ethereum",
+  "stockA": {
+    "ticker": "BTC",
+    "name": "Bitcoin (Digital Gold)",
+    "sector": "Cryptocurrency Store of Value",
+    "per": 0,
+    "pbv": 0,
+    "divYield": 0,
+    "marketCap": "Rp 30.500 T",
+    "roe": 0,
+    "debtToEquity": 0
+  },
+  "stockB": {
+    "ticker": "ETH",
+    "name": "Ethereum (Smart Contract Platform)",
+    "sector": "Layer 1 Blockchain Platform",
+    "per": 0,
+    "pbv": 0,
+    "divYield": 3.2,
+    "marketCap": "Rp 6.400 T",
+    "roe": 0,
+    "debtToEquity": 0
+  },
+  "summary": "Duel dua pilar utama aset kripto dunia. Bitcoin adalah emas digital dengan batas maksimal 21 juta koin yang diadopsi dana institusi dan ETF global, sedangkan Ethereum adalah pondasi aplikasi terdesentralisasi, DeFi, dan tokenisasi aset dunia nyata (RWA).",
+  "winnerReason": "Bitcoin untuk alokasi aset paling konservatif dan tahan inflasi di kripto, Ethereum untuk partisipasi dalam pertumbuhan ekosistem aplikasi Web3 dan imbal hasil staking."
+},
+{
+  "slug": "sol-vs-eth",
+  "title": "SOL vs ETH: Solana vs Ethereum",
+  "stockA": {
+    "ticker": "SOL",
+    "name": "Solana (High Performance Monolithic L1)",
+    "sector": "Layer 1 Blockchain Platform",
+    "per": 0,
+    "pbv": 0,
+    "divYield": 6.5,
+    "marketCap": "Rp 1.480 T",
+    "roe": 0,
+    "debtToEquity": 0
+  },
+  "stockB": {
+    "ticker": "ETH",
+    "name": "Ethereum (Modular Security Layer 1)",
+    "sector": "Layer 1 Blockchain Platform",
+    "per": 0,
+    "pbv": 0,
+    "divYield": 3.2,
+    "marketCap": "Rp 6.400 T",
+    "roe": 0,
+    "debtToEquity": 0
+  },
+  "summary": "Perang arsitektur blockchain generasi baru. Solana mengusung eksekusi monolitik super cepat (3000+ TPS) dengan biaya gas sub-sen, sedangkan Ethereum memilih jalur modular dengan Layer 2 (Base, Arbitrum) untuk keamanan desentralisasi mutlak.",
+  "winnerReason": "Solana memimpin volume transaksi retail dan aktivitas trading on-chain berbiaya murah, sementara Ethereum tetap menjadi raja likuiditas dan kepercayaan institusi global."
+},
+{
+  "slug": "nvda-vs-amd",
+  "title": "NVDA vs AMD: Nvidia vs Advanced Micro Devices",
+  "stockA": {
+    "ticker": "NVDA",
+    "name": "Nvidia Corporation",
+    "sector": "Semikonduktor Komputasi AI & GPU",
+    "per": 48,
+    "pbv": 38,
+    "divYield": 0.05,
+    "marketCap": "Rp 53.000 T",
+    "roe": 115,
+    "debtToEquity": 0.25
+  },
+  "stockB": {
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices Inc",
+    "sector": "Semikonduktor CPU Ryzen & GPU Instinct",
+    "per": 35,
+    "pbv": 3.5,
+    "divYield": 0,
+    "marketCap": "Rp 3.450 T",
+    "roe": 6.5,
+    "debtToEquity": 0.05
+  },
+  "summary": "Pertarungan chip komputasi terpanas di Wall Street. Nvidia memonopoli 85%+ akselerator komputasi kecerdasan buatan melalui arsitektur CUDA, sedangkan AMD menjadi penantang utama dengan prosesor server EPYC dan akselerator MI300.",
+  "winnerReason": "Nvidia untuk eksposur dominan terhadap belanja infrastruktur AI perusahaan raksasa (Hyperscalers), AMD untuk opsi alternatif chip AI dengan valuasi PBV yang jauh lebih rasional."
+},
 ];
 
 export interface IDXIndexItem {

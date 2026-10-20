@@ -30,6 +30,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/tools/kalkulator-averaging-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-dividen', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-cagr-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/tools/kalkulator-risk-reward', changeFrequency: 'monthly' as const, priority: 0.92 },
+    { path: '/tools/kalkulator-cut-loss-bep', changeFrequency: 'monthly' as const, priority: 0.92 },
 
     // Educational Guides & Knowledge Articles
     { path: '/learn/cara-main-saham-pemula', changeFrequency: 'monthly' as const, priority: 0.95 },
