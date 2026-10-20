@@ -32,7 +32,6 @@ import {
   Activity,
   Award,
   Brain,
-  Camera,
   Flame,
   Globe,
 } from 'lucide-react';
@@ -116,10 +115,8 @@ import type {
   MeritocraticAllocation,
 } from '@/lib/hedgefund/autonomousEcosystemSchema';
 import { calculateDynamicAumRouting } from '@/lib/hedgefund/meritocraticSpatialEngine';
-import { globalReplayEngine, type ReplayTickSnapshot } from '@/lib/office/TimeTravelReplayEngine';
 import CrisisCommandConsole from './CrisisCommandConsole';
 import PostMortemVaultModal from './PostMortemVaultModal';
-import TimeTravelScrubberBar from './TimeTravelScrubberBar';
 import MeritocracyLeaderboardDrawer from './MeritocracyLeaderboardDrawer';
 import { globalTickBuffer } from '@/lib/office/HighFrequencyTickBuffer';
 import { globalAgentAtlas, type AgentVisualState } from '@/lib/office/SpriteSheetAtlasPool';
@@ -129,7 +126,6 @@ import { globalAtmosphere } from '@/lib/office/MarketAtmosphereEngine';
 import { globalDeskProps } from '@/lib/office/DynamicDeskPropsEngine';
 import { globalFloorPbr } from '@/lib/office/FloorPbrReflectionEngine';
 import { globalMeritocracy } from '@/lib/office/MeritocracyPromotionEngine';
-import CctvSecurityPipWidget, { type CctvTargetAgent } from './CctvSecurityPipWidget';
 import QuantDeskJessePanel from './QuantDeskJessePanel';
 import FloatingAgentInspector from './FloatingAgentInspector';
 import type { AgentProfile } from '@/types/simulation.types';
@@ -1690,61 +1686,6 @@ export default function VirtualAgentOfficeView() {
   // ── MODUL 3: MERITOCRATIC CAPITAL ALLOCATION & DESK HIERARCHY ──
   const [meritocracyOpen, setMeritocracyOpen] = useState(false);
 
-  // ── MODUL 4: TIME-TRAVEL TIMELINE REPLAY ──
-  const [timeTravelOpen, setTimeTravelOpen] = useState(false);
-  const [isReplaying, setIsReplaying] = useState(false);
-  const [replayTick, setReplayTick] = useState(0);
-  const [totalRecordedTicks, setTotalRecordedTicks] = useState(0);
-  const [activeReplaySnapshot, setActiveReplaySnapshot] = useState<ReplayTickSnapshot | null>(null);
-
-  // ── MODUL 5: ISOMETRIC CCTV ACTION TRACKER ──
-  const [showCctv, setShowCctv] = useState<boolean>(true);
-  const [cctvAgent, setCctvAgent] = useState<CctvTargetAgent | null>({
-    id: 'pm_quant',
-    name: 'Dr. Kenji Sato',
-    dept: 'Portfolio Strategy',
-    role: 'Lead Quantitative Portfolio Manager',
-    action: 'Monitoring Alpha Arbitrage Matrix & Liquidity',
-    status: 'ACTIVE_EXECUTION',
-    confidence: 0.94,
-  });
-
-  const handleFocusCctvAgent = useCallback((agentId: string) => {
-    const sim = simRef.current;
-    if (!sim) return;
-    const agent = sim.byId[agentId];
-    if (agent) {
-      sim.cam.tx = agent.x;
-      sim.cam.ty = agent.y;
-      sim.cam.tz = 1.15;
-      sim.selectedId = agentId;
-    }
-  }, []);
-
-  // Scrub timeline function
-  const handleScrubTick = (tick: number) => {
-    setReplayTick(tick);
-    setIsReplaying(true);
-    const snap = globalReplayEngine.scrubToTick(tick);
-    if (snap) {
-      setActiveReplaySnapshot(snap);
-      // Sinkronkan agen di canvas visual ke koordinat masa lalu
-      if (simRef.current && snap.agents) {
-        snap.agents.forEach((sa) => {
-          const a = simRef.current!.byId[sa.agentId];
-          if (a) {
-            a.x = sa.x;
-            a.y = sa.y;
-          }
-        });
-      }
-    }
-  };
-
-  const handleToggleReplayPlay = () => {
-    setIsReplaying(!isReplaying);
-  };
-
   // ── intelligence & konteks ──
   const intel = useMemo(() => {
     const livePrice = liveCryptoTicker?.price ?? (quote && quote.live ? quote.price : undefined);
@@ -1781,24 +1722,6 @@ export default function VirtualAgentOfficeView() {
       Math.round(portfolioNav(portfolio) / 16000) || 100000
     );
   }, [portfolio]);
-
-  // Rekam tick ke globalReplayEngine setiap 2 detik
-  useEffect(() => {
-    if (isReplaying) return;
-    const interval = setInterval(() => {
-      const agents = simRef.current?.agents || [];
-      const currentTickIdx = globalReplayEngine.recordTick(
-        Math.round(portfolioNav(portfolio) / 16000) || 100000,
-        quote?.price || 1,
-        selectedStock,
-        activeCrisis ? 'CRITICAL_BLACK_SWAN' : 'NORMAL',
-        agents.map((a) => ({ id: a.def.id, x: a.x, y: a.y, state: a.mode }))
-      );
-      setTotalRecordedTicks(currentTickIdx + 1);
-      setReplayTick(currentTickIdx);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [portfolio, quote, selectedStock, activeCrisis, isReplaying]);
 
   const ctxData: DeskContext = useMemo(
     () => ({
@@ -2437,16 +2360,6 @@ export default function VirtualAgentOfficeView() {
         globalLaserNetwork.fireStream(speaker.x, speaker.y, WAR_ROOM.cx, WAR_ROOM.cy, 'SIGNAL_TRADE');
         // Pulse shockwave pada holographic market hub
         globalHoloHub.triggerShockwave(WAR_ROOM.cx, WAR_ROOM.cy, '#38bdf8', 180);
-        // Sinkronisasi CCTV target
-        setCctvAgent({
-          id: speaker.def.id,
-          name: speaker.def.name,
-          dept: DEPT_BY_ID[speaker.def.dept].name,
-          role: speaker.def.role,
-          action: line.text,
-          status: 'WAR_ROOM_DEBATE',
-          confidence: 0.92,
-        });
       }
       if (voiceEnabled) {
         executiveVoice.speak(line.agentId, line.text);
@@ -3011,34 +2924,6 @@ export default function VirtualAgentOfficeView() {
               >
                 <span>👑</span>
                 <span>Hierarki Meja</span>
-              </button>
-
-              {/* Tombol Time-Travel Replay */}
-              <button
-                onClick={() => setTimeTravelOpen(!timeTravelOpen)}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
-                  timeTravelOpen
-                    ? 'bg-cyan-500 text-black border-cyan-300 font-extrabold shadow-md shadow-cyan-500/30'
-                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-zinc-300'
-                }`}
-                title="Buka Time-Travel Scrubber Bar untuk rewind simulasi"
-              >
-                <span>⏪</span>
-                <span>Time-Travel</span>
-              </button>
-
-              {/* Tombol CCTV Action Tracker */}
-              <button
-                onClick={() => setShowCctv(!showCctv)}
-                className={`px-2.5 py-1.5 border text-xs font-bold font-mono rounded-lg flex items-center gap-1.5 transition-all ${
-                  showCctv
-                    ? 'bg-rose-600 text-white border-rose-400 font-extrabold shadow-md shadow-rose-600/30'
-                    : 'bg-[#121622] hover:bg-zinc-800 border-zinc-700 text-zinc-300'
-                }`}
-                title="CCTV Auto-Tracking Security Monitor"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                <span>CCTV Cam</span>
               </button>
 
               {/* Tombol Re-Scan & Auto-Execute */}
@@ -4809,27 +4694,6 @@ export default function VirtualAgentOfficeView() {
         allocations={meritocraticAllocations}
         totalFundNavUsd={Math.round(portfolioNav(portfolio) / 16000) || 100000}
       />
-
-      {/* ── MODUL 4: TIME-TRAVEL SCRUBBER BAR ── */}
-      <TimeTravelScrubberBar
-        isOpen={timeTravelOpen}
-        onToggle={() => setTimeTravelOpen(false)}
-        currentTick={replayTick}
-        totalTicks={totalRecordedTicks}
-        isReplaying={isReplaying}
-        onScrub={handleScrubTick}
-        onTogglePlay={handleToggleReplayPlay}
-        activeSnapshot={activeReplaySnapshot}
-      />
-
-      {/* ── MODUL 5: CCTV ACTION TRACKER PIP WIDGET ── */}
-      {showCctv && (
-        <CctvSecurityPipWidget
-          activeAgent={cctvAgent}
-          onFocusAgent={handleFocusCctvAgent}
-          onClose={() => setShowCctv(false)}
-        />
-      )}
     </div>
   );
 }
