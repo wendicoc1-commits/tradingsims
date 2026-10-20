@@ -326,16 +326,21 @@ export function computeCommitteeDecision(ctx: DeskContext): CommitteeDecision {
     factors.push(`Konsensus ${c.consensusRating} (${cs >= 0 ? '+' : ''}${cs})`);
   }
 
+  // Otak C-Suite Boardroom (Bezos Flywheel & Munger Inversion)
   if (f.roe >= 15 && f.fcfPositive) {
-    score += 1;
-    factors.push('Kualitas bisnis kuat: ROE≥15% & FCF positif (+1)');
+    score += 2;
+    factors.push('Bezos Flywheel & Buffett Moat: ROE≥15% & Arus Kas Bebas (FCF) Positif (+2)');
   } else if (f.roe < 8 || !f.fcfPositive) {
     score -= 1;
-    factors.push('Kualitas bisnis lemah: ROE<8% atau FCF negatif (-1)');
+    factors.push('Munger Inversion Alert: Efisiensi modal rendah atau FCF negatif (-1)');
+  }
+  if (f.debtToEquity > 2.2) {
+    score -= 2;
+    factors.push('Munger Inversion Gate: Beban leverage utang (D/E > 2.2x) memicu rem risiko (-2)');
   }
   if (f.peRatio > 35) {
     score -= 1;
-    factors.push(`Valuasi mahal P/E ${f.peRatio.toFixed(1)}x (-1)`);
+    factors.push(`Graham Margin of Safety: Valuasi premium P/E ${f.peRatio.toFixed(1)}x (-1)`);
   }
 
   const sn = sentiment(symbolNews(ctx));
@@ -482,7 +487,7 @@ export function buildDebateScript(ctx: DeskContext, autoPickInfo?: StockAlphaEva
   lines.push({
     agentId: 'cro',
     src: 'MODEL',
-    text: `Argumen rekan-rekan pimpinan solid. Namun sebagai CRO, mandat saya adalah melindungi modal! Saya setujui pembelian ini dengan syarat mutlak: Stop-Loss wajib dikunci di ${fmtMoney(intel, sizing.stop)}, risiko maksimal 1% NAV (${idr(sizing.riskIdr)}), dan ukuran posisi dibatasi pada ${qtyLabel}. Pak Gilang & Kevin Zhang, tolong kawal eksekusi tanpa selip harga!`,
+    text: `Argumen rekan-rekan pimpinan solid. Meminjam prinsip Inversion Charlie Munger: Beri tahu saya di mana trade ini bisa mati agar kita tidak melangkah ke sana! Mandat mutlak manajemen risiko: Stop-Loss wajib dikunci di ${fmtMoney(intel, sizing.stop)}, risiko maksimal 1% NAV (${idr(sizing.riskIdr)}), dan ukuran posisi dibatasi pada ${qtyLabel}. Pak Gilang & Kevin Zhang, kawal eksekusi tanpa selip harga!`,
   });
 
   // 9. HEAD TRADER MEMASTIKAN EKSEKUSI
@@ -498,7 +503,7 @@ export function buildDebateScript(ctx: DeskContext, autoPickInfo?: StockAlphaEva
   lines.push({
     agentId: 'ceo',
     src: 'MODEL',
-    text: `Bagus sekali. Semua kepala divisi sudah menyampaikan pandangan dan CRO telah mengunci batas risikonya. Sebagai CEO dan Managing Partner, saya berikan lampu hijau penuh. Silakan Bu Evelyn ambil keputusan final!`,
+    text: `Bagus sekali. Mengadopsi prinsip Day 1 Jeff Bezos: alokasikan modal pada aset berdaya tahan tinggi dan percepat flywheel portofolio kita. Karena CRO telah mengunci pagar risikonya, sebagai CEO saya berikan lampu hijau penuh. Bu Evelyn, silakan ambil komando final!`,
   });
 
   // 11. CIO MENUTUP SIDANG DENGAN KOMANDO FINAL

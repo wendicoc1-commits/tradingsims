@@ -756,6 +756,13 @@ export default function HedgeFundCommitteeView() {
             {/* Navigation Tabs */}
             <div className="border-b border-[#27272a] flex items-center gap-2 overflow-x-auto">
               <Link
+                href="/ai?tab=office&autopilot=1"
+                className="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-purple-400 hover:text-purple-300 hover:border-purple-500/50 transition-colors flex items-center gap-1.5 bg-purple-500/10 rounded-t shrink-0"
+              >
+                <Brain className="w-3.5 h-3.5 text-purple-400" />
+                🏢 Virtual Office (Otak Otonom)
+              </Link>
+              <Link
                 href="/boardroom"
                 className="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-amber-400 hover:text-amber-300 hover:border-amber-500/50 transition-colors flex items-center gap-1.5 bg-amber-500/10 rounded-t shrink-0"
               >

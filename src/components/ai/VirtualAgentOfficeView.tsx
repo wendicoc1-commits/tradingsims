@@ -31,11 +31,13 @@ import {
   Moon,
   Activity,
   Award,
+  Brain,
   Camera,
   Flame,
   Globe,
 } from 'lucide-react';
 import { executiveVoice } from '@/lib/audio/executiveVoiceSynthesizer';
+import { toast } from 'sonner';
 import type { BandarmologiInsight, CryptoWhaleInsight } from '@/lib/hedgefund/bandarmologiEngine';
 import { checkIDXMarketStatus, isIndonesianStock } from '@/lib/market/marketHours';
 import { getGroundedStockIntelligence } from '@/lib/agents/groundedStockIntelligence';
@@ -1279,6 +1281,17 @@ export default function VirtualAgentOfficeView() {
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
   const [lastScanAt, setLastScanAt] = useState<string>('');
   const [showRiskSettingsModal, setShowRiskSettingsModal] = useState(false);
+  const [showDualBrainModal, setShowDualBrainModal] = useState(false);
+
+  // Auto-enable autopilot jika ada param URL ?autopilot=1 atau ?auto=true
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('autopilot') === '1' || p.get('auto') === 'true') {
+        setAutoPilot(true);
+      }
+    }
+  }, [setAutoPilot]);
   const [aiRiskTpEdit, setAiRiskTpEdit] = useState<string>('10');
   const [aiRiskSlEdit, setAiRiskSlEdit] = useState<string>('5');
   const [aiRiskTrailingEdit, setAiRiskTrailingEdit] = useState<string>('5');
@@ -2904,6 +2917,16 @@ export default function VirtualAgentOfficeView() {
                 {autoPilot ? '🤖 KUASA PORTOFOLIO PENUH AI (ON)' : '👤 MANUAL OVERRIDE'}
               </button>
 
+              {/* Tombol Otak Terpadu Boardroom + Hedge Fund */}
+              <button
+                onClick={() => setShowDualBrainModal(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold font-mono flex items-center gap-1.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-500/40 transition-all cursor-pointer shadow-sm"
+                title="Buka panel integrasi Otak C-Suite Boardroom & 7 Master Hedge Fund"
+              >
+                <Brain className="w-3.5 h-3.5 text-purple-400" />
+                <span>🧠 OTAK DUAL-BRAIN</span>
+              </button>
+
               <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-950/40 border border-cyan-500/30 text-[10px] text-cyan-300 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                 <span>100% OTONOM: AI Beli, Jual &amp; Rotasi Sendiri</span>
@@ -4520,6 +4543,135 @@ export default function VirtualAgentOfficeView() {
 
       {/* Top Up Saldo Kas RDN Modal (QRIS) */}
       <TopUpModal isOpen={topUpModalOpen} onClose={() => setTopUpModalOpen(false)} />
+
+      {/* ── Modal Otak Terpadu (C-Suite Boardroom + 7 Master Hedge Fund) ── */}
+      {showDualBrainModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0b0e17] border border-purple-500/40 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl text-white space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                  <Brain className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>Otak AI Terpadu Virtual Office</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                      100% OTONOM TANPA SENTUHAN MANUSIA
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Sintesis otonom antara C-Suite Boardroom (Alokasi Modal Makro) dan 7 Master Hedge Fund (Valuasi Mikro Emiten).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDualBrainModal(false)}
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-[#121624] border border-amber-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-400 font-mono flex items-center gap-1.5">
+                    <span>🏛️ OTAK 1: C-SUITE BOARDROOM</span>
+                  </span>
+                  <a
+                    href="/boardroom"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-amber-300 hover:underline flex items-center gap-1 font-mono"
+                  >
+                    <span>Buka Detail &rarr;</span>
+                  </a>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-amber-300 font-mono">Jeff Bezos (CEO):</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Memimpin alokasi modal Day 1. Memilih aset berkonviksi tinggi untuk mempercepat flywheel portofolio.</p>
+                  </div>
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-rose-400 font-mono">Charlie Munger (CRO):</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Inversion Shield: Memasang hard stop loss maksimal 5% dan memveto aset dengan rasio utang tinggi.</p>
+                  </div>
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-cyan-400 font-mono">Werner Vogels (CTO):</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Menjaga eksekusi kuantitatif, sinkronisasi Quant Bridge VPS 24/7, dan minimisasi slippage fraksi bursa.</p>
+                  </div>
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-purple-400 font-mono">Seth Godin (CMO):</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Membaca psikologi publik dan menyaring divergensi arus dana Smart Money dari sekadar hype ritel.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#121624] border border-blue-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-400 font-mono flex items-center gap-1.5">
+                    <span>📊 OTAK 2: 7 MASTER HEDGE FUND</span>
+                  </span>
+                  <a
+                    href="/hedge-fund"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-blue-300 hover:underline flex items-center gap-1 font-mono"
+                  >
+                    <span>Buka Detail &rarr;</span>
+                  </a>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-emerald-400 font-mono">Warren Buffett &amp; Ben Graham:</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Evaluasi Moat, ROE &gt; 15%, laba konsisten, dan Margin of Safety berbasis Benjamin Graham Number.</p>
+                  </div>
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-amber-400 font-mono">Peter Lynch &amp; Stan Druckenmiller:</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Analisis rasio PEG, infleksi makro global, pertumbuhan laba kuartalan, dan katalis ekspansi.</p>
+                  </div>
+                  <div className="p-2 rounded bg-zinc-900/80 border border-zinc-800">
+                    <strong className="text-indigo-400 font-mono">Jim Simons &amp; Cathie Wood:</strong>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">Model matematika Monte Carlo, Composite Alpha kuantitatif, dan tren disrupsi teknologi/kripto.</p>
+                  </div>
+                  <div className="p-2 rounded bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-[11px]">
+                    ✨ <strong>Konsensus Terpadu:</strong> Saat kedua otak sepakat, agen otomatis masuk War Room, musyawarah berlangsung, dan order dieksekusi langsung tanpa klik manusia!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-zinc-400">
+                Status Alur Kerja: <strong className={autoPilot ? "text-emerald-400 font-mono" : "text-amber-400 font-mono"}>
+                  {autoPilot ? "AUTOPILOT ON (EKSEKUSI PENUH TANPA INTERVENSI MANUSIA)" : "MANUAL MODE"}
+                </strong>
+              </div>
+              <div className="flex items-center gap-2">
+                {!autoPilot && (
+                  <button
+                    onClick={() => {
+                      setAutoPilot(true);
+                      setShowDualBrainModal(false);
+                      toast.success('Kuasa Penuh AI Diaktifkan! Virtual Office berjalan tanpa sentuhan manusia.');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs font-mono transition shadow-lg shadow-emerald-500/20 cursor-pointer"
+                  >
+                    ⚡ Aktifkan Mode Otonom Tanpa Sentuhan Manusia
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDualBrainModal(false)}
+                  className="px-3.5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono font-bold transition cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Setting Risiko Global AI Bot (TP/SL/Trailing) */}
       {showRiskSettingsModal && (

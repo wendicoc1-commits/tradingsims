@@ -167,6 +167,32 @@ export default function AutonomousBoardroomView() {
           </div>
         </div>
 
+                {/* Banner Integrasi Virtual Office Otak Terpadu */}
+        <Link
+          href="/ai?tab=office&autopilot=1"
+          className="p-3.5 rounded-xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border border-purple-500/30 flex items-center justify-between gap-3 text-xs hover:border-purple-400 transition-all group shadow-lg"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-sm">
+              🏢
+            </span>
+            <div>
+              <div className="font-bold text-white flex items-center gap-2">
+                <span>Gabung ke Otak AI Virtual Office 24/7</span>
+                <span className="text-[10px] px-2 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold">
+                  ● 100% OTONOM TANPA SENTUHAN MANUSIA
+                </span>
+              </div>
+              <div className="text-zinc-400 text-[11px] mt-0.5">
+                Saksikan dewan C-Suite &amp; komite Hedge Fund berdebat di War Room dan mengeksekusi order virtual otomatis di denah kantor 2D.
+              </div>
+            </div>
+          </div>
+          <div className="px-3 py-1.5 rounded-lg bg-purple-600 group-hover:bg-purple-500 text-white font-bold text-xs font-mono flex items-center gap-1.5 shrink-0 transition-colors">
+            <span>Masuk Kantor Virtual &rarr;</span>
+          </div>
+        </Link>
+
         {/* 24/7 Market Wire Ticker Banner */}
         {marketIntel && (
           <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-zinc-900 to-zinc-900 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
