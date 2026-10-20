@@ -43,6 +43,12 @@ chmod -R 755 "$APP_DIR/.next" 2>/dev/null || true
 if command -v ufw >/dev/null 2>&1; then
     ufw delete allow 8002/tcp 2>/dev/null || true
 fi
+
+# ⚙️ Sinkronisasi Quant Bridge Python ke /root/quant_engine/
+mkdir -p /root/quant_engine
+if [ -f "$APP_DIR/quant_engine/bridge.py" ]; then
+    cp -f "$APP_DIR/quant_engine/bridge.py" /root/quant_engine/bridge.py 2>/dev/null || true
+fi
 systemctl restart quant-bridge 2>/dev/null || true
 
 # Reload Nginx jika konfigurasi valid

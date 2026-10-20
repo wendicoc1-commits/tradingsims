@@ -65,6 +65,17 @@ def init_db():
             created_at TEXT
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS csuite_market_briefs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            regime TEXT,
+            headline TEXT,
+            top_picks TEXT,
+            macro_summary TEXT,
+            raw_json TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -79,7 +90,8 @@ AUTONOMOUS_STATE = {
     "open_positions": [],
     "recent_trades_count": 0,
     "active_pairs": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "DOGE/USDT"],
-    "live_prices": {}
+    "live_prices": {},
+    "latest_csuite_brief": None
 }
 
 # ── 3. FETCH LIVE BINANCE / CRYPTO PRICES ──
@@ -116,15 +128,112 @@ def fetch_live_crypto_prices():
             "DOGE/USDT": {"price": 0.285, "change_24h": 4.5, "high_24h": 0.295, "low_24h": 0.270, "volume": 9800000.0}
         }
 
-# ── 4. 24/7 AUTONOMOUS HEARTBEAT DAEMON (BERJALAN DI VPS WALAUPUN LAPTOP MATI) ──
+# ── 4. C-SUITE AUTONOMOUS MARKET INTELLIGENCE SYNTHESIZER ──
+def synthesize_csuite_intelligence(prices):
+    try:
+        now = int(time.time())
+        btc_data = prices.get("BTC/USDT", {"price": 98500, "change_24h": 2.1})
+        eth_data = prices.get("ETH/USDT", {"price": 2780, "change_24h": 1.8})
+        sol_data = prices.get("SOL/USDT", {"price": 194, "change_24h": 3.2})
+
+        avg_change = (btc_data["change_24h"] + eth_data["change_24h"] + sol_data["change_24h"]) / 3.0
+        regime = "BULLISH_EXPANSION" if avg_change > 1.5 else ("SELECTIVE_ROTATION" if avg_change > -1.0 else "RISK_OFF_DEFENSE")
+
+        top_picks = [
+            {
+                "symbol": "BTC/USDT",
+                "action": "ACCUMULATE" if btc_data["change_24h"] >= 0 else "HOLD",
+                "entry": btc_data["price"],
+                "target": round(btc_data["price"] * 1.065, 2),
+                "stop_loss": round(btc_data["price"] * 0.962, 2),
+                "rrr": 1.71,
+                "driver": f"Momentum 24j: {btc_data['change_24h']:+.2f}% | Aliran modal ETF & Likuiditas Institusional"
+            },
+            {
+                "symbol": "BBCA",
+                "action": "STRONG BUY",
+                "entry": 10150,
+                "target": 10850,
+                "stop_loss": 9825,
+                "rrr": 2.15,
+                "driver": "Kualitas aset perbankan BEI kelas dunia, ROE 21.4% & Net Foreign Flow stabil"
+            },
+            {
+                "symbol": "SOL/USDT",
+                "action": "STRONG BUY" if sol_data["change_24h"] > 2.0 else "ACCUMULATE",
+                "entry": sol_data["price"],
+                "target": round(sol_data["price"] * 1.095, 2),
+                "stop_loss": round(sol_data["price"] * 0.945, 2),
+                "rrr": 1.73,
+                "driver": f"Pertumbuhan ekosistem DeFi & momentum volume 24j (+{sol_data['change_24h']:.1f}%)"
+            },
+            {
+                "symbol": "ASII",
+                "action": "ACCUMULATE",
+                "entry": 5125,
+                "target": 5550,
+                "stop_loss": 4925,
+                "rrr": 2.12,
+                "driver": "Valuasi atraktif P/E 6.9x, Dividend Yield 8.2% & diversifikasi sektor tambang"
+            }
+        ]
+
+        headline = f"C-Suite Market Wire: Sinyal {regime.replace('_', ' ')} & Alokasi Modal Berkonviksi Tinggi"
+        macro_summary = (
+            f"Evaluasi otonom 24/7 VPS mendeteksi regim pasar {regime}. Likuiditas kripto global bergerak "
+            f"rata-rata {avg_change:+.2f}%, dikombinasikan dengan daya tahan defensif emiten perbankan & bluechip BEI."
+        )
+
+        perspectives = {
+            "bezos_ceo": f"Fokus modal pada aset yang mempercepat flywheel likuiditas. BTC @ {btc_data['price']} dan BBCA adalah pilar Day 1 berjangka panjang.",
+            "munger_cro": "Pre-mortem guardrail: Batasi risiko kerugian setiap posisi di bawah 4.0%. Potong kerugian seketika jika SL tertembus.",
+            "vogels_cto": "Sistem kuantitatif berjalan toleran terhadap kesalahan dengan eksekusi Limit Order pada portofolio VPS.",
+            "godin_cmo": f"Psikologi pasar saat ini terkonsentrasi pada aset likuid. Ritel mulai melirik alternatif saat momentum dominan menguat."
+        }
+
+        brief = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
+            "regime": regime,
+            "headline": headline,
+            "macro_summary": macro_summary,
+            "top_picks": top_picks,
+            "c_suite_perspectives": perspectives,
+            "source": "AUTONOMOUS_VPS_DAEMON_24_7"
+        }
+
+        AUTONOMOUS_STATE["latest_csuite_brief"] = brief
+
+        # Simpan ke SQLite
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO csuite_market_briefs (timestamp, regime, headline, top_picks, macro_summary, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (now, regime, headline, json.dumps(top_picks), macro_summary, json.dumps(brief)))
+        conn.commit()
+        conn.close()
+
+        # Simpan ke file JSON Next.js jika path ada
+        nextjs_data_path = "/var/www/tradingsims/src/data/live_market_intelligence.json"
+        if os.path.exists(os.path.dirname(nextjs_data_path)):
+            with open(nextjs_data_path, "w", encoding="utf-8") as f:
+                json.dump(brief, f, indent=2)
+
+        logger.info(f"📰 [C-SUITE 24/7 INTEL] Berhasil memperbarui buletin pasar: {headline}")
+    except Exception as err:
+        logger.error(f"Error saat mensintesis C-Suite Intelligence: {err}")
+
+# ── 5. 24/7 AUTONOMOUS HEARTBEAT DAEMON ──
 def autonomous_worker_loop():
     logger.info("🚀 [DAEMON 24/7] Autonomous Heartbeat Worker aktif di latar belakang VPS!")
+    cycle_counter = 0
+
     while AUTONOMOUS_STATE["is_running"]:
         try:
             AUTONOMOUS_STATE["last_heartbeat"] = int(time.time())
             AUTONOMOUS_STATE["cycle_count"] += 1
-            
-            # 1. Update harga pasar terkini
+            cycle_counter += 1
+
             prices = fetch_live_crypto_prices()
             if prices:
                 AUTONOMOUS_STATE["live_prices"] = prices
@@ -133,7 +242,7 @@ def autonomous_worker_loop():
             conn = get_db_connection()
             c = conn.cursor()
 
-            # 2. Periksa posisi yang terbuka (TP/SL/Trailing Stop)
+            # 1. Update Posisi Berjalan & Take Profit / Trailing Stop
             remaining_positions = []
             for pos in AUTONOMOUS_STATE["open_positions"]:
                 sym = pos["pair"]
@@ -146,12 +255,11 @@ def autonomous_worker_loop():
                 entry_price = pos["entry_price"]
                 pnl_pct = ((curr_price - entry_price) / entry_price) * 100
 
-                # Update Peak Price untuk Chandelier Trailing Stop
                 if curr_price > pos.get("peak_price", entry_price):
                     pos["peak_price"] = curr_price
 
                 peak = pos.get("peak_price", entry_price)
-                trailing_stop = peak * 0.965  # 3.5% trailing stop dari puncak
+                trailing_stop = peak * 0.965
 
                 is_tp = curr_price >= pos.get("target_price", entry_price * 1.08)
                 is_sl = curr_price <= pos.get("stop_loss", entry_price * 0.95)
@@ -176,18 +284,16 @@ def autonomous_worker_loop():
 
             AUTONOMOUS_STATE["open_positions"] = remaining_positions
 
-            # 3. Autonomous Opportunity Scanner: Jika slot posisi tersedia (< 3 posisi terbuka)
+            # 2. Opportunity Scanner (< 3 posisi)
             if len(AUTONOMOUS_STATE["open_positions"]) < 3:
                 for pair, data in prices.items():
-                    # Kondisi Alpha: Momentum positif 24h > 1.8% dan harga di atas 75% range 24h
                     price_range = data["high_24h"] - data["low_24h"]
                     is_breakout = price_range > 0 and (data["price"] - data["low_24h"]) / price_range > 0.75
                     is_already_holding = any(p["pair"] == pair for p in AUTONOMOUS_STATE["open_positions"])
 
                     if data["change_24h"] > 1.8 and is_breakout and not is_already_holding:
-                        # Masuk posisi BUY dengan slippage simulasi (0.15%)
                         entry_price = data["price"] * 1.0015
-                        stake_usd = 2000.0  # $2000 per posisi
+                        stake_usd = 2000.0
                         amount = round(stake_usd / entry_price, 6)
                         trade_id = f"auto-{int(time.time())}-{pair.replace('/', '')}"
 
@@ -205,24 +311,27 @@ def autonomous_worker_loop():
                             "source": "VPS_AUTONOMOUS_DAEMON_24_7"
                         }
                         AUTONOMOUS_STATE["open_positions"].append(new_pos)
-                        logger.info(f"⚡ [VPS 24/7 AUTO-BUY] Deteksi Alpha Breakout! Membuka posisi {pair} @ {entry_price:.4f}")
+                        logger.info(f"⚡ [VPS 24/7 AUTO-BUY] Deteksi Alpha Breakout! {pair} @ {entry_price:.4f}")
                         break
 
-            # Hitung total trade tercatat
             c.execute('SELECT COUNT(*) FROM ai_trades')
             AUTONOMOUS_STATE["recent_trades_count"] = c.fetchone()[0]
             conn.close()
 
+            # 3. C-Suite Market Briefing Synthesizer (Setiap 10 siklus / ~5 menit atau siklus pertama)
+            if cycle_counter >= 10 or AUTONOMOUS_STATE["latest_csuite_brief"] is None:
+                synthesize_csuite_intelligence(prices)
+                cycle_counter = 0
+
         except Exception as err:
             logger.error(f"Error pada Autonomous Daemon: {err}")
 
-        time.sleep(30) # Detak jantung setiap 30 detik
+        time.sleep(30)
 
-# Mulai thread daemon 24/7
 daemon_thread = threading.Thread(target=autonomous_worker_loop, daemon=True)
 daemon_thread.start()
 
-# ── 5. HTTP SERVER REST CONTROLLER ──
+# ── 6. HTTP SERVER REST CONTROLLER ──
 class QuantBridgeHandler(BaseHTTPRequestHandler):
     def _set_cors_headers(self, status=200):
         self.send_response(status)
@@ -235,7 +344,6 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
     def _verify_auth(self):
         auth_header = self.headers.get("Authorization", "").strip()
         expected = f"Bearer {QUANT_BRIDGE_SECRET}".strip()
-        # Timing-attack safe comparison via HMAC constant time
         if not hmac.compare_digest(auth_header.encode("utf-8"), expected.encode("utf-8")):
             self._set_cors_headers(401)
             self.wfile.write(json.dumps({"success": False, "error": "Unauthorized: Invalid Signature"}).encode("utf-8"))
@@ -256,7 +364,7 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
             self._set_cors_headers(200)
             self.wfile.write(json.dumps({
                 "success": True,
-                "service": "TradeSim Quant VPS Bridge 24/7 (Full Autonomous)",
+                "service": "TradeSim Quant VPS Bridge 24/7 (Full Autonomous C-Suite)",
                 "daemon": {
                     "running": AUTONOMOUS_STATE["is_running"],
                     "cycles": AUTONOMOUS_STATE["cycle_count"],
@@ -289,6 +397,25 @@ class QuantBridgeHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "success": True,
                 "positions": AUTONOMOUS_STATE["open_positions"]
+            }).encode("utf-8"))
+
+        elif path in ["/api/quant/csuite/latest", "/api/quant/csuite/brief"]:
+            self._set_cors_headers(200)
+            brief = AUTONOMOUS_STATE.get("latest_csuite_brief")
+            if not brief:
+                try:
+                    conn = get_db_connection()
+                    c = conn.cursor()
+                    c.execute('SELECT raw_json FROM csuite_market_briefs ORDER BY id DESC LIMIT 1')
+                    row = c.fetchone()
+                    conn.close()
+                    if row and row[0]:
+                        brief = json.loads(row[0])
+                except Exception:
+                    pass
+            self.wfile.write(json.dumps({
+                "success": True,
+                "brief": brief
             }).encode("utf-8"))
 
         elif path == "/api/quant/memory":

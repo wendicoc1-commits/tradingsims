@@ -60,6 +60,9 @@ export default function Navbar({ onOpenAuth, onEnterTerminal, user }: NavbarProp
           <Link href="/championship" className="hover:text-emerald-400 transition-colors flex items-center gap-1 text-emerald-300">
             <span>🏆 Liga Trading</span>
           </Link>
+          <Link href="/boardroom" className="hover:text-amber-400 transition-colors flex items-center gap-1 text-amber-300">
+            <span>🏛️ AI Boardroom</span>
+          </Link>
         </nav>
 
         {/* Right CTA Actions */}
