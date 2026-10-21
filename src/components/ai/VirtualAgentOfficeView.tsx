@@ -2568,12 +2568,12 @@ export default function VirtualAgentOfficeView() {
       case 'SIT':
         return rep ? rep.task : 'Bekerja';
       case 'WALK':
-        if (a.dest === 'VISIT' && a.visitId) return `Menuju meja ${AGENT_BY_ID[a.visitId].name.split(' ')[0]}`;
+        if (a.dest === 'VISIT' && a.visitId) return `Menuju meja ${AGENT_BY_ID[a.visitId]?.name?.split(' ')[0] || 'Rekan'}`;
         if (a.dest === 'COFFEE') return 'Menuju pantry';
         if (a.dest === 'SEAT') return 'Menuju War Room';
         return 'Kembali ke meja';
       case 'TALK':
-        return a.visitId ? `Berdiskusi dengan ${AGENT_BY_ID[a.visitId].name.split(' ')[0]}` : 'Berdiskusi';
+        return a.visitId ? `Berdiskusi dengan ${AGENT_BY_ID[a.visitId]?.name?.split(' ')[0] || 'Rekan'}` : 'Berdiskusi';
       case 'BREAK':
         return 'Istirahat kopi';
       case 'MEETING':

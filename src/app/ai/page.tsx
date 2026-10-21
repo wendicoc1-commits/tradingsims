@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Bot,
   Sparkles,
@@ -17,16 +18,127 @@ import {
   Copy,
   Check,
   Users,
+  Swords,
+  Briefcase,
+  Activity,
+  Building2,
+  Coins,
+  Flame,
+  Cpu,
+  Globe,
+  Brain,
+  AlertTriangle,
 } from 'lucide-react';
-import HedgeFundCommitteeView from '@/components/ai/HedgeFundCommitteeView';
-import BullBearDebateArena from '@/components/ai/BullBearDebateArena';
-import AutonomousPaperTradingDesk from '@/components/ai/AutonomousPaperTradingDesk';
-import VirtualAgentOfficeView from '@/components/ai/VirtualAgentOfficeView';
-import JesseCryptoDeskView from '@/components/ai/JesseCryptoDeskView';
-import QuantBridgeDeskView from '@/components/ai/QuantBridgeDeskView';
-import { Swords, Briefcase, Activity, Building2, Coins, Flame, Cpu, Globe, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// ── Tab Loading Skeleton ──
+function TabLoadingSkeleton({ title }: { title: string }) {
+  return (
+    <div className="min-h-[500px] w-full rounded-2xl border border-zinc-800 bg-[#07090e] p-8 flex flex-col items-center justify-center space-y-4">
+      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-400">
+        <Activity className="h-6 w-6 animate-pulse" />
+      </div>
+      <div className="space-y-1.5 text-center">
+        <h4 className="text-sm font-bold text-white font-mono">{title}</h4>
+        <p className="text-xs text-zinc-400 font-mono">Menyiapkan model komputasi kuantitatif & streaming WebSocket...</p>
+      </div>
+      <div className="h-1.5 w-48 overflow-hidden rounded-full bg-zinc-800">
+        <div className="h-full w-24 animate-indeterminate bg-gradient-to-r from-amber-500 to-indigo-500" />
+      </div>
+    </div>
+  );
+}
+
+// ── Tab Error Boundary ──
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  tabName: string;
+  onReset?: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class TabErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error(`[TabErrorBoundary: ${this.props.tabName}]`, error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[420px] w-full rounded-2xl border border-rose-500/30 bg-zinc-950 p-6 flex flex-col items-center justify-center space-y-4 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-400">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div className="space-y-1 max-w-md">
+            <h4 className="text-sm font-bold text-white font-mono">
+              Kendala Rendering pada {this.props.tabName}
+            </h4>
+            <p className="text-xs text-zinc-400">
+              Komponen ini diisolasi untuk mencegah gangguan pada fitur TradeSims lainnya.
+              {this.state.error?.message ? ` (${this.state.error.message.slice(0, 90)})` : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onReset?.();
+            }}
+            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-black hover:bg-amber-400 transition"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Muat Ulang Tab Ini</span>
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── Dynamic Imports with SSR: False for heavy client engines ──
+const VirtualAgentOfficeView = dynamic(() => import('@/components/ai/VirtualAgentOfficeView'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="AI Virtual Office (War Room 2.5D)" />,
+});
+
+const QuantBridgeDeskView = dynamic(() => import('@/components/ai/QuantBridgeDeskView'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="Quant Desk (Freqtrade & Lumibot)" />,
+});
+
+const JesseCryptoDeskView = dynamic(() => import('@/components/ai/JesseCryptoDeskView'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="Jesse AI Crypto Desk (Spot Trading)" />,
+});
+
+const HedgeFundCommitteeView = dynamic(() => import('@/components/ai/HedgeFundCommitteeView'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="Komite Hedge Fund (7 Personas)" />,
+});
+
+const BullBearDebateArena = dynamic(() => import('@/components/ai/BullBearDebateArena'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="Arena Debat Bull vs Bear (HKUDS)" />,
+});
+
+const AutonomousPaperTradingDesk = dynamic(() => import('@/components/ai/AutonomousPaperTradingDesk'), {
+  ssr: false,
+  loading: () => <TabLoadingSkeleton title="Autonomous Paper Trading & Benchmark" />,
+});
 
 interface ChatMessage {
   id: string;
@@ -64,11 +176,13 @@ const PRESET_PROMPTS = [
 ];
 
 export default function FinceptAiCopilotPage() {
+  const [mounted, setMounted] = useState(false);
   const [mainAiTab, setMainAiTab] = useState<
     'VIRTUAL_OFFICE' | 'QUANT_BRIDGE' | 'CRYPTO_DESK' | 'HEDGE_FUND' | 'BULL_BEAR_DEBATE' | 'PAPER_TRADING' | 'COPILOT_CHAT'
   >('VIRTUAL_OFFICE');
 
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
@@ -266,6 +380,10 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  if (!mounted) {
+    return <TabLoadingSkeleton title="Fincept AI Platform" />;
+  }
+
   return (
     <div className="space-y-3 font-mono select-none">
       {/* ── Top Level AI Hub Switcher Bar ── */}
@@ -362,19 +480,31 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
         </div>
       </div>
 
-      {/* ── Tab Content Rendering ── */}
+      {/* ── Tab Content Rendering with Isolated Error Boundary ── */}
       {mainAiTab === 'VIRTUAL_OFFICE' ? (
-        <VirtualAgentOfficeView />
+        <TabErrorBoundary tabName="AI Virtual Office">
+          <VirtualAgentOfficeView />
+        </TabErrorBoundary>
       ) : mainAiTab === 'QUANT_BRIDGE' ? (
-        <QuantBridgeDeskView />
+        <TabErrorBoundary tabName="Quant Desk">
+          <QuantBridgeDeskView />
+        </TabErrorBoundary>
       ) : mainAiTab === 'CRYPTO_DESK' ? (
-        <JesseCryptoDeskView />
+        <TabErrorBoundary tabName="Jesse Crypto Desk">
+          <JesseCryptoDeskView />
+        </TabErrorBoundary>
       ) : mainAiTab === 'HEDGE_FUND' ? (
-        <HedgeFundCommitteeView />
+        <TabErrorBoundary tabName="Komite Hedge Fund">
+          <HedgeFundCommitteeView />
+        </TabErrorBoundary>
       ) : mainAiTab === 'BULL_BEAR_DEBATE' ? (
-        <BullBearDebateArena />
+        <TabErrorBoundary tabName="Arena Debat Bull vs Bear">
+          <BullBearDebateArena />
+        </TabErrorBoundary>
       ) : mainAiTab === 'PAPER_TRADING' ? (
-        <AutonomousPaperTradingDesk />
+        <TabErrorBoundary tabName="Autonomous Paper Trading">
+          <AutonomousPaperTradingDesk />
+        </TabErrorBoundary>
       ) : (
         <div className="space-y-3">
           {/* ── Sub-header Copilot Bar ── */}
@@ -400,152 +530,151 @@ Berdasarkan model Bloomberg Quant Multi-Factor Engine:
             </div>
           </div>
 
-      {/* ── Quick Prompt Chips ── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-        {PRESET_PROMPTS.map((p, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSend(p.prompt)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#121215] hover:bg-[#18181b] border border-[#27272a] hover:border-[#f59e0b] rounded text-[#d4d4d8] hover:text-white transition-colors whitespace-nowrap"
-          >
-            <Sparkles className="w-3 h-3 text-[#f59e0b]" />
-            <span>{p.title}</span>
-          </button>
-        ))}
-      </div>
+          {/* ── Quick Prompt Chips ── */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+            {PRESET_PROMPTS.map((p, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(p.prompt)}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-[#121215] hover:bg-[#18181b] border border-[#27272a] hover:border-[#f59e0b] rounded text-[#d4d4d8] hover:text-white transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3 text-[#f59e0b]" />
+                <span>{p.title}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* ── Chat Messages Stream ── */}
-      <div className="bg-[#09090b] border border-[#27272a] rounded-sm p-4 min-h-[500px] max-h-[640px] overflow-y-auto space-y-4">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex flex-col ${
-              m.sender === 'user' ? 'items-end' : 'items-start'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1 text-[10px] text-[#71717a]">
-              <span>{m.sender === 'user' ? 'YOU (TRADER)' : 'BLOOMBERG QUANT AI'}</span>
-              <span>&bull;</span>
-              <span>{m.timestamp}</span>
-            </div>
-
-            <div
-              className={`max-w-[85%] rounded p-3 text-xs leading-relaxed ${
-                m.sender === 'user'
-                  ? 'bg-[#1e1e24] border border-[#2e2e38] text-white'
-                  : 'bg-[#0f0f12] border border-[#27272a] text-[#e4e4e7] space-y-3'
-              }`}
-            >
-              {m.sender === 'user' ? (
-                <div className="whitespace-pre-line">{m.text}</div>
-              ) : (
-                <div className="prose prose-invert max-w-none text-xs leading-relaxed prose-p:my-1 prose-headings:my-1.5 prose-strong:text-amber-400">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {m.text}
-                  </ReactMarkdown>
+          {/* ── Chat Messages Stream ── */}
+          <div className="bg-[#09090b] border border-[#27272a] rounded-sm p-4 min-h-[500px] max-h-[640px] overflow-y-auto space-y-4">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex flex-col ${
+                  m.sender === 'user' ? 'items-end' : 'items-start'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1 text-[10px] text-[#71717a]">
+                  <span>{m.sender === 'user' ? 'YOU (TRADER)' : 'BLOOMBERG QUANT AI'}</span>
+                  <span>&bull;</span>
+                  <span>{m.timestamp}</span>
                 </div>
-              )}
 
-              {/* Optional Table */}
-              {m.tableData && (
-                <div className="overflow-x-auto my-2 border border-[#27272a] rounded">
-                  <table className="w-full text-left text-[11px] divide-y divide-[#27272a]">
-                    <thead className="bg-[#18181b] text-[#a1a1aa]">
-                      <tr>
-                        {m.tableData.headers.map((h, i) => (
-                          <th key={i} className="px-2.5 py-1.5 font-bold uppercase">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#18181b] bg-[#0c0c0e]">
-                      {m.tableData.rows.map((row, rIdx) => (
-                        <tr key={rIdx} className="hover:bg-[#18181b]/50">
-                          {row.map((cell, cIdx) => (
-                            <td
-                              key={cIdx}
-                              className={`px-2.5 py-1.5 font-mono ${
-                                cIdx === 0 ? 'font-bold text-white' : 'text-[#d4d4d8]'
-                              }`}
-                            >
-                              {cell}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Optional Key Metrics Chips */}
-              {m.metrics && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[#1e1e24]">
-                  {m.metrics.map((metric, idx) => (
-                    <div key={idx} className="bg-[#141418] border border-[#27272a] p-2 rounded">
-                      <div className="text-[10px] text-[#71717a]">{metric.label}</div>
-                      <div
-                        className={`text-xs font-bold font-mono ${
-                          metric.sentiment === 'bullish'
-                            ? 'text-[#22c55e]'
-                            : metric.sentiment === 'bearish'
-                            ? 'text-[#ef4444]'
-                            : 'text-[#f59e0b]'
-                        }`}
-                      >
-                        {metric.value}
-                      </div>
+                <div
+                  className={`max-w-[85%] rounded p-3 text-xs leading-relaxed ${
+                    m.sender === 'user'
+                      ? 'bg-[#1e1e24] border border-[#2e2e38] text-white'
+                      : 'bg-[#0f0f12] border border-[#27272a] text-[#e4e4e7] space-y-3'
+                  }`}
+                >
+                  {m.sender === 'user' ? (
+                    <div className="whitespace-pre-line">{m.text}</div>
+                  ) : (
+                    <div className="prose prose-invert max-w-none text-xs leading-relaxed prose-p:my-1 prose-headings:my-1.5 prose-strong:text-amber-400">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {m.text}
+                      </ReactMarkdown>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Optional Table */}
+                  {m.tableData && (
+                    <div className="overflow-x-auto my-2 border border-[#27272a] rounded">
+                      <table className="w-full text-left text-[11px] divide-y divide-[#27272a]">
+                        <thead className="bg-[#18181b] text-[#a1a1aa]">
+                          <tr>
+                            {m.tableData.headers.map((h, i) => (
+                              <th key={i} className="px-2.5 py-1.5 font-bold uppercase">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#18181b] bg-[#0c0c0e]">
+                          {m.tableData.rows.map((row, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-[#18181b]/50">
+                              {row.map((cell, cIdx) => (
+                                <td
+                                  key={cIdx}
+                                  className={`px-2.5 py-1.5 font-mono ${
+                                    cIdx === 0 ? 'font-bold text-white' : 'text-[#d4d4d8]'
+                                  }`}
+                                >
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Optional Key Metrics Chips */}
+                  {m.metrics && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[#1e1e24]">
+                      {m.metrics.map((metric, idx) => (
+                        <div key={idx} className="bg-[#141418] border border-[#27272a] p-2 rounded">
+                          <div className="text-[10px] text-[#71717a]">{metric.label}</div>
+                          <div
+                            className={`text-xs font-bold font-mono ${
+                              metric.sentiment === 'bullish'
+                                ? 'text-[#22c55e]'
+                                : metric.sentiment === 'bearish'
+                                ? 'text-[#ef4444]'
+                                : 'text-[#f59e0b]'
+                            }`}
+                          >
+                            {metric.value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Copy message button */}
+                  {m.sender === 'assistant' && (
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => handleCopy(m.id, m.text)}
+                        className="flex items-center gap-1 text-[10px] text-[#71717a] hover:text-white transition-colors cursor-pointer"
+                      >
+                        {copiedId === m.id ? <Check className="w-3 h-3 text-[#22c55e]" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedId === m.id ? 'Tersalin' : 'Salin Analisis'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            ))}
 
-              {/* Copy message button */}
-              {m.sender === 'assistant' && (
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => handleCopy(m.id, m.text)}
-                    className="flex items-center gap-1 text-[10px] text-[#71717a] hover:text-white transition-colors"
-                  >
-                    {copiedId === m.id ? <Check className="w-3 h-3 text-[#22c55e]" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedId === m.id ? 'Tersalin' : 'Salin Analisis'}</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {isTyping && (
+              <div className="flex items-center gap-2 text-xs text-[#f59e0b]">
+                <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-ping" />
+                <span>Bloomberg Quant AI sedang memproses pemodelan data keuangan...</span>
+              </div>
+            )}
           </div>
-        ))}
 
-        {isTyping && (
-          <div className="flex items-center gap-2 text-xs text-[#f59e0b]">
-            <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-ping" />
-            <span>Bloomberg Quant AI sedang memproses pemodelan data keuangan...</span>
+          {/* ── Chat Input Bar ── */}
+          <div className="flex items-center gap-2 bg-[#09090b] border border-[#27272a] focus-within:border-[#f59e0b] p-1.5 rounded-sm transition-colors">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSend();
+              }}
+              placeholder="Ketik pertanyaan atau emiten (misal: 'Bandingkan ROE & DER emiten semen SMGR vs INTP')..."
+              className="flex-1 bg-transparent px-2 text-xs text-white placeholder-[#71717a] outline-none"
+            />
+            <button
+              onClick={() => handleSend()}
+              className="flex items-center gap-1 bg-[#f59e0b] hover:bg-[#d97706] text-black font-bold px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
+            >
+              <Send className="w-3 h-3" />
+              <span>KIRIM</span>
+            </button>
           </div>
-        )}
-      </div>
-
-      {/* ── Chat Input Bar ── */}
-      <div className="flex items-center gap-2 bg-[#09090b] border border-[#27272a] focus-within:border-[#f59e0b] p-1.5 rounded-sm transition-colors">
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSend();
-          }}
-          placeholder="Ketik pertanyaan atau emiten (misal: 'Bandingkan ROE & DER emiten semen SMGR vs INTP')..."
-          className="flex-1 bg-transparent px-2 text-xs text-white placeholder-[#71717a] outline-none"
-        />
-        <button
-          onClick={() => handleSend()}
-          className="flex items-center gap-1 bg-[#f59e0b] hover:bg-[#d97706] text-black font-bold px-3 py-1.5 rounded text-xs transition-colors cursor-pointer"
-        >
-          <Send className="w-3 h-3" />
-          <span>KIRIM</span>
-        </button>
-      </div>
+        </div>
+      )}
     </div>
-    )}
-  </div>
   );
 }
-
