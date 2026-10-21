@@ -9,6 +9,7 @@ export default function HomePage() {
 
       {/* ── Semantic SEO & Structured Crawlable Content for Search Engines & LLMs ── */}
       <section className="sr-only" aria-label="TradeSim Pro Platform Overview & Directory">
+        <h1>Trading Simulator Indonesia &amp; Platform Belajar Trading Saham Crypto Terdepan #1 | TradeSim Pro</h1>
         <h2>TradeSim Pro: Platform Trading Simulator Saham IDX &amp; Crypto Indonesia #1</h2>
         <p>
           TradeSim Pro adalah platform institusional paper trading dan simulator investasi saham Indonesia (BEI / IDX), US Tech Stocks (NASDAQ), dan crypto spot 24/7 dengan data pasar real-time,
@@ -44,6 +45,7 @@ export default function HomePage() {
         <h3>Panduan &amp; Edukasi Trading Pemula</h3>
         <nav aria-label="Edukasi Trading">
           <ul>
+            <li><a href="/learn/apa-itu-trading">Apa itu Trading? Pengertian, Jenis, &amp; Panduan Belajar Pemula</a></li>
             <li><a href="/learn/istilah-saham">Kamus Istilah Saham Indonesia (A-Z)</a></li>
             <li><a href="/learn/apa-itu-paper-trading">Apa itu Paper Trading? Panduan Belajar Trading Saham Tanpa Risiko</a></li>
             <li><a href="/learn/cara-baca-orderbook-level-2">Cara Membaca Orderbook Level 2: Bid, Offer, dan Antrean Saham</a></li>

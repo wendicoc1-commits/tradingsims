@@ -34,6 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/tools/kalkulator-cut-loss-bep', changeFrequency: 'monthly' as const, priority: 0.92 },
 
     // Educational Guides & Knowledge Articles
+    { path: '/learn/apa-itu-trading', changeFrequency: 'monthly' as const, priority: 0.98 },
     { path: '/learn/cara-main-saham-pemula', changeFrequency: 'monthly' as const, priority: 0.95 },
     { path: '/learn/jam-bursa-saham-idx', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/learn/istilah-bandarmologi-saham', changeFrequency: 'monthly' as const, priority: 0.9 },

@@ -11,6 +11,16 @@ export interface KamusTerm {
 
 export const KAMUS_TERMS: KamusTerm[] = [
   {
+    slug: 'trading',
+    term: 'Trading',
+    shortDefinition: 'Trading adalah aktivitas transaksi jual dan beli instrumen pasar modal (seperti saham, kripto, atau forex) dalam rentang waktu singkat hingga menengah untuk meraup keuntungan dari selisih pergerakan harga (capital gain).',
+    fullExplanation: 'Berbeda dari investasi pasif yang berorientasi tahunan, trading berfokus pada momentum harga jangka pendek (menit, hari, hingga beberapa minggu) dengan mengandalkan analisis teknikal, pola candlestick, likuiditas orderbook, dan manajemen risiko modal ketat.',
+    formula: 'Profit Trading = (Harga Jual - Harga Beli) x Jumlah Lembar - Total Fee Broker',
+    example: 'Seorang swing trader membeli 100 lot saham BBRI di level Rp 4.500 dan menjualnya kembali di level Rp 4.750 dalam 5 hari bursa, membukukan keuntungan kotor Rp 2.500.000.',
+    category: 'Teknikal & Orderbook',
+    actionPrompt: 'Latih strategi trading saham dan kripto Anda di TradeSim Pro dengan modal virtual Rp 50 Juta tanpa risiko uang riil.',
+  },
+  {
     slug: 'price-to-earnings-ratio-per',
     term: 'P/E Ratio (Price to Earnings Ratio)',
     shortDefinition: 'Price to Earnings Ratio (P/E Ratio atau PER) adalah rasio valuasi investasi yang membandingkan harga saham per lembar saat ini dengan laba bersih per saham (Earnings Per Share / EPS) tahunan.',
