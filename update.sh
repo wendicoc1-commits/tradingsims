@@ -32,6 +32,11 @@ echo "📦 [3/4] Melakukan build Next.js baru (mode WASM, butuh ~2-3 menit)..."
 export NODE_OPTIONS="--max-old-space-size=3072"
 npm run build
 
+# 📄 Sinkronisasi hasil prerender sitemap ke public/sitemap.xml
+if [ -f "$APP_DIR/.next/server/app/sitemap.xml.body" ]; then
+    cp -f "$APP_DIR/.next/server/app/sitemap.xml.body" "$APP_DIR/public/sitemap.xml" 2>/dev/null || true
+fi
+
 echo "⚡ [4/4] Memulai ulang service PM2 & Nginx..."
 pm2 restart tradingsims 2>/dev/null || pm2 start npm --name "tradingsims" --cwd "$APP_DIR" -- start -- -p 3000
 pm2 save
