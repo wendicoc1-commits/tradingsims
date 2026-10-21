@@ -6,7 +6,7 @@ import { DIVIDEND_PAYING_STOCKS } from '@/data/dividend_stocks'
 import { checkIDXMarketStatus } from '@/lib/market/marketHours'
 import { isCryptoSymbol, isUSSymbol } from '@/lib/universe/masterAssetUniverse'
 import { calculateRealisticExecutionPrice } from '@/lib/stockRules'
-import { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices'
+export { getVerifiedBenchmarkPrice } from '@/data/idx_benchmark_prices'
 
 // ==========================================
 // Market Store

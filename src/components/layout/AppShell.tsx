@@ -11,6 +11,7 @@ import TradeSimAuthGate from '@/components/auth/TradeSimAuthGate';
 import GlobalAutonomousAgentRunner from '@/components/ai/GlobalAutonomousAgentRunner';
 import GlobalLivePriceManager from '@/components/common/GlobalLivePriceManager';
 import SkipToContent from '@/components/common/SkipToContent';
+import RemoteSiteBanner from '@/components/common/RemoteSiteBanner';
 import { Toaster } from 'sonner';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isPublicDoc) {
     return (
       <>
+        <RemoteSiteBanner />
         <Toaster position="top-right" theme="dark" richColors closeButton />
         {children}
       </>
@@ -65,6 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <TradeSimAuthGate>
+      <RemoteSiteBanner />
       <Toaster position="top-right" theme={theme === 'light' ? 'light' : 'dark'} richColors closeButton />
       {/* Skip link — keyboard a11y: skip nav to main content */}
       <SkipToContent />
