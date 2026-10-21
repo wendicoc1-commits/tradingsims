@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Core Static & High-Intent Educational Routes
   const staticRoutes = [
     { path: '', changeFrequency: 'always' as const, priority: 1.0 },
+    { path: '/trading', changeFrequency: 'always' as const, priority: 1.0 },
     { path: '/terminal', changeFrequency: 'always' as const, priority: 0.98 },
     { path: '/markets', changeFrequency: 'hourly' as const, priority: 0.95 },
     { path: '/crypto', changeFrequency: 'always' as const, priority: 0.95 },
@@ -32,9 +33,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/tools/kalkulator-cagr-saham', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/tools/kalkulator-risk-reward', changeFrequency: 'monthly' as const, priority: 0.92 },
     { path: '/tools/kalkulator-cut-loss-bep', changeFrequency: 'monthly' as const, priority: 0.92 },
+    { path: '/tools/kalkulator-profit-trading', changeFrequency: 'monthly' as const, priority: 0.93 },
 
     // Educational Guides & Knowledge Articles
     { path: '/learn/apa-itu-trading', changeFrequency: 'monthly' as const, priority: 0.98 },
+    { path: '/learn/strategi-trading-saham', changeFrequency: 'monthly' as const, priority: 0.95 },
     { path: '/learn/cara-main-saham-pemula', changeFrequency: 'monthly' as const, priority: 0.95 },
     { path: '/learn/jam-bursa-saham-idx', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/learn/istilah-bandarmologi-saham', changeFrequency: 'monthly' as const, priority: 0.9 },

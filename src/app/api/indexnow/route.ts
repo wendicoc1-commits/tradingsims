@@ -6,6 +6,11 @@ const KEY_LOCATION = `https://${HOST}/${INDEXNOW_KEY}.txt`;
 
 const DEFAULT_URLS = [
   `https://${HOST}`,
+  `https://${HOST}/trading`,
+  `https://${HOST}/learn/apa-itu-trading`,
+  `https://${HOST}/learn/strategi-trading-saham`,
+  `https://${HOST}/tools/kalkulator-profit-trading`,
+  `https://${HOST}/kamus/trading`,
   `https://${HOST}/terminal`,
   `https://${HOST}/markets`,
   `https://${HOST}/crypto`,

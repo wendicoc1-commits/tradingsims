@@ -1452,6 +1452,29 @@ export default function StockDetailPage() {
         quote={quote}
       />
 
+      {/* ── Internal Link Silo Booster: Hub Trading & Simulasi ── */}
+      <section className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs sm:text-sm text-slate-300 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>
+            Ingin latihan <strong>trading saham {cleanSymbol}</strong> tanpa risiko modal? Gunakan{' '}
+            <Link href="/trading" className="text-emerald-400 font-semibold hover:underline">
+              Trading Simulator Indonesia TradeSim Pro
+            </Link>{' '}
+            dengan modal virtual Rp 50 Juta gratis.
+          </span>
+        </div>
+        <div className="flex items-center space-x-3 text-xs">
+          <Link href="/learn/apa-itu-trading" className="text-cyan-400 hover:underline">
+            Apa itu Trading?
+          </Link>
+          <span className="text-slate-600">&bull;</span>
+          <Link href="/tools/kalkulator-profit-trading" className="text-emerald-400 hover:underline">
+            Kalkulator Profit {cleanSymbol}
+          </Link>
+        </div>
+      </section>
+
       {/* ── People Also Ask & Rich FAQ Section for Google SERP ── */}
       <StockDetailFAQ quote={quote} />
 
