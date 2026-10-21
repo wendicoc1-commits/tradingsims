@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner';
 import { usePortfolioStore } from '@/store';
 import { BoardroomResolution, BoardroomExecutive } from '@/app/api/ai/boardroom/route';
+import SwarmSimulationWarRoom from '@/components/ai/SwarmSimulationWarRoom';
 
 const FEATURED_TICKERS = [
   { symbol: 'BBCA', name: 'Bank Central Asia', market: 'IDX', flag: '🇮🇩' },
@@ -52,7 +53,7 @@ export default function AutonomousBoardroomView() {
   const [marketIntel, setMarketIntel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDeliberating, setIsDeliberating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'BOARDROOM' | 'TRANSCRIPT' | 'DIRECTIVE' | 'INTEL_WIRE'>('BOARDROOM');
+  const [activeTab, setActiveTab] = useState<'BOARDROOM' | 'WAR_ROOM' | 'TRANSCRIPT' | 'DIRECTIVE' | 'INTEL_WIRE'>('BOARDROOM');
   const [orderCopied, setOrderCopied] = useState(false);
 
   const placeBuyOrder = usePortfolioStore((s) => s.placeBuyOrder);
@@ -386,7 +387,21 @@ export default function AutonomousBoardroomView() {
 
         {/* Tab Navigation */}
         <div className="flex border-b border-zinc-800 text-xs font-mono font-bold overflow-x-auto">
-          <button
+                    <button
+            onClick={() => setActiveTab('WAR_ROOM')}
+            className={`pb-3 px-4 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'WAR_ROOM'
+                ? 'border-indigo-400 text-indigo-400'
+                : 'border-transparent text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span>WAR ROOM SWARM (50 AGENTS)</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-sans font-bold">
+              MIROFISH 🐟
+            </span>
+          </button>
+<button
             onClick={() => setActiveTab('BOARDROOM')}
             className={`pb-3 px-4 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'BOARDROOM'

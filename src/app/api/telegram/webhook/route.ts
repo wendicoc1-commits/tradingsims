@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { calculateCfoRiskAudit } from '@/lib/hedgefund/cfoRiskGuardian';
 import { evaluateMungerInversion } from '@/lib/hedgefund/mungerInversionEngine';
+import { runSwarmSimulation } from '@/lib/hedgefund/swarmSimulationEngine';
 import { generateAutonomousBriefing } from '@/lib/hedgefund/autonomousBriefingEngine';
 import { scanUniverseForTopAlpha } from '@/lib/hedgefund/autonomousStockPicker';
 import { getGroundedStockIntelligence } from '@/lib/agents/groundedStockIntelligence';
@@ -500,6 +501,53 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    
+    // ── 8.5 PERINTAH: /swarm ATAU /simulasi (MiroFish Multi-Agent Swarm Intelligence) ──
+    if (lowerText.startsWith('/swarm') || lowerText.startsWith('/simulasi')) {
+      const parts = rawText.trim().split(/\s+/);
+      const symbol = (parts[1] || 'BBCA').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const scenarioPrompt = parts.slice(2).join(' ').trim() || 'rate_hike_50bps';
+
+      await sendTelegramReply(chatId, `⏳ <i>Mempersiapkan simulasi 50 agen pasar (MiroFish AI) untuk <b>${symbol}</b>...</i>`);
+
+      try {
+        const sim = await runSwarmSimulation(symbol, scenarioPrompt, undefined, 50);
+
+        const consensusEmoji = sim.consensusScore >= 65 ? '🟢' : sim.consensusScore <= 35 ? '🔴' : '🟡';
+        const priceEmoji = sim.expectedPriceImpactPct >= 0 ? '📈' : '📉';
+
+        const swarmMsg = [
+          `🐟⚡ <b>SIMULASI MIROFISH SWARM INTELLIGENCE</b>`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `🎯 <b>Aset:</b> <b>${sim.symbol}</b> (${sim.name})`,
+          `⚡ <b>Skenario:</b> <i>"${sim.scenario}"</i>`,
+          `👥 <b>Populasi Agen:</b> <b>50 Heterogeneous Agents</b> (3-Round Diffusion)`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `${consensusEmoji} <b>Konsensus Swarm:</b> <b>${sim.consensusScore}/100</b>`,
+          `${priceEmoji} <b>Dampak Harga Tertaksir:</b> <b>${sim.expectedPriceImpactPct >= 0 ? '+' : ''}${sim.expectedPriceImpactPct.toFixed(2)}%</b>`,
+          `   └ Rentang Konfidensi: [${sim.confidenceInterval.lowPct.toFixed(1)}% s/d ${sim.confidenceInterval.highPct.toFixed(1)}%]`,
+          `🧠 <b>Fase Psikologi:</b> <b>${sim.crowdState.replace(/_/g, ' ')}</b>`,
+          `🛡️ <b>Risiko Whale Trap:</b> <b>${sim.whaleTrapProbability}%</b>`,
+          `💧 <b>Stress Likuiditas:</b> <b>${sim.liquidityStressScore}/100</b>`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `👑 <b>Jeff Bezos (CEO):</b>`,
+          `<i>"${sim.cSuiteVerdicts.bezos.insight.slice(0, 160)}..."</i>`,
+          ``,
+          `🛡️ <b>Charlie Munger (CRO):</b>`,
+          `<i>"${sim.cSuiteVerdicts.munger.insight.slice(0, 160)}..."</i>`,
+          `━━━━━━━━━━━━━━━━━━━━`,
+          `🎯 <b>Rekomendasi Aksi:</b> <b>${sim.actionRecommendation.replace(/_/g, ' ')}</b>`,
+          `👉 <a href="https://tradingsims.my.id/boardroom">Buka War Room Interaktif di Boardroom &rarr;</a>`,
+        ].join('\n');
+
+        await sendTelegramReply(chatId, swarmMsg);
+        return NextResponse.json({ ok: true });
+      } catch (e: any) {
+        await sendTelegramReply(chatId, `❌ Gagal menjalankan simulasi Swarm: ${e?.message || 'Unknown error'}`);
+        return NextResponse.json({ ok: false });
+      }
+    }
+
     // ── 9. PERINTAH: /status ATAU /update (Cek Server & Deployment) ──
     if (lowerText.startsWith('/status') || lowerText.startsWith('/deploy') || lowerText === '/update') {
       const memory = process.memoryUsage();
@@ -574,6 +622,7 @@ export async function POST(req: NextRequest) {
       `• <code>/banner off</code> — Hapus pengumuman website`,
       `• <code>/toggle [fitur] [on|off]</code> — Kontrol fitur website`,
       `• <code>/scan</code> — Pindai 1000+ saham untuk rekomendasi AI terbaik`,
+      `• <code>/swarm [ticker] [skenario]</code> — Simulasi 50 agen pasar (MiroFish AI)`,
       `• <code>/briefing</code> — Dapatkan ringkasan buletin C-Suite`,
       `• Atau sebutkan kode saham langsung di chat (contoh: <b>BBRI</b>, <b>BMRI</b>, <b>BTC</b>).`,
       `━━━━━━━━━━━━━━━━━━━━`,
