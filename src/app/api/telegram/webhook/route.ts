@@ -22,7 +22,20 @@ function getBotToken(customToken?: string | null): string {
   if (customToken && customToken.trim()) {
     return customToken.trim();
   }
-  return (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN.trim()) {
+    return process.env.TELEGRAM_BOT_TOKEN.trim();
+  }
+  try {
+    const envPath = path.join(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+      const match = fs.readFileSync(envPath, 'utf-8').match(/TELEGRAM_BOT_TOKEN=([^\r\n]+)/);
+      if (match && match[1]) {
+        process.env.TELEGRAM_BOT_TOKEN = match[1].trim();
+        return match[1].trim();
+      }
+    }
+  } catch {}
+  return '';
 }
 
 async function sendTelegramReply(chatId: number | string, text: string, tokenOverride?: string) {
