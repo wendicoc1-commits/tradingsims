@@ -28,17 +28,17 @@ async function fetchFromUpstream(): Promise<Record<string, CryptoTickerItem>> {
   const [visionRes, bybitRes, futuresRes] = await Promise.allSettled([
     fetch('https://data-api.binance.vision/api/v3/ticker/24hr', {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 1 },
+      cache: 'no-store',
       signal: AbortSignal.timeout(4000),
     }).catch(() => null),
     fetch('https://api.bybit.com/v5/market/tickers?category=spot', {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 1 },
+      cache: 'no-store',
       signal: AbortSignal.timeout(4000),
     }).catch(() => null),
     fetch('https://fapi.binance.com/fapi/v1/ticker/24hr', {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 1 },
+      cache: 'no-store',
       signal: AbortSignal.timeout(4000),
     }).catch(() => null),
   ]);

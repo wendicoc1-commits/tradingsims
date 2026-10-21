@@ -34,14 +34,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'assets.axieinfinity.com',
+        hostname: 'images.unsplash.com',
       },
     ],
   },
